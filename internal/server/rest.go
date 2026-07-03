@@ -29,6 +29,11 @@ type RESTConfig struct {
 	Store    store.Store
 	Write    bool
 
+	// UploadsDir and MaxUploadSize back PUT /api/v1/upload (see
+	// docs/plan.md's "File upload (staging)").
+	UploadsDir    string
+	MaxUploadSize int64
+
 	// Token is the shared bearer token (also used for /mcp). Present here
 	// so REST can accept it as one of two valid credentials, the other
 	// being a PAM-login session.
@@ -188,6 +193,10 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 	mux.HandleFunc("PUT /api/v1/acl/rules", func(w http.ResponseWriter, r *http.Request) {
 		handleReplaceACLRules(w, r, cfg)
+	})
+
+	mux.HandleFunc("PUT /api/v1/upload", func(w http.ResponseWriter, r *http.Request) {
+		handleUpload(w, r, cfg)
 	})
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)

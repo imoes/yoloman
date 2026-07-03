@@ -71,14 +71,20 @@ the safety checks" part the name jokes about. Read the full model in
   system management (see [docs/plan.md](docs/plan.md) for why that trade-off was made deliberately,
   not by accident).
 - **Three operating modes** — `standalone` (fully self-contained, the default), `satellite` (a
-  central Fleet Commander pulls this agent's data), and `proxy` (this agent pulls from a list of
-  satellites over TLS and re-serves the aggregate, for firewalled or distributed networks).
+  central Fleet Commander pulls this agent's data), and `proxy`, nicknamed **Selecta** (this agent
+  pulls from a list of satellites over TLS and re-serves the aggregate, for firewalled or
+  distributed networks — a soundsystem selector working the crowd's whole set from one deck).
   Machine-to-machine access is authorized via TLS client certificates pinned per caller — the SSH
   `authorized_keys` model, over TLS, checked in addition to the existing bearer token.
 - **`agentic-mcpd register`** — a one-time enrollment handshake with the future Bossman: trades a
   shared bootstrap secret for Bossman's public key, so it can be added to `tls.trusted_client_keys`
   without copying key files around by hand. `agentic-mcpd --generate-token` mints a fresh random
   bearer token for `config.yaml`, independently of enrollment.
+- **`upload_file` (MCP) / `PUT /api/v1/upload` (REST)** — stages a new file (a config snippet, a
+  `.deb` package) onto the host before `copy` places it at its final destination. The MCP tool
+  takes small base64 content (≲64 KiB — anything an AI would plausibly compose inline); the REST
+  endpoint streams a raw request body straight to disk, no base64, sized for real packages (kernel
+  packages run up to ~274 MiB).
 
 ## What's coming: Bossman
 

@@ -338,3 +338,57 @@ tls:
 		t.Fatal("expected error for missing public_key_path")
 	}
 }
+
+func TestLoad_UploadDefaults(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.UploadsDir != "/var/lib/agentic-mcp/uploads" {
+		t.Errorf("expected default uploads_dir, got %q", cfg.UploadsDir)
+	}
+	if cfg.MaxUploadSize != 512*1024*1024 {
+		t.Errorf("expected default max_upload_size=512MiB, got %d", cfg.MaxUploadSize)
+	}
+}
+
+func TestLoad_UploadOverride(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+uploads_dir: /tmp/custom-uploads
+max_upload_size: 1024
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.UploadsDir != "/tmp/custom-uploads" {
+		t.Errorf("uploads_dir = %q, want /tmp/custom-uploads", cfg.UploadsDir)
+	}
+	if cfg.MaxUploadSize != 1024 {
+		t.Errorf("max_upload_size = %d, want 1024", cfg.MaxUploadSize)
+	}
+}
+
+func TestValidate_RejectsEmptyUploadsDir(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+uploads_dir: ""
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for empty uploads_dir")
+	}
+}
+
+func TestValidate_RejectsZeroMaxUploadSize(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+max_upload_size: 0
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for max_upload_size <= 0")
+	}
+}

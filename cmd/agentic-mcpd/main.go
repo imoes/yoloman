@@ -115,18 +115,20 @@ func run(args []string) error {
 	}
 
 	restHandler := server.NewRESTHandler(server.RESTConfig{
-		ProcRoot: "/proc",
-		ModReg:   comps.modReg,
-		Tasks:    comps.taskList,
-		Policy:   comps.policy,
-		Store:    st,
-		Write:    cfg.Write,
-		Token:    cfg.Token,
-		ACL:      acl,
-		Sessions: sessions,
-		PAMAuth:  pamAuth,
-		EBPF:     collector,
-		Audit:    al,
+		ProcRoot:      "/proc",
+		ModReg:        comps.modReg,
+		Tasks:         comps.taskList,
+		Policy:        comps.policy,
+		Store:         st,
+		Write:         cfg.Write,
+		Token:         cfg.Token,
+		ACL:           acl,
+		Sessions:      sessions,
+		PAMAuth:       pamAuth,
+		EBPF:          collector,
+		Audit:         al,
+		UploadsDir:    cfg.UploadsDir,
+		MaxUploadSize: cfg.MaxUploadSize,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }
@@ -194,6 +196,7 @@ func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL,
 	server.RegisterMetricsDump(s, st)
 	server.RegisterModules(s, c.modReg, cfg.Write, acl, al)
 	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl, al)
+	server.RegisterUploadFile(s, cfg.UploadsDir, cfg.Write, acl, al)
 	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl, al); err != nil {
 		return nil, err
 	}

@@ -565,7 +565,7 @@ full package install needed for this check, which is step 12's job) and three re
 structured, `jq`-parseable audit line in `journalctl`, including `changed:true` on the
 successful write and the exact validation error message on the failing call.
 
-## Three operating modes: standalone / satellite / proxy
+## Three operating modes: standalone / satellite / proxy ("Selecta")
 
 A node agent can run in one of three modes (`mode:` in config.yaml), reflecting how its
 performance data relates to a central Fleet Commander — the CheckMK site/proxy/agent hierarchy
@@ -578,12 +578,13 @@ adapted to this project's MCP/REST-native design:
    agent-side behavior is strictly required for this — the existing `GET /api/v1/metrics`
    bulk-dump endpoint (see below) is exactly the efficient pull path a Commander needs; `mode:
    satellite` in config.yaml is documentation of intent rather than a behavioral switch in v1.
-3. **Proxy** — an agent that itself pulls from a list of configured satellites (over TLS directly
-   to each satellite's own REST port, see below) and stores their data alongside its own, so a
-   Commander that can't reach every satellite directly (firewalled segments, distributed
-   networks) can instead pull one aggregate feed from the proxy. From the Commander's point of
-   view, pulling from a proxy looks identical to pulling from a single agent — just with more
-   data, tagged by origin.
+3. **Proxy** (nicknamed **Selecta**, per the user) — an agent that itself pulls from a list of
+   configured satellites (over TLS directly to each satellite's own REST port, see below) and
+   stores their data alongside its own, so a Commander that can't reach every satellite directly
+   (firewalled segments, distributed networks) can instead pull one aggregate feed from the proxy.
+   From the Commander's point of view, pulling from a proxy looks identical to pulling from a
+   single agent — just with more data, tagged by origin. The `mode: proxy` config value itself is
+   unchanged; "Selecta" is branding for docs/README, not a technical rename.
 
 **Bulk metrics endpoint (implemented, needed by all three modes):** `metrics_dump` (MCP tool)
 and `GET /api/v1/metrics` (REST, note: no `{metric}` path segment — that continues to mean
@@ -764,6 +765,37 @@ pass through the model's generation loop.
    /var/lib/agentic-mcp/uploads/<name>` and `dest: <target path>` to place the file at its final
    destination with the right owner/group/mode — upload handles transport only, `copy` handles
    placement (with its own `check_mode` preview and idempotency).
+
+**Implemented.** New `internal/upload` package (`ValidateFilename`, `WriteStaged`) holds the shared
+staging logic used by both paths — filename validation rejects empty names, path separators, and
+`.`/`..`; `WriteStaged` streams into a temp file via `io.CopyN` against `maxSize+1` (so exceeding
+the limit is detected without ever buffering the full oversized body) and only `os.Rename`s into
+place once the copy fully succeeds, cleaning up the temp file on any failure path. `config.Config`
+gained `UploadsDir` (default `/var/lib/agentic-mcp/uploads`) and `MaxUploadSize` (default 512 MiB,
+comfortably above the 274 MiB kernel-package case), both validated in `Config.Validate`.
+`internal/server/upload.go` wires the MCP tool (`RegisterUploadFile`, write-gated, ACL- and
+audit-wrapped exactly like every other write tool, capped at `maxMCPUploadBytes` = 64 KiB
+independent of `MaxUploadSize`) and the REST handler (`PUT /api/v1/upload?name=...`, with an early
+413 when `Content-Length` alone already exceeds the limit, before streaming even starts).
+
+**Verified:**
+- Unit tests (`internal/upload/upload_test.go`, 8 cases): filename validation table, successful
+  write, directory auto-creation, overwrite idempotency (with a check that no stray temp files are
+  left behind), path-traversal rejection, size-limit enforcement at and past the boundary, and —
+  using a `Reader` that fails mid-stream — confirmation that an interrupted transfer leaves no
+  partial file in the staging directory at all.
+- REST + MCP tests (`internal/server/upload_test.go`, 12 cases): success, write-gate 403, ACL 403,
+  path-traversal rejection, size-limit rejection (both the streamed-body case and the
+  fast `Content-Length` pre-check), overwrite idempotency, tool-not-registered-when-write-false,
+  invalid-base64 rejection, and the 64 KiB MCP cap.
+- **Real, end to end:** a live daemon (`write: true`, `max_upload_size: 64MiB`) received a genuine
+  5 MiB random binary via `curl -T ... PUT /api/v1/upload` — `cmp` confirmed the staged file was
+  byte-identical to the source. The same daemon correctly returned 401 with no bearer token, 422
+  for a `../../etc/evil` path-traversal attempt (with no file appearing outside the staging
+  directory), and 413 when the upload exceeded a deliberately small `max_upload_size` (1 MiB
+  against a 5 MiB body). Separately, the real `claude` CLI was connected to the daemon as a
+  genuine MCP client (`claude mcp add --transport http`) and asked to call `upload_file` directly
+  — the tool call succeeded and the staged file's content matched exactly what was requested.
 
 ## Roadmap (after this v1 — separate plans)
 

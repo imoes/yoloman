@@ -23,6 +23,16 @@ type Config struct {
 	CommandsFile string `yaml:"commands_file"`
 	ACLPath      string `yaml:"acl_path"`
 
+	// UploadsDir is the fixed staging directory the upload_file MCP tool
+	// and the PUT /api/v1/upload REST endpoint write into — never an
+	// arbitrary caller-supplied path (see docs/plan.md's "File upload
+	// (staging)"). Final placement at a real destination path, with the
+	// right owner/group/mode, is the copy module's job.
+	UploadsDir string `yaml:"uploads_dir"`
+	// MaxUploadSize bounds both upload paths (bytes). The default is large
+	// enough for a kernel package (up to ~274 MiB observed in practice).
+	MaxUploadSize int64 `yaml:"max_upload_size"`
+
 	// Mode selects this agent's role relative to a central Fleet Commander
 	// (see docs/plan.md's "Three operating modes"): "standalone" (default,
 	// fully self-contained), "satellite" (documents intent — a Commander is
@@ -148,12 +158,14 @@ func Default() Config {
 				Interval: Duration(time.Hour),
 			},
 		},
-		PAM:          PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
-		UI:           UI{Enabled: true},
-		ToolsDir:     "/etc/agentic-mcp/tools.d",
-		CommandsFile: "/etc/agentic-mcp/commands.yaml",
-		ACLPath:      "/var/lib/agentic-mcp/acl.db",
-		Mode:         "standalone",
+		PAM:           PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
+		UI:            UI{Enabled: true},
+		ToolsDir:      "/etc/agentic-mcp/tools.d",
+		CommandsFile:  "/etc/agentic-mcp/commands.yaml",
+		ACLPath:       "/var/lib/agentic-mcp/acl.db",
+		UploadsDir:    "/var/lib/agentic-mcp/uploads",
+		MaxUploadSize: 512 * 1024 * 1024,
+		Mode:          "standalone",
 	}
 }
 
@@ -186,6 +198,12 @@ func (c Config) Validate() error {
 	}
 	if c.DB.Path == "" {
 		return fmt.Errorf("db.path must not be empty")
+	}
+	if c.UploadsDir == "" {
+		return fmt.Errorf("uploads_dir must not be empty")
+	}
+	if c.MaxUploadSize <= 0 {
+		return fmt.Errorf("max_upload_size must be > 0")
 	}
 	if c.TLS.Enabled && (c.TLS.CertFile == "" || c.TLS.KeyFile == "") {
 		return fmt.Errorf("tls.enabled requires tls.cert_file and tls.key_file")
