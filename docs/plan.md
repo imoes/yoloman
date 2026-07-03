@@ -669,14 +669,122 @@ Confirmed design points (unchanged from the original discussion):
   in-process TLS server configured with `ClientAuth: RequireAnyClientCert` (success, untrusted-cert
   rejection via a genuine TLS handshake failure, and missing-token rejection).
 
+## Bossman enrollment (`agentic-mcpd register`, implemented)
+
+The three operating modes above rely on `tls.trusted_client_keys` being populated with a caller's
+pinned public key — previously only achievable by manually copying a key file to every agent.
+Once a central Fleet Commander ("Bossman," see the Roadmap) exists, doing that by hand across a
+whole fleet doesn't scale. `agentic-mcpd register` is this agent's client-side half of a one-time
+bootstrap handshake that automates it — even though Bossman itself doesn't exist yet, this
+repo defines the contract a future Bossman implementation must satisfy, and ships/tests the
+client side against it now.
+
+**Protocol:** `POST <bossman-url>/api/v1/enroll` with a JSON body `{name, enroll_secret, token,
+address}` — `name` identifies this agent (defaults to its hostname), `enroll_secret` is a shared
+bootstrap secret proving this agent is authorized to join the fleet (the only authentication
+possible before any trust exists — no pinned key, no client cert yet), `token` is this agent's own
+existing REST/MCP bearer token (so Bossman knows how to call it back), `address` is optionally
+this agent's own reachable `host:port`. A successful response is `{bossman_public_key,
+agent_id}` — `bossman_public_key` is Bossman's PEM-encoded PKIX public key, written to disk and
+referenced from `tls.trusted_client_keys` so Bossman can subsequently authenticate itself over TLS
+client certificates (see `internal/tlsauth`) exactly like a proxy talking to a satellite.
+
+**Deliberately does not auto-edit config.yaml.** `register` writes the fetched public key to a
+file (`--trusted-key-path`, default `/etc/agentic-mcp/trusted/bossman.pub.pem`) and prints the
+`tls.trusted_client_keys` YAML snippet for the operator to add — round-tripping arbitrary
+hand-edited YAML while preserving comments/structure was judged too risky for a first
+implementation; safer to have the operator (or a provisioning tool) confirm the change explicitly.
+
+**`--generate-token` is a separate, standalone flag**, not part of `register`: `agentic-mcpd
+--generate-token` prints a fresh 32-byte (64 hex char) cryptographically random token via
+`crypto/rand` and exits — for bootstrapping a new agent's own `config.yaml` token (or rotating an
+existing one) independently of any Bossman interaction. `register` reads this token back out of
+the already-loaded config rather than generating one inline, keeping the two concerns cleanly
+separate as confirmed with the user.
+
+**Implementation:** new `internal/enroll` package (`Register(ctx, bossmanURL, Request) (Result,
+error)`) does the HTTP POST/JSON exchange using the standard library's default TLS verification
+(a normal CA-signed or pre-trusted cert on Bossman's enrollment endpoint — there's no pinned key
+to verify against yet, since establishing one is the whole point of this call). `cmd/agentic-mcpd`
+dispatches `os.Args[1] == "register"` to `runRegister` (its own flag set: `--bossman-url`,
+`--enroll-secret`, `--name`, `--address`, `--config`, `--trusted-key-path`) in
+`cmd/agentic-mcpd/register.go`; `newBearerToken()` in the same file backs `--generate-token`.
+
+**Verification:** `internal/enroll/enroll_test.go` covers success, wrong-secret rejection, an
+empty-public-key response, an unreachable server, and a 500 whose message propagates into the
+returned error — all against a real `httptest.Server`, not a mocked interface. End to end: a
+minimal mock Bossman (a ~30-line Python `http.server` implementing exactly the
+`POST /api/v1/enroll` contract above) was run for real, and the actual `agentic-mcpd` binary was
+invoked against it — `register` with the correct secret wrote a real key file to disk and printed
+the correct config snippet; the same call with a wrong secret failed with the server's real 401
+response propagated into the CLI's error message. `--generate-token` was run twice, confirmed to
+produce distinct 64-character hex strings each time.
+
+## File upload (staging)
+
+A gap identified while designing the README/multi-orchestrator-compatibility work: none of the
+existing modules can get a *new* file (a config file, a `.deb` package, a binary artifact) onto
+the managed host in the first place. `copy` can write inline text content or copy a file that
+already exists on the host; `file`/`slurp` manage/read existing paths. There was no ingestion path
+for content that doesn't yet exist on the target machine.
+
+**Sizing constraint that shapes the design:** the largest realistic artifact is a kernel package —
+up to 274 MiB. That rules out base64 for the bulk path entirely: base64 costs ~33% more data
+(274 MiB → ~365 MiB) and CPU to en-/decode, for no benefit — an HTTP request body is already
+binary-safe; base64 only earns its keep when the transport *forces* text (like a JSON/MCP tool-call
+argument).
+
+**Why that distinction matters specifically for an LLM-driven MCP client:** when a plain REST/script
+client calls an API, bytes flow straight from disk to socket. But when an LLM-driven MCP client
+(Claude Code/Desktop) calls a tool, the model itself has to *generate* the tool-call arguments as
+part of its own output, token by token. A base64 string for a 1 MB file is roughly 300–400k output
+tokens — far beyond what a single response turn typically allows (commonly 4k–64k). A plain REST
+caller (a script, or the future Fleet Commander) doesn't hit this limit, because those bytes never
+pass through the model's generation loop.
+
+**Design, accordingly two paths:**
+1. **MCP tool `upload_file`** (small, base64, capped around 64 KB) — for content an AI would
+   plausibly compose/edit itself (a config snippet, a small script). Parameters: a destination
+   filename (name only, no path) and `content_base64`. Always writes into a fixed staging directory
+   (`uploads_dir`, e.g. `/var/lib/agentic-mcp/uploads/`) — never an arbitrary destination path;
+   ownership/mode/final placement stays the `copy` module's job (reusing its existing `check_mode`,
+   write-gate, ACL, and audit wiring rather than duplicating it).
+2. **REST endpoint `PUT /api/v1/upload?name=<filename>`** — no multipart, no base64: the entire
+   request body *is* the raw file (`Content-Type: application/octet-stream`), e.g.
+   `curl -T kernel-package.deb "https://host/api/v1/upload?name=kernel-package.deb"`. The server
+   streams the body directly (`io.Copy` against an `io.LimitReader` bounded by `max_upload_size`) —
+   the full 274 MiB is never buffered in memory. It's written to a temp file in the same staging
+   directory first, then atomically renamed (`os.Rename`) into place once the copy completes fully,
+   so an interrupted transfer never leaves a half-written file behind. Meant for a script or the
+   future Fleet Commander ("Bossman") to call directly, not for an AI to generate.
+3. Both paths go through the same **write gate** (`config.write: true` required, otherwise not
+   registered/403) and **ACL** as every other write tool, and are recorded in the **audit log** —
+   no bypass of the existing security architecture.
+4. After upload, the caller uses the existing `copy` module with `src:
+   /var/lib/agentic-mcp/uploads/<name>` and `dest: <target path>` to place the file at its final
+   destination with the right owner/group/mode — upload handles transport only, `copy` handles
+   placement (with its own `check_mode` preview and idempotency).
+
 ## Roadmap (after this v1 — separate plans)
 
 - **Module completion:** the remaining `ansible.builtin` write modules (`template`,
   `blockinfile`, `user`, `group`, `cron`, `sysctl`, `mount`, `get_url`, `hostname`, `timezone`,
   `package`). Optionally: multi-task plan/apply (playbook-style) with confirmation — the full
   Ansible replacement
-- **Fleet Commander (Python/FastAPI, the last step):** agent registry, fleet-wide aggregation in
-  MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI, alerting (the CheckMK
-  replacement), discovery via NetBox
+- **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
+  fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
+  alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign
+  orchestrator formats into this agent's module calls: a tiered strategy — a real parser for
+  Ansible playbooks and SaltStack states (both plain YAML, structurally close to this project's
+  own `tools.d` format: a list of `module: {params}` steps — parsing them directly avoids ever
+  having the AI read the raw playbook text, the most token-efficient option), and a lightweight
+  mapping reference (not a parser) for Puppet manifests and Chef recipes, since both are full
+  DSLs/imperative languages (Chef is Ruby) that an AI can already read fluently on its own — it
+  only needs the vocabulary mapping to this project's module names, not a translation engine.
+  Terraform is lower priority: it mostly manages cloud infrastructure rather than host state, so
+  only its `local-exec`/`remote-exec` provisioner blocks are a natural fit. This strategy is
+  deliberately *not* implemented in this repo — the Node Agent stays narrowly scoped to exposing
+  metrics and executing well-defined module calls; foreign-format translation is Fleet Commander
+  work.
 - **v3:** mTLS, per-token RBAC (token → allowed tool set), `.rpm`, eBPF expansion (disk I/O
   latency, container awareness)

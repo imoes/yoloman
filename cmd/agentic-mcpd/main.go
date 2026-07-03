@@ -33,12 +33,26 @@ func main() {
 }
 
 func run(args []string) error {
+	if len(args) > 0 && args[0] == "register" {
+		return runRegister(args[1:])
+	}
+
 	fs := flag.NewFlagSet("agentic-mcpd", flag.ContinueOnError)
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml")
 	stdio := fs.Bool("stdio", false, "serve MCP over stdio instead of Streamable HTTP")
 	listen := fs.String("listen", "", "override the listen address from config")
+	generateToken := fs.Bool("generate-token", false, "print a new cryptographically random bearer token and exit")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	if *generateToken {
+		token, err := newBearerToken()
+		if err != nil {
+			return err
+		}
+		fmt.Println(token)
+		return nil
 	}
 
 	cfg, err := loadConfigOrDefault(*configPath)

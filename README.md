@@ -1,28 +1,93 @@
-# agentic-mcp
+# YOLO-MANager (`agentic-mcp`)
 
 ![Yolo Man — Full Managed MCP Server](docs/assets/yolo-man.jpg)
 
-A self-contained Linux node agent that exposes system state and management
-actions to AI clients over [MCP](https://modelcontextprotocol.io) (stdio or
-Streamable HTTP) and a plain REST API — no Ansible, no SSH agent, no Python
-runtime required on the managed host.
+> *"You only live once — but your servers only get one uptime SLA, so let's not get carried
+> away."*
 
-Ships as a single static Go binary + `.deb` package with a hardened systemd
-unit. See the design and full roadmap in
-[`docs/plan.md`](docs/plan.md).
+A self-contained Linux node agent that hands your server's monitoring, observability, and
+configuration management over to an AI — over [MCP](https://modelcontextprotocol.io) (stdio or
+Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime required on the
+managed host. Ships as a single static Go binary with a hardened systemd unit.
 
-## Status
+Think CheckMK (monitoring) + Coroot (eBPF observability) + Ansible (configuration management),
+minus the three separate tools, plus one thing they don't have: an API built for a language model
+to actually drive.
 
-Early scaffold. Currently implemented:
+## Is This Actually a Good Idea?
 
-- Config loader (`internal/config`) — YAML config with safe defaults
-  (`write: false` unless explicitly enabled).
-- `agentic-mcpd` binary — starts an MCP server over stdio (`--stdio`) or
-  Streamable HTTP (default), with bearer-token auth and a `/healthz` endpoint.
+Let's be honest about the name for a second. "YOLO" as an engineering philosophy has a well-earned
+reputation, and the internet has receipts. The original ["YOLO deployment" meme](https://hackernoon.com/could-yolo-driven-development-be-a-thing-fa1c12242188)
+is about skipping the test suite and shipping straight to prod on a Friday afternoon — the joke
+being that your CI pipeline becomes "CI/See-No-Evil" and whatever breaks becomes [tomorrow-you's
+problem](https://www.cloudzero.com/blog/devops-memes/). And handing infrastructure to an *autonomous
+agent* specifically has its own, less funny research trail: [Gartner predicts 40% of enterprises
+will decommission autonomous AI agents by 2027](https://www.gartner.com/en/newsroom/press-releases/2026-05-26-gartner-says-applying-uniform-governance-across-ai-agents-will-lead-to-enterprise-ai-agent-failure)
+after governance gaps surface in production, and the recurring root cause in the [2025 AI agent
+security literature](https://www.obsidiansecurity.com/blog/ai-agent-market-landscape) is
+over-permissioning — agents quietly handed more access than their job needs, with no way to dial
+it back.
 
-Not yet implemented: `/proc` resources, `ansible.builtin`-style management
-modules, tools.d task definitions, pipelines, SQLite storage, PAM/ACL, the
-web UI, and the eBPF collector — tracked in the roadmap.
+So, fair question: why would you point something called YOLO-MANager at your infrastructure?
+
+Because unlike an actual YOLO deploy, nothing here is a blind commit to prod. Every mutating
+action goes through the same idempotent, Ansible-shaped module first in `check_mode` — a full dry
+run preview of exactly what would change, with nothing touched — before it's ever allowed to run
+for real. Real execution requires the operator to explicitly flip a global `write: true` switch in
+config.yaml; leave it `false` (the default) and every mutating tool isn't just hidden, it's never
+even registered. Layered on top: a per-user/per-token ACL with a kill switch for every individual
+tool, and a structured audit log of every call, straight to journald. The Gartner finding above —
+that governance fails when it's all-or-nothing instead of graduated — is more or less this
+project's whole design brief.
+
+In short: we kept the "let an AI run your servers" idea, and deliberately did not keep the "skip
+the safety checks" part the name jokes about. Read the full model in
+[docs/plan.md](docs/plan.md#security-model) if you want to see the trade-offs made explicit.
+
+## What's implemented
+
+- **`ansible.builtin`-compatible modules, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
+  `command`, `service`/`systemd`, plus read-only facts (`setup`, `stat`, `find`, `slurp`,
+  `service_facts`, `package_facts`, `getent`). Idempotent, `check_mode`-aware, `changed: true/false`
+  reporting — no Ansible installation required on either end. Every module's description names its
+  Ansible/Chef/Puppet/Salt/Terraform equivalent, so an AI can translate a task from any of those
+  formats without external docs.
+- **`tools.d/`** — curated, named tool definitions written in literal Ansible-task YAML
+  (`ansible.builtin.<module>:` + `{{ placeholder }}` params), plus native argv command pipelines
+  (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.
+- **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin, exposed as an MCP tool
+  automatically.
+- **eBPF observability** (Coroot-style) — TCP connection tracking and process-exec events via
+  `cilium/ebpf`, CO-RE, graceful degradation on kernels without BTF.
+- **Local SQLite metrics store** with a retention/downsampling job (raw → hourly → daily), plus a
+  bulk `metrics_dump` endpoint for efficient polling.
+- **PAM login + SQLite-backed ACL** — a per-tool kill switch and per-user/group/token rules,
+  enforced identically whether the caller comes in over MCP or REST.
+- **Self-contained embedded web admin UI** — login, tool toggles, ACL editing, metrics/facts
+  viewing. No build step, no CDN.
+- **Structured audit logging** — every tool call as a JSON line to journald.
+- **Hardened systemd unit** — privilege-escalation and kernel-attack-surface hardening; explicitly
+  *not* filesystem/capability-sandboxed, because the entire point of this daemon is open-ended
+  system management (see [docs/plan.md](docs/plan.md) for why that trade-off was made deliberately,
+  not by accident).
+- **Three operating modes** — `standalone` (fully self-contained, the default), `satellite` (a
+  central Fleet Commander pulls this agent's data), and `proxy` (this agent pulls from a list of
+  satellites over TLS and re-serves the aggregate, for firewalled or distributed networks).
+  Machine-to-machine access is authorized via TLS client certificates pinned per caller — the SSH
+  `authorized_keys` model, over TLS, checked in addition to the existing bearer token.
+- **`agentic-mcpd register`** — a one-time enrollment handshake with the future Bossman: trades a
+  shared bootstrap secret for Bossman's public key, so it can be added to `tls.trusted_client_keys`
+  without copying key files around by hand. `agentic-mcpd --generate-token` mints a fresh random
+  bearer token for `config.yaml`, independently of enrollment.
+
+## What's coming: Bossman
+
+The Node Agent (this repo) runs on every server. A future, separate central component — codename
+**Bossman** (Jamaican patois for "the boss," a fitting counterpart to YOLO-MAN: he runs on every
+machine, Bossman keeps an eye on the whole fleet) — will aggregate the fleet, translate Ansible
+playbooks, Puppet manifests, Chef recipes, and Salt states into this agent's own module calls, and
+give an AI one MCP endpoint for the whole infrastructure instead of one per box. Not yet built; see
+[docs/plan.md](docs/plan.md) for the roadmap.
 
 ## Build
 
@@ -40,11 +105,16 @@ go build -o bin/agentic-mcpd ./cmd/agentic-mcpd
 ./bin/agentic-mcpd --config configs/config.yaml
 ```
 
-Without a config file, the daemon falls back to built-in defaults (listening
-on `127.0.0.1:8010`, write disabled) for quick local testing.
+Without a config file, the daemon falls back to built-in defaults (listening on `127.0.0.1:8010`,
+write disabled) for quick local testing.
 
 ## Test
 
 ```bash
 go test ./...
 ```
+
+## Learn more
+
+The full design — architecture, module system, security model, the three operating modes, and the
+complete roadmap — lives in [`docs/plan.md`](docs/plan.md).
