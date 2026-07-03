@@ -284,3 +284,26 @@ func TestREST_MetricsQuery(t *testing.T) {
 		t.Errorf("value = %v, want 55", p["value"])
 	}
 }
+
+func TestREST_MetricsDump(t *testing.T) {
+	srv, st := newRESTTestServer(t, false)
+	defer srv.Close()
+
+	now := time.Now().UTC()
+	if err := st.WritePoints(context.Background(), []store.Point{
+		{Metric: "cpu_pct", Timestamp: now.Add(-time.Minute), Value: 10},
+		{Metric: "mem_pct", Timestamp: now.Add(-time.Minute), Value: 20},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	resp := doJSON(t, "GET", srv.URL+"/api/v1/metrics?from=1h", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	out := decodeJSON(t, resp)
+	metrics := out["metrics"].(map[string]any)
+	if len(metrics) != 2 {
+		t.Fatalf("expected 2 metrics, got %d: %+v", len(metrics), metrics)
+	}
+}

@@ -52,6 +52,12 @@ type Store interface {
 	// resolution.
 	Query(ctx context.Context, metric string, from, to time.Time, labels map[string]string, resolution Resolution) ([]Point, error)
 
+	// ListMetricNames returns every distinct metric name present in the
+	// store, for bulk-export use (satellite/proxy pull modes, see
+	// docs/plan.md) where a caller wants "everything" without knowing
+	// metric names in advance.
+	ListMetricNames(ctx context.Context) ([]string, error)
+
 	// Downsample aggregates (by averaging) raw points older than
 	// rawCutoff into hourly points, deleting the source raw rows, then
 	// aggregates hourly points older than hourlyCutoff into daily points,

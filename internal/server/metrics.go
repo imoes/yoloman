@@ -95,6 +95,95 @@ func RegisterMetrics(s *mcp.Server, st store.Store) {
 	})
 }
 
+// MetricsDumpInput is the input schema for the metrics_dump tool.
+type MetricsDumpInput struct {
+	From       string `json:"from,omitempty"`
+	To         string `json:"to,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+}
+
+// MetricsDumpOutput is the output schema for the metrics_dump tool: every
+// known metric name mapped to its points in the requested range.
+type MetricsDumpOutput struct {
+	Metrics map[string][]MetricPoint `json:"metrics"`
+}
+
+// RegisterMetricsDump adds the metrics_dump tool: every metric this agent
+// has recorded, in one call, without needing to know metric names in
+// advance. This is what makes efficient bulk polling possible — the
+// building block for "satellite" mode (a central Fleet Commander pulling
+// this agent's full metric set on an interval) and "proxy" mode (an agent
+// that itself pulls this same endpoint from a list of satellites and
+// re-serves the aggregate) — see docs/plan.md's three operating modes.
+// Always registered (read-only) regardless of the write gate.
+func RegisterMetricsDump(s *mcp.Server, st store.Store) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "metrics_dump",
+		Description: "" +
+			"Retrieve every metric this agent has recorded over a time range, in one call — " +
+			"unlike metrics_query, no metric name is needed. This is the efficient bulk-export " +
+			"path: a central system polling many agents (a 'Fleet Commander' in satellite mode, " +
+			"or another agent acting as a proxy aggregating several satellites) calls this once " +
+			"per interval instead of querying every known metric name individually. Same time-" +
+			"bound and resolution semantics as metrics_query.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"from":       map[string]any{"type": "string", "description": `Range start: RFC3339 timestamp or relative duration like "1h". Default: 1h ago.`},
+				"to":         map[string]any{"type": "string", "description": `Range end: RFC3339 timestamp or relative duration like "1h". Default: now.`},
+				"resolution": map[string]any{"type": "string", "enum": []string{"raw", "hourly", "daily"}, "description": `Consolidation tier to read. Default "raw".`},
+			},
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in MetricsDumpInput) (*mcp.CallToolResult, MetricsDumpOutput, error) {
+		now := time.Now()
+		from, err := parseTimeBound(in.From, now, -time.Hour)
+		if err != nil {
+			return nil, MetricsDumpOutput{}, fmt.Errorf("from: %w", err)
+		}
+		to, err := parseTimeBound(in.To, now, 0)
+		if err != nil {
+			return nil, MetricsDumpOutput{}, fmt.Errorf("to: %w", err)
+		}
+		resolution := store.ResolutionRaw
+		if in.Resolution != "" {
+			resolution = store.Resolution(in.Resolution)
+		}
+
+		metrics, err := dumpAllMetrics(ctx, st, from, to, resolution)
+		if err != nil {
+			return nil, MetricsDumpOutput{}, err
+		}
+		return nil, MetricsDumpOutput{Metrics: metrics}, nil
+	})
+}
+
+// dumpAllMetrics queries every known metric name for [from, to) at
+// resolution, shared by the metrics_dump MCP tool and its REST equivalent.
+func dumpAllMetrics(ctx context.Context, st store.Store, from, to time.Time, resolution store.Resolution) (map[string][]MetricPoint, error) {
+	names, err := st.ListMetricNames(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing metric names: %w", err)
+	}
+
+	out := make(map[string][]MetricPoint, len(names))
+	for _, name := range names {
+		points, err := st.Query(ctx, name, from, to, nil, resolution)
+		if err != nil {
+			return nil, fmt.Errorf("querying %q: %w", name, err)
+		}
+		converted := make([]MetricPoint, len(points))
+		for i, p := range points {
+			converted[i] = MetricPoint{
+				Timestamp: p.Timestamp.Format(time.RFC3339),
+				Value:     p.Value,
+				Labels:    p.Labels,
+			}
+		}
+		out[name] = converted
+	}
+	return out, nil
+}
+
 // parseTimeBound parses s as either an RFC3339 timestamp or a Go duration
 // (interpreted as "that far before now"); an empty s yields now+defaultOffset.
 func parseTimeBound(s string, now time.Time, defaultOffset time.Duration) (time.Time, error) {

@@ -170,10 +170,12 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL, collector *ebpf.Collector, al *audit.Logger) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
+		Title:   "YOLO-MANager",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
 	server.RegisterMetrics(s, st)
+	server.RegisterMetricsDump(s, st)
 	server.RegisterModules(s, c.modReg, cfg.Write, acl, al)
 	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl, al)
 	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl, al); err != nil {

@@ -170,6 +170,9 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 		handleToolCall(w, r, cfg)
 	})
 
+	mux.HandleFunc("GET /api/v1/metrics", func(w http.ResponseWriter, r *http.Request) {
+		handleMetricsDump(w, r, cfg.Store)
+	})
 	mux.HandleFunc("GET /api/v1/metrics/{metric}", func(w http.ResponseWriter, r *http.Request) {
 		handleMetricsQuery(w, r, cfg.Store)
 	})
@@ -484,6 +487,36 @@ func handleMetricsQuery(w http.ResponseWriter, r *http.Request, st store.Store) 
 		out[i] = MetricPoint{Timestamp: p.Timestamp.Format(time.RFC3339), Value: p.Value, Labels: p.Labels}
 	}
 	writeJSON(w, http.StatusOK, MetricsQueryOutput{Points: out})
+}
+
+// handleMetricsDump serves the bulk metrics_dump equivalent: every known
+// metric in one response, the efficient path for satellite/proxy pulling
+// (see docs/plan.md's three operating modes).
+func handleMetricsDump(w http.ResponseWriter, r *http.Request, st store.Store) {
+	q := r.URL.Query()
+
+	now := time.Now()
+	from, err := parseTimeBound(q.Get("from"), now, -time.Hour)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("from: %w", err))
+		return
+	}
+	to, err := parseTimeBound(q.Get("to"), now, 0)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("to: %w", err))
+		return
+	}
+	resolution := store.ResolutionRaw
+	if res := q.Get("resolution"); res != "" {
+		resolution = store.Resolution(res)
+	}
+
+	metrics, err := dumpAllMetrics(r.Context(), st, from, to, resolution)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, MetricsDumpOutput{Metrics: metrics})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

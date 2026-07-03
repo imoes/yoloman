@@ -39,7 +39,7 @@ func TestHandler_ServesIndexAtPrefix(t *testing.T) {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 	body := readAll(t, resp)
-	if !strings.Contains(body, "agentic-mcp") {
+	if !strings.Contains(body, "YOLO-MANager") {
 		t.Errorf("expected index.html content, got: %.200s", body)
 	}
 	if !strings.Contains(body, "doPamLogin") {

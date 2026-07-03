@@ -136,6 +136,24 @@ func (s *SQLiteStore) Query(ctx context.Context, metric string, from, to time.Ti
 	return out, rows.Err()
 }
 
+func (s *SQLiteStore) ListMetricNames(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT metric FROM metrics ORDER BY metric`)
+	if err != nil {
+		return nil, fmt.Errorf("listing metric names: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
 // labelsMatch reports whether have is a superset of want (every key/value in
 // want is present and equal in have).
 func labelsMatch(have, want map[string]string) bool {

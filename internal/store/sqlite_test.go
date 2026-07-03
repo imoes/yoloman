@@ -257,3 +257,36 @@ func TestOpenSQLite_CreatesParentDirectory(t *testing.T) {
 	}
 	defer s.Close()
 }
+
+func TestListMetricNames(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	if err := s.WritePoints(ctx, []Point{
+		{Metric: "cpu_pct", Timestamp: now, Value: 1},
+		{Metric: "mem_pct", Timestamp: now, Value: 2},
+		{Metric: "cpu_pct", Timestamp: now.Add(time.Second), Value: 3},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	names, err := s.ListMetricNames(ctx)
+	if err != nil {
+		t.Fatalf("ListMetricNames: %v", err)
+	}
+	if len(names) != 2 || names[0] != "cpu_pct" || names[1] != "mem_pct" {
+		t.Errorf("names = %v, want [cpu_pct mem_pct]", names)
+	}
+}
+
+func TestListMetricNames_Empty(t *testing.T) {
+	s := openTestStore(t)
+	names, err := s.ListMetricNames(context.Background())
+	if err != nil {
+		t.Fatalf("ListMetricNames: %v", err)
+	}
+	if len(names) != 0 {
+		t.Errorf("expected no names in an empty store, got %v", names)
+	}
+}

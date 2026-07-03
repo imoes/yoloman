@@ -1,4 +1,10 @@
-# Plan: `agentic-mcp` — AI-native Linux management system (Node Agent v1)
+# Plan: YOLO-MANager (`agentic-mcp`) — AI-native Linux management system (Node Agent v1)
+
+**Project name:** YOLO-MANager — the user-facing brand (MCP server title, web UI, systemd
+description); `agentic-mcp` remains the underlying Go module path, binary name, and config/data
+directory names (`/etc/agentic-mcp`, `/var/lib/agentic-mcp`, ...), since a full technical rename
+touches every file's import path for no functional benefit. See `docs/assets/yolo-man.jpg` for
+the mascot.
 
 ## Context & Vision
 
@@ -558,6 +564,59 @@ full package install needed for this check, which is step 12's job) and three re
 (a read, a write, and one that errors on a missing parameter) each produced a correctly
 structured, `jq`-parseable audit line in `journalctl`, including `changed:true` on the
 successful write and the exact validation error message on the failing call.
+
+## Three operating modes: standalone / satellite / proxy
+
+A node agent can run in one of three modes (`mode:` in config.yaml), reflecting how its
+performance data relates to a central Fleet Commander — the CheckMK site/proxy/agent hierarchy
+adapted to this project's MCP/REST-native design:
+
+1. **Standalone** (default, current v1 behavior) — all performance metrics are stored and
+   served locally only. No relationship to any other agent or a Commander.
+2. **Satellite** — the same agent, but a central Fleet Commander is expected to pull this
+   agent's data on an interval and store it server-side (CheckMK's pull-agent logic). No new
+   agent-side behavior is strictly required for this — the existing `GET /api/v1/metrics`
+   bulk-dump endpoint (see below) is exactly the efficient pull path a Commander needs; `mode:
+   satellite` in config.yaml is documentation of intent rather than a behavioral switch in v1.
+3. **Proxy** — an agent that itself pulls from a list of configured satellites (over a real SSH
+   tunnel to each satellite's `127.0.0.1`-only REST port, see below) and stores their data
+   alongside its own, so a Commander that can't reach every satellite directly (firewalled
+   segments, distributed networks) can instead pull one aggregate feed from the proxy. From the
+   Commander's point of view, pulling from a proxy looks identical to pulling from a single
+   agent — just with more data, tagged by origin.
+
+**Bulk metrics endpoint (implemented, needed by all three modes):** `metrics_dump` (MCP tool)
+and `GET /api/v1/metrics` (REST, note: no `{metric}` path segment — that continues to mean
+"query one named metric") return *every* metric this agent has recorded in one call, keyed by
+metric name. This is what makes efficient polling possible without a Commander needing to know
+every metric name in advance — the single building block satellite-mode pulling and proxy-mode
+aggregation both rely on. `internal/store.Store` gained `ListMetricNames` to support it.
+
+**Proxy mode auth (confirmed with the user): SSH keys, not a custom HTTP scheme.** The proxy
+holds a private key; each satellite's host has the proxy's public key deployed as an
+`authorized_key` for a (low-privilege) system user. The proxy opens a real SSH connection to
+that user on the satellite host and pulls the satellite's `GET /api/v1/metrics` over an SSH
+direct-TCP forward to the satellite's own `127.0.0.1`-bound REST port — the satellite's REST
+API never needs to be reachable from the network at all, only via SSH, which is exactly the
+point for "special firewall settings or distributed networks." The satellite's own bearer-token
+auth still applies *underneath* the tunnel (defense in depth: SSH proves network-level identity,
+the token proves the caller is a legitimate REST client) — this reuses `internal/authz`'s
+existing token model rather than inventing a second auth mechanism. Confirmed design points:
+- **Pull, not push** — the proxy initiates; satellites need no knowledge of the proxy at all.
+- **Full history relayed** — every point the proxy pulls from a satellite is written into the
+  proxy's *own* `internal/store`, labeled with the satellite's identity (e.g. `{"satellite":
+  "<name>"}` merged into each point's existing labels), so the proxy's retention/downsampling
+  job (already built in step 6) applies to satellite data too, and a Commander pulling from the
+  proxy sees the same time resolution it would from a direct connection.
+
+To implement: `config.Mode` (`standalone|satellite|proxy`, default `standalone`); a `proxy:`
+config block listing satellites (`{name, ssh_host, ssh_user, ssh_key_path, remote_port,
+token, poll_interval}`); an `internal/fleet` (or similar) package with an SSH-tunneling REST
+client and a background poll loop (mirroring `startRetentionLoop`'s pattern) that, per
+satellite, opens the tunnel, calls `GET /api/v1/metrics`, and writes the labeled points into the
+local store; wired into `main.go` behind `mode: proxy`. Verification plan: use the existing
+remote test host (`host1.example.internal`) as a real satellite and pull from it over a
+genuine SSH tunnel, the same rigor as every other step in this project.
 
 ## Roadmap (after this v1 — separate plans)
 

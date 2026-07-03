@@ -25,6 +25,7 @@ func connectMetricsServer(t *testing.T, st store.Store) *mcp.ClientSession {
 	t.Helper()
 	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
 	RegisterMetrics(s, st)
+	RegisterMetricsDump(s, st)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	ctx := context.Background()
@@ -167,5 +168,57 @@ func TestMetricsQuery_RFC3339Bounds(t *testing.T) {
 	points := out["points"].([]any)
 	if len(points) != 1 {
 		t.Fatalf("expected 1 point within explicit RFC3339 bounds, got %d", len(points))
+	}
+}
+
+func TestMetricsDump_ReturnsAllMetrics(t *testing.T) {
+	st := openTestMetricsStore(t)
+	now := time.Now().UTC()
+	if err := st.WritePoints(context.Background(), []store.Point{
+		{Metric: "cpu_pct", Timestamp: now.Add(-time.Minute), Value: 42},
+		{Metric: "mem_pct", Timestamp: now.Add(-time.Minute), Value: 55},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cs := connectMetricsServer(t, st)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "metrics_dump",
+		Arguments: map[string]any{"from": "1h"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected tool error: %+v", res.Content)
+	}
+	out := res.StructuredContent.(map[string]any)
+	metrics := out["metrics"].(map[string]any)
+	if len(metrics) != 2 {
+		t.Fatalf("expected 2 metrics, got %d: %+v", len(metrics), metrics)
+	}
+	cpuPoints := metrics["cpu_pct"].([]any)
+	if len(cpuPoints) != 1 {
+		t.Errorf("expected 1 cpu_pct point, got %+v", cpuPoints)
+	}
+}
+
+func TestMetricsDump_EmptyStoreReturnsEmptyMap(t *testing.T) {
+	st := openTestMetricsStore(t)
+	cs := connectMetricsServer(t, st)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "metrics_dump",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	out := res.StructuredContent.(map[string]any)
+	metrics, ok := out["metrics"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected a metrics object, got %T: %v", out["metrics"], out["metrics"])
+	}
+	if len(metrics) != 0 {
+		t.Errorf("expected no metrics in an empty store, got %v", metrics)
 	}
 }

@@ -1,5 +1,7 @@
 # agentic-mcp
 
+![Yolo Man — Full Managed MCP Server](docs/assets/yolo-man.jpg)
+
 A self-contained Linux node agent that exposes system state and management
 actions to AI clients over [MCP](https://modelcontextprotocol.io) (stdio or
 Streamable HTTP) and a plain REST API — no Ansible, no SSH agent, no Python
