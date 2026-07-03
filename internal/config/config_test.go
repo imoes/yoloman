@@ -140,3 +140,122 @@ tls:
 		t.Fatal("expected error when tls.enabled but cert/key missing")
 	}
 }
+
+func TestLoad_ModeDefaultsToStandalone(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Mode != "standalone" {
+		t.Errorf("expected default mode=standalone, got %q", cfg.Mode)
+	}
+}
+
+func TestValidate_RejectsUnknownMode(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "bogus"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for unsupported mode")
+	}
+}
+
+func TestValidate_ProxyModeRequiresSatellites(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for mode=proxy with no satellites configured")
+	}
+}
+
+func TestValidate_ProxyModeWithSatellites(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      address: "sat1.example.com:8010"
+      public_key_path: /etc/agentic-mcp/sat1.pub.pem
+      token: "sat1-token"
+      poll_interval: "30s"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Proxy.Satellites) != 1 {
+		t.Fatalf("expected 1 satellite, got %d", len(cfg.Proxy.Satellites))
+	}
+	sat := cfg.Proxy.Satellites[0]
+	if sat.Name != "sat1" || sat.Address != "sat1.example.com:8010" || sat.PublicKeyPath != "/etc/agentic-mcp/sat1.pub.pem" {
+		t.Errorf("unexpected satellite config: %+v", sat)
+	}
+	if sat.PollInterval.Duration() != 30*time.Second {
+		t.Errorf("poll_interval = %v, want 30s", sat.PollInterval.Duration())
+	}
+}
+
+func TestValidate_ProxySatelliteMissingFields(t *testing.T) {
+	base := `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      address: "sat1.example.com:8010"
+      public_key_path: /etc/agentic-mcp/sat1.pub.pem
+`
+	path := writeTemp(t, base)
+	if _, err := Load(path); err != nil {
+		t.Fatalf("expected valid config (token optional), got: %v", err)
+	}
+
+	missingAddress := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      public_key_path: /etc/agentic-mcp/sat1.pub.pem
+`)
+	if _, err := Load(missingAddress); err == nil {
+		t.Fatal("expected error for missing address")
+	}
+
+	missingPublicKey := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      address: "sat1.example.com:8010"
+`)
+	if _, err := Load(missingPublicKey); err == nil {
+		t.Fatal("expected error for missing public_key_path")
+	}
+
+	dup := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      address: "sat1.example.com:8010"
+      public_key_path: /etc/agentic-mcp/sat1.pub.pem
+    - name: sat1
+      address: "sat2.example.com:8010"
+      public_key_path: /etc/agentic-mcp/sat2.pub.pem
+`)
+	if _, err := Load(dup); err == nil {
+		t.Fatal("expected error for duplicate satellite name")
+	}
+}

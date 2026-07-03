@@ -578,12 +578,12 @@ adapted to this project's MCP/REST-native design:
    agent-side behavior is strictly required for this — the existing `GET /api/v1/metrics`
    bulk-dump endpoint (see below) is exactly the efficient pull path a Commander needs; `mode:
    satellite` in config.yaml is documentation of intent rather than a behavioral switch in v1.
-3. **Proxy** — an agent that itself pulls from a list of configured satellites (over a real SSH
-   tunnel to each satellite's `127.0.0.1`-only REST port, see below) and stores their data
-   alongside its own, so a Commander that can't reach every satellite directly (firewalled
-   segments, distributed networks) can instead pull one aggregate feed from the proxy. From the
-   Commander's point of view, pulling from a proxy looks identical to pulling from a single
-   agent — just with more data, tagged by origin.
+3. **Proxy** — an agent that itself pulls from a list of configured satellites (over TLS directly
+   to each satellite's own REST port, see below) and stores their data alongside its own, so a
+   Commander that can't reach every satellite directly (firewalled segments, distributed
+   networks) can instead pull one aggregate feed from the proxy. From the Commander's point of
+   view, pulling from a proxy looks identical to pulling from a single agent — just with more
+   data, tagged by origin.
 
 **Bulk metrics endpoint (implemented, needed by all three modes):** `metrics_dump` (MCP tool)
 and `GET /api/v1/metrics` (REST, note: no `{metric}` path segment — that continues to mean
@@ -592,31 +592,59 @@ metric name. This is what makes efficient polling possible without a Commander n
 every metric name in advance — the single building block satellite-mode pulling and proxy-mode
 aggregation both rely on. `internal/store.Store` gained `ListMetricNames` to support it.
 
-**Proxy mode auth (confirmed with the user): SSH keys, not a custom HTTP scheme.** The proxy
-holds a private key; each satellite's host has the proxy's public key deployed as an
-`authorized_key` for a (low-privilege) system user. The proxy opens a real SSH connection to
-that user on the satellite host and pulls the satellite's `GET /api/v1/metrics` over an SSH
-direct-TCP forward to the satellite's own `127.0.0.1`-bound REST port — the satellite's REST
-API never needs to be reachable from the network at all, only via SSH, which is exactly the
-point for "special firewall settings or distributed networks." The satellite's own bearer-token
-auth still applies *underneath* the tunnel (defense in depth: SSH proves network-level identity,
-the token proves the caller is a legitimate REST client) — this reuses `internal/authz`'s
-existing token model rather than inventing a second auth mechanism. Confirmed design points:
+**Proxy mode auth (implemented, revised after user feedback): TLS with pinned public keys, not
+an SSH tunnel.** The user's original framing ("an SSH key (PEM), the public key gets
+distributed") was clarified to mean the *trust model* SSH uses for host authentication — the
+client holds the server's public key, the server proves possession of the matching private key —
+not the SSH *protocol* itself. The implementation is therefore plain TLS, not an SSH tunnel:
+- Each satellite serves its REST API over TLS using its own private key and a self-signed
+  certificate (`tls.enabled`/`cert_file`/`key_file`, already present in `config.Config` — wiring
+  it into `serveHTTP` via `http.ListenAndServeTLS` was the one gap closed as part of this work).
+- The satellite's public key (extracted from its certificate, e.g. via
+  `openssl x509 -pubkey -noout`) is distributed out of band to the proxy operator and referenced
+  by `proxy.satellites[].public_key_path` — analogous to an SSH `known_hosts` entry.
+- The proxy connects with `InsecureSkipVerify: true` (there is no CA) plus a custom
+  `tls.Config.VerifyPeerCertificate` callback that rejects the handshake unless the presented
+  certificate's public key is byte-identical (compared via DER-encoded SubjectPublicKeyInfo) to
+  the pinned key. The satellite proves possession of the corresponding private key as an
+  unavoidable part of the TLS handshake itself.
+- The satellite's own bearer `Token` authenticates the REST call underneath the TLS layer,
+  exactly like any other REST client — defense in depth on top of the pinned-key channel.
+
+Confirmed design points (unchanged from the original discussion):
 - **Pull, not push** — the proxy initiates; satellites need no knowledge of the proxy at all.
 - **Full history relayed** — every point the proxy pulls from a satellite is written into the
-  proxy's *own* `internal/store`, labeled with the satellite's identity (e.g. `{"satellite":
-  "<name>"}` merged into each point's existing labels), so the proxy's retention/downsampling
-  job (already built in step 6) applies to satellite data too, and a Commander pulling from the
-  proxy sees the same time resolution it would from a direct connection.
+  proxy's *own* `internal/store`, labeled with the satellite's identity (`{"satellite": "<name>"}`
+  merged into each point's existing labels), so the proxy's retention/downsampling job (already
+  built in step 6) applies to satellite data too, and a Commander pulling from the proxy sees the
+  same time resolution it would from a direct connection.
 
-To implement: `config.Mode` (`standalone|satellite|proxy`, default `standalone`); a `proxy:`
-config block listing satellites (`{name, ssh_host, ssh_user, ssh_key_path, remote_port,
-token, poll_interval}`); an `internal/fleet` (or similar) package with an SSH-tunneling REST
-client and a background poll loop (mirroring `startRetentionLoop`'s pattern) that, per
-satellite, opens the tunnel, calls `GET /api/v1/metrics`, and writes the labeled points into the
-local store; wired into `main.go` behind `mode: proxy`. Verification plan: use the existing
-remote test host (`host1.example.internal`) as a real satellite and pull from it over a
-genuine SSH tunnel, the same rigor as every other step in this project.
+**Implementation:** `config.Mode` (`standalone|satellite|proxy`, default `standalone`, validated
+in `Config.Validate`); a `proxy:` config block listing satellites
+(`{name, address, public_key_path, token, poll_interval}`); the new `internal/fleet` package
+(`Puller.PullOnce`) builds a per-call `http.Client` with the pinned-key `tls.Config`, calls
+`GET https://<address>/api/v1/metrics`, and writes the labeled points into the local store;
+`startProxyPollLoop` in `cmd/agentic-mcpd/main.go` runs one background ticker per satellite
+(mirroring `startRetentionLoop`'s pattern), wired in behind `mode: proxy`.
+
+**Verification (real, end to end, on `host1.example.internal`):** two independent
+`agentic-mcpd` processes were run as genuinely separate satellite and proxy instances.
+- Satellite: `mode: standalone`, `tls.enabled: true` with a freshly generated ECDSA
+  self-signed cert (`openssl req -x509 -newkey ec ...`), listening on `0.0.0.0:8030`.
+- Proxy: `mode: proxy`, one satellite entry pointing at `127.0.0.1:8030` with
+  `public_key_path` set to the satellite's extracted public key (copied out to simulate
+  out-of-band distribution), `poll_interval: 5s`.
+- Confirmed via the proxy's own log and `GET /api/v1/metrics` on the proxy: the satellite's
+  `agentic_mcpd_start` points arrived labeled `{"satellite": "sat-e2e"}`, at the expected
+  5-second cadence (`satellite poll completed satellite=sat-e2e points=1`).
+- **Negative case, also verified live (not just unit-tested):** a second proxy instance was
+  started pinned to a *different*, unrelated key. Its real TLS handshake against the real
+  satellite was rejected with `presented certificate's public key does not match the pinned
+  key`, proving the pinning check runs correctly against genuine network traffic, not just the
+  in-process test harness.
+- Unit tests in `internal/fleet/puller_test.go` cover the same success/rejection/missing-token/
+  missing-key-file cases with a real in-process TLS server (self-signed cert generated per test),
+  including a genuine TLS handshake failure for the wrong-pin case.
 
 ## Roadmap (after this v1 — separate plans)
 

@@ -40,6 +40,10 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 		mux.Handle("/ui/", uiHandler)
 	}
 
+	if cfg.TLS.Enabled {
+		slog.Info("agentic-mcpd listening (TLS)", "addr", cfg.Listen)
+		return http.ListenAndServeTLS(cfg.Listen, cfg.TLS.CertFile, cfg.TLS.KeyFile, mux)
+	}
 	slog.Info("agentic-mcpd listening", "addr", cfg.Listen)
 	return http.ListenAndServe(cfg.Listen, mux)
 }

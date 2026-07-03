@@ -17,6 +17,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
+	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
@@ -58,6 +59,7 @@ func run(args []string) error {
 		slog.Warn("failed to record startup marker", "error", err)
 	}
 	startRetentionLoop(cfg, st)
+	startProxyPollLoop(cfg, st)
 
 	comps, err := loadComponents(cfg)
 	if err != nil {
@@ -233,6 +235,41 @@ func runDownsample(cfg config.Config, st store.Store) {
 			"hourly_created", stats.HourlyRowsCreated,
 			"hourly_aggregated", stats.HourlyRowsAggregated,
 			"daily_created", stats.DailyRowsCreated)
+	}
+}
+
+// startProxyPollLoop runs one background poll ticker per configured
+// satellite when mode: proxy is set (see docs/plan.md's "Three operating
+// modes"). Each tick pulls that satellite's metrics_dump for the interval
+// since the previous poll and writes them into the local store labeled by
+// satellite name. A no-op when mode is not "proxy".
+func startProxyPollLoop(cfg config.Config, st store.Store) {
+	if cfg.Mode != "proxy" {
+		return
+	}
+	for _, sat := range cfg.Proxy.Satellites {
+		interval := sat.PollInterval.Duration()
+		if interval <= 0 {
+			interval = time.Minute
+		}
+		p := &fleet.Puller{Satellite: sat, Store: st}
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			last := time.Now().Add(-interval)
+			for range ticker.C {
+				now := time.Now()
+				n, err := p.PullOnce(context.Background(), last, now)
+				if err != nil {
+					slog.Error("satellite poll failed", "satellite", p.Satellite.Name, "error", err)
+					continue
+				}
+				last = now
+				if n > 0 {
+					slog.Info("satellite poll completed", "satellite", p.Satellite.Name, "points", n)
+				}
+			}
+		}()
 	}
 }
 
