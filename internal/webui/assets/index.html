@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agentic-mcp — Admin</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1a1d21; --muted: #6b7280;
+    --border: #e2e4e8; --accent: #2563eb; --accent-fg: #ffffff;
+    --ok: #16a34a; --warn: #d97706; --crit: #dc2626; --unknown: #6b7280;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1c1f24; --text: #e7e9ec; --muted: #9aa1ab;
+      --border: #2b2f36; --accent: #3b82f6; --accent-fg: #0b0d10;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+  header .who { font-size: 0.85rem; color: var(--muted); }
+  main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; }
+  .hidden { display: none !important; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.25rem; margin-bottom: 1.25rem;
+  }
+  .panel h2 { margin-top: 0; font-size: 1rem; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+  input, select {
+    width: 100%; padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 0.9rem; margin-bottom: 0.75rem;
+  }
+  button {
+    cursor: pointer; border: none; border-radius: 6px; padding: 0.5rem 0.9rem;
+    font-size: 0.85rem; font-weight: 500; background: var(--accent); color: var(--accent-fg);
+  }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--danger); color: #fff; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.35rem; }
+  .tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+  .tag.write { background: rgba(217,119,6,0.15); color: var(--warn); }
+  .tag.read { background: rgba(37,99,235,0.12); color: var(--accent); }
+  .switch { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+  .switch input { width: auto; margin: 0; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .tabs button { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .tabs button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .error { color: var(--crit); font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.1em; }
+  .row { display: flex; gap: 0.5rem; align-items: end; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 140px; }
+  .login-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .login-tabs button { flex: 1; }
+  #app { max-width: 420px; margin: 3rem auto; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="panel">
+    <h2 style="text-align:center">agentic-mcp</h2>
+    <div class="login-tabs">
+      <button id="tab-pam" class="active" onclick="setLoginMode('pam')">PAM Login</button>
+      <button id="tab-token" onclick="setLoginMode('token')">API Token</button>
+    </div>
+    <form id="pam-form" onsubmit="doPamLogin(event)">
+      <label for="username">Username</label>
+      <input id="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit" style="width:100%">Log in</button>
+    </form>
+    <form id="token-form" class="hidden" onsubmit="doTokenLogin(event)">
+      <label for="token">Bearer token</label>
+      <input id="token" type="password" required>
+      <button type="submit" style="width:100%">Use token</button>
+    </form>
+    <div id="login-error" class="error"></div>
+  </div>
+</div>
+
+<div id="shell" class="hidden">
+  <header>
+    <h1>agentic-mcp</h1>
+    <div>
+      <span class="who" id="who"></span>
+      <button class="secondary" onclick="logout()" style="margin-left:0.75rem">Log out</button>
+    </div>
+  </header>
+  <main>
+    <div class="tabs">
+      <button id="nav-tools" class="active" onclick="showView('tools')">Tools</button>
+      <button id="nav-acl" onclick="showView('acl')">ACL Rules</button>
+      <button id="nav-facts" onclick="showView('facts')">Facts &amp; Metrics</button>
+    </div>
+
+    <section id="view-tools" class="panel">
+      <h2>Tools</h2>
+      <div class="error" id="tools-error"></div>
+      <table>
+        <thead><tr><th>Name</th><th>Kind</th><th>Capability</th><th>Enabled</th></tr></thead>
+        <tbody id="tools-body"></tbody>
+      </table>
+    </section>
+
+    <section id="view-acl" class="panel hidden">
+      <h2>ACL Rules</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:-0.5rem">
+        With no rules, every enabled tool is allowed. Once any rule exists, access becomes
+        default-deny: a caller must match a rule covering the tool.
+      </p>
+      <div class="error" id="acl-error"></div>
+      <table>
+        <thead><tr><th>Principal</th><th>Name</th><th>Tools</th><th>Write</th><th></th></tr></thead>
+        <tbody id="acl-body"></tbody>
+      </table>
+      <div class="row" style="margin-top:0.75rem">
+        <div>
+          <label for="rule-kind">Principal kind</label>
+          <select id="rule-kind">
+            <option value="user">user</option>
+            <option value="group">group</option>
+            <option value="token">token</option>
+          </select>
+        </div>
+        <div>
+          <label for="rule-name">Principal name</label>
+          <input id="rule-name" placeholder="e.g. wheel">
+        </div>
+        <div>
+          <label for="rule-tools">Tools (comma-separated, blank = all)</label>
+          <input id="rule-tools" placeholder="stat, find">
+        </div>
+        <div style="flex:0 0 auto">
+          <label class="switch" style="margin-bottom:0.75rem">
+            <input type="checkbox" id="rule-write"> Allow write
+          </label>
+        </div>
+        <div style="flex:0 0 auto">
+          <button onclick="addRule()">Add rule</button>
+        </div>
+      </div>
+      <button style="margin-top:0.75rem" onclick="saveRules()">Save rules</button>
+    </section>
+
+    <section id="view-facts" class="panel hidden">
+      <h2>Facts</h2>
+      <div class="error" id="facts-error"></div>
+      <button onclick="loadFacts()">Refresh facts</button>
+      <table style="margin-top:0.75rem"><tbody id="facts-body"></tbody></table>
+
+      <h2 style="margin-top:1.5rem">Metrics</h2>
+      <div class="row">
+        <div><label for="metric-name">Metric</label><input id="metric-name" value="agentic_mcpd_start"></div>
+        <div><label for="metric-range">Range</label><input id="metric-range" value="1h"></div>
+        <div style="flex:0 0 auto"><button onclick="loadMetrics()">Query</button></div>
+      </div>
+      <div class="error" id="metrics-error"></div>
+      <table>
+        <thead><tr><th>Timestamp</th><th>Value</th><th>Labels</th></tr></thead>
+        <tbody id="metrics-body"></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script>
+let auth = null; // { type: 'session'|'bearer', value: '...' }
+let aclEnabled = true; // becomes false if the server reports ACL not configured
+let pendingRules = null;
+
+function setLoginMode(mode) {
+  document.getElementById('tab-pam').classList.toggle('active', mode === 'pam');
+  document.getElementById('tab-token').classList.toggle('active', mode === 'token');
+  document.getElementById('pam-form').classList.toggle('hidden', mode !== 'pam');
+  document.getElementById('token-form').classList.toggle('hidden', mode !== 'token');
+}
+
+function authHeader() {
+  if (!auth) return {};
+  if (auth.type === 'bearer') return { Authorization: 'Bearer ' + auth.value };
+  return { Authorization: 'Session ' + auth.value };
+}
+
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Content-Type': 'application/json' }, authHeader(), opts.headers || {});
+  const resp = await fetch(path, opts);
+  let body = null;
+  try { body = await resp.json(); } catch (e) {}
+  if (!resp.ok) {
+    const msg = (body && body.error) ? body.error : (resp.status + ' ' + resp.statusText);
+    throw new Error(msg);
+  }
+  return body;
+}
+
+async function doPamLogin(ev) {
+  ev.preventDefault();
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  document.getElementById('login-error').textContent = '';
+  try {
+    const out = await api('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    auth = { type: 'session', value: out.session_token };
+    sessionStorage.setItem('agentic_auth', JSON.stringify(auth));
+    enterShell(username);
+  } catch (e) {
+    document.getElementById('login-error').textContent = 'Login failed: ' + e.message;
+  }
+}
+
+function doTokenLogin(ev) {
+  ev.preventDefault();
+  const token = document.getElementById('token').value;
+  auth = { type: 'bearer', value: token };
+  sessionStorage.setItem('agentic_auth', JSON.stringify(auth));
+  enterShell('service token');
+}
+
+function logout() {
+  auth = null;
+  sessionStorage.removeItem('agentic_auth');
+  document.getElementById('shell').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+}
+
+function enterShell(who) {
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('shell').classList.remove('hidden');
+  document.getElementById('who').textContent = who;
+  showView('tools');
+  loadTools();
+}
+
+function showView(name) {
+  for (const v of ['tools', 'acl', 'facts']) {
+    document.getElementById('view-' + v).classList.toggle('hidden', v !== name);
+    document.getElementById('nav-' + v).classList.toggle('active', v === name);
+  }
+  if (name === 'acl') loadRules();
+}
+
+async function loadTools() {
+  const errEl = document.getElementById('tools-error');
+  errEl.textContent = '';
+  try {
+    const out = await api('/api/v1/tools');
+    const body = document.getElementById('tools-body');
+    body.innerHTML = '';
+    for (const t of out.tools) {
+      const tr = document.createElement('tr');
+      const capTag = t.writes ? '<span class="tag write">write</span>' : '<span class="tag read">read</span>';
+      let enabledCell = '<span style="color:var(--muted)">n/a</span>';
+      if (aclEnabled) {
+        enabledCell = '<label class="switch"><input type="checkbox" checked onchange="toggleTool(\'' + t.name + '\', this.checked)"> enabled</label>';
+      }
+      tr.innerHTML = '<td><code>' + t.name + '</code></td><td>' + t.kind + '</td><td>' + capTag + '</td><td>' + enabledCell + '</td>';
+      body.appendChild(tr);
+    }
+    // Refresh actual enabled state per tool (best-effort; ACL may not be configured).
+    for (const t of out.tools) {
+      try {
+        const state = await api('/api/v1/acl/tools/' + encodeURIComponent(t.name));
+        const cb = body.querySelector('tr td code');
+        // find the row matching this tool name and set checkbox state
+        const rows = body.querySelectorAll('tr');
+        for (const row of rows) {
+          if (row.querySelector('code').textContent === t.name) {
+            const box = row.querySelector('input[type=checkbox]');
+            if (box) box.checked = !!state.enabled;
+          }
+        }
+      } catch (e) {
+        aclEnabled = false;
+      }
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function toggleTool(name, enabled) {
+  try {
+    await api('/api/v1/acl/tools/' + encodeURIComponent(name), {
+      method: 'PATCH', body: JSON.stringify({ enabled }),
+    });
+  } catch (e) {
+    document.getElementById('tools-error').textContent = e.message;
+    loadTools();
+  }
+}
+
+async function loadRules() {
+  const errEl = document.getElementById('acl-error');
+  errEl.textContent = '';
+  try {
+    const out = await api('/api/v1/acl/rules');
+    pendingRules = out.rules || [];
+    renderRules();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+function renderRules() {
+  const body = document.getElementById('acl-body');
+  body.innerHTML = '';
+  pendingRules.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const tools = (r.tools && r.tools.length) ? r.tools.join(', ') : '<em>all</em>';
+    tr.innerHTML = '<td>' + r.principal_kind + '</td><td>' + r.principal_name + '</td><td>' + tools +
+      '</td><td>' + (r.allow_write ? 'yes' : 'no') + '</td>' +
+      '<td><button class="danger" onclick="removeRule(' + i + ')">Remove</button></td>';
+    body.appendChild(tr);
+  });
+}
+
+function addRule() {
+  const kind = document.getElementById('rule-kind').value;
+  const name = document.getElementById('rule-name').value.trim();
+  if (!name) return;
+  const toolsRaw = document.getElementById('rule-tools').value.trim();
+  const tools = toolsRaw ? toolsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const write = document.getElementById('rule-write').checked;
+  pendingRules.push({ principal_kind: kind, principal_name: name, tools, allow_write: write });
+  renderRules();
+  document.getElementById('rule-name').value = '';
+  document.getElementById('rule-tools').value = '';
+  document.getElementById('rule-write').checked = false;
+}
+
+function removeRule(i) {
+  pendingRules.splice(i, 1);
+  renderRules();
+}
+
+async function saveRules() {
+  const errEl = document.getElementById('acl-error');
+  errEl.textContent = '';
+  try {
+    await api('/api/v1/acl/rules', { method: 'PUT', body: JSON.stringify({ rules: pendingRules }) });
+    loadRules();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function loadFacts() {
+  const errEl = document.getElementById('facts-error');
+  errEl.textContent = '';
+  try {
+    const out = await api('/api/v1/tools/setup', { method: 'POST', body: '{}' });
+    const body = document.getElementById('facts-body');
+    body.innerHTML = '';
+    const data = out.data || {};
+    for (const key of Object.keys(data).sort()) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<th>' + key + '</th><td>' + data[key] + '</td>';
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function loadMetrics() {
+  const errEl = document.getElementById('metrics-error');
+  errEl.textContent = '';
+  const metric = document.getElementById('metric-name').value.trim();
+  const range = document.getElementById('metric-range').value.trim() || '1h';
+  try {
+    const out = await api('/api/v1/metrics/' + encodeURIComponent(metric) + '?from=' + encodeURIComponent(range));
+    const body = document.getElementById('metrics-body');
+    body.innerHTML = '';
+    for (const p of (out.points || [])) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + p.timestamp + '</td><td>' + p.value + '</td><td>' + JSON.stringify(p.labels || {}) + '</td>';
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+// Restore a session across page reloads within the same tab.
+(function restore() {
+  const saved = sessionStorage.getItem('agentic_auth');
+  if (saved) {
+    try {
+      auth = JSON.parse(saved);
+      enterShell(auth.type === 'bearer' ? 'service token' : 'session');
+    } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>

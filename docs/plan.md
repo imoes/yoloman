@@ -150,6 +150,33 @@ All layers expose the same capabilities, just a different protocol:
 - **Web frontend** (`/ui`): PAM login; tool list from `tools.d/` with enable/disable switches;
   ACL rule editing; metrics/facts view; audit log. Self-contained (no external CDN).
 
+  **Implemented (step 9):** `internal/webui` — a single self-contained `index.html`
+  (`go:embed`, no external CDN/build step, plain HTML/CSS/vanilla JS) mounted at `/ui/`,
+  served as public static assets (the page itself authenticates against `/api/v1/` once
+  loaded — either PAM username/password via `/api/v1/auth/login`, or pasting the bearer
+  token directly). Three views: **Tools** (live list with kind/read-write tag/enable switch,
+  `PATCH /api/v1/acl/tools/{name}` on toggle), **ACL Rules** (table + add-row form +
+  `PUT /api/v1/acl/rules` bulk save), **Facts & Metrics** (`setup` module + `metrics_query`
+  via REST). No separate audit-log view yet — deferred until step 11 actually produces
+  audit data, rather than shipping a UI panel for nonexistent data.
+
+  Fixed a real latent bug found while wiring this up: `cmd/agentic-mcpd/http.go` was
+  double-gating `/api/v1/` — `rest.go`'s own `withIdentity` middleware (bearer **or**
+  session) was wrapped by the *old* bearer-only `withBearerAuth` from step 7, which would
+  have silently rejected every PAM-session login at the transport layer. The step 8 unit
+  tests never caught this because they call `NewRESTHandler`'s output directly, bypassing
+  `http.go` entirely. Removed the redundant outer wrapper.
+
+  Verified with a real, browser-driven Playwright session against the live daemon (not
+  just Go `httptest`): logged in via the API-token tab, saw all 20 real registered tools;
+  clicked a tool's enable switch off — confirmed via `curl` that the ACL row flipped to
+  `enabled:false` *and* a direct call now 403s; toggled it back on and confirmed 200 again;
+  loaded real facts (`host4.example.internal`, Ubuntu 24.04, 8 vCPUs, 32GB) and the real startup
+  metric point; added an ACL rule through the form UI, saved it, confirmed via `curl` it
+  persisted in SQLite *and* correctly flipped the system to default-deny (the token identity's
+  own `stat` call now 403'd, since no rule covered "token"); removed the rule through the UI,
+  saved, confirmed reversion to allow-all; logged out and confirmed return to the login screen.
+
 ### Module system (`ansible.builtin`-compatible, native Go)
 
 The core of the agent is a set of **built-in modules** that reimplement `ansible.builtin`

@@ -8,13 +8,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/webui"
 )
 
-// serveHTTP starts the Streamable HTTP MCP endpoint at /mcp and the REST API
-// under /api/v1/, both guarded by bearer-token auth when cfg.Token is set,
-// plus an unauthenticated /healthz. MCP and REST expose the same underlying
-// capabilities (proc resources, modules/tasks, run_pipeline, metrics) as two
-// different protocols.
+// serveHTTP starts the Streamable HTTP MCP endpoint at /mcp (bearer-token
+// only — v1 has one fixed token identity for MCP, see docs/plan.md), the
+// REST API under /api/v1/ (bearer token OR a PAM-login session — REST
+// authenticates itself via its own middleware, see internal/server/rest.go's
+// withIdentity, so it is mounted here without an additional auth wrapper),
+// the static admin UI under /ui/ (public static assets; the page itself
+// authenticates against /api/v1/ once loaded), and an unauthenticated
+// /healthz.
 func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handler) error {
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return mcpServer
@@ -26,7 +30,15 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.Handle("/mcp", withBearerAuth(cfg.Token, mcpHandler))
-	mux.Handle("/api/v1/", withBearerAuth(cfg.Token, restHandler))
+	mux.Handle("/api/v1/", restHandler)
+
+	if cfg.UI.Enabled {
+		uiHandler, err := webui.Handler("/ui")
+		if err != nil {
+			return err
+		}
+		mux.Handle("/ui/", uiHandler)
+	}
 
 	slog.Info("agentic-mcpd listening", "addr", cfg.Listen)
 	return http.ListenAndServe(cfg.Listen, mux)
