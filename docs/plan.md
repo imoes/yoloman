@@ -433,16 +433,31 @@ SQLite note: `modernc.org/sqlite` (pure Go, no cgo) — no system package needed
 - Install the `.deb` in a fresh Debian Docker container → the service runs, a token is
   generated, and a query from outside succeeds
 
-## Planned near-term addition: Nagios/CheckMK-compatible custom checks
+## Nagios/CheckMK-compatible custom checks (implemented after step 8)
 
-A `check` task kind alongside the existing module/pipeline tools.d kinds: runs a script/binary
-like a standard Nagios/CheckMK plugin (exit code 0/1/2/3 = OK/WARNING/CRITICAL/UNKNOWN, stdout's
-first line optionally carrying `|`-delimited perfdata) and returns the parsed status + message +
-perfdata as structured JSON — an MCP/REST tool like any other. Only a `description` is required
-per check (mirroring the cross-tool-equivalents pattern from step 3) so the AI understands what
-the check monitors without needing external documentation; the check binary itself can be an
-existing Nagios/CheckMK plugin (`check_disk`, `check_http`, a custom script, …), giving instant
-compatibility with the existing plugin ecosystem. To be implemented right after step 8.
+A third tools.d task kind, `check:`, alongside the existing module (`ansible.builtin.*:`) and
+`pipeline:` kinds — mutually exclusive with both. Runs a script/binary following the standard
+Nagios Plugin API (also used by CheckMK's local/MRPE checks): exit code 0/1/2/3 =
+OK/WARNING/CRITICAL/UNKNOWN, stdout's first line as `<message>[ | <perfdata>]`, further lines as
+long-output. `internal/checks` parses this into `{status, message, long_output, perfdata[],
+exit_code}`. Only a `description` is required per check (same cross-tool-equivalents philosophy
+as step 3) — the check binary itself can be an existing Nagios/CheckMK plugin (`check_disk`,
+`check_http`, …) or a custom script following the same convention, giving instant compatibility
+with the existing plugin ecosystem with zero adapter code.
+
+A check task is always read-only (`Writes()` is always `false`) and therefore always registered
+regardless of the write gate — a monitoring check inspects and reports, it never mutates state.
+`{{ param }}` placeholder substitution works exactly as for module/pipeline tasks (e.g. a
+`{{ warn_threshold }}` argument).
+
+Verified with unit tests (Nagios-format parsing incl. perfdata with full
+label/warn/crit/min/max, multi-line long-output, empty output, real subprocess exit codes via
+`/bin/sh`; task-level: parsing, always-read-only, placeholder substitution, missing-required-param
+rejection) and end-to-end: `configs/tools.d/check_root_disk.yaml` — a real, self-contained
+Nagios-style plugin (checks `df -P /` against 80%/90% thresholds, no external plugin package
+needed) — registered and callable via both MCP and REST even with `write:false`, returning the
+real root filesystem usage (verified against `df` directly) with correctly parsed status,
+message, and perfdata.
 
 ## Roadmap (after this v1 — separate plans)
 

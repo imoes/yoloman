@@ -17,6 +17,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/mutkluge/agentic-mcp/internal/checks"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 )
@@ -36,11 +37,12 @@ type Task struct {
 	Description string
 	Params      map[string]ParamSpec
 
-	// Exactly one of Module/Body (a module task) or Pipeline (a pipeline
-	// task) is set.
+	// Exactly one of Module/Body (a module task), Pipeline (a pipeline
+	// task), or Check (a Nagios/CheckMK-style plugin task) is set.
 	Module   string
 	Body     map[string]any
 	Pipeline [][]string
+	Check    []string
 }
 
 const ansiblePrefix = "ansible.builtin."
@@ -67,7 +69,7 @@ func ParseFile(data []byte) (*Task, error) {
 
 	var moduleKey string
 	var moduleBody map[string]any
-	var pipelineRaw any
+	var pipelineRaw, checkRaw any
 	for k, v := range raw {
 		switch k {
 		case "name", "description", "params":
@@ -75,9 +77,12 @@ func ParseFile(data []byte) (*Task, error) {
 		case "pipeline":
 			pipelineRaw = v
 			continue
+		case "check":
+			checkRaw = v
+			continue
 		}
 		if !strings.HasPrefix(k, ansiblePrefix) {
-			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, or a single ansible.builtin.<module> key)", name, k)
+			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, check, or a single ansible.builtin.<module> key)", name, k)
 		}
 		if moduleKey != "" {
 			return nil, fmt.Errorf("task %q: multiple ansible.builtin.* keys found (%q and %q); exactly one module task is supported per file", name, moduleKey, k)
@@ -92,11 +97,9 @@ func ParseFile(data []byte) (*Task, error) {
 
 	hasModule := moduleKey != ""
 	hasPipeline := pipelineRaw != nil
-	if hasModule == hasPipeline {
-		return nil, fmt.Errorf("task %q: exactly one of an ansible.builtin.<module> key or a 'pipeline' key is required", name)
-	}
-
-	if hasModule {
+	hasCheck := checkRaw != nil
+	switch {
+	case hasModule && !hasPipeline && !hasCheck:
 		return &Task{
 			Name:        name,
 			Description: description,
@@ -104,18 +107,21 @@ func ParseFile(data []byte) (*Task, error) {
 			Module:      strings.TrimPrefix(moduleKey, ansiblePrefix),
 			Body:        moduleBody,
 		}, nil
+	case hasPipeline && !hasModule && !hasCheck:
+		stages, err := parsePipelineStages(name, pipelineRaw)
+		if err != nil {
+			return nil, err
+		}
+		return &Task{Name: name, Description: description, Params: params, Pipeline: stages}, nil
+	case hasCheck && !hasModule && !hasPipeline:
+		argv, err := parseCheckArgv(name, checkRaw)
+		if err != nil {
+			return nil, err
+		}
+		return &Task{Name: name, Description: description, Params: params, Check: argv}, nil
+	default:
+		return nil, fmt.Errorf("task %q: exactly one of an ansible.builtin.<module> key, a 'pipeline' key, or a 'check' key is required", name)
 	}
-
-	stages, err := parsePipelineStages(name, pipelineRaw)
-	if err != nil {
-		return nil, err
-	}
-	return &Task{
-		Name:        name,
-		Description: description,
-		Params:      params,
-		Pipeline:    stages,
-	}, nil
 }
 
 func parseParamSpecs(taskName string, raw any) (map[string]ParamSpec, error) {
@@ -190,6 +196,27 @@ func parsePipelineStages(taskName string, raw any) ([][]string, error) {
 	return stages, nil
 }
 
+// parseCheckArgv parses a 'check:' value — a flat list of strings forming
+// the Nagios/CheckMK-style plugin's argv (e.g. [check_disk, -w, "10%"]).
+func parseCheckArgv(taskName string, raw any) ([]string, error) {
+	argvRaw, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("task %q: 'check' must be a list of strings (the plugin argv)", taskName)
+	}
+	argv := make([]string, len(argvRaw))
+	for i, a := range argvRaw {
+		s, ok := a.(string)
+		if !ok {
+			return nil, fmt.Errorf("task %q: check[%d]: expected string, got %T", taskName, i, a)
+		}
+		argv[i] = s
+	}
+	if len(argv) == 0 {
+		return nil, fmt.Errorf("task %q: 'check' must not be empty", taskName)
+	}
+	return argv, nil
+}
+
 // LoadDir parses every *.yaml/*.yml file directly under dir into a Task,
 // erroring on duplicate task names. A missing dir is not an error — it
 // simply yields no tasks (tools.d/ is optional).
@@ -237,13 +264,21 @@ func LoadDir(dir string) ([]*Task, error) {
 // IsPipeline reports whether t is a pipeline task (as opposed to a module task).
 func (t *Task) IsPipeline() bool { return t.Pipeline != nil }
 
+// IsCheck reports whether t is a Nagios/CheckMK-style plugin check task.
+func (t *Task) IsCheck() bool { return t.Check != nil }
+
 // Writes reports whether running this task can mutate system state: for a
 // module task, that's the underlying module's Writes(); a pipeline task is
 // always treated as writing, since arbitrary chained commands cannot be
-// assumed read-only.
+// assumed read-only; a check task is always read-only (a monitoring plugin
+// inspects and reports, it does not change state), so it is always
+// registered regardless of the write gate.
 func (t *Task) Writes(reg *modules.Registry) (bool, error) {
 	if t.IsPipeline() {
 		return true, nil
+	}
+	if t.IsCheck() {
+		return false, nil
 	}
 	m, ok := reg.Get(t.Module)
 	if !ok {
@@ -416,6 +451,18 @@ func (t *Task) Run(ctx context.Context, reg *modules.Registry, policy *pipeline.
 		return modules.Result{Changed: !dryRun, Msg: "pipeline executed", Data: res}, nil
 	}
 
+	if t.IsCheck() {
+		argv, err := substituteArgv(t.Check, args)
+		if err != nil {
+			return modules.Result{}, err
+		}
+		res, err := checks.RunDefault(ctx, argv, 0)
+		if err != nil {
+			return modules.Result{}, err
+		}
+		return modules.Result{Changed: false, Msg: string(res.Status), Data: res}, nil
+	}
+
 	m, ok := reg.Get(t.Module)
 	if !ok {
 		return modules.Result{}, fmt.Errorf("task %q references unknown module %q", t.Name, t.Module)
@@ -429,6 +476,20 @@ func (t *Task) Run(ctx context.Context, reg *modules.Registry, policy *pipeline.
 		return modules.Result{}, fmt.Errorf("task %q: internal error: resolved body is not a map", t.Name)
 	}
 	return m.Run(ctx, body, dryRun)
+}
+
+// substituteArgv resolves {{ placeholder }} references in a flat argv
+// (used for check tasks), stringifying each resolved value.
+func substituteArgv(argv []string, args map[string]any) ([]string, error) {
+	out := make([]string, len(argv))
+	for i, s := range argv {
+		v, err := substitute(s, args)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = fmt.Sprintf("%v", v)
+	}
+	return out, nil
 }
 
 func substituteStages(stages [][]string, args map[string]any) ([][]string, error) {

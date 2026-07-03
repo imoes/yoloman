@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mutkluge/agentic-mcp/internal/checks"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 )
@@ -50,6 +51,23 @@ params:
 	spec, ok := task.Params["message"]
 	if !ok || !spec.Required || spec.Type != "string" {
 		t.Errorf("unexpected params: %+v", task.Params)
+	}
+}
+
+func TestParseFile_CheckTask(t *testing.T) {
+	task, err := ParseFile([]byte(`
+name: check_root_disk
+description: "root filesystem usage"
+check: [/bin/sh, -c, "echo 'OK - fine'; exit 0"]
+`))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if !task.IsCheck() {
+		t.Fatal("expected check task")
+	}
+	if len(task.Check) != 3 || task.Check[0] != "/bin/sh" {
+		t.Errorf("unexpected check argv: %+v", task.Check)
 	}
 }
 
@@ -198,6 +216,18 @@ pipeline:
 	writes, err := task.Writes(modules.NewRegistry())
 	if err != nil || !writes {
 		t.Errorf("expected pipeline task to always report writes=true, got %v %v", writes, err)
+	}
+}
+
+func TestTask_Writes_CheckAlwaysReadOnly(t *testing.T) {
+	task, _ := ParseFile([]byte(`
+name: check_x
+description: "x"
+check: [/bin/true]
+`))
+	writes, err := task.Writes(modules.NewRegistry())
+	if err != nil || writes {
+		t.Errorf("expected check task to always report writes=false, got %v %v", writes, err)
 	}
 }
 
@@ -392,6 +422,77 @@ params:
 	pipeRes := res.Data.(pipeline.Result)
 	if pipeRes.Stdout != "b\n" {
 		t.Errorf("stdout = %q, want %q", pipeRes.Stdout, "b\n")
+	}
+}
+
+func TestTask_Run_CheckTask(t *testing.T) {
+	task, err := ParseFile([]byte(`
+name: check_x
+description: "x"
+check: [/bin/sh, -c, "echo 'CRITICAL - disk full | used=99%'; exit 2"]
+`))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+
+	res, err := task.Run(context.Background(), modules.NewRegistry(), pipeline.EmptyPolicy(), nil, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Changed {
+		t.Error("expected check task to always report changed=false")
+	}
+	checkRes := res.Data.(checks.Result)
+	if checkRes.Status != checks.StatusCritical {
+		t.Errorf("status = %q, want CRITICAL", checkRes.Status)
+	}
+	if checkRes.Message != "CRITICAL - disk full" {
+		t.Errorf("message = %q", checkRes.Message)
+	}
+	if len(checkRes.Perfdata) != 1 || checkRes.Perfdata[0].Label != "used" {
+		t.Errorf("unexpected perfdata: %+v", checkRes.Perfdata)
+	}
+}
+
+func TestTask_Run_CheckWithSubstitution(t *testing.T) {
+	task, err := ParseFile([]byte(`
+name: check_threshold
+description: "x"
+check: [/bin/sh, -c, "echo OK - warn is {{ warn }}"]
+params:
+  warn:
+    type: string
+    required: true
+`))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+
+	res, err := task.Run(context.Background(), modules.NewRegistry(), pipeline.EmptyPolicy(), map[string]any{"warn": "80"}, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	checkRes := res.Data.(checks.Result)
+	if checkRes.Message != "OK - warn is 80" {
+		t.Errorf("message = %q, want substitution to have applied", checkRes.Message)
+	}
+}
+
+func TestTask_Run_CheckMissingRequiredParam(t *testing.T) {
+	task, err := ParseFile([]byte(`
+name: check_threshold
+description: "x"
+check: [/bin/sh, -c, "echo OK - {{ warn }}"]
+params:
+  warn:
+    type: string
+    required: true
+`))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if _, err := task.Run(context.Background(), modules.NewRegistry(), pipeline.EmptyPolicy(), nil, false); err == nil {
+		t.Fatal("expected error for missing required parameter")
 	}
 }
 
