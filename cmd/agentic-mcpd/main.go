@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
+	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
 )
 
@@ -42,7 +44,18 @@ func run(args []string) error {
 		cfg.Listen = *listen
 	}
 
-	mcpServer, err := newServer(cfg)
+	st, err := store.OpenSQLite(cfg.DB.Path)
+	if err != nil {
+		return fmt.Errorf("opening store: %w", err)
+	}
+	defer st.Close()
+
+	if err := recordStartupMarker(st); err != nil {
+		slog.Warn("failed to record startup marker", "error", err)
+	}
+	startRetentionLoop(cfg, st)
+
+	mcpServer, err := newServer(cfg, st)
 	if err != nil {
 		return err
 	}
@@ -67,12 +80,13 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 
 // newServer builds the MCP server with all resources/tools registered.
 // Registration grows in later steps (ebpf, ...).
-func newServer(cfg config.Config) (*mcp.Server, error) {
+func newServer(cfg config.Config, st store.Store) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
+	server.RegisterMetrics(s, st)
 
 	modReg := server.NewDefaultModuleRegistry()
 	server.RegisterModules(s, modReg, cfg.Write)
@@ -89,6 +103,55 @@ func newServer(cfg config.Config) (*mcp.Server, error) {
 	}
 
 	return s, nil
+}
+
+// recordStartupMarker writes a single point marking this daemon start,
+// giving the store real data to query even before any collector (eBPF,
+// samplers) exists.
+func recordStartupMarker(st store.Store) error {
+	return st.WritePoints(context.Background(), []store.Point{{
+		Metric:    "agentic_mcpd_start",
+		Timestamp: time.Now(),
+		Value:     1,
+		Labels:    map[string]string{"version": "0.1.0"},
+	}})
+}
+
+// startRetentionLoop runs the store's downsample job on a ticker for the
+// lifetime of the process, consolidating raw points older than
+// cfg.DB.Retention.Raw into hourly points, and hourly points older than
+// cfg.DB.Retention.Hourly into daily points.
+func startRetentionLoop(cfg config.Config, st store.Store) {
+	interval := cfg.DB.Retention.Interval.Duration()
+	if interval <= 0 {
+		interval = time.Hour
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			runDownsample(cfg, st)
+		}
+	}()
+}
+
+func runDownsample(cfg config.Config, st store.Store) {
+	now := time.Now()
+	rawCutoff := now.Add(-cfg.DB.Retention.Raw.Duration())
+	hourlyCutoff := now.Add(-cfg.DB.Retention.Hourly.Duration())
+
+	stats, err := st.Downsample(context.Background(), rawCutoff, hourlyCutoff)
+	if err != nil {
+		slog.Error("retention downsample failed", "error", err)
+		return
+	}
+	if stats.RawRowsAggregated > 0 || stats.HourlyRowsAggregated > 0 {
+		slog.Info("retention downsample completed",
+			"raw_aggregated", stats.RawRowsAggregated,
+			"hourly_created", stats.HourlyRowsCreated,
+			"hourly_aggregated", stats.HourlyRowsAggregated,
+			"daily_created", stats.DailyRowsCreated)
+	}
 }
 
 // loadCommandPolicyOrEmpty loads the pipeline command policy if the file

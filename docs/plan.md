@@ -78,6 +78,23 @@ zero-dependency agent + fleet orchestration, all AI-native via MCP. That's the g
    no external service, survives restarts. A **retention/downsampling job** (raw data → hourly/
    daily averages) gives the bounded size one would expect from RRD — without its rigidity.
    A DB abstraction exists; the Commander later uses MariaDB/PostgreSQL.
+
+   **Implemented (step 6):** `internal/store` — a `Store` interface (`WritePoints`, `Query`,
+   `Downsample`, `Close`) and a `modernc.org/sqlite`-backed implementation (pure Go, no cgo). A
+   `Point` is `{metric, timestamp, value, labels map[string]string, resolution}`; labels are
+   stored as canonical (sorted-key) JSON so identical label sets `GROUP BY` correctly during
+   consolidation. `Downsample(rawCutoff, hourlyCutoff)` runs two consolidation passes — raw→hourly
+   then hourly→daily — each averaging every `(metric, labels)` series' old points into
+   bucket-aligned rows via one SQL `GROUP BY` query, inserting the consolidated rows, then
+   deleting the source rows; safe to call repeatedly on a ticker. `config.DB.Retention`
+   (`raw`/`hourly`/`interval`, parsed from strings like `"24h"`) drives a background retention
+   loop in `main.go`. A `metrics_query` MCP tool (always active, matching the "retrieve
+   performance data easily" requirement) reads the store with RFC3339-or-relative-duration time
+   bounds and label filtering; a startup marker point is written on daemon start so the store has
+   real, queryable data before the eBPF collector (step 10) exists. Verified end-to-end: the
+   daemon wrote a real SQLite file, `metrics_query` returned the startup marker over live MCP,
+   and the file's contents were independently confirmed with Python's stdlib `sqlite3` — a
+   genuine, standards-compliant SQLite file, not a proprietary format.
 5. **Two access modes:** **(a) MCP over Streamable HTTP** (for AI clients) and **(b) a plain
    REST API mode** (same capabilities, plain JSON — usable without an MCP client)
 6. **Write gate:** a global `write: true|false` switch in the config (default `false`). When

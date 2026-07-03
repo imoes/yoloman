@@ -4,20 +4,21 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config is the top-level daemon configuration (config.yaml).
 type Config struct {
-	Listen string `yaml:"listen"`
-	Token  string `yaml:"token"`
-	Write  bool   `yaml:"write"`
-	TLS    TLS    `yaml:"tls"`
-	EBPF   EBPF   `yaml:"ebpf"`
-	DB     DB     `yaml:"db"`
-	PAM    PAM    `yaml:"pam"`
-	UI     UI     `yaml:"ui"`
+	Listen       string `yaml:"listen"`
+	Token        string `yaml:"token"`
+	Write        bool   `yaml:"write"`
+	TLS          TLS    `yaml:"tls"`
+	EBPF         EBPF   `yaml:"ebpf"`
+	DB           DB     `yaml:"db"`
+	PAM          PAM    `yaml:"pam"`
+	UI           UI     `yaml:"ui"`
 	ToolsDir     string `yaml:"tools_dir"`
 	CommandsFile string `yaml:"commands_file"`
 }
@@ -33,8 +34,39 @@ type EBPF struct {
 }
 
 type DB struct {
-	Driver string `yaml:"driver"` // sqlite (v1)
-	Path   string `yaml:"path"`
+	Driver    string    `yaml:"driver"` // sqlite (v1)
+	Path      string    `yaml:"path"`
+	Retention Retention `yaml:"retention"`
+}
+
+// Retention controls the store's downsampling job: how long raw points
+// live before being averaged into hourly points, how long hourly points
+// live before being averaged into daily points, and how often that job
+// runs.
+type Retention struct {
+	Raw      Duration `yaml:"raw"`
+	Hourly   Duration `yaml:"hourly"`
+	Interval Duration `yaml:"interval"`
+}
+
+// Duration wraps time.Duration so it can be written in config.yaml as a
+// plain Go duration string (e.g. "24h", "720h"), which time.Duration alone
+// cannot unmarshal from YAML.
+type Duration time.Duration
+
+func (d Duration) Duration() time.Duration { return time.Duration(d) }
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	var s string
+	if err := value.Decode(&s); err != nil {
+		return err
+	}
+	parsed, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", s, err)
+	}
+	*d = Duration(parsed)
+	return nil
 }
 
 type PAM struct {
@@ -52,9 +84,17 @@ func Default() Config {
 		Listen: "127.0.0.1:8010",
 		Write:  false,
 		EBPF:   EBPF{Enabled: true},
-		DB:     DB{Driver: "sqlite", Path: "/var/lib/agentic-mcp/agentic-mcp.db"},
-		PAM:    PAM{Enabled: true, Service: "agentic-mcp"},
-		UI:     UI{Enabled: true},
+		DB: DB{
+			Driver: "sqlite",
+			Path:   "/var/lib/agentic-mcp/agentic-mcp.db",
+			Retention: Retention{
+				Raw:      Duration(24 * time.Hour),
+				Hourly:   Duration(30 * 24 * time.Hour),
+				Interval: Duration(time.Hour),
+			},
+		},
+		PAM:          PAM{Enabled: true, Service: "agentic-mcp"},
+		UI:           UI{Enabled: true},
 		ToolsDir:     "/etc/agentic-mcp/tools.d",
 		CommandsFile: "/etc/agentic-mcp/commands.yaml",
 	}
