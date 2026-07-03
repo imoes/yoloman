@@ -61,3 +61,15 @@ func stringSliceParam(params map[string]any, key string, required bool) ([]strin
 		return nil, fmt.Errorf("%s: expected array of strings, got %T", key, v)
 	}
 }
+
+// stringOrStringSliceParam extracts a parameter that accepts either a single
+// string or an array of strings, always returning a []string — mirroring
+// how Ansible modules commonly accept `name: foo` or `name: [foo, bar]`.
+func stringOrStringSliceParam(params map[string]any, key string, required bool) ([]string, error) {
+	if v, ok := params[key]; ok {
+		if s, ok := v.(string); ok {
+			return []string{s}, nil
+		}
+	}
+	return stringSliceParam(params, key, required)
+}

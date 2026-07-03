@@ -337,6 +337,11 @@ Already usable for verification, **no extra package needed**: `go test` (unit/in
 `claude` as an MCP client, `curl`+`jq` for REST, `docker` for the clean-install test, Node/npx for
 `@modelcontextprotocol/inspector` and Playwright (UI step), `bpftool` for eBPF debugging.
 
+**Remote test host:** `host1.example.internal`, user `marvin`, key `~/.ssh/marvin.key`.
+Available for later steps needing a real target beyond this dev machine — primarily the `.deb`
+clean-install test (step 12) and systemd-hardening verification (step 11), where a disposable
+real host is more representative than a local Docker container.
+
 SQLite note: `modernc.org/sqlite` (pure Go, no cgo) — no system package needed.
 
 ## Verification (end to end)

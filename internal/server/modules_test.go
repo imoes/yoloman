@@ -109,9 +109,40 @@ func TestRegisterModules_CallToolRoundTrip(t *testing.T) {
 
 func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 	reg := NewDefaultModuleRegistry()
-	for _, name := range []string{"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent"} {
+	readOnly := []string{"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent"}
+	writing := []string{"file", "copy", "lineinfile", "systemd", "service", "apt", "command"}
+	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {
 			t.Errorf("expected default registry to contain module %q", name)
+		}
+	}
+}
+
+func TestRegisterModules_DefaultRegistry_WriteFalseHidesWriteModules(t *testing.T) {
+	reg := NewDefaultModuleRegistry()
+	cs := connectModuleServer(t, reg, false)
+	names := toolNames(t, cs)
+
+	for _, name := range []string{"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent"} {
+		if !names[name] {
+			t.Errorf("expected read-only tool %q to be registered when write=false", name)
+		}
+	}
+	for _, name := range []string{"file", "copy", "lineinfile", "systemd", "service", "apt", "command"} {
+		if names[name] {
+			t.Errorf("expected write tool %q to be absent when write=false", name)
+		}
+	}
+}
+
+func TestRegisterModules_DefaultRegistry_WriteTrueExposesWriteModules(t *testing.T) {
+	reg := NewDefaultModuleRegistry()
+	cs := connectModuleServer(t, reg, true)
+	names := toolNames(t, cs)
+
+	for _, name := range []string{"file", "copy", "lineinfile", "systemd", "service", "apt", "command"} {
+		if !names[name] {
+			t.Errorf("expected write tool %q to be registered when write=true", name)
 		}
 	}
 }

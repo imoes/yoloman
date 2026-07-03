@@ -10,9 +10,10 @@ import (
 )
 
 // NewDefaultModuleRegistry returns a registry populated with all of v1's
-// read/facts modules (setup, stat, find, slurp, service_facts,
-// package_facts, getent). Write modules are added in a later step, gated by
-// config.Write.
+// modules: the read/facts set (setup, stat, find, slurp, service_facts,
+// package_facts, getent), always active, plus the first write set (file,
+// copy, lineinfile, systemd, service, apt, command), only ever exposed as
+// tools when the write gate (config.Write) is open — see RegisterModules.
 func NewDefaultModuleRegistry() *modules.Registry {
 	reg := modules.NewRegistry()
 	for _, m := range []modules.Module{
@@ -23,6 +24,13 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewServiceFacts(),
 		modules.NewPackageFacts(),
 		modules.NewGetent(),
+		modules.NewFile(),
+		modules.NewCopy(),
+		modules.NewLineInFile(),
+		modules.NewSystemd(),
+		modules.NewService(),
+		modules.NewApt(),
+		modules.NewCommand(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules
