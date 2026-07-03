@@ -197,11 +197,25 @@ pre-configure** named, narrow actions (least privilege).
 
 Two ways, both **without `sh -c`**; the pipe is wired natively in Go (stdout→stdin):
 
-1. **Predefined** in YAML: a `pipeline:` list of argv stages instead of `exec/args`
+1. **Predefined** in YAML: a `pipeline:` list of argv stages instead of an `ansible.builtin.*:` key
+   (a tools.d file is exactly one or the other, never both)
 2. **Ad-hoc** via the `run_pipeline` tool/REST endpoint: stages as argv arrays
    (`[["ps","aux"],["grep","nginx"],["wc","-l"]]`). Each stage is checked against
    `/etc/agentic-mcp/commands.yaml` (binary whitelist + argument policy; forbidden flags like
    `find -exec`, `-delete` are blocked). No redirects/substitution/globs via a shell.
+
+**Implemented (step 5):** `internal/pipeline` (policy + native `exec.Cmd` stdout→stdin chaining,
+timeout, output cap) and `internal/tasks` (the tools.d YAML parser: module tasks with
+`{{ param }}` placeholder substitution — whole-value substitutions preserve the argument's native
+type, partial/embedded substitutions are stringified — validated per-param via `type`/`required`/
+`pattern` before substitution, and pipeline tasks). A task's write-gate status is derived
+automatically: a module task inherits its underlying module's `Writes()`; a pipeline task is
+always treated as writing, since arbitrary chained commands can't be assumed read-only. `run_pipeline`
+itself is therefore also gated on `write:true`. Verified end-to-end against the real system:
+`disk_list` (task wrapping `ansible.builtin.command`) ran real `fdisk -l`; `deploy_motd` (task with
+`{{ message }}` substitution into `ansible.builtin.copy`) correctly surfaced a real permission
+error against `/etc/motd`; `run_pipeline` ran a live `ps aux | grep agentic-mcpd | wc -l` through
+three chained real processes and correctly rejected an unlisted binary (`rm`).
 
 ### eBPF collector (Coroot-style)
 

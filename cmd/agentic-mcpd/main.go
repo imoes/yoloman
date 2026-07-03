@@ -13,7 +13,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
+	"github.com/mutkluge/agentic-mcp/internal/tasks"
 )
 
 func main() {
@@ -40,7 +42,10 @@ func run(args []string) error {
 		cfg.Listen = *listen
 	}
 
-	mcpServer := newServer(cfg)
+	mcpServer, err := newServer(cfg)
+	if err != nil {
+		return err
+	}
 
 	if *stdio {
 		return mcpServer.Run(context.Background(), &mcp.StdioTransport{})
@@ -61,13 +66,43 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 }
 
 // newServer builds the MCP server with all resources/tools registered.
-// Registration grows in later steps (modules, tools.d, ebpf, ...).
-func newServer(cfg config.Config) *mcp.Server {
+// Registration grows in later steps (ebpf, ...).
+func newServer(cfg config.Config) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
-	server.RegisterModules(s, server.NewDefaultModuleRegistry(), cfg.Write)
-	return s
+
+	modReg := server.NewDefaultModuleRegistry()
+	server.RegisterModules(s, modReg, cfg.Write)
+
+	policy := loadCommandPolicyOrEmpty(cfg.CommandsFile)
+	server.RegisterRunPipeline(s, policy, cfg.Write)
+
+	taskList, err := tasks.LoadDir(cfg.ToolsDir)
+	if err != nil {
+		return nil, fmt.Errorf("loading tools.d: %w", err)
+	}
+	if err := server.RegisterTasks(s, taskList, modReg, policy, cfg.Write); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// loadCommandPolicyOrEmpty loads the pipeline command policy if the file
+// exists, else falls back to an empty (allow-nothing) policy — the safe
+// default when no commands.yaml is configured.
+func loadCommandPolicyOrEmpty(path string) *pipeline.Policy {
+	if _, err := os.Stat(path); err != nil {
+		slog.Warn("command policy file not found, pipelines will allow no commands", "path", path)
+		return pipeline.EmptyPolicy()
+	}
+	p, err := pipeline.LoadPolicy(path)
+	if err != nil {
+		slog.Warn("failed to load command policy, pipelines will allow no commands", "path", path, "error", err)
+		return pipeline.EmptyPolicy()
+	}
+	return p
 }
