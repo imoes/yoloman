@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
@@ -61,7 +62,20 @@ func run(args []string) error {
 		return err
 	}
 
-	mcpServer, err := newServer(cfg, st, comps)
+	acl, err := authz.OpenACL(cfg.ACLPath)
+	if err != nil {
+		return fmt.Errorf("opening ACL store: %w", err)
+	}
+	defer acl.Close()
+
+	var pamAuth *authz.PAMAuthenticator
+	var sessions *authz.SessionStore
+	if cfg.PAM.Enabled {
+		pamAuth = authz.NewPAMAuthenticator(cfg.PAM.Service)
+		sessions = authz.NewSessionStore(cfg.PAM.SessionTTL.Duration())
+	}
+
+	mcpServer, err := newServer(cfg, st, comps, acl)
 	if err != nil {
 		return err
 	}
@@ -77,6 +91,10 @@ func run(args []string) error {
 		Policy:   comps.policy,
 		Store:    st,
 		Write:    cfg.Write,
+		Token:    cfg.Token,
+		ACL:      acl,
+		Sessions: sessions,
+		PAMAuth:  pamAuth,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }
@@ -115,16 +133,16 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 
 // newServer builds the MCP server with all resources/tools registered.
 // Registration grows in later steps (ebpf, ...).
-func newServer(cfg config.Config, st store.Store, c *components) (*mcp.Server, error) {
+func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
 	server.RegisterMetrics(s, st)
-	server.RegisterModules(s, c.modReg, cfg.Write)
-	server.RegisterRunPipeline(s, c.policy, cfg.Write)
-	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write); err != nil {
+	server.RegisterModules(s, c.modReg, cfg.Write, acl)
+	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl)
+	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl); err != nil {
 		return nil, err
 	}
 	return s, nil

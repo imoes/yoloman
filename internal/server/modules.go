@@ -6,6 +6,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 )
 
@@ -43,13 +44,17 @@ func NewDefaultModuleRegistry() *modules.Registry {
 
 // RegisterModules exposes every module in reg as an MCP tool. Read-only
 // modules (Writes() == false) are always registered; writing modules are
-// only registered when write is true — the write gate.
-func RegisterModules(s *mcp.Server, reg *modules.Registry, write bool) {
+// only registered when write is true — the write gate. acl may be nil (no
+// ACL enforcement beyond the write gate); when set, every call is also
+// checked against acl.Authorize using the fixed MCP token identity (see
+// authz.TokenIdentity — v1 has one shared bearer token, so this is the only
+// principal MCP calls can be attributed to).
+func RegisterModules(s *mcp.Server, reg *modules.Registry, write bool, acl *authz.ACL) {
 	for _, m := range reg.All() {
 		if m.Writes() && !write {
 			continue
 		}
-		registerModuleTool(s, m)
+		registerModuleTool(s, m, acl)
 	}
 }
 
@@ -71,17 +76,36 @@ var moduleResultOutputSchema = map[string]any{
 	"required": []string{"changed"},
 }
 
-func registerModuleTool(s *mcp.Server, m modules.Module) {
+func registerModuleTool(s *mcp.Server, m modules.Module, acl *authz.ACL) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         m.Name(),
 		Description:  m.Description(),
 		InputSchema:  m.InputSchema(),
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
+		if err := checkACL(ctx, acl, m.Name(), m.Writes()); err != nil {
+			return nil, modules.Result{}, err
+		}
 		res, err := m.Run(ctx, in, false)
 		if err != nil {
 			return nil, modules.Result{}, err
 		}
 		return nil, res, nil
 	})
+}
+
+// checkACL enforces acl (if non-nil) for the fixed MCP token identity,
+// returning an error (surfaced as an MCP tool error) if access is denied.
+func checkACL(ctx context.Context, acl *authz.ACL, tool string, writes bool) error {
+	if acl == nil {
+		return nil
+	}
+	dec, err := acl.Authorize(ctx, authz.TokenIdentity, tool, writes)
+	if err != nil {
+		return fmt.Errorf("checking ACL: %w", err)
+	}
+	if !dec.Allowed {
+		return fmt.Errorf("access denied: %s", dec.Reason)
+	}
+	return nil
 }

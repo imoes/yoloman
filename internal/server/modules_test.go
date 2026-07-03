@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 )
 
@@ -28,8 +30,13 @@ func (s stubModule) Run(ctx context.Context, params map[string]any, dryRun bool)
 
 func connectModuleServer(t *testing.T, reg *modules.Registry, write bool) *mcp.ClientSession {
 	t.Helper()
+	return connectModuleServerWithACL(t, reg, write, nil)
+}
+
+func connectModuleServerWithACL(t *testing.T, reg *modules.Registry, write bool, acl *authz.ACL) *mcp.ClientSession {
+	t.Helper()
 	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-	RegisterModules(s, reg, write)
+	RegisterModules(s, reg, write, acl)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	ctx := context.Background()
@@ -166,5 +173,75 @@ func TestRegisterModules_RealStatModuleRoundTrip(t *testing.T) {
 	data := out["data"].(map[string]any)
 	if data["exists"] != true || data["isdir"] != true {
 		t.Errorf("unexpected stat result for /: %+v", data)
+	}
+}
+
+func openTestACLForModules(t *testing.T) *authz.ACL {
+	t.Helper()
+	acl, err := authz.OpenACL(filepath.Join(t.TempDir(), "acl.db"))
+	if err != nil {
+		t.Fatalf("OpenACL: %v", err)
+	}
+	t.Cleanup(func() { acl.Close() })
+	return acl
+}
+
+func TestRegisterModules_ACLDisabledToolReturnsError(t *testing.T) {
+	acl := openTestACLForModules(t)
+	if err := acl.SetToolEnabled(context.Background(), "stat", false); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := modules.NewRegistry()
+	_ = reg.Register(modules.NewStat())
+	cs := connectModuleServerWithACL(t, reg, false, acl)
+
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "stat",
+		Arguments: map[string]any{"path": "/"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool transport error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected a disabled tool to return a tool error over MCP")
+	}
+}
+
+func TestRegisterModules_ACLTokenIdentityScopedByRule(t *testing.T) {
+	acl := openTestACLForModules(t)
+	if _, err := acl.AddRule(context.Background(), authz.Rule{
+		PrincipalKind: authz.PrincipalToken,
+		PrincipalName: authz.TokenPrincipalName,
+		Tools:         []string{"stat"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := modules.NewRegistry()
+	_ = reg.Register(modules.NewStat())
+	_ = reg.Register(modules.NewCopy())
+	cs := connectModuleServerWithACL(t, reg, true, acl)
+
+	statRes, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "stat",
+		Arguments: map[string]any{"path": "/"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	if statRes.IsError {
+		t.Errorf("expected stat allowed by ACL rule, got error: %+v", statRes.Content)
+	}
+
+	copyRes, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "copy",
+		Arguments: map[string]any{"dest": "/tmp/x", "content": "y"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	if !copyRes.IsError {
+		t.Error("expected copy denied (not covered by the token's ACL rule)")
 	}
 }

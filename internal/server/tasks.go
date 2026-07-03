@@ -6,6 +6,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
@@ -14,8 +15,9 @@ import (
 // RegisterTasks exposes every task in list as a curated MCP tool, dispatching
 // to modReg (for module tasks) or via policy (for pipeline tasks). Tasks
 // whose underlying operation writes are only registered when write is true —
-// the same write gate used for built-in modules.
-func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, write bool) error {
+// the same write gate used for built-in modules. acl may be nil (see
+// RegisterModules).
+func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, write bool, acl *authz.ACL) error {
 	for _, task := range list {
 		writes, err := task.Writes(modReg)
 		if err != nil {
@@ -24,18 +26,25 @@ func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, 
 		if writes && !write {
 			continue
 		}
-		registerTaskTool(s, task, modReg, policy)
+		registerTaskTool(s, task, modReg, policy, acl)
 	}
 	return nil
 }
 
-func registerTaskTool(s *mcp.Server, task *tasks.Task, modReg *modules.Registry, policy *pipeline.Policy) {
+func registerTaskTool(s *mcp.Server, task *tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, acl *authz.ACL) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         task.Name,
 		Description:  task.Description,
 		InputSchema:  task.InputSchema(),
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
+		writes, err := task.Writes(modReg)
+		if err != nil {
+			return nil, modules.Result{}, err
+		}
+		if err := checkACL(ctx, acl, task.Name, writes); err != nil {
+			return nil, modules.Result{}, err
+		}
 		res, err := task.Run(ctx, modReg, policy, in, false)
 		if err != nil {
 			return nil, modules.Result{}, err
@@ -52,8 +61,9 @@ type RunPipelineInput struct {
 // RegisterRunPipeline adds the ad-hoc run_pipeline tool, letting a caller
 // chain whitelisted commands (per policy) without a predefined tools.d
 // pipeline task. It is always a writing capability (arbitrary process
-// execution), so it is only registered when write is true.
-func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool) {
+// execution), so it is only registered when write is true. acl may be nil
+// (see RegisterModules).
+func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool, acl *authz.ACL) {
 	if !write {
 		return
 	}
@@ -88,6 +98,9 @@ func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool) {
 			"required": []string{"stages"},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in RunPipelineInput) (*mcp.CallToolResult, pipeline.Result, error) {
+		if err := checkACL(ctx, acl, "run_pipeline", true); err != nil {
+			return nil, pipeline.Result{}, err
+		}
 		res, err := pipeline.Run(ctx, policy, in.Stages, 0, 0)
 		if err != nil {
 			return nil, pipeline.Result{}, err

@@ -281,6 +281,35 @@ Two layers, both manageable via **API and web frontend**, persisted in SQLite:
 - **Enforcement** happens centrally in the server before every dispatch: (a) is the tool active?
   (b) is the caller authorized per ACL? (c) write gate. Every decision goes into the audit log.
 
+  **Implemented (step 8):** `internal/authz` — `PAMAuthenticator` (real `github.com/msteinert/pam/v2`
+  cgo calls: `Authenticate` + `AcctMgmt`, then resolves group membership) returning an `Identity`;
+  `SessionStore` (in-memory, TTL-based, opaque random tokens); `ACL` (SQLite-backed: `tool_state`
+  table for the enable/disable kill switch, `acl_rules` table for principal→tools→write-permission
+  rules) with `Authorize(identity, tool, writes) Decision`. **ACL semantics**: with zero rules
+  configured, every enabled tool is allowed (opt-in layer, doesn't break installs that haven't
+  set up ACL yet); once at least one rule exists, access becomes default-deny — identity must
+  match a rule covering that tool, and a further rule must grant `allow_write` for write calls.
+  A disabled tool is denied unconditionally regardless of rules.
+
+  Wired into **both** protocols against the *same* ACL store: REST (`internal/server/rest.go`)
+  resolves identity from a bearer token or a `Session <token>`/cookie (from
+  `POST /api/v1/auth/login`, which calls PAM and creates a session), and enforces ACL in
+  `handleToolCall`; MCP (`modules.go`/`tasks.go`) enforces the same `Authorize` call for every
+  tool dispatch using the fixed `authz.TokenIdentity` (v1 has one shared bearer token — true
+  per-connection MCP identity is listed under the v3 roadmap's "RBAC pro Token"). ACL admin REST
+  endpoints: `GET/PATCH /api/v1/acl/tools/{name}`, `GET/PUT /api/v1/acl/rules` (both require
+  `write:true`, since changing the security posture is itself a mutating operation).
+
+  Verified with unit tests (real, non-mocked PAM calls via `pam_permit.so`/`pam_deny.so` through
+  a throwaway `StartConfDir` service — success, denial, group-lookup-failure propagation; session
+  create/resolve/expire/revoke; ACL rule matching for user/group/token principals, tool disable,
+  write-permission scoping, rule-scoped tool lists) and end-to-end against the live daemon: PATCH
+  disabling `stat` → 403, re-enabling → 200 again, the real SQLite ACL file inspected directly
+  showing the persisted row, and — the key cross-protocol proof — an ACL rule added via
+  `PUT /api/v1/acl/rules` (REST) correctly scoping the token identity on the **MCP** endpoint too
+  (`stat` allowed, `copy` denied with the exact `Decision.Reason` string), confirming both access
+  modes enforce identical rules from one shared store.
+
 ### Security model
 
 - **No shell interpreter.** `exec.Command` + argv; parameters validated only via regex/enum;
@@ -403,6 +432,17 @@ SQLite note: `modernc.org/sqlite` (pure Go, no cgo) — no system package needed
   login in the frontend via Playwright, toggling a tool takes effect immediately
 - Install the `.deb` in a fresh Debian Docker container → the service runs, a token is
   generated, and a query from outside succeeds
+
+## Planned near-term addition: Nagios/CheckMK-compatible custom checks
+
+A `check` task kind alongside the existing module/pipeline tools.d kinds: runs a script/binary
+like a standard Nagios/CheckMK plugin (exit code 0/1/2/3 = OK/WARNING/CRITICAL/UNKNOWN, stdout's
+first line optionally carrying `|`-delimited perfdata) and returns the parsed status + message +
+perfdata as structured JSON — an MCP/REST tool like any other. Only a `description` is required
+per check (mirroring the cross-tool-equivalents pattern from step 3) so the AI understands what
+the check monitors without needing external documentation; the check binary itself can be an
+existing Nagios/CheckMK plugin (`check_disk`, `check_http`, a custom script, …), giving instant
+compatibility with the existing plugin ecosystem. To be implemented right after step 8.
 
 ## Roadmap (after this v1 — separate plans)
 

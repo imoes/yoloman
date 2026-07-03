@@ -21,6 +21,7 @@ type Config struct {
 	UI           UI     `yaml:"ui"`
 	ToolsDir     string `yaml:"tools_dir"`
 	CommandsFile string `yaml:"commands_file"`
+	ACLPath      string `yaml:"acl_path"`
 }
 
 type TLS struct {
@@ -70,8 +71,9 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type PAM struct {
-	Enabled bool   `yaml:"enabled"`
-	Service string `yaml:"service"`
+	Enabled    bool     `yaml:"enabled"`
+	Service    string   `yaml:"service"`
+	SessionTTL Duration `yaml:"session_ttl"`
 }
 
 type UI struct {
@@ -93,10 +95,11 @@ func Default() Config {
 				Interval: Duration(time.Hour),
 			},
 		},
-		PAM:          PAM{Enabled: true, Service: "agentic-mcp"},
+		PAM:          PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
 		UI:           UI{Enabled: true},
 		ToolsDir:     "/etc/agentic-mcp/tools.d",
 		CommandsFile: "/etc/agentic-mcp/commands.yaml",
+		ACLPath:      "/var/lib/agentic-mcp/acl.db",
 	}
 }
 
