@@ -181,10 +181,11 @@ func TestValidate_ProxyModeWithSatellites(t *testing.T) {
 listen: "127.0.0.1:8010"
 mode: "proxy"
 proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
   satellites:
     - name: sat1
       address: "sat1.example.com:8010"
-      public_key_path: /etc/agentic-mcp/sat1.pub.pem
       token: "sat1-token"
       poll_interval: "30s"
 `)
@@ -192,15 +193,32 @@ proxy:
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	if cfg.Proxy.ClientCertFile != "/etc/agentic-mcp/proxy-cert.pem" || cfg.Proxy.ClientKeyFile != "/etc/agentic-mcp/proxy-key.pem" {
+		t.Errorf("unexpected proxy client identity: %+v", cfg.Proxy)
+	}
 	if len(cfg.Proxy.Satellites) != 1 {
 		t.Fatalf("expected 1 satellite, got %d", len(cfg.Proxy.Satellites))
 	}
 	sat := cfg.Proxy.Satellites[0]
-	if sat.Name != "sat1" || sat.Address != "sat1.example.com:8010" || sat.PublicKeyPath != "/etc/agentic-mcp/sat1.pub.pem" {
+	if sat.Name != "sat1" || sat.Address != "sat1.example.com:8010" || sat.Token != "sat1-token" {
 		t.Errorf("unexpected satellite config: %+v", sat)
 	}
 	if sat.PollInterval.Duration() != 30*time.Second {
 		t.Errorf("poll_interval = %v, want 30s", sat.PollInterval.Duration())
+	}
+}
+
+func TestValidate_ProxyModeRequiresClientIdentity(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  satellites:
+    - name: sat1
+      address: "sat1.example.com:8010"
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for mode=proxy without proxy.client_cert_file/client_key_file")
 	}
 }
 
@@ -209,10 +227,11 @@ func TestValidate_ProxySatelliteMissingFields(t *testing.T) {
 listen: "127.0.0.1:8010"
 mode: "proxy"
 proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
   satellites:
     - name: sat1
       address: "sat1.example.com:8010"
-      public_key_path: /etc/agentic-mcp/sat1.pub.pem
 `
 	path := writeTemp(t, base)
 	if _, err := Load(path); err != nil {
@@ -223,39 +242,99 @@ proxy:
 listen: "127.0.0.1:8010"
 mode: "proxy"
 proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
   satellites:
     - name: sat1
-      public_key_path: /etc/agentic-mcp/sat1.pub.pem
 `)
 	if _, err := Load(missingAddress); err == nil {
 		t.Fatal("expected error for missing address")
-	}
-
-	missingPublicKey := writeTemp(t, `
-listen: "127.0.0.1:8010"
-mode: "proxy"
-proxy:
-  satellites:
-    - name: sat1
-      address: "sat1.example.com:8010"
-`)
-	if _, err := Load(missingPublicKey); err == nil {
-		t.Fatal("expected error for missing public_key_path")
 	}
 
 	dup := writeTemp(t, `
 listen: "127.0.0.1:8010"
 mode: "proxy"
 proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
   satellites:
     - name: sat1
       address: "sat1.example.com:8010"
-      public_key_path: /etc/agentic-mcp/sat1.pub.pem
     - name: sat1
       address: "sat2.example.com:8010"
-      public_key_path: /etc/agentic-mcp/sat2.pub.pem
 `)
 	if _, err := Load(dup); err == nil {
 		t.Fatal("expected error for duplicate satellite name")
+	}
+}
+
+func TestValidate_TrustedClientKeysRequiresTLS(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tls:
+  trusted_client_keys:
+    - name: fleet-commander
+      public_key_path: /etc/agentic-mcp/trusted/commander.pub.pem
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for tls.trusted_client_keys without tls.enabled")
+	}
+}
+
+func TestValidate_TrustedClientKeysValid(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tls:
+  enabled: true
+  cert_file: /etc/agentic-mcp/cert.pem
+  key_file: /etc/agentic-mcp/key.pem
+  trusted_client_keys:
+    - name: fleet-commander
+      public_key_path: /etc/agentic-mcp/trusted/commander.pub.pem
+    - name: proxy-muc
+      public_key_path: /etc/agentic-mcp/trusted/proxy-muc.pub.pem
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.TLS.TrustedClientKeys) != 2 {
+		t.Fatalf("expected 2 trusted client keys, got %d", len(cfg.TLS.TrustedClientKeys))
+	}
+	if cfg.TLS.TrustedClientKeys[0].Name != "fleet-commander" || cfg.TLS.TrustedClientKeys[0].PublicKeyPath != "/etc/agentic-mcp/trusted/commander.pub.pem" {
+		t.Errorf("unexpected first trusted key: %+v", cfg.TLS.TrustedClientKeys[0])
+	}
+}
+
+func TestValidate_TrustedClientKeysDuplicateName(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tls:
+  enabled: true
+  cert_file: /etc/agentic-mcp/cert.pem
+  key_file: /etc/agentic-mcp/key.pem
+  trusted_client_keys:
+    - name: dup
+      public_key_path: /etc/agentic-mcp/trusted/a.pub.pem
+    - name: dup
+      public_key_path: /etc/agentic-mcp/trusted/b.pub.pem
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for duplicate trusted_client_keys name")
+	}
+}
+
+func TestValidate_TrustedClientKeysMissingPublicKeyPath(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tls:
+  enabled: true
+  cert_file: /etc/agentic-mcp/cert.pem
+  key_file: /etc/agentic-mcp/key.pem
+  trusted_client_keys:
+    - name: fleet-commander
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for missing public_key_path")
 	}
 }

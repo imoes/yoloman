@@ -3,27 +3,24 @@
 // configured satellite's REST metrics_dump endpoint over TLS and relays the
 // returned points into the proxy's own store, labeled by satellite name.
 //
-// Trust model: satellite authentication mirrors how SSH authenticates a
-// host, but via TLS certificates instead of the SSH protocol. There is no
-// certificate authority — the proxy pins the satellite's exact public key
-// (distributed out of band, analogous to an SSH known_hosts entry) and
-// verifies the certificate the satellite presents during the TLS handshake
-// against that pin. The satellite proves possession of the matching
-// private key as part of the handshake itself; a bearer token authenticates
-// the REST call underneath, same as any other REST client.
+// Authentication mirrors SSH's client-key model, but via TLS client
+// certificates (see internal/tlsauth): the proxy holds its own private key
+// and presents the matching client certificate during the TLS handshake;
+// each satellite verifies that certificate's public key against its own
+// pinned tls.trusted_client_keys list, distributed out of band ahead of
+// time. This is the same identity a future Fleet Commander would use to
+// authenticate directly against any node agent's REST/MCP API. The
+// satellite's bearer Token authenticates the REST call underneath, in
+// addition to (not instead of) the client certificate.
 package fleet
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
@@ -43,32 +40,42 @@ type metricPoint struct {
 	Labels    map[string]string `json:"labels,omitempty"`
 }
 
-// Puller pulls one satellite's metrics over a pinned-TLS REST call and
-// writes them into a local store, labeled with the satellite's name.
+// Puller pulls one satellite's metrics over TLS, authenticating with
+// ClientCert, and writes them into a local store labeled with the
+// satellite's name.
 type Puller struct {
-	Satellite config.Satellite
-	Store     store.Store
+	Satellite  config.Satellite
+	ClientCert tls.Certificate
+	Store      store.Store
+}
+
+// LoadClientCert loads this proxy's own TLS client identity — the
+// certificate and private key it presents to every satellite it polls
+// (config.Proxy.ClientCertFile/ClientKeyFile).
+func LoadClientCert(certFile, keyFile string) (tls.Certificate, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("loading proxy client certificate: %w", err)
+	}
+	return cert, nil
 }
 
 // PullOnce calls the satellite's bulk metrics_dump REST endpoint (GET
-// /api/v1/metrics) over TLS for the given time range, verifying the
-// satellite's certificate against its pinned public key, and writes the
-// returned points into the local store with an added "satellite" label.
+// /api/v1/metrics) over TLS for the given time range, presenting
+// p.ClientCert as this proxy's identity, and writes the returned points
+// into the local store with an added "satellite" label.
 func (p *Puller) PullOnce(ctx context.Context, from, to time.Time) (int, error) {
-	pinnedDER, err := loadPinnedPublicKeyDER(p.Satellite.PublicKeyPath)
-	if err != nil {
-		return 0, fmt.Errorf("satellite %q: %w", p.Satellite.Name, err)
-	}
-
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				// There is no CA here — trust is established purely by
-				// pinning the satellite's exact public key below, so the
-				// default chain-of-trust verification is intentionally
-				// bypassed in favor of that manual check.
-				InsecureSkipVerify:    true, //nolint:gosec // verified manually via VerifyPeerCertificate
-				VerifyPeerCertificate: verifyPinnedPublicKey(pinnedDER),
+				Certificates: []tls.Certificate{p.ClientCert},
+				// There is no CA here: this proxy does not verify the
+				// satellite's identity — see docs/plan.md's "Three
+				// operating modes" for the confirmed trade-off. Trust runs
+				// in the other direction: the satellite verifies this
+				// proxy's client certificate against its own pinned
+				// tls.trusted_client_keys.
+				InsecureSkipVerify: true, //nolint:gosec // satellite identity intentionally not verified, see comment above
 			},
 		},
 		Timeout: 30 * time.Second,
@@ -128,51 +135,4 @@ func (p *Puller) PullOnce(ctx context.Context, from, to time.Time) (int, error) 
 		return 0, fmt.Errorf("satellite %q: writing points: %w", p.Satellite.Name, err)
 	}
 	return len(points), nil
-}
-
-// loadPinnedPublicKeyDER reads and parses a PEM-encoded PKIX public key file
-// (e.g. produced by `openssl x509 -pubkey -noout` against the satellite's
-// certificate), returning its canonical DER SubjectPublicKeyInfo encoding.
-func loadPinnedPublicKeyDER(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading public_key_path %q: %w", path, err)
-	}
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("public_key_path %q: not a PEM file", path)
-	}
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("public_key_path %q: parsing PKIX public key: %w", path, err)
-	}
-	der, err := x509.MarshalPKIXPublicKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("public_key_path %q: re-marshaling public key: %w", path, err)
-	}
-	return der, nil
-}
-
-// verifyPinnedPublicKey builds a tls.Config.VerifyPeerCertificate callback
-// that accepts the connection only if the leaf certificate's public key is
-// byte-identical (via its DER SubjectPublicKeyInfo encoding) to pinnedDER —
-// the SSH-host-key-style trust model this package uses instead of a CA.
-func verifyPinnedPublicKey(pinnedDER []byte) func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		if len(rawCerts) == 0 {
-			return fmt.Errorf("no certificate presented")
-		}
-		cert, err := x509.ParseCertificate(rawCerts[0])
-		if err != nil {
-			return fmt.Errorf("parsing presented certificate: %w", err)
-		}
-		presentedDER, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-		if err != nil {
-			return fmt.Errorf("marshaling presented public key: %w", err)
-		}
-		if !bytes.Equal(presentedDER, pinnedDER) {
-			return fmt.Errorf("presented certificate's public key does not match the pinned key")
-		}
-		return nil
-	}
 }

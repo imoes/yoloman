@@ -35,33 +35,52 @@ type Config struct {
 
 // Proxy configures proxy-mode satellite polling: a list of satellites this
 // agent pulls performance data from over TLS, for fleets where a central
-// Fleet Commander can't reach every satellite directly.
+// Fleet Commander can't reach every satellite directly. ClientCertFile/
+// ClientKeyFile are this proxy's own client identity — the certificate it
+// presents to every satellite it polls, verified by each satellite against
+// its own tls.trusted_client_keys (see TLS below). This is the same
+// mechanism a Fleet Commander would use to authenticate directly against
+// any node agent's REST/MCP API.
 type Proxy struct {
-	Satellites []Satellite `yaml:"satellites"`
+	ClientCertFile string      `yaml:"client_cert_file"`
+	ClientKeyFile  string      `yaml:"client_key_file"`
+	Satellites     []Satellite `yaml:"satellites"`
 }
 
 // Satellite is one proxy-mode upstream: a satellite agent reachable over
-// TLS, authenticated the way SSH authenticates a host — not via a CA, but
-// by the proxy pinning the satellite's exact public key up front (its
-// PublicKeyPath, distributed out of band, analogous to an SSH
-// known_hosts entry). The satellite proves possession of the matching
-// private key during the TLS handshake (its own tls.cert_file/key_file,
-// see TLS above); the proxy verifies the presented certificate's public
-// key against the pin instead of trusting a certificate authority. The
-// satellite's own bearer Token authenticates the REST call underneath,
-// same as any other REST client.
+// TLS at Address. The satellite's own bearer Token authenticates the REST
+// call in addition to the proxy's client certificate (Proxy.ClientCertFile/
+// ClientKeyFile) presented at the TLS layer — defense in depth, not either/or.
 type Satellite struct {
-	Name          string   `yaml:"name"`
-	Address       string   `yaml:"address"`         // host:port of the satellite's REST API, e.g. "sat1.example.com:8010"
-	PublicKeyPath string   `yaml:"public_key_path"` // PEM-encoded PKIX public key to pin (distributed out of band)
-	Token         string   `yaml:"token"`
-	PollInterval  Duration `yaml:"poll_interval"`
+	Name         string   `yaml:"name"`
+	Address      string   `yaml:"address"` // host:port of the satellite's REST API, e.g. "sat1.example.com:8010"
+	Token        string   `yaml:"token"`
+	PollInterval Duration `yaml:"poll_interval"`
 }
 
+// TLS configures this agent's own HTTPS listener.
 type TLS struct {
 	Enabled  bool   `yaml:"enabled"`
 	CertFile string `yaml:"cert_file"`
 	KeyFile  string `yaml:"key_file"`
+
+	// TrustedClientKeys, when non-empty, requires every /api/v1/ and /mcp
+	// request to present a TLS client certificate whose public key matches
+	// one of these entries before the bearer-token check even runs — the
+	// SSH authorized_keys model, but for machine callers (a Fleet Commander
+	// or a proxy) connecting to this agent. Checked in addition to, not
+	// instead of, the existing bearer token. The web UI (/ui/) and
+	// /healthz are unaffected — this only gates the machine-facing API.
+	TrustedClientKeys []TrustedClientKey `yaml:"trusted_client_keys"`
+}
+
+// TrustedClientKey is one authorized machine caller: a name (for logging)
+// and the PEM-encoded PKIX public key to pin, distributed out of band
+// (e.g. via `openssl x509 -pubkey -noout` run against that caller's own
+// client certificate).
+type TrustedClientKey struct {
+	Name          string `yaml:"name"`
+	PublicKeyPath string `yaml:"public_key_path"`
 }
 
 type EBPF struct {
@@ -171,11 +190,30 @@ func (c Config) Validate() error {
 	if c.TLS.Enabled && (c.TLS.CertFile == "" || c.TLS.KeyFile == "") {
 		return fmt.Errorf("tls.enabled requires tls.cert_file and tls.key_file")
 	}
+	if len(c.TLS.TrustedClientKeys) > 0 && !c.TLS.Enabled {
+		return fmt.Errorf("tls.trusted_client_keys requires tls.enabled")
+	}
+	seenKeyNames := make(map[string]bool, len(c.TLS.TrustedClientKeys))
+	for i, k := range c.TLS.TrustedClientKeys {
+		if k.Name == "" {
+			return fmt.Errorf("tls.trusted_client_keys[%d]: name must not be empty", i)
+		}
+		if seenKeyNames[k.Name] {
+			return fmt.Errorf("tls.trusted_client_keys: duplicate name %q", k.Name)
+		}
+		seenKeyNames[k.Name] = true
+		if k.PublicKeyPath == "" {
+			return fmt.Errorf("tls.trusted_client_keys[%s]: public_key_path must not be empty", k.Name)
+		}
+	}
 	switch c.Mode {
 	case "", "standalone", "satellite":
 	case "proxy":
 		if len(c.Proxy.Satellites) == 0 {
 			return fmt.Errorf("mode: proxy requires at least one entry under proxy.satellites")
+		}
+		if c.Proxy.ClientCertFile == "" || c.Proxy.ClientKeyFile == "" {
+			return fmt.Errorf("mode: proxy requires proxy.client_cert_file and proxy.client_key_file (this agent's own client identity)")
 		}
 		seen := make(map[string]bool, len(c.Proxy.Satellites))
 		for i, sat := range c.Proxy.Satellites {
@@ -188,9 +226,6 @@ func (c Config) Validate() error {
 			seen[sat.Name] = true
 			if sat.Address == "" {
 				return fmt.Errorf("proxy.satellites[%s]: address must not be empty", sat.Name)
-			}
-			if sat.PublicKeyPath == "" {
-				return fmt.Errorf("proxy.satellites[%s]: public_key_path must not be empty", sat.Name)
 			}
 		}
 	default:

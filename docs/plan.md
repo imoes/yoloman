@@ -592,59 +592,82 @@ metric name. This is what makes efficient polling possible without a Commander n
 every metric name in advance — the single building block satellite-mode pulling and proxy-mode
 aggregation both rely on. `internal/store.Store` gained `ListMetricNames` to support it.
 
-**Proxy mode auth (implemented, revised after user feedback): TLS with pinned public keys, not
-an SSH tunnel.** The user's original framing ("an SSH key (PEM), the public key gets
-distributed") was clarified to mean the *trust model* SSH uses for host authentication — the
-client holds the server's public key, the server proves possession of the matching private key —
-not the SSH *protocol* itself. The implementation is therefore plain TLS, not an SSH tunnel:
-- Each satellite serves its REST API over TLS using its own private key and a self-signed
-  certificate (`tls.enabled`/`cert_file`/`key_file`, already present in `config.Config` — wiring
-  it into `serveHTTP` via `http.ListenAndServeTLS` was the one gap closed as part of this work).
-- The satellite's public key (extracted from its certificate, e.g. via
-  `openssl x509 -pubkey -noout`) is distributed out of band to the proxy operator and referenced
-  by `proxy.satellites[].public_key_path` — analogous to an SSH `known_hosts` entry.
-- The proxy connects with `InsecureSkipVerify: true` (there is no CA) plus a custom
-  `tls.Config.VerifyPeerCertificate` callback that rejects the handshake unless the presented
-  certificate's public key is byte-identical (compared via DER-encoded SubjectPublicKeyInfo) to
-  the pinned key. The satellite proves possession of the corresponding private key as an
-  unavoidable part of the TLS handshake itself.
-- The satellite's own bearer `Token` authenticates the REST call underneath the TLS layer,
-  exactly like any other REST client — defense in depth on top of the pinned-key channel.
+**Proxy mode auth (implemented, revised twice after user feedback): TLS client certificates,
+authorizing the *caller* — not a server-identity pin.** This went through two iterations before
+landing on the confirmed design:
+1. First pass: an SSH tunnel (rejected — the user meant the SSH *trust model*, not the protocol).
+2. Second pass: the proxy pins the satellite's server public key (TLS, no CA, `VerifyPeerCertificate`)
+   — built and verified, but the user then clarified the trust direction should be the other way
+   round: **the caller (a Fleet Commander, or a proxy acting on its behalf) holds a private key;
+   every node agent it wants to reach holds that caller's public key and uses it to authorize
+   access to REST/MCP.** This is now the implemented design.
+
+Confirmed scope (via follow-up questions): only the client-authentication direction is checked —
+satellites do **not** pin the caller's server key in return (accepted trade-off: a compromised
+network path could still impersonate a satellite to a proxy, since `InsecureSkipVerify` disables
+the proxy's server-identity check entirely — mitigated by the fact that the interesting data flow,
+metrics being read, requires no write access and the response is HTTP GET-only). Client-cert
+authorization is checked **in addition to**, not instead of, the existing bearer token. And it is
+implemented as a **general REST/MCP authorization mechanism**, not proxy-specific: any node agent
+can configure `tls.trusted_client_keys`, and any caller presenting a matching client certificate
+(a Fleet Commander connecting directly in satellite mode, or a proxy pulling from a satellite)
+gets past the gate — the SSH `authorized_keys` model, over TLS.
+
+Implementation:
+- **Server side (`config.TLS.TrustedClientKeys`, any agent):** each entry is `{name,
+  public_key_path}` — a PEM-encoded PKIX public key extracted from an authorized caller's client
+  certificate (e.g. via `openssl x509 -pubkey -noout`), distributed out of band. When non-empty,
+  `Config.Validate` requires `tls.enabled`. `cmd/agentic-mcpd/http.go`'s `serveHTTP` sets
+  `tls.Config.ClientAuth: tls.RequestClientCert` (requested, not required, at the transport level
+  — so PAM-login browser access to `/ui/` keeps working without a client cert) and wraps only
+  `/mcp` and `/api/v1/` with `requireTrustedClientCert`, an application-layer gate that 401s
+  unless `r.TLS.PeerCertificates[0]`'s public key matches one of the loaded trusted keys
+  (`internal/tlsauth.MatchesAny`, comparing DER-encoded SubjectPublicKeyInfo). `/healthz` and
+  `/ui/` are unaffected either way.
+- **Client side (`config.Proxy.ClientCertFile`/`ClientKeyFile`, proxy mode):** the proxy's own
+  TLS client identity, loaded once at startup (`fleet.LoadClientCert`) and presented via
+  `tls.Config.Certificates` on every request `fleet.Puller.PullOnce` makes. `config.Satellite`
+  dropped the earlier `public_key_path` field entirely (no more server-key pinning); a satellite
+  entry is now just `{name, address, token, poll_interval}`. `Config.Validate` requires
+  `proxy.client_cert_file`/`client_key_file` whenever `mode: proxy`.
+- **New package `internal/tlsauth`:** `LoadTrustedKey(name, path)` and `MatchesAny(cert, keys)` —
+  shared, independently unit-tested logic for the authorized-keys-style comparison, used by
+  `cmd/agentic-mcpd/http.go`'s gate.
 
 Confirmed design points (unchanged from the original discussion):
-- **Pull, not push** — the proxy initiates; satellites need no knowledge of the proxy at all.
+- **Pull, not push** — the proxy initiates; satellites need no knowledge of the proxy beyond its
+  pinned public key.
 - **Full history relayed** — every point the proxy pulls from a satellite is written into the
   proxy's *own* `internal/store`, labeled with the satellite's identity (`{"satellite": "<name>"}`
   merged into each point's existing labels), so the proxy's retention/downsampling job (already
   built in step 6) applies to satellite data too, and a Commander pulling from the proxy sees the
   same time resolution it would from a direct connection.
 
-**Implementation:** `config.Mode` (`standalone|satellite|proxy`, default `standalone`, validated
-in `Config.Validate`); a `proxy:` config block listing satellites
-(`{name, address, public_key_path, token, poll_interval}`); the new `internal/fleet` package
-(`Puller.PullOnce`) builds a per-call `http.Client` with the pinned-key `tls.Config`, calls
-`GET https://<address>/api/v1/metrics`, and writes the labeled points into the local store;
-`startProxyPollLoop` in `cmd/agentic-mcpd/main.go` runs one background ticker per satellite
-(mirroring `startRetentionLoop`'s pattern), wired in behind `mode: proxy`.
-
 **Verification (real, end to end, on `host1.example.internal`):** two independent
 `agentic-mcpd` processes were run as genuinely separate satellite and proxy instances.
-- Satellite: `mode: standalone`, `tls.enabled: true` with a freshly generated ECDSA
-  self-signed cert (`openssl req -x509 -newkey ec ...`), listening on `0.0.0.0:8030`.
-- Proxy: `mode: proxy`, one satellite entry pointing at `127.0.0.1:8030` with
-  `public_key_path` set to the satellite's extracted public key (copied out to simulate
-  out-of-band distribution), `poll_interval: 5s`.
-- Confirmed via the proxy's own log and `GET /api/v1/metrics` on the proxy: the satellite's
-  `agentic_mcpd_start` points arrived labeled `{"satellite": "sat-e2e"}`, at the expected
-  5-second cadence (`satellite poll completed satellite=sat-e2e points=1`).
-- **Negative case, also verified live (not just unit-tested):** a second proxy instance was
-  started pinned to a *different*, unrelated key. Its real TLS handshake against the real
-  satellite was rejected with `presented certificate's public key does not match the pinned
-  key`, proving the pinning check runs correctly against genuine network traffic, not just the
-  in-process test harness.
-- Unit tests in `internal/fleet/puller_test.go` cover the same success/rejection/missing-token/
-  missing-key-file cases with a real in-process TLS server (self-signed cert generated per test),
-  including a genuine TLS handshake failure for the wrong-pin case.
+- Satellite: `mode: standalone`, `tls.enabled: true` with its own self-signed server cert
+  (unrelated to the client-auth mechanism) plus `tls.trusted_client_keys` pinning the proxy's
+  client public key (copied out to simulate out-of-band distribution).
+- Proxy: `mode: proxy`, `proxy.client_cert_file`/`client_key_file` pointing at its own freshly
+  generated ECDSA client certificate, one satellite entry at `127.0.0.1:8030`, `poll_interval: 5s`.
+- **Direct HTTP verification before even starting the proxy daemon**, via `curl`: `/healthz`
+  returns 200 with no client cert; `/api/v1/metrics` returns 401 with no client cert; `--cert
+  --key` with the satellite's pinned proxy cert + correct bearer token returns 200; the same call
+  with an unrelated, untrusted client cert returns 401 (`client certificate not trusted`) — proving
+  the gate is enforced exactly where intended (`/api/v1/` protected, `/healthz` open) before any
+  proxy-specific code even ran.
+- **Full proxy loop:** confirmed via the proxy's own log and `GET /api/v1/metrics` on the proxy —
+  the satellite's `agentic_mcpd_start` points arrived labeled `{"satellite": "sat-e2e"}` at the
+  expected 5-second cadence (`satellite poll completed satellite=sat-e2e points=1`).
+- **Negative case, also verified live (not just unit-tested):** a second, independent proxy
+  process was started with an unrelated client certificate not in the satellite's trusted list.
+  Its poll failed against the real satellite with `unexpected status 401: client certificate not
+  trusted`, proving the rejection holds under genuine network traffic end to end, not just the
+  in-process test harness or a bare `curl` call.
+- Unit tests: `internal/tlsauth/tlsauth_test.go` covers key loading and matching in isolation;
+  `internal/fleet/puller_test.go` covers the puller presenting its client cert against a real
+  in-process TLS server configured with `ClientAuth: RequireAnyClientCert` (success, untrusted-cert
+  rejection via a genuine TLS handshake failure, and missing-token rejection).
 
 ## Roadmap (after this v1 — separate plans)
 

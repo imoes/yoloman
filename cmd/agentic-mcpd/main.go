@@ -247,12 +247,17 @@ func startProxyPollLoop(cfg config.Config, st store.Store) {
 	if cfg.Mode != "proxy" {
 		return
 	}
+	clientCert, err := fleet.LoadClientCert(cfg.Proxy.ClientCertFile, cfg.Proxy.ClientKeyFile)
+	if err != nil {
+		slog.Error("proxy mode: failed to load this agent's client certificate, satellite polling disabled", "error", err)
+		return
+	}
 	for _, sat := range cfg.Proxy.Satellites {
 		interval := sat.PollInterval.Duration()
 		if interval <= 0 {
 			interval = time.Minute
 		}
-		p := &fleet.Puller{Satellite: sat, Store: st}
+		p := &fleet.Puller{Satellite: sat, ClientCert: clientCert, Store: st}
 		go func() {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()

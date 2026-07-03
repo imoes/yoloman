@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -9,11 +10,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
-	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,12 +22,11 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/store"
 )
 
-// generateSelfSignedCert creates a fresh ECDSA keypair and a self-signed
-// certificate for it, returning the tls.Certificate (for serving) and the
-// PEM-encoded PKIX public key (for pinning) — mirroring the real deployment
-// where an operator runs `openssl x509 -pubkey -noout` against the
-// satellite's cert to produce the file distributed to the proxy.
-func generateSelfSignedCert(t *testing.T) (tls.Certificate, []byte) {
+// generateCertPair creates a fresh ECDSA keypair and self-signed
+// certificate, written out as a PEM cert+key pair on disk (as
+// tls.LoadX509KeyPair / tls.X509KeyPair expect), and returns the parsed
+// tls.Certificate plus the DER-encoded public key for comparisons.
+func generateCertPair(t *testing.T, cn string) (tls.Certificate, []byte) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -35,7 +34,7 @@ func generateSelfSignedCert(t *testing.T) (tls.Certificate, []byte) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "sat1.test"},
+		Subject:      pkix.Name{CommonName: cn},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 	}
@@ -47,25 +46,19 @@ func generateSelfSignedCert(t *testing.T) (tls.Certificate, []byte) {
 		Certificate: [][]byte{derCert},
 		PrivateKey:  priv,
 	}
-
 	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	if err != nil {
 		t.Fatalf("marshaling public key: %v", err)
 	}
-	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
-	return cert, pubPEM
+	return cert, pubDER
 }
 
-func writePublicKeyFile(t *testing.T, pubPEM []byte) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "sat.pub.pem")
-	if err := os.WriteFile(path, pubPEM, 0o600); err != nil {
-		t.Fatalf("writing public key file: %v", err)
-	}
-	return path
-}
-
-func newMetricsServer(t *testing.T, cert tls.Certificate, wantToken string) *httptest.Server {
+// newSatelliteServer starts a real TLS test server that mimics a satellite
+// requiring a trusted client certificate (see cmd/agentic-mcpd/http.go's
+// requireTrustedClientCert): it requests a client cert during the TLS
+// handshake and rejects the connection unless the presented certificate's
+// public key matches trustedClientKeyDER.
+func newSatelliteServer(t *testing.T, serverCert tls.Certificate, trustedClientKeyDER []byte, wantToken string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/metrics" {
@@ -86,7 +79,27 @@ func newMetricsServer(t *testing.T, cert tls.Certificate, wantToken string) *htt
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
-	srv.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	srv.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.RequireAnyClientCert,
+		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return fmt.Errorf("no client certificate presented")
+			}
+			cert, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return err
+			}
+			presentedDER, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(presentedDER, trustedClientKeyDER) {
+				return fmt.Errorf("client certificate not trusted")
+			}
+			return nil
+		},
+	}
 	srv.StartTLS()
 	return srv
 }
@@ -102,21 +115,20 @@ func openTestStore(t *testing.T) store.Store {
 }
 
 func TestPuller_PullOnce_Success(t *testing.T) {
-	cert, pubPEM := generateSelfSignedCert(t)
-	srv := newMetricsServer(t, cert, "sat-token")
+	serverCert, _ := generateCertPair(t, "sat1.test")
+	clientCert, clientPubDER := generateCertPair(t, "proxy-e2e")
+	srv := newSatelliteServer(t, serverCert, clientPubDER, "sat-token")
 	defer srv.Close()
 
-	pubKeyPath := writePublicKeyFile(t, pubPEM)
 	st := openTestStore(t)
-
 	p := &Puller{
 		Satellite: config.Satellite{
-			Name:          "sat1",
-			Address:       srv.Listener.Addr().String(),
-			PublicKeyPath: pubKeyPath,
-			Token:         "sat-token",
+			Name:    "sat1",
+			Address: srv.Listener.Addr().String(),
+			Token:   "sat-token",
 		},
-		Store: st,
+		ClientCert: clientCert,
+		Store:      st,
 	}
 
 	from := time.Now().Add(-time.Hour)
@@ -144,46 +156,39 @@ func TestPuller_PullOnce_Success(t *testing.T) {
 	}
 }
 
-func TestPuller_PullOnce_RejectsWrongPinnedKey(t *testing.T) {
-	cert, _ := generateSelfSignedCert(t)
-	srv := newMetricsServer(t, cert, "")
+func TestPuller_PullOnce_RejectsUntrustedClientCert(t *testing.T) {
+	serverCert, _ := generateCertPair(t, "sat1.test")
+	_, trustedClientPubDER := generateCertPair(t, "the-real-proxy")
+	// This puller presents a DIFFERENT client cert than the one the
+	// satellite trusts.
+	wrongClientCert, _ := generateCertPair(t, "an-impostor")
+	srv := newSatelliteServer(t, serverCert, trustedClientPubDER, "")
 	defer srv.Close()
 
-	// Pin a different key than the one the server actually presents.
-	_, otherPubPEM := generateSelfSignedCert(t)
-	pubKeyPath := writePublicKeyFile(t, otherPubPEM)
 	st := openTestStore(t)
-
 	p := &Puller{
-		Satellite: config.Satellite{
-			Name:          "sat1",
-			Address:       srv.Listener.Addr().String(),
-			PublicKeyPath: pubKeyPath,
-		},
-		Store: st,
+		Satellite:  config.Satellite{Name: "sat1", Address: srv.Listener.Addr().String()},
+		ClientCert: wrongClientCert,
+		Store:      st,
 	}
 
 	_, err := p.PullOnce(context.Background(), time.Now().Add(-time.Hour), time.Now())
 	if err == nil {
-		t.Fatal("expected error when the presented certificate's key does not match the pin")
+		t.Fatal("expected error when this proxy's client certificate is not trusted by the satellite")
 	}
 }
 
 func TestPuller_PullOnce_RejectsMissingToken(t *testing.T) {
-	cert, pubPEM := generateSelfSignedCert(t)
-	srv := newMetricsServer(t, cert, "sat-token")
+	serverCert, _ := generateCertPair(t, "sat1.test")
+	clientCert, clientPubDER := generateCertPair(t, "proxy-e2e")
+	srv := newSatelliteServer(t, serverCert, clientPubDER, "sat-token")
 	defer srv.Close()
 
-	pubKeyPath := writePublicKeyFile(t, pubPEM)
 	st := openTestStore(t)
-
 	p := &Puller{
-		Satellite: config.Satellite{
-			Name:          "sat1",
-			Address:       srv.Listener.Addr().String(),
-			PublicKeyPath: pubKeyPath,
-			// Token deliberately omitted/wrong.
-		},
+		Satellite:  config.Satellite{Name: "sat1", Address: srv.Listener.Addr().String()},
+		ClientCert: clientCert,
+		// Token deliberately omitted.
 		Store: st,
 	}
 
@@ -193,18 +198,9 @@ func TestPuller_PullOnce_RejectsMissingToken(t *testing.T) {
 	}
 }
 
-func TestPuller_PullOnce_MissingPublicKeyFile(t *testing.T) {
-	st := openTestStore(t)
-	p := &Puller{
-		Satellite: config.Satellite{
-			Name:          "sat1",
-			Address:       "127.0.0.1:0",
-			PublicKeyPath: "/nonexistent/path.pem",
-		},
-		Store: st,
-	}
-	_, err := p.PullOnce(context.Background(), time.Now().Add(-time.Hour), time.Now())
+func TestLoadClientCert_MissingFiles(t *testing.T) {
+	_, err := LoadClientCert("/nonexistent/cert.pem", "/nonexistent/key.pem")
 	if err == nil {
-		t.Fatal("expected error for unreadable public_key_path")
+		t.Fatal("expected error for missing cert/key files")
 	}
 }
