@@ -15,6 +15,7 @@ import (
 
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
@@ -75,7 +76,12 @@ func run(args []string) error {
 		sessions = authz.NewSessionStore(cfg.PAM.SessionTTL.Duration())
 	}
 
-	mcpServer, err := newServer(cfg, st, comps, acl)
+	collector := startEBPFCollector(cfg)
+	if collector != nil {
+		defer collector.Close()
+	}
+
+	mcpServer, err := newServer(cfg, st, comps, acl, collector)
 	if err != nil {
 		return err
 	}
@@ -95,8 +101,28 @@ func run(args []string) error {
 		ACL:      acl,
 		Sessions: sessions,
 		PAMAuth:  pamAuth,
+		EBPF:     collector,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
+}
+
+// startEBPFCollector loads and attaches the eBPF collector if enabled,
+// running its ring-buffer consumer loop for the daemon's lifetime. Any
+// failure (old kernel, no BTF/ring buffer support, missing CAP_BPF, ...) is
+// logged as a warning and degrades gracefully to nil — every other
+// capability keeps working without it, per docs/plan.md.
+func startEBPFCollector(cfg config.Config) *ebpf.Collector {
+	if !cfg.EBPF.Enabled {
+		return nil
+	}
+	c, err := ebpf.New(0)
+	if err != nil {
+		slog.Warn("eBPF collector unavailable, continuing without it", "error", err)
+		return nil
+	}
+	go c.Run(context.Background())
+	slog.Info("eBPF collector attached (TCP connection tracking + exec events)")
+	return c
 }
 
 // components bundles the shared building blocks (module registry, tools.d
@@ -132,8 +158,7 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 }
 
 // newServer builds the MCP server with all resources/tools registered.
-// Registration grows in later steps (ebpf, ...).
-func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL) (*mcp.Server, error) {
+func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL, collector *ebpf.Collector) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
@@ -144,6 +169,9 @@ func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL)
 	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl)
 	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl); err != nil {
 		return nil, err
+	}
+	if collector != nil {
+		server.RegisterEBPF(s, collector)
 	}
 	return s, nil
 }

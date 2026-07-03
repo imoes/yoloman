@@ -3,6 +3,7 @@ module github.com/mutkluge/agentic-mcp
 go 1.26.4
 
 require (
+	github.com/cilium/ebpf v0.22.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect

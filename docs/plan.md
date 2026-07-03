@@ -285,6 +285,43 @@ three chained real processes and correctly rejected an unlisted binary (`rm`).
   running (log warning)
 - Inspiration: coroot-node-agent (Apache-2.0, Go) — the pattern is adopted, not the agent itself
 
+**Implemented (step 10) — design refinement:** the actual implementation uses **tracepoints
+instead of kprobes**, specifically `sock:inet_sock_set_state` (covers both connect() and
+accept() completions as transitions to `ESTABLISHED`, plus every other state change) and
+`sched:sched_process_exec`, both hardcoded from their real, verified `format` layout (via
+`bpftool btf dump file /sys/kernel/btf/vmlinux format c`) rather than via CO-RE/vmlinux.h. This
+is a deliberate simplification over the original kprobe+CO-RE plan: both tracepoints are part of
+the kernel's **stable tracepoint ABI** (the `/sys/kernel/tracing/events/.../format` contract
+does not change across kernel versions the way raw kernel struct layouts do), so no BTF
+relocation is needed at all for reading their arguments — only `BPF_MAP_TYPE_RINGBUF` still sets
+the practical minimum kernel version (~5.8). `internal/ebpf/bpf/collector.c` (+
+`tracepoints.h`) is compiled via `bpf2go` (`go generate`, needs clang/libbpf-dev only when
+regenerating); the resulting `.go`+`.o` are committed and embedded (`go:embed`), so a plain
+`go build` needs no BPF toolchain. `internal/ebpf.Collector` loads/attaches both programs,
+reads the shared ring buffer, and keeps bounded in-memory event lists (`RecentConns`,
+`RecentExecs`, `TopTalkers` — aggregated by comm+destination over `ESTABLISHED` transitions).
+IPv4 only in v1 (IPv6 stays on the v3 roadmap alongside deeper eBPF expansion). Graceful
+degradation is real: `startEBPFCollector` in `main.go` logs a warning and returns `nil` on any
+failure (missing CAP_BPF, old kernel, ...), and every registration point (`RegisterEBPF`,
+`RegisterEBPFRoutes`) is a no-op for a nil collector — verified locally in this sandbox (no
+root) where the daemon started fine with the log warning and the eBPF tools were simply absent.
+
+Verified for real on the remote test host (`host1.example.internal`, kernel 6.12.94,
+Debian 13, real root via `sudo`): the eBPF programs loaded and attached successfully
+("`eBPF collector attached`"), and `net_connections`/`top_talkers`/`exec_events` captured
+**genuine kernel activity** — the daemon's own listening-socket transition, a real `curl` to
+`example.com`'s actual IP over TLS, the complete real TCP lifecycle of ad hoc `curl` calls
+against the daemon's own API (`CLOSE→SYN_SENT→ESTABLISHED→FIN_WAIT1`/`CLOSE_WAIT`), real
+background SSH/Kerberos/LDAP traffic from the very SSH session used to run these tests, and the
+entire real process chain of an SSH login's MOTD scripts (`sss_ssh_authorizedkeys` →
+`selinux_child` → `run-parts` → `10-uname` → `bash` → `curl`). This surfaced and fixed a real
+bug: `net.IP` marshals to JSON as a string (via `MarshalText`), but its underlying Go type
+(`[]byte`) makes JSON-Schema inference describe it as an array — a genuine schema/runtime
+mismatch that the MCP Inspector's strict client-side validator caught (`CallTool` failed with a
+type-mismatch error) when calling `top_talkers`/`net_connections` over the real MCP protocol.
+Fixed by using plain dotted-decimal strings for all address fields instead of `net.IP`,
+redeployed to the remote host, and re-verified the exact same MCP calls succeed.
+
 ### User management via PAM
 
 - Authentication against the system PAM stack via `github.com/msteinert/pam` (cgo). A dedicated

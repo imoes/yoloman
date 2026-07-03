@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mutkluge/agentic-mcp/internal/authz"
+	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/store"
@@ -38,6 +39,11 @@ type RESTConfig struct {
 	ACL      *authz.ACL
 	Sessions *authz.SessionStore
 	PAMAuth  *authz.PAMAuthenticator
+
+	// EBPF is optional (nil if unsupported/disabled on this host — see
+	// docs/plan.md's graceful-degradation requirement); when set, the
+	// net/connections, net/top-talkers, and exec-events routes are mounted.
+	EBPF *ebpf.Collector
 }
 
 type ctxKey int
@@ -176,6 +182,8 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	mux.HandleFunc("PUT /api/v1/acl/rules", func(w http.ResponseWriter, r *http.Request) {
 		handleReplaceACLRules(w, r, cfg)
 	})
+
+	RegisterEBPFRoutes(mux, cfg.EBPF)
 
 	return withIdentity(cfg, mux)
 }
