@@ -1,0 +1,170 @@
+package modules
+
+import (
+	"bufio"
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/mutkluge/agentic-mcp/internal/proc"
+)
+
+// Setup gathers system facts, mirroring ansible.builtin.setup's well-known
+// fact names (ansible_hostname, ansible_kernel, ...). Its data sources are
+// injectable so it can be tested without touching the real host.
+type Setup struct {
+	ProcRoot      string
+	OSReleasePath string
+	Architecture  string
+	HostnameFunc  func() (string, error)
+}
+
+// NewSetup returns a Setup module reading from the real host: /proc,
+// /etc/os-release, os.Hostname, and the Go runtime's GOARCH mapped to the
+// uname-style name (e.g. "amd64" -> "x86_64").
+func NewSetup() *Setup {
+	return &Setup{
+		ProcRoot:      "/proc",
+		OSReleasePath: "/etc/os-release",
+		Architecture:  unameArch(runtime.GOARCH),
+		HostnameFunc:  os.Hostname,
+	}
+}
+
+func (s *Setup) Name() string { return "setup" }
+
+func (s *Setup) Description() string {
+	return "" +
+		"Gather baseline facts about this host: hostname, kernel release, CPU architecture, " +
+		"Linux distribution/version, total memory (MB), and logical CPU count. Takes no " +
+		"parameters. Call this first when reconciling any desired-state description against " +
+		"a real machine — it is the starting point for the 'read current state' step before " +
+		"planning changes.\n\n" +
+		"Cross-tool equivalents (use this mapping to translate other formats into agentic-mcp calls):\n" +
+		"- Ansible: ansible.builtin.setup / the automatic 'gather_facts' step at play start. " +
+		"Returned keys mirror Ansible's fact names (ansible_hostname, ansible_kernel, " +
+		"ansible_architecture, ansible_distribution, ansible_distribution_version, " +
+		"ansible_memtotal_mb, ansible_processor_vcpus).\n" +
+		"- Chef: the automatic Ohai run that populates node attributes (node['hostname'], " +
+		"node['kernel'], node['platform'], node['platform_version'], node['memory']['total'], " +
+		"node['cpu']['total']).\n" +
+		"- Puppet: Facter facts available as top-scope variables ($facts['networking']['hostname'], " +
+		"$facts['kernelrelease'], $facts['os']['name'], $facts['os']['release']['full'], " +
+		"$facts['memory']['system']['total'], $facts['processors']['count']).\n" +
+		"- Salt: grains (grains['host'], grains['kernelrelease'], grains['os'], grains['osrelease'], " +
+		"grains['mem_total'], grains['num_cpus']).\n" +
+		"- Terraform: has no direct remote-facts equivalent (Terraform is declarative and provider-" +
+		"driven); the closest analogues are a provider's computed data source attributes or an " +
+		"`external`/`http` data source that shells out to gather machine facts before apply."
+}
+
+func (s *Setup) InputSchema() map[string]any {
+	return objectSchema(map[string]any{})
+}
+
+func (s *Setup) Writes() bool { return false }
+
+func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Result, error) {
+	facts := map[string]any{}
+
+	if s.HostnameFunc != nil {
+		if hostname, err := s.HostnameFunc(); err == nil {
+			facts["ansible_hostname"] = hostname
+		}
+	}
+
+	if s.Architecture != "" {
+		facts["ansible_architecture"] = s.Architecture
+	}
+
+	if release, err := readFirstLine(filepath.Join(s.ProcRoot, "sys/kernel/osrelease")); err == nil {
+		facts["ansible_kernel"] = release
+	}
+
+	if osrel, err := parseOSRelease(s.OSReleasePath); err == nil {
+		facts["ansible_distribution"] = osrel["NAME"]
+		facts["ansible_distribution_version"] = osrel["VERSION_ID"]
+	}
+
+	if f, err := os.Open(filepath.Join(s.ProcRoot, "meminfo")); err == nil {
+		mi, parseErr := proc.ParseMemInfo(f)
+		f.Close()
+		if parseErr == nil {
+			facts["ansible_memtotal_mb"] = mi["MemTotal"] / 1024
+		}
+	}
+
+	if f, err := os.Open(filepath.Join(s.ProcRoot, "cpuinfo")); err == nil {
+		cpus, parseErr := proc.ParseCPUInfo(f)
+		f.Close()
+		if parseErr == nil {
+			facts["ansible_processor_vcpus"] = len(cpus)
+		}
+	}
+
+	return Result{Changed: false, Data: facts}, nil
+}
+
+// unameArch maps a Go GOARCH value to its traditional `uname -m` name, so
+// gathered facts match what ansible_architecture would normally contain.
+func unameArch(goarch string) string {
+	switch goarch {
+	case "amd64":
+		return "x86_64"
+	case "arm64":
+		return "aarch64"
+	case "386":
+		return "i686"
+	default:
+		return goarch
+	}
+}
+
+// readFirstLine returns the first line of path with surrounding whitespace
+// trimmed (e.g. for single-value pseudo-files like /proc/sys/kernel/osrelease).
+func readFirstLine(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	if scanner.Scan() {
+		return strings.TrimSpace(scanner.Text()), nil
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
+// parseOSRelease parses a /etc/os-release-style file (KEY=VALUE per line,
+// values optionally double-quoted) into a plain string map.
+func parseOSRelease(path string) (map[string]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fields := map[string]string{}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		val = strings.Trim(val, `"`)
+		fields[key] = val
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return fields, nil
+}

@@ -143,6 +143,18 @@ Module set (representative; "covers everything"):
 - v1 implements the **module framework** + all read/facts modules + a first write set (`file`,
   `copy`, `lineinfile`, `service`/`systemd`, `apt`, `command`); the rest follows module by module
 
+**Descriptions are written like a skill, not a one-liner.** The goal is that an AI can take a
+task from *any* configuration-management format — an Ansible playbook task, a Chef recipe
+resource, a Puppet manifest type, a Salt state, a Terraform resource/provisioner — and translate
+it into a call to one of these tools without external documentation. Every module's
+`Description()` therefore includes: what it does and when to use it, then a "Cross-tool
+equivalents" section naming the corresponding Ansible/Chef/Puppet/Salt/Terraform construct (or
+noting there is none). `InputSchema()` returns an explicit, hand-written JSON Schema (not
+inferred from a generic `map[string]any`) so parameter names, types, and per-parameter
+descriptions are precise. All descriptions are in English. This pattern is established for the
+v1 read modules and must carry through to the write modules (step 4) and the `tools.d` task
+definitions (step 5).
+
 ### Tool definitions in `tools.d/` — as simple as an Ansible task
 
 Every file in `/etc/agentic-mcp/tools.d/*.yaml` is essentially an Ansible task: a module call with

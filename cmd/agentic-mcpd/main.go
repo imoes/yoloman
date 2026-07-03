@@ -68,5 +68,6 @@ func newServer(cfg config.Config) *mcp.Server {
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
+	server.RegisterModules(s, server.NewDefaultModuleRegistry(), cfg.Write)
 	return s
 }
