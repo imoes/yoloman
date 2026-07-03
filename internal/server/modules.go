@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 )
@@ -48,13 +50,14 @@ func NewDefaultModuleRegistry() *modules.Registry {
 // ACL enforcement beyond the write gate); when set, every call is also
 // checked against acl.Authorize using the fixed MCP token identity (see
 // authz.TokenIdentity — v1 has one shared bearer token, so this is the only
-// principal MCP calls can be attributed to).
-func RegisterModules(s *mcp.Server, reg *modules.Registry, write bool, acl *authz.ACL) {
+// principal MCP calls can be attributed to). al may be nil (no audit
+// logging).
+func RegisterModules(s *mcp.Server, reg *modules.Registry, write bool, acl *authz.ACL, al *audit.Logger) {
 	for _, m := range reg.All() {
 		if m.Writes() && !write {
 			continue
 		}
-		registerModuleTool(s, m, acl)
+		registerModuleTool(s, m, acl, al)
 	}
 }
 
@@ -76,22 +79,31 @@ var moduleResultOutputSchema = map[string]any{
 	"required": []string{"changed"},
 }
 
-func registerModuleTool(s *mcp.Server, m modules.Module, acl *authz.ACL) {
+func registerModuleTool(s *mcp.Server, m modules.Module, acl *authz.ACL, al *audit.Logger) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         m.Name(),
 		Description:  m.Description(),
 		InputSchema:  m.InputSchema(),
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
+		start := time.Now()
 		if err := checkACL(ctx, acl, m.Name(), m.Writes()); err != nil {
+			al.LogCall(identityLabel(authz.TokenIdentity), m.Name(), m.Writes(), false, in, start, err)
 			return nil, modules.Result{}, err
 		}
 		res, err := m.Run(ctx, in, false)
+		al.LogCall(identityLabel(authz.TokenIdentity), m.Name(), m.Writes(), res.Changed, in, start, err)
 		if err != nil {
 			return nil, modules.Result{}, err
 		}
 		return nil, res, nil
 	})
+}
+
+// identityLabel formats an authz.Identity as a compact "kind:name" string
+// for audit log entries.
+func identityLabel(identity authz.Identity) string {
+	return fmt.Sprintf("%s:%s", identity.Kind, identity.Name)
 }
 
 // checkACL enforces acl (if non-nil) for the fixed MCP token identity,

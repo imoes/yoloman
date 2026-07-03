@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
@@ -44,6 +45,9 @@ type RESTConfig struct {
 	// docs/plan.md's graceful-degradation requirement); when set, the
 	// net/connections, net/top-talkers, and exec-events routes are mounted.
 	EBPF *ebpf.Collector
+
+	// Audit is optional (nil disables audit logging).
+	Audit *audit.Logger
 }
 
 type ctxKey int
@@ -336,6 +340,8 @@ func listAvailableTools(cfg RESTConfig) []availableTool {
 
 func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	name := r.PathValue("name")
+	start := time.Now()
+	identity := identityLabel(identityFromContext(r.Context()))
 
 	var params map[string]any
 	if r.ContentLength != 0 {
@@ -355,10 +361,12 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		}
 		stages, err := decodePipelineStages(params["stages"])
 		if err != nil {
+			cfg.Audit.LogCall(identity, name, true, false, params, start, err)
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		res, err := pipeline.Run(r.Context(), cfg.Policy, stages, 0, 0)
+		cfg.Audit.LogCall(identity, name, true, err == nil, params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -376,6 +384,7 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 			return
 		}
 		res, err := m.Run(r.Context(), params, false)
+		cfg.Audit.LogCall(identity, name, m.Writes(), res.Changed, params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -401,6 +410,7 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 			return
 		}
 		res, err := t.Run(r.Context(), cfg.ModReg, cfg.Policy, params, false)
+		cfg.Audit.LogCall(identity, name, writes, res.Changed, params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return

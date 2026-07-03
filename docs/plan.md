@@ -523,6 +523,42 @@ needed) — registered and callable via both MCP and REST even with `write:false
 real root filesystem usage (verified against `df` directly) with correctly parsed status,
 message, and perfdata.
 
+## Step 11 — audit logging + systemd hardening (implemented)
+
+`internal/audit`: a `Logger` writing one JSON line per tool/module/task/pipeline dispatch to
+stderr — under systemd this lands in the journal automatically, and being valid JSON it's
+directly consumable via `journalctl -u agentic-mcp -o cat | jq` with no native journal-protocol
+dependency. Each entry: `time`, `identity` (`kind:name`, e.g. `token:service-token` or
+`user:alice`), `tool`, `write`, `changed`, `params` (values under a key containing "password"/
+"secret"/"token" are redacted), `duration_ms`, `error` (omitted on success). Wired into every
+dispatch point on both protocols — MCP (`registerModuleTool`, `registerTaskTool`,
+`run_pipeline`) and REST (`handleToolCall`) — via a nil-safe `*audit.Logger` (a nil logger is a
+no-op, so call sites never branch on whether auditing is configured).
+
+**systemd hardening — a deliberate design correction from the original plan.** The original
+plan text (see "Security model" above) called for `ProtectSystem=strict` with narrow
+`ReadWritePaths` and a capability allow-list. Implementing `packaging/agentic-mcp.service`
+surfaced that this would silently break the product's core feature the moment `write:true` is
+set: a filesystem sandbox can't distinguish "the AI editing `/etc/nginx.conf` on purpose" from
+an attacker doing the same, and a narrowed `CapabilityBoundingSet` would block apt/dpkg
+maintainer scripts, user/group management, and file ownership changes. Confirmed with the user:
+**no filesystem/capability sandbox** — access control is enforced at the application layer (ACL
++ write gate + audit log) instead, since the daemon's job is genuinely open-ended system
+management. The unit file keeps every hardening directive that narrows privilege
+*escalation* and kernel attack surface *without* conflicting with any implemented module
+(`NoNewPrivileges`, `PrivateTmp`, `ProtectKernelModules`, `ProtectControlGroups`, `ProtectClock`,
+`ProtectHostname`, `RestrictRealtime`, `RestrictNamespaces`, `LockPersonality`,
+`MemoryDenyWriteExecute`, `RemoveIPC`) — each verified against actual implemented behavior (e.g.
+`ProtectKernelLogs` was deliberately left off because the `recent_log_errors` example pipeline
+uses `dmesg`, which it would have blocked).
+
+Verified: `systemd-analyze verify` reports no errors/warnings on the unit file; the daemon was
+run as a real transient systemd unit (`systemd-run --user`, journal-backed stdout/stderr — no
+full package install needed for this check, which is step 12's job) and three real API calls
+(a read, a write, and one that errors on a missing parameter) each produced a correctly
+structured, `jq`-parseable audit line in `journalctl`, including `changed:true` on the
+successful write and the exact validation error message on the failing call.
+
 ## Roadmap (after this v1 — separate plans)
 
 - **Module completion:** the remaining `ansible.builtin` write modules (`template`,

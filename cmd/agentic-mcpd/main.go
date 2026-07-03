@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
@@ -81,7 +82,14 @@ func run(args []string) error {
 		defer collector.Close()
 	}
 
-	mcpServer, err := newServer(cfg, st, comps, acl, collector)
+	// Audit entries are written to stderr as JSON lines: under systemd
+	// (the packaged deployment) each line lands in the journal
+	// automatically and, being valid JSON, is directly consumable via
+	// `journalctl -u agentic-mcp -o cat | jq` without a native journal
+	// client dependency.
+	al := audit.New(os.Stderr)
+
+	mcpServer, err := newServer(cfg, st, comps, acl, collector, al)
 	if err != nil {
 		return err
 	}
@@ -102,6 +110,7 @@ func run(args []string) error {
 		Sessions: sessions,
 		PAMAuth:  pamAuth,
 		EBPF:     collector,
+		Audit:    al,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }
@@ -158,16 +167,16 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 }
 
 // newServer builds the MCP server with all resources/tools registered.
-func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL, collector *ebpf.Collector) (*mcp.Server, error) {
+func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL, collector *ebpf.Collector, al *audit.Logger) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
 	server.RegisterMetrics(s, st)
-	server.RegisterModules(s, c.modReg, cfg.Write, acl)
-	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl)
-	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl); err != nil {
+	server.RegisterModules(s, c.modReg, cfg.Write, acl, al)
+	server.RegisterRunPipeline(s, c.policy, cfg.Write, acl, al)
+	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write, acl, al); err != nil {
 		return nil, err
 	}
 	if collector != nil {

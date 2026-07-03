@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
@@ -15,9 +17,9 @@ import (
 // RegisterTasks exposes every task in list as a curated MCP tool, dispatching
 // to modReg (for module tasks) or via policy (for pipeline tasks). Tasks
 // whose underlying operation writes are only registered when write is true —
-// the same write gate used for built-in modules. acl may be nil (see
+// the same write gate used for built-in modules. acl and al may be nil (see
 // RegisterModules).
-func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, write bool, acl *authz.ACL) error {
+func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, write bool, acl *authz.ACL, al *audit.Logger) error {
 	for _, task := range list {
 		writes, err := task.Writes(modReg)
 		if err != nil {
@@ -26,26 +28,30 @@ func RegisterTasks(s *mcp.Server, list []*tasks.Task, modReg *modules.Registry, 
 		if writes && !write {
 			continue
 		}
-		registerTaskTool(s, task, modReg, policy, acl)
+		registerTaskTool(s, task, modReg, policy, acl, al)
 	}
 	return nil
 }
 
-func registerTaskTool(s *mcp.Server, task *tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, acl *authz.ACL) {
+func registerTaskTool(s *mcp.Server, task *tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, acl *authz.ACL, al *audit.Logger) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:         task.Name,
 		Description:  task.Description,
 		InputSchema:  task.InputSchema(),
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
+		start := time.Now()
 		writes, err := task.Writes(modReg)
 		if err != nil {
+			al.LogCall(identityLabel(authz.TokenIdentity), task.Name, false, false, in, start, err)
 			return nil, modules.Result{}, err
 		}
 		if err := checkACL(ctx, acl, task.Name, writes); err != nil {
+			al.LogCall(identityLabel(authz.TokenIdentity), task.Name, writes, false, in, start, err)
 			return nil, modules.Result{}, err
 		}
 		res, err := task.Run(ctx, modReg, policy, in, false)
+		al.LogCall(identityLabel(authz.TokenIdentity), task.Name, writes, res.Changed, in, start, err)
 		if err != nil {
 			return nil, modules.Result{}, err
 		}
@@ -61,9 +67,9 @@ type RunPipelineInput struct {
 // RegisterRunPipeline adds the ad-hoc run_pipeline tool, letting a caller
 // chain whitelisted commands (per policy) without a predefined tools.d
 // pipeline task. It is always a writing capability (arbitrary process
-// execution), so it is only registered when write is true. acl may be nil
-// (see RegisterModules).
-func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool, acl *authz.ACL) {
+// execution), so it is only registered when write is true. acl and al may
+// be nil (see RegisterModules).
+func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool, acl *authz.ACL, al *audit.Logger) {
 	if !write {
 		return
 	}
@@ -98,10 +104,14 @@ func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool, acl
 			"required": []string{"stages"},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in RunPipelineInput) (*mcp.CallToolResult, pipeline.Result, error) {
+		start := time.Now()
+		params := map[string]any{"stages": in.Stages}
 		if err := checkACL(ctx, acl, "run_pipeline", true); err != nil {
+			al.LogCall(identityLabel(authz.TokenIdentity), "run_pipeline", true, false, params, start, err)
 			return nil, pipeline.Result{}, err
 		}
 		res, err := pipeline.Run(ctx, policy, in.Stages, 0, 0)
+		al.LogCall(identityLabel(authz.TokenIdentity), "run_pipeline", true, true, params, start, err)
 		if err != nil {
 			return nil, pipeline.Result{}, err
 		}

@@ -16,10 +16,10 @@ import (
 func connectTaskServer(t *testing.T, list []*tasks.Task, modReg *modules.Registry, policy *pipeline.Policy, write bool) *mcp.ClientSession {
 	t.Helper()
 	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-	if err := RegisterTasks(s, list, modReg, policy, write, nil); err != nil {
+	if err := RegisterTasks(s, list, modReg, policy, write, nil, nil); err != nil {
 		t.Fatalf("RegisterTasks: %v", err)
 	}
-	RegisterRunPipeline(s, policy, write, nil)
+	RegisterRunPipeline(s, policy, write, nil, nil)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	ctx := context.Background()

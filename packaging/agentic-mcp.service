@@ -1,0 +1,57 @@
+[Unit]
+Description=agentic-mcp — AI-native Linux node agent (MCP/REST)
+Documentation=https://github.com/mutkluge/agentic-mcp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/agentic-mcpd --config /etc/agentic-mcp/config.yaml
+Restart=on-failure
+RestartSec=2s
+
+# This daemon's entire purpose (once write:true is set) is unrestricted
+# system management on the AI's behalf: editing any file, installing any
+# package, managing any service. A systemd filesystem/capability sandbox
+# (ProtectSystem=strict, a narrowed CapabilityBoundingSet, ...) would
+# silently break that the moment it's turned on — e.g. it could no longer
+# edit /etc/nginx.conf, run apt-get, chown a file, or manage a systemd unit.
+# Access control is therefore enforced at the application layer instead —
+# the ACL (internal/authz), the write gate, and the audit log — not via an
+# OS-level sandbox that can't distinguish "the AI editing nginx.conf on
+# purpose" from "an attacker editing nginx.conf". What's hardened below is
+# privilege *escalation* and kernel-level attack surface unrelated to
+# legitimate system management, which cannot conflict with any module.
+User=root
+Group=root
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+
+# Deliberately NOT set (each would break a real, implemented capability):
+# - ProtectSystem / ProtectHome / ReadOnlyPaths / ReadWritePaths: the file,
+#   copy, apt, systemd, and command modules must be able to reach any path.
+# - ProtectKernelLogs: the recent_log_errors example tools.d pipeline (and
+#   any dmesg-based check) needs kernel log ring buffer access.
+# - RestrictSUIDSGID: kept deliberately OFF the "always safe" list above but
+#   still recommended — setuid/setgid bit-setting via the file module is an
+#   unusually high-risk, rarely-legitimate operation. Uncomment to enable:
+# RestrictSUIDSGID=true
+# - CapabilityBoundingSet: not narrowed. Root's full capability set is kept
+#   so apt/dpkg maintainer scripts, user/group management, and file
+#   ownership changes all keep working; eBPF loading (CAP_BPF/CAP_PERFMON)
+#   needs it too. Narrowing this is the single biggest lever for reducing
+#   blast radius if a future version restricts write modules to a fixed
+#   allow-list of operations instead of open-ended system management.
+
+[Install]
+WantedBy=multi-user.target

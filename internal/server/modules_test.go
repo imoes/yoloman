@@ -36,7 +36,7 @@ func connectModuleServer(t *testing.T, reg *modules.Registry, write bool) *mcp.C
 func connectModuleServerWithACL(t *testing.T, reg *modules.Registry, write bool, acl *authz.ACL) *mcp.ClientSession {
 	t.Helper()
 	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-	RegisterModules(s, reg, write, acl)
+	RegisterModules(s, reg, write, acl, nil)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	ctx := context.Background()
