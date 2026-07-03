@@ -103,3 +103,31 @@ func TestCopy_NeitherContentNorSrcRejected(t *testing.T) {
 		t.Fatal("expected error when neither content nor src is given")
 	}
 }
+
+// TestCopy_MissingSrcPropagatesError guards the write-error-propagation
+// contract: a src file that doesn't exist must surface as a Go error, not
+// be silently treated as empty content.
+func TestCopy_MissingSrcPropagatesError(t *testing.T) {
+	c := NewCopy()
+	dest := filepath.Join(t.TempDir(), "dest.txt")
+	_, err := c.Run(context.Background(), map[string]any{
+		"dest": dest, "src": filepath.Join(t.TempDir(), "does-not-exist.txt"),
+	}, false)
+	if err == nil {
+		t.Fatal("expected error when src does not exist")
+	}
+	if _, statErr := os.Stat(dest); statErr == nil {
+		t.Error("expected dest to not be created when src is missing")
+	}
+}
+
+// TestCopy_UnwritableDestPropagatesError: a write failure (here, a dest
+// path whose parent directory doesn't exist) must surface as an error.
+func TestCopy_UnwritableDestPropagatesError(t *testing.T) {
+	c := NewCopy()
+	dest := filepath.Join(t.TempDir(), "no-such-parent-dir", "dest.txt")
+	_, err := c.Run(context.Background(), map[string]any{"dest": dest, "content": "hello"}, false)
+	if err == nil {
+		t.Fatal("expected error when dest's parent directory does not exist")
+	}
+}

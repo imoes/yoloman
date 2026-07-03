@@ -14,6 +14,12 @@ Think CheckMK (monitoring) + Coroot (eBPF observability) + Ansible (configuratio
 minus the three separate tools, plus one thing they don't have: an API built for a language model
 to actually drive.
 
+The daemon itself goes by **Duppy** — Jamaican patois for a spirit that lingers unseen and does
+things in the background, which is coincidentally also why Unix daemons are spelled that way in
+the first place (the old hacker folklore insists it's the *helpful* kind of supernatural entity,
+not the evil one). Duppies in actual Jamaican folklore have a bit of a reputation for mischief;
+ours mostly just watches `/proc` and restarts services on request.
+
 ## Is This Actually a Good Idea?
 
 Let's be honest about the name for a second. "YOLO" as an engineering philosophy has a well-earned

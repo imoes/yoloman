@@ -186,3 +186,43 @@ func TestService_IsAliasOfSystemd(t *testing.T) {
 		t.Error("expected service alias to behave like systemd module")
 	}
 }
+
+// TestSystemd_ActionFailurePropagatesError guards the write-error-
+// propagation contract: if the underlying systemctl invocation itself
+// fails (e.g. the unit doesn't exist, a dependency failed to start), Run
+// must return a non-nil error — never silently report success.
+func TestSystemd_ActionFailurePropagatesError(t *testing.T) {
+	s := &Systemd{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		switch args[0] {
+		case "is-active":
+			return []byte("inactive\n"), &exec.ExitError{}
+		case "restart":
+			return []byte("Job for nginx.service failed."), &exec.ExitError{}
+		}
+		return nil, nil
+	}}
+	_, err := s.Run(context.Background(), map[string]any{"name": "nginx", "state": "restarted"}, false)
+	if err == nil {
+		t.Fatal("expected error when systemctl restart fails")
+	}
+}
+
+// TestSystemd_EnableFailurePropagatesError: a failing systemctl enable/
+// disable call must also surface as an error.
+func TestSystemd_EnableFailurePropagatesError(t *testing.T) {
+	s := &Systemd{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		switch args[0] {
+		case "is-active":
+			return []byte("active\n"), nil
+		case "is-enabled":
+			return []byte("disabled\n"), &exec.ExitError{}
+		case "enable":
+			return []byte("Failed to enable unit: access denied"), &exec.ExitError{}
+		}
+		return nil, nil
+	}}
+	_, err := s.Run(context.Background(), map[string]any{"name": "nginx", "state": "started", "enabled": true}, false)
+	if err == nil {
+		t.Fatal("expected error when systemctl enable fails")
+	}
+}

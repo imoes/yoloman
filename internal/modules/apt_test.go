@@ -183,3 +183,41 @@ func TestApt_InvalidState(t *testing.T) {
 		t.Fatal("expected error for invalid state")
 	}
 }
+
+// TestApt_InstallFailurePropagatesError guards the write-error-propagation
+// contract: if the underlying apt-get invocation itself fails (e.g. a
+// broken package, unmet dependencies, network failure fetching the repo),
+// Run must return a non-nil error — never silently report success.
+func TestApt_InstallFailurePropagatesError(t *testing.T) {
+	a := &Apt{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		switch name {
+		case "dpkg-query":
+			return nil, &exec.ExitError{} // not installed
+		case "apt-cache":
+			return []byte("Candidate: 8.5.0\n"), nil
+		case "apt-get":
+			return []byte("E: Unable to locate package curl"), &exec.ExitError{}
+		}
+		return nil, nil
+	}}
+	_, err := a.Run(context.Background(), map[string]any{"name": []string{"curl"}}, false)
+	if err == nil {
+		t.Fatal("expected error when apt-get install fails")
+	}
+}
+
+// TestApt_UpdateCacheFailurePropagatesError: a failing `apt-get update`
+// (e.g. an unreachable repository) must also surface as an error, not be
+// silently swallowed before the install step runs.
+func TestApt_UpdateCacheFailurePropagatesError(t *testing.T) {
+	a := &Apt{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+			return []byte("E: Failed to fetch"), &exec.ExitError{}
+		}
+		return nil, nil
+	}}
+	_, err := a.Run(context.Background(), map[string]any{"name": []string{"curl"}, "update_cache": true}, false)
+	if err == nil {
+		t.Fatal("expected error when apt-get update fails")
+	}
+}

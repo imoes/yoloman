@@ -6,6 +6,16 @@ directory names (`/etc/agentic-mcp`, `/var/lib/agentic-mcp`, ...), since a full 
 touches every file's import path for no functional benefit. See `docs/assets/yolo-man.jpg` for
 the mascot.
 
+**The running daemon itself is nicknamed "Duppy"** — Jamaican patois for a ghost/spirit, chosen
+because it lines up with genuine Unix folklore (a "daemon" was named for a *helpful* supernatural
+entity, not an evil one) the same way a duppy is Jamaica's own version of an unseen, lingering
+presence. Branding only, same split as above: `agentic-mcpd` stays the binary/directory/module
+name; "Duppy" appears in prose, the systemd unit's Description, and the README.
+
+Fitting alongside the other in-universe nicknames established so far: **Bossman** (the future
+Fleet Commander, see Roadmap) and **Selecta** (this agent's `proxy` operating mode, see "Three
+operating modes" below).
+
 ## Context & Vision
 
 Today, running a fleet of servers requires **a handful of separate tools**:
@@ -796,6 +806,49 @@ independent of `MaxUploadSize`) and the REST handler (`PUT /api/v1/upload?name=.
   against a 5 MiB body). Separately, the real `claude` CLI was connected to the daemon as a
   genuine MCP client (`claude mcp add --transport http`) and asked to call `upload_file` directly
   — the tool call succeeded and the staged file's content matched exactly what was requested.
+
+## Write-error propagation audit
+
+Prompted by a direct question: does every write call actually surface a non-2xx status/MCP error
+on failure, or could any silently report success? A full pass across every write module and both
+access layers found the propagation code itself already correct everywhere — but two write
+modules (`apt`, `systemd`) and one (`copy`) had no automated test proving it, so a real failure
+regressing to a false "success" would have gone unnoticed.
+
+**What was checked:** all 6 write modules (`file`, `copy`, `lineinfile`, `systemd`/`service`,
+`apt`, `command`), the MCP wrapping layer (`registerModuleTool`, `registerTaskTool`,
+`RegisterRunPipeline`, `RegisterUploadFile` in `internal/server`), the REST wrapping layer
+(`handleToolCall`'s three branches, the ACL admin endpoints, `handleUpload`), and
+`internal/pipeline.Run`. Every one of these correctly returns/propagates a non-nil `error` on
+failure, which both `mcp.AddTool`'s handler contract (returning a non-nil error sets
+`CallToolResult.IsError = true`) and every REST handler (`writeError(w, <non-2xx>, err)`) turn
+into a caller-visible failure. `writeError` always requires an explicit status code argument —
+there is no code path that can fall through to a default 200.
+
+One deliberate, documented exception: `command`'s and the pipeline's non-zero *exit code* is
+data, not a Go error (`data.rc`/`exit_code` in the result) — matching `ansible.builtin.command`'s
+own behavior, where a non-zero return code doesn't fail the task unless the caller checks it.
+This is intentional, not a gap, and is called out in both modules' tool descriptions.
+
+**Gap found and fixed:** `apt` and `systemd` had tests for every idempotency/dry-run/invalid-input
+path but none for "the underlying `apt-get`/`systemctl` command itself fails" (e.g. a broken
+package, a unit that fails to start) — a real regression there (e.g. someone changing `Run` to
+ignore the runner's returned error) would have passed the existing suite. `copy` was similarly
+missing coverage for a missing `src` file and an unwritable `dest`. Added:
+`TestApt_InstallFailurePropagatesError`, `TestApt_UpdateCacheFailurePropagatesError`,
+`TestSystemd_ActionFailurePropagatesError`, `TestSystemd_EnableFailurePropagatesError`,
+`TestCopy_MissingSrcPropagatesError`, `TestCopy_UnwritableDestPropagatesError` — each constructs a
+fake `CommandRunner` (or, for copy, a real missing/unwritable path) that fails the way the real
+tool would, and asserts `Run` returns a non-nil error.
+
+**Verified live, not just unit-tested:** against a real running daemon (`write: true`), REST calls
+were made with inputs guaranteed to fail for real — `systemd` restarting a unit that doesn't exist,
+`copy` writing into a nonexistent parent directory, and `apt` installing a package that doesn't
+exist. All three returned HTTP 422 with the real underlying error message (including apt-get's
+actual exit code 100 for "unable to locate package" — genuine system tool failure, not a
+simulated one). The same `systemd` failure was also called through a real MCP session (the
+`claude` CLI connected as a genuine MCP client) and confirmed to come back with `isError: true`
+and the same error message.
 
 ## Roadmap (after this v1 — separate plans)
 
