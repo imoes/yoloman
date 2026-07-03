@@ -13,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/server"
 )
 
 func main() {
@@ -39,13 +40,13 @@ func run(args []string) error {
 		cfg.Listen = *listen
 	}
 
-	server := newServer(cfg)
+	mcpServer := newServer(cfg)
 
 	if *stdio {
-		return server.Run(context.Background(), &mcp.StdioTransport{})
+		return mcpServer.Run(context.Background(), &mcp.StdioTransport{})
 	}
 
-	return serveHTTP(cfg, server)
+	return serveHTTP(cfg, mcpServer)
 }
 
 // loadConfigOrDefault loads the config file if present, else falls back to
@@ -60,12 +61,12 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 }
 
 // newServer builds the MCP server with all resources/tools registered.
-// Registration grows in later steps (proc, modules, tools.d, ebpf, ...).
+// Registration grows in later steps (modules, tools.d, ebpf, ...).
 func newServer(cfg config.Config) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{
+	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
-	_ = cfg // used by later registration steps
-	return server
+	server.RegisterProc(s, "/proc")
+	return s
 }
