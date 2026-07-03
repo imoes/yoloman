@@ -10,11 +10,14 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/config"
 )
 
-// serveHTTP starts the Streamable HTTP MCP endpoint at /mcp, guarded by
-// bearer-token auth when cfg.Token is set, plus an unauthenticated /healthz.
-func serveHTTP(cfg config.Config, server *mcp.Server) error {
+// serveHTTP starts the Streamable HTTP MCP endpoint at /mcp and the REST API
+// under /api/v1/, both guarded by bearer-token auth when cfg.Token is set,
+// plus an unauthenticated /healthz. MCP and REST expose the same underlying
+// capabilities (proc resources, modules/tasks, run_pipeline, metrics) as two
+// different protocols.
+func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handler) error {
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return server
+		return mcpServer
 	}, nil)
 
 	mux := http.NewServeMux()
@@ -23,6 +26,7 @@ func serveHTTP(cfg config.Config, server *mcp.Server) error {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.Handle("/mcp", withBearerAuth(cfg.Token, mcpHandler))
+	mux.Handle("/api/v1/", withBearerAuth(cfg.Token, restHandler))
 
 	slog.Info("agentic-mcpd listening", "addr", cfg.Listen)
 	return http.ListenAndServe(cfg.Listen, mux)

@@ -14,6 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/store"
@@ -55,7 +56,12 @@ func run(args []string) error {
 	}
 	startRetentionLoop(cfg, st)
 
-	mcpServer, err := newServer(cfg, st)
+	comps, err := loadComponents(cfg)
+	if err != nil {
+		return err
+	}
+
+	mcpServer, err := newServer(cfg, st, comps)
 	if err != nil {
 		return err
 	}
@@ -64,7 +70,36 @@ func run(args []string) error {
 		return mcpServer.Run(context.Background(), &mcp.StdioTransport{})
 	}
 
-	return serveHTTP(cfg, mcpServer)
+	restHandler := server.NewRESTHandler(server.RESTConfig{
+		ProcRoot: "/proc",
+		ModReg:   comps.modReg,
+		Tasks:    comps.taskList,
+		Policy:   comps.policy,
+		Store:    st,
+		Write:    cfg.Write,
+	})
+	return serveHTTP(cfg, mcpServer, restHandler)
+}
+
+// components bundles the shared building blocks (module registry, tools.d
+// tasks, pipeline command policy) used by both the MCP and REST layers, so
+// they're loaded once and stay identical across both access modes.
+type components struct {
+	modReg   *modules.Registry
+	taskList []*tasks.Task
+	policy   *pipeline.Policy
+}
+
+func loadComponents(cfg config.Config) (*components, error) {
+	taskList, err := tasks.LoadDir(cfg.ToolsDir)
+	if err != nil {
+		return nil, fmt.Errorf("loading tools.d: %w", err)
+	}
+	return &components{
+		modReg:   server.NewDefaultModuleRegistry(),
+		taskList: taskList,
+		policy:   loadCommandPolicyOrEmpty(cfg.CommandsFile),
+	}, nil
 }
 
 // loadConfigOrDefault loads the config file if present, else falls back to
@@ -80,28 +115,18 @@ func loadConfigOrDefault(path string) (config.Config, error) {
 
 // newServer builds the MCP server with all resources/tools registered.
 // Registration grows in later steps (ebpf, ...).
-func newServer(cfg config.Config, st store.Store) (*mcp.Server, error) {
+func newServer(cfg config.Config, st store.Store, c *components) (*mcp.Server, error) {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "agentic-mcp",
 		Version: "0.1.0",
 	}, nil)
 	server.RegisterProc(s, "/proc")
 	server.RegisterMetrics(s, st)
-
-	modReg := server.NewDefaultModuleRegistry()
-	server.RegisterModules(s, modReg, cfg.Write)
-
-	policy := loadCommandPolicyOrEmpty(cfg.CommandsFile)
-	server.RegisterRunPipeline(s, policy, cfg.Write)
-
-	taskList, err := tasks.LoadDir(cfg.ToolsDir)
-	if err != nil {
-		return nil, fmt.Errorf("loading tools.d: %w", err)
-	}
-	if err := server.RegisterTasks(s, taskList, modReg, policy, cfg.Write); err != nil {
+	server.RegisterModules(s, c.modReg, cfg.Write)
+	server.RegisterRunPipeline(s, c.policy, cfg.Write)
+	if err := server.RegisterTasks(s, c.taskList, c.modReg, c.policy, cfg.Write); err != nil {
 		return nil, err
 	}
-
 	return s, nil
 }
 

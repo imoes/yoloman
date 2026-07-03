@@ -135,6 +135,18 @@ All layers expose the same capabilities, just a different protocol:
 - **REST** = classic: `GET /api/v1/proc/meminfo`, `GET /api/v1/net/connections`,
   `POST /api/v1/tools/{name}` (body = validated params). For automation without an MCP client.
   ACL management: `GET/PATCH /api/v1/acl/tools/{name}` (enable/disable), `GET/PUT /api/v1/acl/rules`.
+
+  **Implemented (step 7):** `internal/server/rest.go` — `GET /api/v1/proc` (list) and
+  `GET /api/v1/proc/{name}` (mirrors the MCP proc resources via the same `procResourceDefs`/
+  `RenderProcResource`, no duplicated parsing logic), `GET /api/v1/tools` (list, respecting the
+  write gate) and `POST /api/v1/tools/{name}` (dispatches to the same `modules.Registry`/`tasks.Task`
+  list/`run_pipeline` used by MCP — one shared `components` struct in `main.go` feeds both layers
+  so they can never drift apart), and `GET /api/v1/metrics/{metric}` (same time-bound/label-filter
+  semantics as `metrics_query`). Mounted at `/api/v1/` behind the same bearer-token middleware as
+  `/mcp`. Verified end-to-end: 401 without/with a wrong token, real live `/proc/meminfo` returned,
+  a real task execution (`disk_list` running actual `fdisk -l`), a real 3-stage `run_pipeline`
+  over the live process list, a real metrics query, and the write gate correctly returning 403 for
+  `copy`/`run_pipeline` while `stat` stays 200 when `write:false`.
 - **Web frontend** (`/ui`): PAM login; tool list from `tools.d/` with enable/disable switches;
   ACL rule editing; metrics/facts view; audit log. Self-contained (no external CDN).
 

@@ -15,85 +15,104 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/proc"
 )
 
-// procResource describes one /proc file exposed as a read-only MCP resource
-// whose contents are parsed into structured JSON rather than returned raw.
-type procResource struct {
-	uri, name, description, relPath string
+// procResourceDef describes one /proc file exposed both as a read-only MCP
+// resource and (rendered through the same render func) as a REST endpoint —
+// parsed into structured JSON rather than returned raw.
+type procResourceDef struct {
+	uri, name, description string
+	render                 func(procRoot string) ([]byte, error)
+}
+
+// newProcResourceDef builds a procResourceDef that opens relPath under a
+// given procRoot, parses it with parse, and renders the result as
+// pretty-printed JSON — shared by both the MCP resource handler and the
+// REST /api/v1/proc/{name} handler.
+func newProcResourceDef[T any](uri, name, description, relPath string, parse func(io.Reader) (T, error)) procResourceDef {
+	return procResourceDef{
+		uri: uri, name: name, description: description,
+		render: func(procRoot string) ([]byte, error) {
+			f, err := os.Open(filepath.Join(procRoot, relPath))
+			if err != nil {
+				return nil, fmt.Errorf("opening %s: %w", relPath, err)
+			}
+			defer f.Close()
+
+			val, err := parse(f)
+			if err != nil {
+				return nil, fmt.Errorf("parsing %s: %w", relPath, err)
+			}
+			return json.MarshalIndent(val, "", "  ")
+		},
+	}
+}
+
+// procResourceDefs is the fixed set of /proc files with a dedicated parser.
+var procResourceDefs = []procResourceDef{
+	newProcResourceDef("proc://meminfo", "meminfo",
+		"Parsed /proc/meminfo (memory sizes in kB)", "meminfo", proc.ParseMemInfo),
+	newProcResourceDef("proc://loadavg", "loadavg",
+		"Parsed /proc/loadavg (1/5/15 min load averages)", "loadavg", proc.ParseLoadAvg),
+	newProcResourceDef("proc://uptime", "uptime",
+		"Parsed /proc/uptime (system + idle seconds)", "uptime", proc.ParseUptime),
+	newProcResourceDef("proc://cpuinfo", "cpuinfo",
+		"Parsed /proc/cpuinfo (one entry per logical CPU)", "cpuinfo", proc.ParseCPUInfo),
+	newProcResourceDef("proc://mounts", "mounts",
+		"Parsed /proc/mounts (device, mount point, fs type, options)", "mounts", proc.ParseMounts),
+	newProcResourceDef("proc://net/dev", "net_dev",
+		"Parsed /proc/net/dev (per-interface rx/tx counters)", "net/dev", proc.ParseNetDev),
+	newProcResourceDef("proc://diskstats", "diskstats",
+		"Parsed /proc/diskstats (per-device I/O counters)", "diskstats", proc.ParseDiskStats),
 }
 
 // RegisterProc registers /proc-derived MCP resources (parsed to JSON) and the
 // generic proc_read tool (path-guarded raw read) on s, sourcing data from
 // procRoot (normally "/proc").
 func RegisterProc(s *mcp.Server, procRoot string) {
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://meminfo", name: "meminfo",
-		description: "Parsed /proc/meminfo (memory sizes in kB)", relPath: "meminfo",
-	}, proc.ParseMemInfo)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://loadavg", name: "loadavg",
-		description: "Parsed /proc/loadavg (1/5/15 min load averages)", relPath: "loadavg",
-	}, proc.ParseLoadAvg)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://uptime", name: "uptime",
-		description: "Parsed /proc/uptime (system + idle seconds)", relPath: "uptime",
-	}, proc.ParseUptime)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://cpuinfo", name: "cpuinfo",
-		description: "Parsed /proc/cpuinfo (one entry per logical CPU)", relPath: "cpuinfo",
-	}, proc.ParseCPUInfo)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://mounts", name: "mounts",
-		description: "Parsed /proc/mounts (device, mount point, fs type, options)", relPath: "mounts",
-	}, proc.ParseMounts)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://net/dev", name: "net_dev",
-		description: "Parsed /proc/net/dev (per-interface rx/tx counters)", relPath: "net/dev",
-	}, proc.ParseNetDev)
-
-	addJSONResource(s, procRoot, procResource{
-		uri: "proc://diskstats", name: "diskstats",
-		description: "Parsed /proc/diskstats (per-device I/O counters)", relPath: "diskstats",
-	}, proc.ParseDiskStats)
-
+	for _, def := range procResourceDefs {
+		def := def
+		s.AddResource(&mcp.Resource{
+			URI:         def.uri,
+			Name:        def.name,
+			Description: def.description,
+			MIMEType:    "application/json",
+		}, func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+			data, err := def.render(procRoot)
+			if err != nil {
+				return nil, err
+			}
+			return &mcp.ReadResourceResult{
+				Contents: []*mcp.ResourceContents{{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				}},
+			}, nil
+		})
+	}
 	registerProcRead(s, procRoot)
 }
 
-// addJSONResource registers a resource that reads relPath under procRoot,
-// parses it with parse, and returns the result as pretty-printed JSON text.
-func addJSONResource[T any](s *mcp.Server, procRoot string, r procResource, parse func(io.Reader) (T, error)) {
-	s.AddResource(&mcp.Resource{
-		URI:         r.uri,
-		Name:        r.name,
-		Description: r.description,
-		MIMEType:    "application/json",
-	}, func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		f, err := os.Open(filepath.Join(procRoot, r.relPath))
-		if err != nil {
-			return nil, fmt.Errorf("opening %s: %w", r.relPath, err)
+// RenderProcResource renders the named proc resource (its short name, e.g.
+// "meminfo") as JSON, for the REST layer. ok is false if name is not a known
+// proc resource.
+func RenderProcResource(procRoot, name string) (data []byte, ok bool, err error) {
+	for _, def := range procResourceDefs {
+		if def.name == name {
+			data, err = def.render(procRoot)
+			return data, true, err
 		}
-		defer f.Close()
+	}
+	return nil, false, nil
+}
 
-		val, err := parse(f)
-		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", r.relPath, err)
-		}
-		data, err := json.MarshalIndent(val, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("marshaling %s: %w", r.relPath, err)
-		}
-		return &mcp.ReadResourceResult{
-			Contents: []*mcp.ResourceContents{{
-				URI:      req.Params.URI,
-				MIMEType: "application/json",
-				Text:     string(data),
-			}},
-		}, nil
-	})
+// ProcResourceNames returns the short names of every available proc
+// resource, for REST discoverability.
+func ProcResourceNames() []string {
+	names := make([]string, len(procResourceDefs))
+	for i, d := range procResourceDefs {
+		names[i] = d.name
+	}
+	return names
 }
 
 // ProcReadInput is the input schema for the proc_read tool.
