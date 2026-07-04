@@ -983,9 +983,50 @@ real hostname and timezone away from and back to their original values (`host1.e
 / `Europe/Berlin`) with idempotent no-op calls confirmed at each starting point, and finally
 removed the test user/group again via the modules' own `state: absent` path.
 
+### Batch 3 — Debian packaging modules (implemented): apt_key, apt_repository, deb822_repository, dpkg_selections
+
+- **`apt_repository`** — present/absent one-line `deb ...` entries in a specific
+  `/etc/apt/sources.list.d/<filename>.list` file. `filename` is required (a focused subset —
+  Ansible auto-derives a default from the repo string via its own heuristic; requiring it keeps
+  behavior simple and predictable), and `state: absent` only searches that one file rather than
+  every configured source file. Optional `update_cache` runs `apt-get update` afterward.
+- **`deb822_repository`** — present/absent modern RFC822-style (`.sources`) stanzas, the format
+  apt 2.4+ (Debian 12+/Ubuntu 24.04+) uses in place of the older one-line syntax. Covers
+  types/uris/suites/components/signed_by (a focused subset of the real module's many optional
+  per-field options).
+- **`apt_key`** — implemented via `gpg --dearmor` writing straight to
+  `/etc/apt/trusted.gpg.d/<id>.gpg`, **not** the `apt-key` binary itself, which upstream Debian/
+  Ubuntu have deprecated and removed from newer releases (real Ansible's own `apt_key` module is
+  itself marked deprecated for the same reason) — this is the same replacement approach Debian's
+  release notes recommend. Accepts the key as inline `data` or fetched from a `url` (a small
+  injectable `HTTPGet` using Go's own `net/http`, no external download tool needed).
+- **`dpkg_selections`** — sets a package's dpkg selection (most commonly `hold`, to freeze it
+  against future apt upgrades) via `dpkg --get-selections`/`--set-selections`. This is the first
+  module needing stdin (`dpkg --set-selections` has no file-argument alternative, unlike
+  `crontab`), so `internal/modules/runner.go` gained a `CommandRunnerWithStdin` /
+  `defaultCommandRunnerWithStdin` counterpart to `CommandRunner` — reused immediately by `apt_key`
+  for `gpg --dearmor`, which also only accepts its input via stdin.
+
+**Also fixed while implementing this batch:** a systematic re-check of every enum-shaped
+parameter across all modules turned up two that declared a JSON-schema `enum` for MCP clients but
+never actually validated it in Go — `dpkg_selections`'s `selection` and `cron`'s `special_time`.
+Both now reject an out-of-range value explicitly instead of silently passing it through to the
+underlying command (which would likely have failed anyway, but with a much less clear error).
+
+**Verified:** 42 new unit tests, including a genuine `gpg`-binary integration test for `apt_key`
+(`TestAptKey_RealGPGDearmor`: generates a real throwaway Ed25519 key via `gpg --quick-generate-key`
+in an isolated `GNUPGHOME`, exports it armored, dearmors it through the actual module code, and
+confirms the output is real binary OpenPGP data, not the fake/simulated transform the other tests
+use). All four also run for real on `host1.example.internal`: created and removed a real
+`apt_repository` entry and a real `deb822_repository` stanza; generated a genuine GPG key on the
+host, imported it via `apt_key`, and confirmed with `file` that the written keyring is real OpenPGP
+data — then removed it; and toggled the real, already-installed `bash` package's dpkg selection to
+`hold` and back to `install`, confirming both the change and the idempotent no-op with `dpkg
+--get-selections` at each step.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** Batches 3–6 of the `ansible.builtin` coverage plan above (Debian/RedHat
+- **Module completion:** Batches 4–6 of the `ansible.builtin` coverage plan above (RedHat
   packaging, network/download, and the rest). Optionally: multi-task plan/apply (playbook-style)
   with confirmation — the full Ansible replacement
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,

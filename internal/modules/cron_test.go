@@ -182,3 +182,14 @@ func TestCron_DryRunDoesNotWrite(t *testing.T) {
 		t.Error("expected dry_run to not actually install a crontab")
 	}
 }
+
+func TestCron_InvalidSpecialTimeRejected(t *testing.T) {
+	fake := &fakeCrontab{}
+	c := &Cron{Runner: fake.runner()}
+	_, err := c.Run(context.Background(), map[string]any{
+		"name": "backup", "job": "/x.sh", "special_time": "bogus",
+	}, false)
+	if err == nil {
+		t.Fatal("expected error for an invalid special_time value")
+	}
+}

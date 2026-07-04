@@ -16,7 +16,8 @@ import (
 // modules: the read/facts set (setup, stat, find, slurp, service_facts,
 // package_facts, getent), always active, plus the write set (file, copy,
 // lineinfile, systemd, service, apt, command, blockinfile, replace,
-// assemble, tempfile, template, user, group, cron, hostname, timezone —
+// assemble, tempfile, template, user, group, cron, hostname, timezone,
+// apt_key, apt_repository, deb822_repository, dpkg_selections —
 // batch-implemented against ansible.builtin per docs/plan.md's module
 // coverage plan), only ever exposed as tools when the write gate
 // (config.Write) is open — see RegisterModules.
@@ -47,6 +48,10 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewCron(),
 		modules.NewHostname(),
 		modules.NewTimezone(),
+		modules.NewAptKey(),
+		modules.NewAptRepository(),
+		modules.NewDeb822Repository(),
+		modules.NewDpkgSelections(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules

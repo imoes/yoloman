@@ -115,6 +115,11 @@ func (c *Cron) Run(ctx context.Context, params map[string]any, dryRunArg bool) (
 	if state == "present" && job == "" {
 		return Result{}, fmt.Errorf("job: required when state=present")
 	}
+	switch specialTime {
+	case "", "reboot", "yearly", "annually", "monthly", "weekly", "daily", "hourly":
+	default:
+		return Result{}, fmt.Errorf("special_time: unsupported value %q (want reboot|yearly|annually|monthly|weekly|daily|hourly)", specialTime)
+	}
 
 	marker := cronMarkerPrefix + name
 	var scheduleLine string

@@ -54,7 +54,8 @@ the safety checks" part the name jokes about. Read the full model in
 
 - **`ansible.builtin`-compatible modules, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
   `command`, `service`/`systemd`, `blockinfile`, `replace`, `assemble`, `tempfile`, `template`,
-  `user`, `group`, `cron`, `hostname`, `timezone`, plus read-only facts (`setup`, `stat`, `find`,
+  `user`, `group`, `cron`, `hostname`, `timezone`, `apt_key`, `apt_repository`,
+  `deb822_repository`, `dpkg_selections`, plus read-only facts (`setup`, `stat`, `find`,
   `slurp`, `service_facts`, `package_facts`, `getent`). Idempotent, `check_mode`-aware,
   `changed: true/false` reporting — no Ansible
   installation required on either end. Every module's description names its Ansible/Chef/Puppet/

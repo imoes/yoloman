@@ -33,6 +33,24 @@ func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]b
 	return out, nil
 }
 
+// CommandRunnerWithStdin is CommandRunner's counterpart for the handful of
+// tools (dpkg --set-selections, and no others so far in this codebase) that
+// only accept input via stdin, with no file-argument alternative.
+type CommandRunnerWithStdin func(ctx context.Context, stdin string, name string, args ...string) ([]byte, error)
+
+// defaultCommandRunnerWithStdin runs the real command via os/exec, feeding
+// stdin to it and applying the same stderr-enriched error handling as
+// defaultCommandRunner.
+func defaultCommandRunnerWithStdin(ctx context.Context, stdin string, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.Output()
+	if err != nil {
+		return out, wrapExitError(name, args, err)
+	}
+	return out, nil
+}
+
 // wrapExitError enriches err (as returned by cmd.Output()/cmd.Run()) with
 // the command's stderr text when err is an *exec.ExitError, so the message
 // alone — even without inspecting Result.Data separately — tells the
