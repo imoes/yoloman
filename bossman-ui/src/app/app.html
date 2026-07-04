@@ -1,0 +1,27 @@
+@if (isLoggedIn()) {
+  <div class="bm-shell">
+    <nav class="bm-nav" aria-label="Main navigation">
+      <div class="bm-nav-head">
+        <span class="bm-brand">Bossman</span>
+        <span class="bm-brand-sub">Fleet Commander</span>
+      </div>
+      @for (item of navItems; track item.path) {
+        <a class="bm-nav-item" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
+          <mat-icon class="bm-nav-icon">{{ item.icon }}</mat-icon>
+          <span class="bm-nav-label">{{ item.label }}</span>
+        </a>
+      }
+      <div class="bm-nav-footer">
+        <span class="bm-user">{{ auth.username() }}</span>
+        <button mat-icon-button (click)="auth.logout()" title="Log out">
+          <mat-icon>logout</mat-icon>
+        </button>
+      </div>
+    </nav>
+    <div class="bm-main">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+} @else {
+  <router-outlet></router-outlet>
+}

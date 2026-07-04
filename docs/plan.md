@@ -2042,3 +2042,92 @@ surfaced them:**
 
 This closes out Block B (Bossman backend, B1–B8) from the Bossman plan above. Remaining per that
 plan: Block C (Angular frontend) and Block D (deployment/docs).
+
+## Bossman — Block C: Angular frontend (implemented)
+
+`bossman-ui/`, scaffolded with `ng new` (Angular 20, standalone components, no NgRx — the same
+conventions as the team's `CentralStation/frontend` reference project cited in the plan above) and
+`ng add @angular/material`. Covers the six routes from the plan's section C.1: Fleet Overview,
+Hosts (list + detail), Topology, Plans (list + detail + run dialog), Runs (list + detail), Settings
+— plus a Login screen with the one deliberately stronger branding moment (per section C.2).
+
+**Structure** (`core/{auth,models,services}`, `shared/components/*`, `features/*`) matches the
+plan's section C.3 layout exactly: `HostStatusBadge`, `MetricChart` (ngx-echarts), `TopologyGraph`
+(cytoscape + cytoscape-dagre), `HostPicker`, `TimeRangePicker`, `StatusFilterChips` as shared
+components; `core/auth` has `AuthService` (JWT decoded client-side for display only — Bossman's
+`/api/v1/auth/login` has no refresh-token endpoint, so "logged in" is just "a token is present and
+its own `exp` hasn't passed"), `auth.interceptor.ts` (attaches the bearer, logs out on any 401
+outside the login call itself), `auth.guard.ts`.
+
+**Design**: Material's `mat.theme()` with `$green-palette` as primary and dark-by-default
+(`theme-type: dark`), plus the four `--bm-green`/`--bm-gold`/`--bm-red`/`--bm-black` custom
+properties from the plan's section C.2, used only for status badges/accents — never as a table,
+chart, or body background. No multi-theme switcher (the plan explicitly ruled that out); no
+light/dark toggle either, since "dark by default, ops-tool convention" was the stated requirement,
+not a togglable preference.
+
+**Scope cut, deliberately**: the plan called for Gridstack-based draggable dashboard widgets on
+Fleet Overview. Shipped instead: a fixed CSS-grid layout of the same information (health-count
+tiles, recent runs, quick actions) — Bossman's REST API has no per-user layout-preference storage
+endpoint yet, so a drag-customizable grid would have nothing to persist to. Revisit once such an
+endpoint exists; `gridstack` is still an installed dependency for when that day comes.
+
+**Run dialog** (`features/plans/run-plan-dialog.component.ts`) implements the plan's
+"Ausführen"-Dialog exactly: host picker → dynamically-built parameter form (validators derived from
+each plan param's `required`/`pattern`) → preview (`dry_run: true`) → confirm → real apply
+(`dry_run: false`) → link to the resulting run. Two separate `POST .../run` calls, matching the
+REST API's own shape — a preview and its later real apply are two distinct `PlanRun` rows, not one
+resumed run.
+
+**Two real bugs found only by pointing this app at an actual running Bossman + a real
+`agentic-mcpd` Duppy — neither existed in any Python-side test, because nothing before this had
+ever driven Bossman's API from a genuinely different browser origin, or run a plan against an
+agent that was never enrolled through `/api/v1/enroll`:**
+
+1. **Missing CORS configuration.** Bossman's FastAPI app had no `CORSMiddleware` at all. The
+   browser's preflight for the login `POST` (JSON body + custom headers) was silently rejected
+   before the request ever reached a route — the login button appeared to do nothing, with no
+   error surfaced anywhere in the UI (a stalled preflight isn't a `4xx`/`5xx` the interceptor's
+   `catchError` could react to). Fixed by adding `fastapi.middleware.cors.CORSMiddleware` in
+   `bossman/main.py`, configured via a new `Settings.cors_allowed_origins` (defaulting to the
+   Angular CLI's own default dev-server ports, `4200`/`4300`). Verified with a real preflight
+   `OPTIONS` request in `bossman/tests/test_cors.py` (allowed origin gets the right
+   `Access-Control-Allow-Origin` header; an unconfigured origin gets none) — not just "the browser
+   stopped complaining."
+2. **Bossman's own mTLS client keypair was only ever created as a side effect of
+   `/api/v1/enroll`'s handler**, never unconditionally at startup. An `Agent` row inserted directly
+   (the same shortcut every earlier block's manual E2E verification in this project used, and what
+   `bossman-ui`'s own Playwright setup also did) meant `services/agent_client.client_for`'s
+   `httpx.AsyncClient(cert=(key_path, cert_path))` raised a bare `FileNotFoundError` the moment any
+   plan step tried to actually reach the agent. Because `plan_engine.run_plan` — correctly, by its
+   own design — catches per-step errors and records them rather than raising, this surfaced as a
+   confusing partial success: `POST .../run` returned `200` with `status: "failed"`, and the UI's
+   preview stage rendered as if something had happened, when nothing had reached the agent at all.
+   Fixed by calling `services.keys.ensure_client_keypair` unconditionally in `main.py`'s lifespan
+   (best-effort, not fatal — a read-only Bossman instance shouldn't refuse to start over an
+   unwritable default `/etc/bossman/tls` path). Verified in `bossman/tests/test_main_lifespan.py`
+   (keypair is created if missing, reused byte-for-byte if already present) and by the real
+   Playwright run below, which failed with this exact error before the fix and succeeded after.
+
+**Verification:**
+- `npx ng build` — production build succeeds, no errors.
+- **Real Playwright end-to-end run against actual running services** (not a mocked backend): a
+  real Bossman (`uvicorn`, Postgres/TimescaleDB-backed) and a real, write-enabled `agentic-mcpd`
+  Duppy were started as genuine separate processes; a real `bossman_users` row, a real directly-
+  inserted `Agent` row, and a real plan file were set up; `ng serve` was pointed at that Bossman
+  instance. Seven Playwright tests, run in a real headless Chromium against the real dev server,
+  all passed: unauthenticated access redirects to `/login`; wrong credentials show a real rejection
+  from the real API; a correct login reaches `/fleet` and shows all six nav items; logout returns
+  to `/login`; the hosts list and detail page show the real enrolled agent (name, address, all four
+  tabs); the topology page mounts its graph container against real agent data; and — the full
+  round trip — opening `ui_demo_plan`, running it through the actual dialog (host picker → preview,
+  confirmed step-by-step in the dialog → apply for real → view run) produced a genuinely
+  `"succeeded"` run whose step detail matched, and the plan's substituted message was independently
+  confirmed written to the real agent's filesystem via `cat`. All test rows, processes, and scratch
+  files were removed afterward.
+- Karma/Jasmine unit tests (`ng test`) were attempted but not completed in this environment — the
+  available headless Chromium binary hung under Karma's launcher in this sandbox for reasons not
+  fully diagnosed (unrelated to `ng build`, which succeeds cleanly); the real, load-bearing
+  verification for this block is the Playwright run above, which exercises real user flows against
+  a real backend rather than isolated component rendering. Revisit Karma if per-component unit
+  coverage becomes valuable later.

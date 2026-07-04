@@ -7,9 +7,11 @@ app trivially constructible in tests without needing the real lifespan
 
 import asyncio
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from bossman.api import agents, auth, enroll, health, plans, relationships, runs
@@ -17,8 +19,11 @@ from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
+from bossman.services import keys
 from bossman.services.catalog import CatalogCache
 from bossman.services.poller import poller_loop
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -28,6 +33,34 @@ async def lifespan(app: FastAPI):
     # broke across multiple event loops in tests (and would equally break
     # in production if the process ever hosted more than one app/loop).
     settings = get_settings()
+
+    # Bossman's own mTLS client identity (used both to poll agents and to
+    # run plans against them, see services/agent_client.client_for) should
+    # exist unconditionally at startup — not only as a side effect of an
+    # enrollment call, which api/enroll.py's handler also triggers this
+    # from. A real bug found while first exercising bossman-ui's "run a
+    # plan" flow against an agent that was inserted directly (not via
+    # /api/v1/enroll): AgentClient's httpx.AsyncClient(cert=...) raised a
+    # bare FileNotFoundError ("[Errno 2] No such file or directory") deep
+    # inside plan_engine.run_plan's per-step try/except, which — correctly
+    # per that function's own design — recorded it as a step error rather
+    # than crashing, so the API still returned 200 with status: "failed"
+    # and no other symptom. Best-effort, not fatal: a read-only Bossman
+    # instance (or a test that never touches an agent) shouldn't refuse to
+    # start just because the default /etc/bossman/tls path isn't writable
+    # — the same graceful-degradation posture as every other optional
+    # subsystem in this project (eBPF, PAM on the Go side).
+    try:
+        keys.ensure_client_keypair(settings.client_key_path, settings.client_cert_path)
+    except OSError as exc:
+        logger.warning(
+            "could not ensure Bossman's own client keypair at %s / %s (polling and plan runs will fail "
+            "until this is fixed): %s",
+            settings.client_key_path,
+            settings.client_cert_path,
+            exc,
+        )
+
     engine = make_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
@@ -62,6 +95,17 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()  # fail fast on invalid configuration
     app = FastAPI(title="Bossman", lifespan=lifespan)
+    # bossman-ui runs on its own origin (dev-server port, or a distinct
+    # production origin) — without this, the browser's CORS preflight
+    # blocks every request carrying an Authorization header or JSON body
+    # before it ever reaches a route (see settings.cors_allowed_origins).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     # Bare /healthz, no /api/v1 prefix — matches the Go node agent's own
     # convention (an unauthenticated liveness check needs no API versioning).
     app.include_router(health.router, tags=["health"])

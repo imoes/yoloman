@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_ttl_minutes: int = 720
 
+    # Origins allowed to call this API cross-origin — the Angular
+    # frontend (bossman-ui) is served from its own dev-server port (and,
+    # depending on deployment, its own production origin too), so without
+    # this the browser's CORS preflight silently blocks every request
+    # carrying an Authorization header or JSON body (a real bug found
+    # while first wiring bossman-ui's login against a real running
+    # Bossman — see docs/plan.md's Bossman Block C notes). Defaults cover
+    # the Angular CLI's default dev-server ports.
+    cors_allowed_origins: list[str] = ["http://localhost:4200", "http://localhost:4300"]
+
 
 def get_settings() -> Settings:
     return Settings()
