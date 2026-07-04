@@ -1810,3 +1810,67 @@ this block.
   contained the exact substituted parameter value (`"hello from e2e"`), and the uploaded file
   landed byte-for-byte in the agent's real staging directory. Test rows, processes, and scratch
   files were removed afterward.
+
+## Bossman — Block B6: auth (implemented)
+
+The dual auth model confirmed earlier in this file: a human-operator login (JWT, for the future
+dashboard) and a separate machine/AI bearer token (for the future MCP facade), both landing on the
+identical `Authorization: Bearer` header — mirroring the Go node agent's own PAM-for-humans/
+bearer-token-for-machines split one level up at the Bossman layer.
+
+**`bossman/bossman/services/auth.py`** (new, framework-free like every other `services/` module):
+- `hash_password`/`verify_password` — bcrypt via `passlib.context.CryptContext`.
+- `authenticate_user(session, username, password)` — on an unknown username, still hashes the
+  supplied password against a fixed dummy hash before raising, so a caller can't distinguish
+  "no such user" from "wrong password" by response timing, on top of already returning an
+  identical error message either way.
+- `create_access_token`/`decode_access_token` — `PyJWT`, `HS256` by default (`config.py`'s
+  `jwt_secret`/`jwt_algorithm`/`jwt_ttl_minutes`, already scaffolded in Block B1). Claims are
+  `sub` (username) and `role`.
+- `generate_api_token()` — a fresh 32-byte hex token, deliberately mirroring the Go node agent's
+  own `newBearerToken()` convention (`cmd/agentic-mcpd/register.go`) for consistency across the
+  project. `hash_api_token()` is a **fast, deterministic** hash (SHA-256), not bcrypt — an API
+  token already carries its own 256 bits of entropy so a fast hash has no meaningful enumeration
+  risk, and a fast, deterministic hash is what makes an O(1) "look up the row by token" query
+  possible at all (bcrypt's per-hash random salt only supports verifying against a hash you
+  already know the row for, not looking one up by it). `new_api_token(name)` returns `(row-to-
+  persist, raw-token-to-hand-out-once)` — the raw value is never retrievable again afterward.
+  `revoke_api_token` sets `revoked_at`.
+- `resolve_identity(session, settings, bearer)` — the single entry point REST routes (Block B7)
+  authenticate against: tries a JWT decode first (a JWT is a distinctly structured, signed string;
+  a random hex API token will simply fail to decode as one) and falls back to an API-token lookup,
+  returning a small `Identity(kind, name, role)` shape — the direct counterpart of the Go node
+  agent's own `internal/authz.IdentityFromContext`, abstracting which of the two mechanisms
+  actually authenticated the caller behind one type request handlers dispatch on.
+
+**`bossman/bossman/api/auth.py`** (new): `POST /api/v1/auth/login` (always mounted, unlike the
+enrollment route — there's no "not configured" state for human auth the way enrollment has
+`proxy.enroll_secret`) exchanges `{username, password}` for `{access_token, token_type: "bearer"}`,
+401 on any `AuthError`. `get_current_identity` is the FastAPI dependency every protected route from
+here on uses — extracts the `Authorization: Bearer` header and calls `resolve_identity`, 401 if
+missing or invalid. Not yet wired to any actual resource route (that's Block B7's REST API); tests
+mount it on a throwaway `/api/v1/whoami` route to verify the dependency end to end.
+
+**Verification:**
+- `tests/test_auth.py` (16 tests, mostly real DB via `db_session`): password hash/verify
+  round-trip and mismatch; JWT round-trip, wrong-secret rejection, and a genuinely expired token
+  (`exp` set to the Unix epoch) rejected; API token generation is random/hex and its hash is
+  deterministic; `authenticate_user` success, wrong password, and unknown username (identical
+  error either way); API token issuance + lookup, an unknown token, and — the case that actually
+  exercises `revoked_at`, not just its presence in the schema — a *revoked* token rejected even
+  though it's otherwise a valid, known row; `resolve_identity`'s JWT path, API-token path, and a
+  garbage string that's neither.
+- `tests/test_auth_api.py` (6 tests, real DB + real HTTP via `TestClient(app)` as a context
+  manager): login success returns a usable JWT, wrong credentials get a real 401, and — mounted on
+  a throwaway protected route — `get_current_identity` genuinely accepts a JWT obtained from a real
+  `/api/v1/auth/login` call, genuinely accepts a real API token from the database, and genuinely
+  rejects both a missing header and a garbage bearer value.
+- No separate Go-binary round trip for this block (unlike B3/B4/B5): B6 is entirely Bossman-
+  internal (no interaction with a node agent), so the real-Postgres + real-HTTP `TestClient` tests
+  above already are the "real, not mocked" verification this project's discipline calls for —
+  consistent with how Block B1/B2's own scaffold and schema work was verified.
+- **Known gap, explicitly not addressed here:** there is currently no way to create the *first*
+  `bossman_users` row (an admin bootstrap account) other than a direct database insert or Python
+  call to `new_bossman_user` — no seed script or CLI exists yet. Left for Block B7 (a user-
+  management REST surface) or a small provisioning script, whichever turns out to be the right
+  home for it once that block's actual shape is clearer.

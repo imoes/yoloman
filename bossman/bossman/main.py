@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import enroll, health
+from bossman.api import auth, enroll, health
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.services.poller import poller_loop
@@ -51,6 +51,11 @@ def create_app() -> FastAPI:
     # Bare /healthz, no /api/v1 prefix — matches the Go node agent's own
     # convention (an unauthenticated liveness check needs no API versioning).
     app.include_router(health.router, tags=["health"])
+    # Always mounted, unlike enroll below — login should always be
+    # attemptable (a wrong/nonexistent user gets a normal 401), there's no
+    # equivalent "not configured" state for human auth the way enrollment
+    # has proxy.enroll_secret.
+    app.include_router(auth.router, tags=["auth"])
     # Only mounted when enrollment is actually configured — an
     # unconfigured Bossman accepts no enrollments at all, matching the Go
     # Selecta's identical gating on proxy.enroll_secret.
