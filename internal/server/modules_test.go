@@ -128,7 +128,7 @@ func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 		"yum", "dnf", "dnf5", "yum_repository", "rpm_key",
 		"get_url", "uri", "known_hosts", "iptables",
 		"systemd_service", "package", "script", "git", "unarchive", "pip",
-		"debconf", "sysvinit", "subversion", "expect", "reboot",
+		"debconf", "sysvinit", "subversion", "expect", "reboot", "raw", "shell",
 	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {

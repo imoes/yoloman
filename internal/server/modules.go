@@ -20,10 +20,13 @@ import (
 // user, group, cron, hostname, timezone, apt_key, apt_repository,
 // deb822_repository, dpkg_selections, yum, dnf, dnf5, yum_repository,
 // rpm_key, get_url, uri, known_hosts, iptables, package, git, unarchive,
-// pip, debconf, sysvinit, subversion, expect, reboot — batch-implemented
-// against ansible.builtin per docs/plan.md's module coverage plan, which
-// this list now completes), only ever exposed as tools when the write gate
-// (config.Write) is open — see RegisterModules.
+// pip, debconf, sysvinit, subversion, expect, reboot, raw, shell — batch-
+// implemented against ansible.builtin per docs/plan.md's module coverage
+// plan, which this list now completes. shell is this registry's one
+// deliberate exception to "no shell interpreter" (see its own doc
+// comment) — confirmed explicitly with the project owner), only ever
+// exposed as tools when the write gate (config.Write) is open — see
+// RegisterModules.
 func NewDefaultModuleRegistry() *modules.Registry {
 	reg := modules.NewRegistry()
 	for _, m := range []modules.Module{
@@ -78,6 +81,8 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewSubversion(),
 		modules.NewExpect(),
 		modules.NewReboot(),
+		modules.NewRaw(),
+		modules.NewShell(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules

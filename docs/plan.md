@@ -393,7 +393,15 @@ Two layers, both manageable via **API and web frontend**, persisted in SQLite:
 ### Security model
 
 - **No shell interpreter.** `exec.Command` + argv; parameters validated only via regex/enum;
-  pipelines only from whitelisted stages; no redirects/substitution
+  pipelines only from whitelisted stages; no redirects/substitution — **with one deliberate,
+  explicitly confirmed exception: the `shell` module** (`internal/modules/shell.go`, part of
+  Batch 6's `ansible.builtin` coverage). Real Ansible's `shell` exists specifically to run shell
+  syntax (pipes, redirects, globbing, `$()`) that an argv array cannot express; implementing it
+  faithfully means `/bin/sh -c <string>` and therefore genuinely does reintroduce shell-injection
+  surface for that one tool. This trade-off was raised explicitly and confirmed by the project
+  owner rather than made unilaterally — the module's own description carries the same warning
+  for any AI client reading tool docs before calling it: don't pass untrusted content into `cmd`,
+  and prefer `command`/`raw` (argv-only, no shell) whenever shell syntax isn't actually needed.
 - **Write gate:** `config.write=false` ⇒ mutating tools are not registered at all (not merely
   hidden). Layered above it: the ACL (per tool, per user/group/token)
 - Minimal child environment, timeout + output cap per tool/pipeline
@@ -1208,6 +1216,37 @@ correctly fetched and updated — the same update-detection shape as the `git` t
 was not exercised against the live daemon, for the reason stated above. This completes the
 `ansible.builtin` module coverage plan: all ~28 modules in the confirmed real-remaining scope are
 now implemented.
+
+**Addendum — two modules missed by the original scoping pass:** a user recount of
+`ansible-doc -l | grep ansible.builtin | wc -l` (71) against this project's own confirmed
+19-module exclusion list turned up a real gap the original Batch 6 scoping missed: `raw` and
+`shell` were never explicitly added to either the "excluded" or "in scope" list, and so were
+simply never built. Both are now closed out:
+
+- **`raw`** — a trivial alias of `command`. Real Ansible's `raw` exists to run a command over SSH
+  on a target with no Python installed yet, bypassing the module subsystem entirely as a
+  bootstrapping mechanism; this agent is a single compiled Go binary with no such bootstrap
+  problem, so `raw` and `command` behave identically here, the same reasoning that already makes
+  `fetch` an alias of `slurp` and `script` an alias of `command`. Unit-tested only (there's
+  nothing `command`'s own tests don't already cover); no separate real-host verification needed
+  for the same reason.
+- **`shell`** — required an explicit decision rather than a unilateral one, since a faithful
+  implementation directly conflicts with this project's stated security model ("no shell
+  interpreter" — see Security model above). Real `ansible.builtin.shell` runs a command through
+  `/bin/sh -c`, meaning pipes, redirects, globbing, and `$()` substitution all work — none of
+  which an argv array can express. Presented three options to the project owner (real `sh -c`
+  accepting the injection-risk trade-off; a fake "shell" that's actually routed through the
+  existing whitelisted pipeline system with no real shell involved; or leaving it deliberately
+  unimplemented) — **the real `/bin/sh -c` option was chosen**. `internal/modules/shell.go`
+  implements it accordingly, with the trade-off stated prominently in the module's own
+  `Description()` (so any AI client reading tool docs before calling it sees the warning) and
+  cross-referenced from the Security model section above. Verified with a real end-to-end test
+  proving genuine shell interpretation — a real pipe (`echo hello | tr a-z A-Z` → `HELLO`) and a
+  real redirect + glob (`echo redirected > out.txt && cat out*.txt`) — since that's the entire
+  point of the module and something no fake-Exec unit test could actually prove. Both `raw` and
+  `shell` also ran for real against `host1.example.internal` via genuine REST calls against
+  the compiled binary: `raw` executed a plain `/bin/echo`; `shell` reproduced the same pipe and
+  redirect+glob behavior confirmed locally, over the network against the real daemon.
 
 ## Roadmap (after this v1 — separate plans)
 
