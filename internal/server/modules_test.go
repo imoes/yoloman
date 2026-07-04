@@ -120,6 +120,7 @@ func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 	writing := []string{
 		"file", "copy", "lineinfile", "systemd", "service", "apt", "command",
 		"blockinfile", "replace", "assemble", "tempfile", "template",
+		"user", "group", "cron", "hostname", "timezone",
 	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {

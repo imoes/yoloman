@@ -948,11 +948,46 @@ created a real file under `/tmp` with the requested prefix/suffix; `template` re
 `{{ host }}`/`{{ port }}` placeholders to disk — all via genuine REST calls against the compiled
 binary, not mocks.
 
+### Batch 2 — system/user identity modules (implemented): user, group, cron, hostname, timezone
+
+- **`group`** — ensures a system group's existence/gid via `getent group` (check) +
+  `groupadd`/`groupmod`/`groupdel` (apply).
+- **`user`** — ensures a system account's existence/uid/primary group/shell/home/comment/
+  secondary groups via `getent passwd` + `id -Gn` (check) + `useradd`/`usermod`/`userdel`
+  (apply). Secondary `groups` supports both replace (default) and `append=true` modes, each
+  computed against the account's *actual* current secondary groups (via `id -Gn`) so an
+  append-mode call is genuinely idempotent once the group is already present, not just
+  unconditionally re-running `usermod -aG`. Password/credential management is deliberately out
+  of scope — setting a hash through a tool call that ends up in the audit log was judged the
+  wrong shape for that concern.
+- **`cron`** — present/absent crontab entries identified by a `#Ansible: <name>` marker comment
+  (Ansible's own convention), so changing a schedule or command later replaces the same entry
+  rather than appending a duplicate. `crontab -l` for a user with no crontab yet is treated as an
+  empty crontab, not an error (matching real `crontab`'s own behavior). Writing uses `crontab
+  -u <user> <tempfile>` — `crontab` accepts a filename argument directly, so no stdin-piping
+  plumbing was needed in `CommandRunner`.
+- **`hostname`** / **`timezone`** — systemd-only (`hostnamectl`/`timedatectl`), matching this
+  project's existing systemd-only scope (see `service`/`systemd`). Both read their current value
+  without shelling out — `hostname` via `os.Hostname()`, `timezone` by resolving `/etc/localtime`'s
+  symlink target and extracting the suffix after `zoneinfo/` (works whether the link is absolute
+  or the relative form `../usr/share/zoneinfo/...` that `timedatectl` actually produces in
+  practice — confirmed during live verification below).
+
+**Verified:** 44 new unit tests (idempotency including the append-mode secondary-groups case,
+dry-run, invalid state, and failure-propagation for every runner-backed module). All five also run
+for real, as root, on `host1.example.internal`: created a real `batch2testgroup`/
+`batch2testuser` pair (confirmed idempotent on a repeat call), added and then rescheduled a real
+crontab entry for that user (confirmed the marker-based replace-in-place behavior, and that a
+brand-new user's "no crontab for X" is handled as empty rather than an error), changed the box's
+real hostname and timezone away from and back to their original values (`host1.example.internal`
+/ `Europe/Berlin`) with idempotent no-op calls confirmed at each starting point, and finally
+removed the test user/group again via the modules' own `state: absent` path.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** Batches 2–6 of the `ansible.builtin` coverage plan above (system/user
-  identity, Debian/RedHat packaging, network/download, and the rest). Optionally: multi-task
-  plan/apply (playbook-style) with confirmation — the full Ansible replacement
+- **Module completion:** Batches 3–6 of the `ansible.builtin` coverage plan above (Debian/RedHat
+  packaging, network/download, and the rest). Optionally: multi-task plan/apply (playbook-style)
+  with confirmation — the full Ansible replacement
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
   fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
   alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign
