@@ -92,11 +92,82 @@ func TestHandleRecord_ExecEvent(t *testing.T) {
 	}
 }
 
+func TestHandleRecord_DiskIOEvent(t *testing.T) {
+	c := &Collector{maxEvents: 100}
+	ev := collectorEvent{
+		Type:          eventTypeDiskIO,
+		DiskDev:       0x800010, // major 8, minor 16 (e.g. /dev/sdb)
+		DiskSector:    123456,
+		DiskNrSector:  8,
+		DiskLatencyNs: 2_500_000, // 2.5ms
+		DiskError:     0,
+	}
+	setComm(&ev.Comm, "postgres")
+	copy(ev.DiskRwbs[:], "W")
+
+	c.handleRecord(encodeEvent(t, ev))
+
+	disks := c.RecentDiskIO(0)
+	if len(disks) != 1 {
+		t.Fatalf("expected 1 disk IO event, got %d", len(disks))
+	}
+	got := disks[0]
+	if got.Comm != "postgres" {
+		t.Errorf("Comm = %q, want postgres", got.Comm)
+	}
+	if got.Dev != 0x800010 {
+		t.Errorf("Dev = %#x, want 0x800010", got.Dev)
+	}
+	if got.Sector != 123456 || got.NrSector != 8 {
+		t.Errorf("unexpected sector/nr_sector: %+v", got)
+	}
+	if got.Latency != 2_500_000 {
+		t.Errorf("Latency = %v, want 2500000ns", got.Latency)
+	}
+	if got.RWBS != "W" {
+		t.Errorf("RWBS = %q, want W", got.RWBS)
+	}
+	if got.Error != 0 {
+		t.Errorf("Error = %d, want 0", got.Error)
+	}
+}
+
+func TestCollector_RecentDiskIO_BoundedByMaxEvents(t *testing.T) {
+	c := &Collector{maxEvents: 3}
+	for i := 0; i < 5; i++ {
+		ev := collectorEvent{Type: eventTypeDiskIO, DiskSector: uint64(i)}
+		c.handleRecord(encodeEvent(t, ev))
+	}
+	disks := c.RecentDiskIO(0)
+	if len(disks) != 3 {
+		t.Fatalf("expected buffer bounded to 3, got %d", len(disks))
+	}
+	if disks[0].Sector != 2 || disks[2].Sector != 4 {
+		t.Errorf("unexpected retained events: %+v", disks)
+	}
+}
+
+func TestCollector_SlowestDiskIO(t *testing.T) {
+	c := &Collector{maxEvents: 100}
+	latencies := []uint64{1_000_000, 50_000_000, 500_000, 10_000_000}
+	for _, ns := range latencies {
+		ev := collectorEvent{Type: eventTypeDiskIO, DiskLatencyNs: ns}
+		c.handleRecord(encodeEvent(t, ev))
+	}
+	slowest := c.SlowestDiskIO(2)
+	if len(slowest) != 2 {
+		t.Fatalf("expected 2 slowest events, got %d", len(slowest))
+	}
+	if slowest[0].Latency != 50_000_000 || slowest[1].Latency != 10_000_000 {
+		t.Errorf("expected descending latency order [50ms, 10ms], got %+v", slowest)
+	}
+}
+
 func TestHandleRecord_UnknownTypeIgnored(t *testing.T) {
 	c := &Collector{maxEvents: 100}
 	ev := collectorEvent{Type: 99}
 	c.handleRecord(encodeEvent(t, ev))
-	if len(c.RecentConns(0)) != 0 || len(c.RecentExecs(0)) != 0 {
+	if len(c.RecentConns(0)) != 0 || len(c.RecentExecs(0)) != 0 || len(c.RecentDiskIO(0)) != 0 {
 		t.Error("expected unknown event type to be ignored")
 	}
 }

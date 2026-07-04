@@ -1,8 +1,9 @@
-// Package ebpf collects TCP connection lifecycle transitions and process
-// exec events via two stable kernel tracepoints (sock:inet_sock_set_state,
-// sched:sched_process_exec), CO-RE-free since both are part of the kernel's
-// stable tracepoint ABI (see bpf/collector.c). Requires a kernel with BPF
-// ring buffer support (>= 5.8) and CAP_BPF/CAP_PERFMON (or root).
+// Package ebpf collects TCP connection lifecycle transitions, process exec
+// events, and disk I/O latency via four stable kernel tracepoints
+// (sock:inet_sock_set_state, sched:sched_process_exec, block:block_rq_issue,
+// block:block_rq_complete), CO-RE-free since all four are part of the
+// kernel's stable tracepoint ABI (see bpf/collector.c). Requires a kernel
+// with BPF ring buffer support (>= 5.8) and CAP_BPF/CAP_PERFMON (or root).
 package ebpf
 
 import (
@@ -24,6 +25,7 @@ import (
 const (
 	eventTypeTCPConn uint32 = 1
 	eventTypeExec    uint32 = 2
+	eventTypeDiskIO  uint32 = 3
 )
 
 // tcpStateNames maps Linux's net/tcp_states.h enum values to their names.
@@ -51,23 +53,46 @@ func tcpStateName(s uint8) string {
 // caught during verification. Plain strings sidestep it entirely and are
 // simpler for any client to consume.
 type TCPConnEvent struct {
-	Timestamp time.Time `json:"timestamp"`
-	PID       uint32    `json:"pid"`
-	Comm      string    `json:"comm"`
-	SrcAddr   string    `json:"src_addr"`
-	DstAddr   string    `json:"dst_addr"`
-	SrcPort   uint16    `json:"src_port"`
-	DstPort   uint16    `json:"dst_port"`
-	OldState  string    `json:"old_state"`
-	NewState  string    `json:"new_state"`
+	Timestamp   time.Time `json:"timestamp"`
+	PID         uint32    `json:"pid"`
+	Comm        string    `json:"comm"`
+	SrcAddr     string    `json:"src_addr"`
+	DstAddr     string    `json:"dst_addr"`
+	SrcPort     uint16    `json:"src_port"`
+	DstPort     uint16    `json:"dst_port"`
+	OldState    string    `json:"old_state"`
+	NewState    string    `json:"new_state"`
+	ContainerID string    `json:"container_id,omitempty"`
 }
 
 // ExecEvent is one observed process exec.
 type ExecEvent struct {
-	Timestamp time.Time `json:"timestamp"`
-	PID       uint32    `json:"pid"`
-	Comm      string    `json:"comm"`
-	Filename  string    `json:"filename"`
+	Timestamp   time.Time `json:"timestamp"`
+	PID         uint32    `json:"pid"`
+	Comm        string    `json:"comm"`
+	Filename    string    `json:"filename"`
+	ContainerID string    `json:"container_id,omitempty"`
+}
+
+// DiskIOEvent is one completed block I/O request's latency, emitted once —
+// at completion — after the eBPF program correlates it with its earlier
+// block_rq_issue by (device, sector). Dev is the raw kernel dev_t; decode
+// with DevMajor/DevMinor if needed (major = dev>>20, minor = dev&0xFFFFF,
+// matching how the kernel's own trace print format decodes it). RWBS is
+// the raw blktrace flag string (e.g. "R", "WS", "RA" — see the kernel's
+// blk_fill_rwbs()); exposed as-is rather than parsed further, the same way
+// TCPConnEvent exposes raw tcp state names instead of a derived boolean.
+type DiskIOEvent struct {
+	Timestamp   time.Time     `json:"timestamp"`
+	PID         uint32        `json:"pid"`
+	Comm        string        `json:"comm"`
+	Dev         uint32        `json:"dev"`
+	Sector      uint64        `json:"sector"`
+	NrSector    uint32        `json:"nr_sector"`
+	Latency     time.Duration `json:"latency_ns"`
+	RWBS        string        `json:"rwbs"`
+	Error       int32         `json:"error"`
+	ContainerID string        `json:"container_id,omitempty"`
 }
 
 // Collector loads the eBPF programs, attaches them to their tracepoints,
@@ -80,6 +105,7 @@ type Collector struct {
 	mu        sync.Mutex
 	conns     []TCPConnEvent
 	execs     []ExecEvent
+	disks     []DiskIOEvent
 	maxEvents int
 }
 
@@ -114,8 +140,27 @@ func New(maxEvents int) (*Collector, error) {
 		return nil, fmt.Errorf("attaching sched:sched_process_exec: %w", err)
 	}
 
+	blockIssueLink, err := link.Tracepoint("block", "block_rq_issue", objs.TraceBlockRqIssue, nil)
+	if err != nil {
+		execLink.Close()
+		tcpLink.Close()
+		objs.Close()
+		return nil, fmt.Errorf("attaching block:block_rq_issue: %w", err)
+	}
+
+	blockCompleteLink, err := link.Tracepoint("block", "block_rq_complete", objs.TraceBlockRqComplete, nil)
+	if err != nil {
+		blockIssueLink.Close()
+		execLink.Close()
+		tcpLink.Close()
+		objs.Close()
+		return nil, fmt.Errorf("attaching block:block_rq_complete: %w", err)
+	}
+
 	reader, err := ringbuf.NewReader(objs.Events)
 	if err != nil {
+		blockCompleteLink.Close()
+		blockIssueLink.Close()
 		execLink.Close()
 		tcpLink.Close()
 		objs.Close()
@@ -124,7 +169,7 @@ func New(maxEvents int) (*Collector, error) {
 
 	return &Collector{
 		objs:      objs,
-		links:     []link.Link{tcpLink, execLink},
+		links:     []link.Link{tcpLink, execLink, blockIssueLink, blockCompleteLink},
 		reader:    reader,
 		maxEvents: maxEvents,
 	}, nil
@@ -170,22 +215,37 @@ func (c *Collector) handleRecord(raw []byte) {
 	switch ev.Type {
 	case eventTypeTCPConn:
 		c.appendConn(TCPConnEvent{
-			Timestamp: time.Now(),
-			PID:       ev.Pid,
-			Comm:      commToString(ev.Comm[:]),
-			SrcAddr:   ipFromRaw(ev.Saddr),
-			DstAddr:   ipFromRaw(ev.Daddr),
-			SrcPort:   ev.Sport,
-			DstPort:   ev.Dport,
-			OldState:  tcpStateName(ev.Oldstate),
-			NewState:  tcpStateName(ev.Newstate),
+			Timestamp:   time.Now(),
+			PID:         ev.Pid,
+			Comm:        commToString(ev.Comm[:]),
+			SrcAddr:     ipFromRaw(ev.Saddr),
+			DstAddr:     ipFromRaw(ev.Daddr),
+			SrcPort:     ev.Sport,
+			DstPort:     ev.Dport,
+			OldState:    tcpStateName(ev.Oldstate),
+			NewState:    tcpStateName(ev.Newstate),
+			ContainerID: containerIDForPID(ev.Pid),
 		})
 	case eventTypeExec:
 		c.appendExec(ExecEvent{
-			Timestamp: time.Now(),
-			PID:       ev.Pid,
-			Comm:      commToString(ev.Comm[:]),
-			Filename:  commToString(ev.Filename[:]),
+			Timestamp:   time.Now(),
+			PID:         ev.Pid,
+			Comm:        commToString(ev.Comm[:]),
+			Filename:    commToString(ev.Filename[:]),
+			ContainerID: containerIDForPID(ev.Pid),
+		})
+	case eventTypeDiskIO:
+		c.appendDisk(DiskIOEvent{
+			Timestamp:   time.Now(),
+			PID:         ev.Pid,
+			Comm:        commToString(ev.Comm[:]),
+			Dev:         ev.DiskDev,
+			Sector:      ev.DiskSector,
+			NrSector:    ev.DiskNrSector,
+			Latency:     time.Duration(ev.DiskLatencyNs),
+			RWBS:        commToString(ev.DiskRwbs[:]),
+			Error:       ev.DiskError,
+			ContainerID: containerIDForPID(ev.Pid),
 		})
 	}
 }
@@ -230,6 +290,15 @@ func (c *Collector) appendExec(e ExecEvent) {
 	}
 }
 
+func (c *Collector) appendDisk(e DiskIOEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.disks = append(c.disks, e)
+	if len(c.disks) > c.maxEvents {
+		c.disks = c.disks[len(c.disks)-c.maxEvents:]
+	}
+}
+
 // RecentConns returns up to limit of the most recently observed TCP state
 // transitions (newest last). limit <= 0 means "all retained".
 func (c *Collector) RecentConns(limit int) []TCPConnEvent {
@@ -244,6 +313,32 @@ func (c *Collector) RecentExecs(limit int) []ExecEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return lastN(c.execs, limit)
+}
+
+// RecentDiskIO returns up to limit of the most recently completed disk I/O
+// requests (newest last). limit <= 0 means "all retained".
+func (c *Collector) RecentDiskIO(limit int) []DiskIOEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return lastN(c.disks, limit)
+}
+
+// SlowestDiskIO returns the n disk I/O requests with the highest latency
+// from the retained window, descending.
+func (c *Collector) SlowestDiskIO(n int) []DiskIOEvent {
+	c.mu.Lock()
+	out := append([]DiskIOEvent(nil), c.disks...)
+	c.mu.Unlock()
+
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j].Latency > out[j-1].Latency; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	if n > 0 && len(out) > n {
+		out = out[:n]
+	}
+	return out
 }
 
 // TopTalker summarizes one (process, remote address) pair's observed

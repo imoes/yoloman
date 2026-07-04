@@ -32,7 +32,7 @@ func TestRegisterEBPF_ToolsListedAndCallable(t *testing.T) {
 	defer cs.Close()
 
 	names := toolNames(t, cs)
-	for _, want := range []string{"net_connections", "top_talkers", "exec_events"} {
+	for _, want := range []string{"net_connections", "top_talkers", "exec_events", "disk_io", "slow_disk_io"} {
 		if !names[want] {
 			t.Errorf("expected tool %q to be registered", want)
 		}
@@ -44,6 +44,22 @@ func TestRegisterEBPF_ToolsListedAndCallable(t *testing.T) {
 	}
 	if res.IsError {
 		t.Fatalf("unexpected tool error: %+v", res.Content)
+	}
+
+	diskRes, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "disk_io", Arguments: map[string]any{}})
+	if err != nil {
+		t.Fatalf("CallTool disk_io: %v", err)
+	}
+	if diskRes.IsError {
+		t.Fatalf("unexpected tool error: %+v", diskRes.Content)
+	}
+
+	slowRes, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "slow_disk_io", Arguments: map[string]any{}})
+	if err != nil {
+		t.Fatalf("CallTool slow_disk_io: %v", err)
+	}
+	if slowRes.IsError {
+		t.Fatalf("unexpected tool error: %+v", slowRes.Content)
 	}
 }
 
@@ -68,7 +84,7 @@ func TestRegisterEBPFRoutes_RealCollectorServesJSON(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	for _, path := range []string{"/api/v1/net/connections", "/api/v1/net/top-talkers", "/api/v1/exec-events"} {
+	for _, path := range []string{"/api/v1/net/connections", "/api/v1/net/top-talkers", "/api/v1/exec-events", "/api/v1/disk-io", "/api/v1/disk-io/slowest"} {
 		resp := doJSON(t, "GET", srv.URL+path, nil)
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("%s: status = %d, want 200", path, resp.StatusCode)

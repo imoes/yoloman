@@ -2,8 +2,10 @@
 //go:build ignore
 
 // Minimal tracepoint argument struct definitions, hand-extracted from
-// `bpftool btf dump file /sys/kernel/btf/vmlinux format c` rather than
-// generated wholesale, since only these two tracepoints' argument layouts
+// `bpftool btf dump file /sys/kernel/btf/vmlinux format c` (or, for the two
+// block:* tracepoints added for disk I/O latency, directly from
+// /sys/kernel/tracing/events/block/block_rq_{issue,complete}/format) rather
+// than generated wholesale, since only these tracepoints' argument layouts
 // are needed (see collector.c for why no full vmlinux.h/CO-RE is required
 // here). Field order and types must match the kernel's
 // /sys/kernel/tracing/events/<subsys>/<event>/format exactly.
@@ -43,6 +45,38 @@ struct trace_event_raw_sched_process_exec {
 	pid_t pid;
 	pid_t old_pid;
 	char __data[0];
+};
+
+// block:block_rq_issue / block:block_rq_complete — the standard blktrace
+// tracepoints (stable ABI, present since long-EOL kernels), used to
+// correlate a request's issue and completion by (dev, sector) and compute
+// its latency (see collector.c). Field order/types below reproduce the
+// exact offsets from this project's dev/test kernel's
+// /sys/kernel/tracing/events/block/block_rq_{issue,complete}/format —
+// natural C struct alignment (no __attribute__((packed))) lines up with
+// the kernel's layout here, the same approach already used above for the
+// other two tracepoints.
+struct trace_event_raw_block_rq_issue {
+	struct trace_entry ent;
+	__u32 dev;
+	__u64 sector;
+	__u32 nr_sector;
+	__u32 bytes;
+	__u16 ioprio;
+	char rwbs[8];
+	char comm[16];
+	__u32 __data_loc_cmd;
+};
+
+struct trace_event_raw_block_rq_complete {
+	struct trace_entry ent;
+	__u32 dev;
+	__u64 sector;
+	__u32 nr_sector;
+	__s32 error;
+	__u16 ioprio;
+	char rwbs[8];
+	__u32 __data_loc_cmd;
 };
 
 #endif

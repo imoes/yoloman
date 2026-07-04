@@ -14,18 +14,42 @@ import (
 )
 
 type collectorEvent struct {
-	_        structs.HostLayout
-	Type     uint32
-	Pid      uint32
-	Comm     [16]uint8
-	Saddr    uint32
-	Daddr    uint32
-	Sport    uint16
-	Dport    uint16
-	Oldstate uint8
-	Newstate uint8
-	Filename [128]uint8
-	_        [2]byte
+	_             structs.HostLayout
+	Type          uint32
+	Pid           uint32
+	Comm          [16]uint8
+	Saddr         uint32
+	Daddr         uint32
+	Sport         uint16
+	Dport         uint16
+	Oldstate      uint8
+	Newstate      uint8
+	Filename      [128]uint8
+	_             [2]byte
+	DiskDev       uint32
+	_             [4]byte
+	DiskSector    uint64
+	DiskNrSector  uint32
+	_             [4]byte
+	DiskLatencyNs uint64
+	DiskRwbs      [8]uint8
+	DiskError     int32
+	_             [4]byte
+}
+
+type collectorIoKey struct {
+	_      structs.HostLayout
+	Dev    uint32
+	_      [4]byte
+	Sector uint64
+}
+
+type collectorIoStartVal struct {
+	_    structs.HostLayout
+	TsNs uint64
+	Pid  uint32
+	Comm [16]uint8
+	_    [4]byte
 }
 
 // Names of all BPF objects in the ELF.
@@ -33,6 +57,9 @@ type collectorEvent struct {
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
 	collectorMapEvents                 = "events"
+	collectorMapIoStart                = "io_start"
+	collectorProgTraceBlockRqComplete  = "trace_block_rq_complete"
+	collectorProgTraceBlockRqIssue     = "trace_block_rq_issue"
 	collectorProgTraceInetSockSetState = "trace_inet_sock_set_state"
 	collectorProgTraceSchedProcessExec = "trace_sched_process_exec"
 	collectorVarUnusedEventBtfAnchor   = "unused_event_btf_anchor"
@@ -80,6 +107,8 @@ type collectorSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorProgramSpecs struct {
+	TraceBlockRqComplete  *ebpf.ProgramSpec `ebpf:"trace_block_rq_complete"`
+	TraceBlockRqIssue     *ebpf.ProgramSpec `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
 	TraceSchedProcessExec *ebpf.ProgramSpec `ebpf:"trace_sched_process_exec"`
 }
@@ -88,7 +117,8 @@ type collectorProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorMapSpecs struct {
-	Events *ebpf.MapSpec `ebpf:"events"`
+	Events  *ebpf.MapSpec `ebpf:"events"`
+	IoStart *ebpf.MapSpec `ebpf:"io_start"`
 }
 
 // collectorVariableSpecs contains global variables before they are loaded into the kernel.
@@ -118,12 +148,14 @@ func (o *collectorObjects) Close() error {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorMaps struct {
-	Events *ebpf.Map `ebpf:"events"`
+	Events  *ebpf.Map `ebpf:"events"`
+	IoStart *ebpf.Map `ebpf:"io_start"`
 }
 
 func (m *collectorMaps) Close() error {
 	return _CollectorClose(
 		m.Events,
+		m.IoStart,
 	)
 }
 
@@ -138,12 +170,16 @@ type collectorVariables struct {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorPrograms struct {
+	TraceBlockRqComplete  *ebpf.Program `ebpf:"trace_block_rq_complete"`
+	TraceBlockRqIssue     *ebpf.Program `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
 	TraceSchedProcessExec *ebpf.Program `ebpf:"trace_sched_process_exec"`
 }
 
 func (p *collectorPrograms) Close() error {
 	return _CollectorClose(
+		p.TraceBlockRqComplete,
+		p.TraceBlockRqIssue,
 		p.TraceInetSockSetState,
 		p.TraceSchedProcessExec,
 	)
