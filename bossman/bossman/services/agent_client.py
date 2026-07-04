@@ -91,3 +91,48 @@ class AgentClient:
             params["since"] = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         body = await self._get_json("/api/v1/net/connections/dump", params)
         return body.get("edges", [])
+
+    async def call_tool(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/tools/{name} — invoke one module/task/pipeline
+        tool (see docs/plan.md's Bossman plan, section B.5's plan engine).
+        Raises AgentClientError on any non-200 response or network
+        failure — the plan engine wraps each step call so a single failing
+        step doesn't crash the whole run."""
+        url = f"https://{self.address}/api/v1/tools/{name}"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=body)
+        except httpx.HTTPError as exc:
+            raise AgentClientError(f"{self.address}: tool {name!r}: request failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: tool {name!r}: decoding response: {exc}") from exc
+
+    async def upload_file(self, remote_name: str, data: bytes) -> dict[str, Any]:
+        """PUT /api/v1/upload?name=<remote_name> — the raw-body,
+        no-base64 large-file upload path (see docs/plan.md's "File upload
+        (staging)"). The entire body is the file's raw bytes, not JSON."""
+        url = f"https://{self.address}/api/v1/upload"
+        try:
+            async with self._client() as client:
+                resp = await client.put(
+                    url,
+                    params={"name": remote_name},
+                    content=data,
+                    headers={"Content-Type": "application/octet-stream"},
+                )
+        except httpx.HTTPError as exc:
+            raise AgentClientError(f"{self.address}: upload {remote_name!r}: request failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise AgentClientError(
+                f"{self.address}: upload {remote_name!r} returned {resp.status_code}: {resp.text[:4096]}"
+            )
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: upload {remote_name!r}: decoding response: {exc}") from exc

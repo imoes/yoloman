@@ -1730,3 +1730,83 @@ after deleting child rows and before deleting the parent in every test's cleanup
   earlier real-eBPF verification on `host1.example.internal`, so this run's scope was
   deliberately the metrics/cursor path. All test rows, processes, and scratch files were removed
   afterward.
+
+## Bossman — Block B5: plan loader + plan engine (implemented)
+
+The filesystem-native plan format from the plan above (section B.5): "take plan X, run it against
+host Y" instead of the AI orchestrating individual module calls itself.
+
+**`bossman/bossman/services/plan_loader.py`** (new): deliberately byte-for-byte syntax-compatible
+with the Go node agent's own `tools.d/*.yaml` single-task format (`internal/tasks/task.go`) — same
+`ansible.builtin.<module>:` key, `params: {type, required, pattern, default}`, and `{{ placeholder
+}}` substitution rules (a string that is *entirely* one placeholder keeps the argument's native
+type; embedded placeholders stringify; an unresolved reference is a hard error, never a silent
+no-op) — ported statement-for-statement so an operator who already knows tools.d syntax needs
+nothing new to write a plan step. What a plan adds on top of a single task: an ordered `steps:`
+list where each step is a module call, a `pipeline:`, or a new `upload:` step type (`local_path` +
+`remote_name`, driving the file-upload staging path documented earlier in this file), plus
+per-step `check_mode`/`on_failure` ("abort" default, or "continue"). `load_plans_dir()` mirrors the
+Go tools.d loader's behavior exactly: sorted, duplicate-name detection, a missing directory yields
+no plans rather than erroring. `load_host_vars()` reads
+`<plans_dir>/host_vars/<hostname>.yaml`. `resolve_params()` merges `params.default < host_vars <
+explicit-call-params` (in that precedence) and validates required/type/pattern, mirroring the Go
+parser's `buildArgs`. `Plan.version()` is a sha256 of the plan file's own bytes — a drift-detection
+value for `plan_runs.plan_version` ("was the file edited since this run happened"), not a
+hand-maintained version number.
+
+**`bossman/bossman/services/agent_client.py`** extended with `call_tool(name, body)` (`POST
+/api/v1/tools/{name}`) and `upload_file(remote_name, data)` (`PUT /api/v1/upload?name=`, the raw-
+body path documented in this file's "File upload (staging)" section) — both raising
+`AgentClientError` on any non-200/network failure, same contract as the existing
+`metrics_dump`/`connections_dump` methods.
+
+**`bossman/bossman/services/plan_engine.py`** (new): `run_plan(session, agent, plan, host_vars,
+explicit_params, dry_run, client, requested_by)` resolves parameters, creates the `PlanRun` row,
+then executes every step in order, recording each into `plan_run_steps` regardless of outcome —
+`PlanError`/`AgentClientError`/`OSError` are all caught per-step and stored as that step's `error`,
+never allowed to abort the whole run and leave nothing persisted. Only a parameter-resolution
+failure *before* the `PlanRun` row is created propagates as a raised `PlanError` — once the row
+exists, a persisted partial audit trail is the point of a plan run, not an exception.
+
+Per-step `check_mode` (or the run's own top-level `dry_run`) only actually changes behavior for a
+**module** step, where it's injected as `"dry_run": true` in the request body sent to
+`/api/v1/tools/{module}` — this is genuinely how the Go node agent's own modules implement
+check_mode (a `dry_run` boolean *parameter inside the module's own params*, confirmed by reading
+`internal/modules/apt.go` et al.; the REST/MCP server layers always call `Module.Run(..., false)`
+for the wrapper argument, so this is the *only* way to trigger it over the wire). `pipeline` and
+`upload` steps have no such capability on the agent side — a dry-run pipeline or upload step is
+therefore **skipped entirely** (no HTTP call at all) with a synthetic `{"skipped": "..."}` response
+body recorded, rather than either running for real during a preview or pretending to predict an
+effect neither step type can actually preview.
+
+`PlanRun.status` becomes `"failed"` if *any* step errored (regardless of whether `on_failure` let
+the run continue past it) or `"succeeded"` otherwise — `"aborted"` (also a valid value per the
+schema's `CheckConstraint`) is reserved for a future explicit-cancellation feature, not produced by
+this block.
+
+**Verification:**
+- `tests/test_plan_loader.py` (25 tests, no DB, no network): every step kind parses correctly
+  (module/pipeline/upload), every malformed-plan error case (missing name/steps, multiple module
+  keys, unknown step key, bad `on_failure`), `load_plans_dir`/`load_host_vars` behavior including
+  duplicate-name and missing-directory cases, `resolve_params`'s full precedence chain and every
+  validation failure (missing required, pattern mismatch, wrong type, unknown param),
+  `substitute`'s type-preservation vs. stringification rules and nested dict/list walking, and
+  `Plan.version()` actually changing when the file's content changes.
+- `tests/test_plan_engine.py` (11 tests, real DB via `db_session`, `FakeAgentClient` — the same
+  test-seam pattern as the poller and the Go proxy's own `Manager.pullerFactory`): a full
+  successful run recording the right step/status/params/version; a failing step recorded with its
+  error and the run marked `failed`; `on_failure: continue` running the remaining steps vs. the
+  default `abort` stopping immediately; a module step's dry-run correctly injecting `dry_run: true`
+  into the body; a step-level `check_mode: true` forcing dry-run behavior even when the overall run
+  isn't a dry run; pipeline and upload steps both actually invoked when not a dry run and both
+  genuinely skipped (zero calls to the fake client) when they are; a missing required parameter
+  raising before any `PlanRun` row is created (no orphan row left behind).
+- **Real end-to-end run against an actual, write-enabled `agentic-mcpd` binary** (not the Python
+  fake): a three-step plan (a `copy` module step, a `pipeline` step chaining `echo`/`wc` through
+  the agent's real command-whitelist policy, and an `upload` step) was run for real via `run_plan`
+  with a genuine (non-fake) `AgentClient` against a real, running Duppy. All three steps came back
+  `changed: true`/`http_status: 200` with no errors, `PlanRun.status == "succeeded"`, and — checked
+  independently of the recorded results — the actual side effects were real: `motd.txt` on disk
+  contained the exact substituted parameter value (`"hello from e2e"`), and the uploaded file
+  landed byte-for-byte in the agent's real staging directory. Test rows, processes, and scratch
+  files were removed afterward.
