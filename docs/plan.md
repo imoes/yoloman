@@ -316,11 +316,15 @@ regenerating); the resulting `.go`+`.o` are committed and embedded (`go:embed`),
 `go build` needs no BPF toolchain. `internal/ebpf.Collector` loads/attaches both programs,
 reads the shared ring buffer, and keeps bounded in-memory event lists (`RecentConns`,
 `RecentExecs`, `TopTalkers` — aggregated by comm+destination over `ESTABLISHED` transitions).
-IPv4 only in v1 (IPv6 stays on the v3 roadmap alongside deeper eBPF expansion). Graceful
-degradation is real: `startEBPFCollector` in `main.go` logs a warning and returns `nil` on any
-failure (missing CAP_BPF, old kernel, ...), and every registration point (`RegisterEBPF`,
-`RegisterEBPFRoutes`) is a no-op for a nil collector — verified locally in this sandbox (no
-root) where the daemon started fine with the log warning and the eBPF tools were simply absent.
+IPv4 only in v1 (IPv6 still not implemented). Graceful degradation is real: `startEBPFCollector`
+in `main.go` logs a warning and returns `nil` on any failure (missing CAP_BPF, old kernel, ...),
+and every registration point (`RegisterEBPF`, `RegisterEBPFRoutes`) is a no-op for a nil collector
+— verified locally in this sandbox (no root) where the daemon started fine with the log warning
+and the eBPF tools were simply absent.
+
+**Extended in v3** with two more stable tracepoints (`block:block_rq_issue`/`block:block_rq_complete`
+for disk I/O latency) and `/proc`-based container-awareness enrichment on every event type — see
+the "v3" section below for full detail and real-verification evidence.
 
 Verified for real on the remote test host (`host1.example.internal`, kernel 6.12.94,
 Debian 13, real root via `sudo`): the eBPF programs loaded and attached successfully
@@ -1267,5 +1271,124 @@ simply never built. Both are now closed out:
   deliberately *not* implemented in this repo — the Node Agent stays narrowly scoped to exposing
   metrics and executing well-defined module calls; foreign-format translation is Fleet Commander
   work.
-- **v3:** mTLS, per-token RBAC (token → allowed tool set), `.rpm`, eBPF expansion (disk I/O
-  latency, container awareness)
+- **v3 (implemented — see "v3" section below):** mTLS (verified already generic), per-token RBAC
+  (token → allowed tool set), `.rpm`, eBPF expansion (disk I/O latency, container awareness)
+
+## v3 — mTLS verification, per-token RBAC, `.rpm` packaging, eBPF expansion (implemented)
+
+Prompted by the user's explicit direction to work through the v3 roadmap items before starting on
+Bossman. All four items below are implemented, tested, and real-verified.
+
+### mTLS — verified already generic (no code change needed, but previously untested)
+
+`cmd/agentic-mcpd/http.go`'s `requireTrustedClientCert`/`withBearerAuth` already gated **any**
+direct caller to `/mcp` and `/api/v1/*` whenever `tls.trusted_client_keys` is configured — not
+just the proxy/satellite-puller path. This was true before this session but had **zero dedicated
+test coverage** (`internal/fleet/puller_test.go` only exercises the *client* side against a
+hand-mimicked test server, not the real production gate function). Added
+`cmd/agentic-mcpd/http_test.go`: real TLS handshakes via `httptest`-style servers proving a direct
+caller (not a proxy) is correctly gated by both the bearer token and the client-cert pin, that
+they compose as defense-in-depth (right cert + wrong token fails, right token + wrong cert fails),
+and that `loadTrustedClientKeys` skips broken entries gracefully. No production code changed;
+existing behavior confirmed correct and now has regression coverage it lacked.
+
+### Per-token RBAC — `internal/authz.TokenEntry`/`ResolveBearerToken`, `config.NamedToken`
+
+Previously every bearer-token caller — MCP or REST — resolved to the same fixed
+`authz.TokenIdentity` ("service-token"), so an ACL rule scoped to a token principal could never
+actually differentiate between callers. Implemented:
+
+- `internal/authz/token.go`: `TokenEntry{Name, Token}` + `ResolveBearerToken(presented, legacyToken,
+  extra []TokenEntry) (Identity, bool)` — constant-time comparison against the legacy token (→
+  fixed `TokenIdentity`, unchanged for backward compatibility) and each named entry (→
+  `Identity{Kind: KindToken, Name: entry.Name}`).
+- `internal/authz/context.go`: `WithIdentity`/`IdentityFromContext` — since MCP tool-call handlers
+  only ever receive a `context.Context`, not the originating `*http.Request`, the resolved
+  identity has to travel via the request context the bearer-auth middleware already touches.
+- `internal/config`: new `Config.Tokens []NamedToken` (validated: unique non-empty names, no
+  collision with the reserved `service-token` name, non-empty token values) +
+  `Config.TokenEntries()` conversion helper.
+- `cmd/agentic-mcpd/http.go`'s `withBearerAuth` now resolves and attaches the caller's `Identity`
+  to the request context on a match (MCP path); `internal/server/rest.go`'s `identityFromRequest`
+  does the same for REST via a new `RESTConfig.Tokens` field.
+- `internal/server/modules.go`/`tasks.go`/`upload.go`: `checkACL`/`registerModuleTool` etc. now
+  resolve the caller's identity from context (`mcpCallerIdentity`, falling back to the fixed
+  `TokenIdentity` when nothing was attached — e.g. auth disabled entirely) instead of hardcoding
+  it, so a named token's ACL rules actually apply to its own MCP calls.
+
+**Verified:** unit tests for the resolver/context helpers and config validation; a decisive
+`cmd/agentic-mcpd/rbac_test.go` end-to-end test using a **real** `mcp.Client` over a **real**
+`mcp.NewStreamableHTTPHandler` HTTP connection (not an in-memory transport) — two different tokens
+presented over the wire resolve to two different identities and get genuinely different ACL-scoped
+tool access; confirmed this test would have failed against the old code (temporarily reverted
+`mcpCallerIdentity` to always return the fixed identity — the test failed exactly as expected,
+then restored). Also verified live against `host1.example.internal`: a daemon configured
+with a legacy token and two named tokens (`bossman`, `readonly-ci`), an ACL rule granting only
+`bossman` access to `ping`, confirmed via real REST calls — `bossman` token can call `ping` (200)
+but not `setup` (403); the legacy token and the other named token are both denied `ping` (403),
+proving the ACL rule genuinely differentiates between tokens rather than granting blanket access
+to anyone with *a* valid token.
+
+### `.rpm` packaging — `packaging/nfpm.yaml`, `postinst`, `postrm`
+
+One shared `nfpm.yaml` (nfpm builds both `.deb` and `.rpm` from the same config) plus `postinst`
+(first-install-only: bootstraps `config.yaml` from the shipped example, generates a random token
+via `agentic-mcpd --generate-token`, `chmod 0600`, `systemctl enable`+`restart`) and `postrm`
+(stops/disables the service; deliberately never deletes `/etc/agentic-mcp` or
+`/var/lib/agentic-mcp` — losing the bearer token or accumulated metrics/audit history on a routine
+package removal would be a destructive surprise). `.deb` install-testing remains explicitly
+deferred per the user's direction (Schritt 12 of the original v1 plan); only `.rpm` was built and
+verified this round, since that's what v3 actually asked for.
+
+**Verified, real, end to end:** built via `nfpm package -f nfpm.yaml -p rpm`; installed with real
+`rpm -ivh` in a plain `rockylinux:9` container (files/permissions/token-generation correct;
+reinstall after `rpm -e` correctly leaves `config.yaml` in place and does **not** regenerate the
+token); installed and run in a **real systemd-enabled** `rockylinux/rockylinux:9-ubi-init`
+container (`--privileged --cgroupns=host`) — `systemctl status` showed the service genuinely
+`active (running)`, `enabled`, eBPF collector attached, and a real `curl` REST call
+(`POST /api/v1/tools/ping`) against the systemd-managed daemon succeeded.
+
+### eBPF expansion — disk I/O latency + container-awareness
+
+**Disk I/O latency** (`internal/ebpf/bpf/collector.c`, `tracepoints.h`): two new stable tracepoints,
+`block:block_rq_issue` and `block:block_rq_complete`, correlated in-kernel by `(dev, sector)` (the
+standard blktrace correlation key, same approach BCC's `biolatency` uses) via a
+`BPF_MAP_TYPE_HASH` — a request seen mid-flight when the collector attaches (issue missed) is
+silently skipped rather than reported with a guessed latency. New `DiskIOEvent` Go type
+(comm/pid/dev/sector/nr_sector/latency/rwbs/error), `RecentDiskIO`/`SlowestDiskIO` accessors, new
+MCP tools `disk_io`/`slow_disk_io` and REST routes `GET /api/v1/disk-io`/`/api/v1/disk-io/slowest`.
+
+Hit a real verifier rejection during development: reading `ctx->ent.pid` (the tracepoint's *common*
+header, shared across all tracepoint types) is rejected by the BPF verifier for
+`tracepoint/*` programs ("invalid bpf_context access") — only the tracepoint-*specific* fields
+after the common header are checked/allowed. Fixed by using `bpf_get_current_pid_tgid() >> 32`
+instead (the same technique `trace_inet_sock_set_state` already used), which is verifier-safe
+regardless of tracepoint argument layout. Caught immediately by real-host verification (unit tests
+alone, which don't load real BPF bytecode, could not have caught this).
+
+**Container-awareness** (`internal/ebpf/container.go`): deliberately **not** implemented as
+further eBPF/kernel work — walking kernel cgroup structs directly would need CO-RE/BTF relocation
+(exactly the complexity this collector's tracepoint-only design otherwise avoids), whereas every
+event already carries a pid, and `/proc/<pid>/cgroup` is a stable userspace interface for the same
+lookup. `containerIDForPID`/`containerIDFromCgroupData`: reads `/proc/<pid>/cgroup`, extracts the
+longest hex run (12–64 chars) across all lines — matching Docker's own cgroup driver
+(`/docker/<64-hex>`), Docker via the systemd cgroup driver (`docker-<64-hex>.scope`), and
+containerd/CRI (`cri-containerd-<64-hex>.scope`, used for both standalone containerd and
+Kubernetes) uniformly, without special-casing each runtime. Best-effort: empty string (omitted
+from JSON via `omitempty`) if the process already exited, isn't containerized, or the path doesn't
+match — never an error, since this is enrichment, not core event data. Added to `TCPConnEvent`,
+`ExecEvent`, and the new `DiskIOEvent` (which needed a `pid` field added to its eBPF-side
+correlation map value, populated at issue time, since `block_rq_complete` itself carries no pid).
+
+**Verified:** unit tests against realistic real-world cgroup path formats for all three runtime
+patterns plus bare-metal (no false positives), an injectable-reader test, and a real
+`/proc/<pid>/cgroup` read against the test binary's own PID. Real, end-to-end verification on
+`host1.example.internal`: real disk I/O generated (`dd`/`sync`/`cat` of a 100 MiB file) and
+retrieved via the real REST endpoints — genuine device numbers, sectors, and latencies (a 17.6ms
+journal write, ~30–45µs small kworker writes, real process names like `sssd_be` and
+`kworker/1:1H`). Container-awareness verified without needing a real container runtime (the test
+host has no outbound internet access to pull an image): manually placed a real process into a
+Docker-style cgroup path (`/sys/fs/cgroup/docker-test-fake/docker-<64-hex>.scope/cgroup.procs`,
+real cgroupfs, no simulation) and confirmed real `exec_events` captured from within it carried the
+exact matching `container_id` — proving the full pipeline (kernel event → pid capture → `/proc`
+lookup → JSON output) end to end.

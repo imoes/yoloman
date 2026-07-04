@@ -73,12 +73,20 @@ the safety checks" part the name jokes about. Read the full model in
   (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.
 - **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin, exposed as an MCP tool
   automatically.
-- **eBPF observability** (Coroot-style) — TCP connection tracking and process-exec events via
-  `cilium/ebpf`, CO-RE, graceful degradation on kernels without BTF.
+- **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, and disk
+  I/O latency (block request issue/completion correlated in-kernel by device+sector) via
+  `cilium/ebpf`, CO-RE-free stable tracepoints, graceful degradation on kernels without ring buffer
+  support. Every event is container-aware — a best-effort container ID resolved from
+  `/proc/<pid>/cgroup`, recognizing Docker's own cgroup driver, Docker-via-systemd, and
+  containerd/CRI paths uniformly, without walking fragile kernel cgroup structs.
 - **Local SQLite metrics store** with a retention/downsampling job (raw → hourly → daily), plus a
   bulk `metrics_dump` endpoint for efficient polling.
-- **PAM login + SQLite-backed ACL** — a per-tool kill switch and per-user/group/token rules,
-  enforced identically whether the caller comes in over MCP or REST.
+- **PAM login + SQLite-backed ACL, with per-token RBAC** — a per-tool kill switch and per-
+  user/group/token rules, enforced identically whether the caller comes in over MCP or REST.
+  Beyond the single legacy bearer token, `config.yaml` can name additional tokens
+  (`tokens: [{name, token}]`), each resolving to its own ACL identity — so a CI pipeline and a
+  future Bossman instance can be scoped to different tool sets instead of every valid token
+  granting the same access.
 - **Self-contained embedded web admin UI** — login, tool toggles, ACL editing, metrics/facts
   viewing. No build step, no CDN.
 - **Structured audit logging** — every tool call as a JSON line to journald.
@@ -101,6 +109,10 @@ the safety checks" part the name jokes about. Read the full model in
   takes small base64 content (≲64 KiB — anything an AI would plausibly compose inline); the REST
   endpoint streams a raw request body straight to disk, no base64, sized for real packages (kernel
   packages run up to ~274 MiB).
+- **`.rpm` packaging** (`packaging/nfpm.yaml`) — one shared `nfpm` config builds both `.deb` and
+  `.rpm`; `postinst` bootstraps `config.yaml` with a freshly generated token on first install and
+  enables the systemd unit, `postrm` stops the service without ever deleting the token/store/audit
+  history. Real-installed and run under genuine `systemd` in a Rocky Linux 9 container.
 
 ## What's coming: Bossman
 
