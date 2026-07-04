@@ -1024,11 +1024,46 @@ data — then removed it; and toggled the real, already-installed `bash` package
 `hold` and back to `install`, confirming both the change and the idempotent no-op with `dpkg
 --get-selections` at each step.
 
+### Batch 4 — RedHat packaging modules (implemented, unit-tested only): yum, dnf, dnf5, yum_repository, rpm_key
+
+Per the confirmed scope (both package-manager families in coverage, not just Debian): this batch
+has **no real end-to-end verification** — `host1.example.internal`, this project's only
+real test host, is Debian 13, not a RedHat-family distro, so there is nowhere to run these against
+a genuine `yum`/`dnf`/`rpm` toolchain. Each module's doc comment and description say so explicitly,
+mirroring how `command`'s non-zero-exit-isn't-an-error and `tempfile`'s not-idempotent-by-design
+are called out as deliberate, documented departures from the rest of the module set's guarantees.
+
+- **`yum` / `dnf` / `dnf5`** — share a single implementation (`internal/modules/rpm_pkg.go`'s
+  unexported `rpmPackageManager`, parameterized by binary name), since all three expose
+  essentially the same install/remove/update CLI surface for the common case; `Yum`/`Dnf`/`Dnf5`
+  are thin wrappers each supplying their own `Name()`/`Description()`. Presence is checked via the
+  shared `rpm` database (`rpm -q --queryformat`) rather than the frontend binary, since all three
+  ultimately record installs there regardless of which one performed them. For `state: latest`,
+  `dry_run` against an already-installed package conservatively predicts `changed: true` — genuine
+  certainty would need a real repository query, which isn't worth the complexity for a family this
+  project can't verify end to end; a real (non-dry-run) call instead compares the installed
+  version before and after running `update`, so `changed` reflects what actually happened rather
+  than a guess.
+- **`yum_repository`** — present/absent INI-style `.repo` stanzas in `/etc/yum.repos.d/`, the
+  RedHat-family analogue of `apt_repository`. Same injectable-directory pattern for testability
+  without root.
+- **`rpm_key`** — `rpm --import`/`rpm -e` (rpm's own current, non-deprecated tools for this,
+  unlike `apt_key`'s workaround for the deprecated `apt-key`). Presence is checked via `rpm -qa
+  "gpg-pubkey-<keyid>-*"`, matching how rpm actually stores imported keys as
+  `gpg-pubkey-<last-8-hex-of-fingerprint>-<date>` pseudo-packages — a glob query since the date
+  suffix isn't known in advance, then the exact matched package name is used for removal (`rpm -e`
+  needs an exact NVR).
+
+**Verified:** 41 new unit tests. The `yum`/`dnf`/`dnf5` suite (`rpm_pkg_test.go`) is written once
+against an `rpmModule` interface and table-driven over all three real `Module` implementations —
+not just the shared core — so each concrete type is genuinely exercised, including present/absent/
+latest transitions, the before/after version-comparison logic, dry-run, and failure propagation.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** Batches 4–6 of the `ansible.builtin` coverage plan above (RedHat
-  packaging, network/download, and the rest). Optionally: multi-task plan/apply (playbook-style)
-  with confirmation — the full Ansible replacement
+- **Module completion:** Batches 5–6 of the `ansible.builtin` coverage plan above (network/
+  download and the rest). Optionally: multi-task plan/apply (playbook-style) with confirmation —
+  the full Ansible replacement
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
   fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
   alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign

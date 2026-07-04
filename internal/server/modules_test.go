@@ -122,6 +122,7 @@ func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 		"blockinfile", "replace", "assemble", "tempfile", "template",
 		"user", "group", "cron", "hostname", "timezone",
 		"apt_key", "apt_repository", "deb822_repository", "dpkg_selections",
+		"yum", "dnf", "dnf5", "yum_repository", "rpm_key",
 	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {
