@@ -117,7 +117,10 @@ func TestRegisterModules_CallToolRoundTrip(t *testing.T) {
 func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 	reg := NewDefaultModuleRegistry()
 	readOnly := []string{"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent"}
-	writing := []string{"file", "copy", "lineinfile", "systemd", "service", "apt", "command"}
+	writing := []string{
+		"file", "copy", "lineinfile", "systemd", "service", "apt", "command",
+		"blockinfile", "replace", "assemble", "tempfile", "template",
+	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {
 			t.Errorf("expected default registry to contain module %q", name)

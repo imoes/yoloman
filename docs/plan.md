@@ -876,12 +876,83 @@ error. `internal/pipeline/exec_test.go` gained `TestRun_EarlierStageFailureVisib
 constructing exactly the `ls <missing> | cat` scenario above and asserting stage 0's real exit code
 and stderr both survive in `Result.Stages` even though the pipeline "succeeds" overall.
 
+## `ansible.builtin` module coverage plan
+
+Prompted by the real count from `ansible-doc -l` (71 modules in `ansible.builtin` on the local
+core 2.16.3 install — matches the ballpark "~74" the user cited). Not all 71 are in scope:
+
+- **~19 controller-side directives excluded entirely** — `add_host`, `assert`, `async_status`,
+  `debug`, `fail`, `gather_facts` (meta-alias of `setup`, already covered), `group_by`,
+  `import_playbook`, `import_role`, `import_tasks`, `include_role`, `include_tasks`,
+  `include_vars`, `meta`, `pause`, `set_fact`, `set_stats`, `validate_argument_spec`,
+  `wait_for_connection`. These are Ansible-*controller*-side constructs (control flow, variable/
+  inventory manipulation on the machine running Ansible itself) with no corresponding action a
+  node agent executes on a managed host — implementing them would be building the wrong thing.
+  Confirmed with the user.
+- **Both package-manager families in scope** (confirmed with the user, not Debian-only): the
+  existing `apt` module's Debian-family siblings (`apt_key`, `apt_repository`,
+  `deb822_repository`, `dpkg_selections`) *and* the RedHat family (`yum`, `yum_repository`,
+  `dnf`, `dnf5`, `rpm_key`) — the latter unit-tested only (fake `CommandRunner`, matching the
+  existing `apt`/`systemd` test pattern) since the project's real test host
+  (`host1.example.internal`) is Debian 13, not a RedHat-family distro.
+- **Real remaining scope: ~28 modules**, genuine host-management actions that fit this project's
+  existing `Module` interface pattern: `blockinfile`, `replace`, `template`, `get_url`,
+  `hostname`, `timezone`, `cron`, `user`, `group`, `tempfile`, `unarchive`, `script`, `expect`,
+  `git`, `subversion`, `pip`, `package`, `systemd_service` (alias of `systemd`, like `service`
+  already is), `sysvinit`, `wait_for`, `uri`, `known_hosts`, `iptables`, `reboot`, `fetch`,
+  `assemble`, `debconf`, `ping`.
+
+**Batching, per the user's explicit direction** ("in Batches nacheinander, jeweils testen und
+committen"): work through in groups, testing and committing each before starting the next —
+Batch 1 (text/file), Batch 2 (system/user identity), Batch 3 (Debian packaging), Batch 4 (RedHat
+packaging), Batch 5 (network/download), Batch 6 (everything else). Real end-to-end verification
+uses `host1.example.internal` (user `marvin`, key `~/.ssh/marvin.key`, passwordless sudo) —
+the user explicitly offered this host for the batch work.
+
+### Batch 1 — text/file modules (implemented): blockinfile, replace, assemble, tempfile, template
+
+All five follow the existing `Module` interface exactly (idempotent, `check_mode` via
+`dry_run`, cross-tool-equivalents description, registered in
+`server.NewDefaultModuleRegistry` gated by the write flag like every other write module).
+
+- **`blockinfile`** — insert/update/remove a marker-comment-delimited block, identified by its
+  `# BEGIN/END ANSIBLE MANAGED BLOCK`-style markers so re-running with different content replaces
+  the block in place rather than duplicating it. Missing markers → append at EOF. A documented
+  subset of the real module (no `insertafter`/`insertbefore`/`backup`).
+- **`replace`** — regex find-and-replace across a whole file's content (not line-scoped like
+  `lineinfile`), Go RE2 syntax with `$1`-style backreferences (Ansible's own `replace` uses Python
+  `\1` syntax — a real, documented syntax difference, not a bug).
+- **`assemble`** — concatenates every file in a source directory (sorted by name, optional
+  filename-regexp filter, optional delimiter) into a single destination file — the classic
+  `conf.d/*.conf` → one real config file pattern. Reuses `applyOwnerGroupMode` (already built for
+  `file`/`copy`) for the destination's owner/group/mode.
+- **`tempfile`** — creates a uniquely-named temp file/directory and returns its path. Deliberately
+  *not* idempotent (like `mktemp`, every real call creates something new and reports
+  `changed=true`) — documented as an intentional exception to the idempotency pattern the rest of
+  the module set follows, the same way `command`'s non-zero-exit-isn't-an-error is a documented
+  exception.
+- **`template`** — renders `{{ variable }}` placeholders against a `vars` map. Explicitly *not* a
+  Jinja2 implementation: Ansible's `template` module is full Jinja2 (filters/conditionals/loops/
+  macros); reimplementing that is out of scope, so this covers plain variable substitution only,
+  reusing the exact `{{ }}` placeholder convention this project's own `tools.d` task definitions
+  already use (`internal/tasks`) rather than introducing a second templating syntax. A referenced
+  placeholder with no matching `vars` entry is a hard error, not a silently-blank substitution.
+
+**Verified:** 32 new unit tests across the five modules (idempotency, dry-run, error paths —
+missing src, invalid regexp/marker, missing template var — and the `blockinfile`/`assemble`/
+`template` marker/sort-order/placeholder logic specifically). All five also run for real on
+`host1.example.internal`: `blockinfile` inserted a real marked block into a scratch file and
+was confirmed idempotent on a second identical call; `replace` real-edited that file's content;
+`assemble` concatenated two real fragment files in `/tmp/confd` into one destination; `tempfile`
+created a real file under `/tmp` with the requested prefix/suffix; `template` rendered real
+`{{ host }}`/`{{ port }}` placeholders to disk — all via genuine REST calls against the compiled
+binary, not mocks.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** the remaining `ansible.builtin` write modules (`template`,
-  `blockinfile`, `user`, `group`, `cron`, `sysctl`, `mount`, `get_url`, `hostname`, `timezone`,
-  `package`). Optionally: multi-task plan/apply (playbook-style) with confirmation — the full
-  Ansible replacement
+- **Module completion:** Batches 2–6 of the `ansible.builtin` coverage plan above (system/user
+  identity, Debian/RedHat packaging, network/download, and the rest). Optionally: multi-task
+  plan/apply (playbook-style) with confirmation — the full Ansible replacement
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
   fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
   alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign

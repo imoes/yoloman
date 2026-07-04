@@ -14,9 +14,11 @@ import (
 
 // NewDefaultModuleRegistry returns a registry populated with all of v1's
 // modules: the read/facts set (setup, stat, find, slurp, service_facts,
-// package_facts, getent), always active, plus the first write set (file,
-// copy, lineinfile, systemd, service, apt, command), only ever exposed as
-// tools when the write gate (config.Write) is open — see RegisterModules.
+// package_facts, getent), always active, plus the write set (file, copy,
+// lineinfile, systemd, service, apt, command, blockinfile, replace,
+// assemble, tempfile, template — batch-implemented against ansible.builtin
+// per docs/plan.md's module coverage plan), only ever exposed as tools when
+// the write gate (config.Write) is open — see RegisterModules.
 func NewDefaultModuleRegistry() *modules.Registry {
 	reg := modules.NewRegistry()
 	for _, m := range []modules.Module{
@@ -34,6 +36,11 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewService(),
 		modules.NewApt(),
 		modules.NewCommand(),
+		modules.NewBlockInFile(),
+		modules.NewReplace(),
+		modules.NewAssemble(),
+		modules.NewTempfile(),
+		modules.NewTemplate(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules

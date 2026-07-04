@@ -53,11 +53,13 @@ the safety checks" part the name jokes about. Read the full model in
 ## What's implemented
 
 - **`ansible.builtin`-compatible modules, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
-  `command`, `service`/`systemd`, plus read-only facts (`setup`, `stat`, `find`, `slurp`,
-  `service_facts`, `package_facts`, `getent`). Idempotent, `check_mode`-aware, `changed: true/false`
-  reporting — no Ansible installation required on either end. Every module's description names its
-  Ansible/Chef/Puppet/Salt/Terraform equivalent, so an AI can translate a task from any of those
-  formats without external docs.
+  `command`, `service`/`systemd`, `blockinfile`, `replace`, `assemble`, `tempfile`, `template`,
+  plus read-only facts (`setup`, `stat`, `find`, `slurp`, `service_facts`, `package_facts`,
+  `getent`). Idempotent, `check_mode`-aware, `changed: true/false` reporting — no Ansible
+  installation required on either end. Every module's description names its Ansible/Chef/Puppet/
+  Salt/Terraform equivalent, so an AI can translate a task from any of those formats without
+  external docs. Working through full `ansible.builtin` coverage in batches — see
+  [docs/plan.md](docs/plan.md) for the module-by-module scope and status.
 - **`tools.d/`** — curated, named tool definitions written in literal Ansible-task YAML
   (`ansible.builtin.<module>:` + `{{ placeholder }}` params), plus native argv command pipelines
   (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.
