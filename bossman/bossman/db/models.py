@@ -46,6 +46,17 @@ class Agent(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     agent_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
+    # Per-resource poll cursors (see services/poller.py, Block B4): NULL
+    # means "never successfully pulled yet" — the poller then omits the
+    # from/since query parameter entirely and lets the agent apply its own
+    # default range, rather than the poller inventing an arbitrary lookback
+    # window. Two separate cursors, not one shared timestamp: metrics and
+    # connection-edge dumps are independent REST calls that can fail
+    # independently, and conflating them would let one silently mask gaps
+    # in the other.
+    last_metrics_pulled_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    last_edges_pulled_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
     __table_args__ = (
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
         CheckConstraint(

@@ -5,6 +5,8 @@ app trivially constructible in tests without needing the real lifespan
 (DB pool, poller task) to run — see tests/test_health.py.
 """
 
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,6 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from bossman.api import enroll, health
 from bossman.config import get_settings
 from bossman.db.session import make_engine
+from bossman.services.poller import poller_loop
 
 
 @asynccontextmanager
@@ -24,12 +27,22 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     engine = make_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    stop_event = asyncio.Event()
+    poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event))
     try:
         yield
     finally:
+        # Cancel rather than just signal-and-wait: an in-flight poll
+        # cycle can be blocked on a slow/unreachable agent's HTTP request
+        # (up to its own 30s timeout) — cancellation interrupts that
+        # immediately instead of stalling shutdown (and every test that
+        # exercises the lifespan) for up to 30 seconds.
+        stop_event.set()
+        poller_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await poller_task
         await engine.dispose()
-    # Background poller task wiring lands here in a later block (see
-    # docs/plan.md's Bossman Block B4).
 
 
 def create_app() -> FastAPI:

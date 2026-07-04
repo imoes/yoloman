@@ -1642,3 +1642,91 @@ just a test workaround.
   wrong `--enroll-secret` failed for real with the server's actual 401 propagated into the CLI's
   error message (`register: enrollment rejected: 401 Unauthorized: {"detail":"invalid
   enroll_secret"}`). Test rows and the dev Bossman process were cleaned up afterward.
+
+## Bossman — Block B4: agent client + poller (implemented)
+
+For each enrolled agent, pulls `GET /api/v1/metrics` and `GET /api/v1/net/connections/dump` on an
+interval and writes the results into `metrics`/`host_edges` — the RRD-replacement and
+relationship-graph ingestion path described in the plan above (section B.4).
+
+**`bossman/bossman/services/agent_client.py`** (new): `AgentClient` mirrors the Go proxy's own
+`internal/fleet.Puller` byte for byte in protocol terms — `Authorization: Bearer <token>` header,
+Bossman's own client certificate presented for mTLS, `verify=False` (Bossman does not verify the
+agent's server identity; trust runs the other way, matching the already-documented proxy-mode
+trade-off). `metrics_dump(from_)`/`connections_dump(since)` omit the query parameter entirely when
+given `None` rather than inventing a lookback window — the agent's own REST defaults (1h for
+metrics, 24h for connections) apply on a first pull, and an explicit cursor is passed on every
+pull after that.
+
+**`bossman/bossman/services/poller.py`** (new): `poll_once(session_factory, settings,
+client_factory=...)` loads every `enrollment_state='enrolled'` agent and polls each concurrently,
+bounded by `asyncio.Semaphore(settings.poll_concurrency)` (default 10) — no task queue
+(Celery/Redis), matching the plan's stated reasoning at this fleet's targeted scale (~100 hosts).
+`client_factory` exists solely so tests can substitute a fake `AgentClient` instead of a real one
+— the same test seam the Go proxy's `Manager.pullerFactory` already established
+(`internal/fleet/manager.go`) for an identical reason. `poll_agent` pulls metrics and connection
+edges independently (either can fail without blocking the other) and only advances each resource's
+own cursor (`Agent.last_metrics_pulled_at`/`last_edges_pulled_at`, added in this block's migration)
+on that resource's success — `Agent.last_seen_at` updates if *either* pull reached the agent at
+all. Metric inserts use `ON CONFLICT DO NOTHING` (idempotent against cursor-boundary overlap
+without erroring on the hypertable's `(time, agent_id, metric)` primary key); `HostEdge` upserts by
+its natural key (`src_agent_id, src_comm, dst_addr, dst_port`), overwriting `event_count` (already
+a lifetime cumulative counter from the agent, not a per-window delta) and best-effort resolving
+`dst_agent_id` by matching a known agent's `address` host part against the edge's `dst_addr`.
+`poller_loop` runs `poll_once` on `settings.poll_interval_seconds` until an `asyncio.Event` is set.
+
+**`bossman/bossman/main.py`**: the poller is started as a background `asyncio.create_task` in the
+app's `lifespan`, and — critically — **cancelled**, not just signaled-and-awaited, on shutdown: a
+poll cycle can be blocked on a slow/unreachable agent's HTTP call (up to its own 30s timeout), and
+`task.cancel()` interrupts that immediately via `asyncio.CancelledError` rather than stalling every
+test that exercises the lifespan (and a real shutdown) for up to 30 seconds.
+
+**Schema change:** `alembic/versions/8ddf50da59f5_agent_poll_cursors.py` adds
+`agents.last_metrics_pulled_at`/`last_edges_pulled_at`. Autogenerate also proposed *dropping*
+`connection_events_time_idx` and `metrics_time_idx` — deliberately not applied. Both are
+TimescaleDB's own indexes, created automatically by `create_hypertable()` in the initial migration
+and invisible to SQLAlchemy's model introspection, which is exactly why autogenerate misread them
+as removed; applying that diff would have silently degraded every time-range query against both
+hypertables. Caught by reading the generated migration before running it, not by a failing test —
+a reminder that autogenerate output is a draft, not a commit-ready artifact.
+
+**Real bug found in bootstrapping this block's own tests, not in the poller logic itself:**
+`HostEdge.dst_addr` is a Postgres `INET` column, so SQLAlchemy returns an `ipaddress.IPv4Address`
+object on read, not a `str` — a first version of `tests/test_poller.py` asserted
+`edge.dst_addr == "9.9.9.9"` and failed immediately with a real, informative `AssertionError`,
+fixed by comparing `str(edge.dst_addr)` instead. A second, separate issue in the same test file:
+deleting a `HostEdge` and its parent `Agent` in the same session without an intermediate
+`session.flush()` let SQLAlchemy attempt the `DELETE FROM agents` before the child `DELETE FROM
+host_edges` had actually executed, raising a real `ForeignKeyViolationError` — fixed by flushing
+after deleting child rows and before deleting the parent in every test's cleanup.
+
+**Verification:**
+- `tests/test_agent_client.py` (6 tests, `httpx.MockTransport` — no real network, no real cert
+  files needed since httpx doesn't validate `cert=` paths when a custom transport is supplied):
+  correct URL/headers/query params, RFC3339 UTC formatting of the `from` cursor, and every error
+  path (non-200 status, network failure, invalid JSON).
+- `tests/test_poller.py` (6 tests, real DB via `db_session`, `FakeAgentClient` injected via
+  `client_factory`): metrics + edges both written and cursors both advance on success; a failing
+  metrics pull leaves `last_metrics_pulled_at` unset while a succeeding edges pull still advances
+  `last_edges_pulled_at` and `last_seen_at` (independent-failure proof); an agent with no address
+  is skipped without any network attempt; the first poll passes no cursor while the second passes
+  the first's timestamp; re-polling the same edge updates the existing row in place (not a
+  duplicate) with the new `event_count`; `poll_once` only ever selects `enrolled` agents, skipping
+  `pending` ones.
+- **Real end-to-end run against an actual `agentic-mcpd` binary** (not the Python-side fake):
+  reused this block's own B3 enrollment flow for real (`agentic-mcpd register` against a live
+  Bossman dev server) to enroll a real, TLS-enabled Duppy, added the handed-out Bossman public key
+  to the Duppy's own `trusted_client_keys`, and restarted it — confirmed `client certificate
+  required` when polled without one first, proving mTLS was actually enforced, not just configured.
+  Called `poll_once` directly against the real dev database with the **real** (non-fake)
+  `client_factory`, presenting Bossman's real client certificate: the real `agentic_mcpd_start`
+  startup-marker metric (the same marker the v3 proxy/satellite work already relied on for its own
+  real-traffic verification) was pulled and written — `psql` confirmed two real rows (one per
+  Duppy process start observed) with correct `agent_id`/`metric`/`value`/`time`. A second
+  `poll_once` call against the same, now-current cursor wrote zero additional rows — the dedup
+  path was exercised for real, not just asserted against a mock. `edges_written` was `0` in this
+  run since no eBPF connections existed on the disposable local test agent — the edges write path
+  itself is covered by the real-DB `FakeAgentClient` tests above and by the Selecta section's own
+  earlier real-eBPF verification on `host1.example.internal`, so this run's scope was
+  deliberately the metrics/cursor path. All test rows, processes, and scratch files were removed
+  afterward.

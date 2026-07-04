@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 
+    # Max agents polled concurrently — bounded via asyncio.Semaphore rather
+    # than a task queue (Celery/Redis); comfortably sufficient at this
+    # project's targeted fleet size (~100 hosts, see docs/plan.md).
+    poll_concurrency: int = 10
+
     # JWT signing secret for the human-operator dashboard login.
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
