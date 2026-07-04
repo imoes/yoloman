@@ -14,13 +14,15 @@ import (
 
 // NewDefaultModuleRegistry returns a registry populated with all of v1's
 // modules: the read/facts set (setup, stat, find, slurp, service_facts,
-// package_facts, getent, fetch, wait_for), always active, plus the write
-// set (file, copy, lineinfile, systemd, service, apt, command, blockinfile,
-// replace, assemble, tempfile, template, user, group, cron, hostname,
-// timezone, apt_key, apt_repository, deb822_repository, dpkg_selections,
-// yum, dnf, dnf5, yum_repository, rpm_key, get_url, uri, known_hosts,
-// iptables — batch-implemented against ansible.builtin per docs/plan.md's
-// module coverage plan), only ever exposed as tools when the write gate
+// package_facts, getent, fetch, wait_for, ping), always active, plus the
+// write set (file, copy, lineinfile, systemd, systemd_service, service,
+// apt, command, script, blockinfile, replace, assemble, tempfile, template,
+// user, group, cron, hostname, timezone, apt_key, apt_repository,
+// deb822_repository, dpkg_selections, yum, dnf, dnf5, yum_repository,
+// rpm_key, get_url, uri, known_hosts, iptables, package, git, unarchive,
+// pip, debconf, sysvinit, subversion, expect, reboot — batch-implemented
+// against ansible.builtin per docs/plan.md's module coverage plan, which
+// this list now completes), only ever exposed as tools when the write gate
 // (config.Write) is open — see RegisterModules.
 func NewDefaultModuleRegistry() *modules.Registry {
 	reg := modules.NewRegistry()
@@ -64,6 +66,18 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewURI(),
 		modules.NewKnownHosts(),
 		modules.NewIptables(),
+		modules.NewPing(),
+		modules.NewSystemdService(),
+		modules.NewPackage(),
+		modules.NewScript(),
+		modules.NewGit(),
+		modules.NewUnarchive(),
+		modules.NewPip(),
+		modules.NewDebconf(),
+		modules.NewSysvinit(),
+		modules.NewSubversion(),
+		modules.NewExpect(),
+		modules.NewReboot(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules

@@ -118,7 +118,7 @@ func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 	reg := NewDefaultModuleRegistry()
 	readOnly := []string{
 		"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent",
-		"fetch", "wait_for",
+		"fetch", "wait_for", "ping",
 	}
 	writing := []string{
 		"file", "copy", "lineinfile", "systemd", "service", "apt", "command",
@@ -127,6 +127,8 @@ func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 		"apt_key", "apt_repository", "deb822_repository", "dpkg_selections",
 		"yum", "dnf", "dnf5", "yum_repository", "rpm_key",
 		"get_url", "uri", "known_hosts", "iptables",
+		"systemd_service", "package", "script", "git", "unarchive", "pip",
+		"debconf", "sysvinit", "subversion", "expect", "reboot",
 	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {

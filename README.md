@@ -52,18 +52,19 @@ the safety checks" part the name jokes about. Read the full model in
 
 ## What's implemented
 
-- **`ansible.builtin`-compatible modules, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
-  `command`, `service`/`systemd`, `blockinfile`, `replace`, `assemble`, `tempfile`, `template`,
-  `user`, `group`, `cron`, `hostname`, `timezone`, `apt_key`, `apt_repository`,
-  `deb822_repository`, `dpkg_selections`, `yum`, `dnf`, `dnf5`, `yum_repository`, `rpm_key`
-  (the RedHat-family package modules are unit-tested only — this project's real test host is
-  Debian), `get_url`, `uri`, `known_hosts`, `iptables`, plus read-only facts (`setup`, `stat`,
-  `find`, `slurp`, `fetch`, `wait_for`, `service_facts`, `package_facts`, `getent`). Idempotent,
-  `check_mode`-aware, `changed: true/false` reporting — no Ansible
+- **Full `ansible.builtin` module coverage, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
+  `command`, `script`, `service`/`systemd`/`systemd_service`, `sysvinit`, `blockinfile`, `replace`,
+  `assemble`, `tempfile`, `template`, `user`, `group`, `cron`, `hostname`, `timezone`, `apt_key`,
+  `apt_repository`, `deb822_repository`, `dpkg_selections`, `debconf`, `yum`, `dnf`, `dnf5`,
+  `yum_repository`, `rpm_key` (the RedHat-family package modules are unit-tested only — this
+  project's real test host is Debian), `package`, `pip`, `git`, `subversion`, `unarchive`,
+  `expect`, `reboot`, `get_url`, `uri`, `known_hosts`, `iptables`, plus read-only facts (`setup`,
+  `stat`, `find`, `slurp`, `fetch`, `wait_for`, `ping`, `service_facts`, `package_facts`,
+  `getent`). Idempotent, `check_mode`-aware, `changed: true/false` reporting — no Ansible
   installation required on either end. Every module's description names its Ansible/Chef/Puppet/
   Salt/Terraform equivalent, so an AI can translate a task from any of those formats without
-  external docs. Working through full `ansible.builtin` coverage in batches — see
-  [docs/plan.md](docs/plan.md) for the module-by-module scope and status.
+  external docs. See [docs/plan.md](docs/plan.md) for the module-by-module scope, the batches it
+  was built in, and how each one was verified.
 - **`tools.d/`** — curated, named tool definitions written in literal Ansible-task YAML
   (`ansible.builtin.<module>:` + `{{ placeholder }}` params), plus native argv command pipelines
   (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.

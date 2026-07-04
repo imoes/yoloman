@@ -1108,12 +1108,111 @@ with the exact expected match criteria (`tcp dpt:12345`, the given comment) and 
 zero, confirmed idempotent on a repeat call, removed the rule, and the custom chain itself was then
 deleted — `INPUT`/`OUTPUT`/`FORWARD` were never touched.
 
+### Batch 6 — everything else (implemented): ping, systemd_service, package, script, git, unarchive, pip, debconf, sysvinit, subversion, expect, reboot
+
+The final batch, completing the confirmed `ansible.builtin` coverage scope from the plan above.
+
+- **`ping`** — trivial `{"ping": "pong"}`, read-only, no parameters; the connectivity-check
+  module every Ansible inventory implicitly relies on.
+- **`systemd_service`** — a second alias over the same `Systemd` implementation as `service`,
+  under Ansible's systemd-specific module name.
+- **`package`** — an OS-family-agnostic dispatcher: detects the available package manager
+  (`apt-get` → `dnf` → `dnf5` → `yum`, in that order, via an injectable `LookPath`) and delegates
+  to the already-implemented Apt/Dnf/Dnf5/Yum module for that backend, so callers that don't want
+  to name a specific package manager get one call that works on either family.
+- **`script`** — a thin wrapper over `command`: splits `cmd` into argv and delegates. Real
+  Ansible's `script` copies a file from the control node to the managed host before running it;
+  this agent has no separate control-node filesystem (it *is* both ends), so this reduces to
+  running an already-present executable, the same operation `command` performs — `script` exists
+  purely for drop-in familiarity with real Ansible task syntax that names it explicitly.
+- **`git`** — clone/checkout to a desired branch/tag/commit, idempotent via comparing
+  `git rev-parse HEAD` before and after. A real correctness bug was caught and fixed while
+  writing the end-to-end test: `git checkout <branch>` right after `git fetch origin` is a no-op
+  when `<branch>` is already checked out locally — fetch only advances the remote-tracking ref
+  (`origin/<branch>`), never the local branch pointer, so the original implementation would have
+  silently never applied upstream updates to a tracked branch, defeating the module's entire
+  purpose. Fixed by resolving to `origin/<version>` (a detached HEAD at the exact fetched commit)
+  whenever that remote-tracking ref exists via `git rev-parse --verify`, falling back to the
+  literal `version` for tags/commits, which have no `origin/` form.
+- **`unarchive`** — extracts `.zip`/`.tar`/`.tar.gz`/`.tgz`/`.tar.bz2` archives already on the
+  host, via Go's standard library `archive/zip`/`archive/tar`/`compress/gzip`/`compress/bzip2` —
+  no external `tar`/`unzip` binary needed. Every archive member's target path is checked against
+  a `../`-escape guard (`safeJoin`) before being written, so a hostile or malformed archive can't
+  write outside the requested destination. Idempotency relies on `creates`, the same practical
+  limitation real Ansible has without a working `creates` check: without it, every call extracts.
+- **`pip`** — Python package presence/absence/latest via `pip show`/`pip install`/`pip
+  uninstall`, with an optional `virtualenv` path created via `python3 -m venv` on demand (then
+  that venv's own pip is used instead of a system-wide one). `state=latest` always attempts
+  `pip install --upgrade` and determines `changed` from the version actually observed before vs.
+  after, the same before/after-comparison approach `yum`/`dnf`'s `state=latest` uses.
+- **`debconf`** — sets a single debconf database value via `debconf-set-selections`, idempotent
+  against `debconf-show`'s current value; an optional `unseen` flag also clears the question's
+  "seen" bit via `debconf-communicate` so a package will prompt for it again if reconfigured.
+- **`sysvinit`** — the legacy-init counterpart to `systemd`/`service`, for hosts or individual
+  services still on `/etc/init.d` scripts. Running state is checked via the init script's own
+  `status` action (LSB convention: exit 0 means running); enabled-at-boot state is checked by
+  globbing for an `S##<name>` symlink across the standard runlevel directories, and toggled via
+  `update-rc.d enable`/`disable`.
+- **`subversion`** — checkout/update a working copy to a desired revision, idempotent via
+  comparing `svn info`'s `Revision:` before and after — the same shape as `git`, but without
+  `git`'s local-branch-vs-remote-tracking-ref complication (svn has no local commits to conflict
+  with an update).
+- **`expect`** — runs a command and answers interactive prompts via a `responses` map (regex →
+  answer), each firing at most once as soon as its pattern matches the accumulated output.
+  **Stated limitation:** this pipes stdout/stderr rather than allocating a real pseudo-terminal,
+  unlike Ansible's own `pexpect`-based implementation, so programs that specifically need tty
+  semantics (echo suppression, terminal-size queries, raw mode) may not behave correctly — suited
+  to straightforward line-buffered prompts, not full terminal emulation. The core prompt-matching
+  logic (`firstUnansweredMatch`) is factored out and unit-tested independent of process spawning;
+  a real end-to-end test additionally spawns a genuine shell script with a real `read` prompt to
+  confirm the poll/match/write-to-stdin loop actually works against a real process.
+- **`reboot`** — issues `shutdown -r now` and returns immediately. **Stated architectural
+  limitation:** real Ansible's `reboot` module runs from a separate control node over SSH and can
+  therefore poll the target until it reappears before reporting success; this agent runs *on* the
+  host being rebooted, so the process handling the call is terminated the moment the reboot
+  happens — there is no possibility of waiting for the host to come back up from inside itself.
+  Verifying the host actually returns is the caller's responsibility (e.g. a later call, from a
+  new connection, to `wait_for` or `ping`).
+
+**Verified:** 50 new unit tests, including a real interactive-prompt test for `expect`
+(`TestExpect_RealScriptRespondsToPrompt`, a genuine shell script with a real `read`) and the
+`git` regression test (`TestGit_RealCloneAndUpdate`) that caught the branch-advancement bug above.
+`reboot` deliberately has **no** real invocation anywhere, including in this batch's manual
+verification below — the module's own doc comment explains why (the calling process would be
+killed by the very action it triggers), and actually rebooting the shared test host would disrupt
+whatever else runs there; coverage is fake-`Runner`-only; this mirrors the precedent already set
+by Batch 4's RedHat-family modules (unit-tested only, no real toolchain available to test against)
+and Batch 5's `iptables` (real command's exact argv verified without ever touching a live traffic
+chain).
+
+Eleven of the twelve modules also ran for real against `host1.example.internal`: `ping`,
+`systemd_service` (status query against the real `ssh.service`), and `script` (a real `/bin/echo`
+call) round-tripped over genuine REST calls. `git` cloned a real local repository, confirmed
+idempotent on a repeat call, then confirmed a second real upstream commit was correctly fetched
+and checked out — the exact scenario the branch-advancement fix targets. `unarchive` extracted a
+real zip (built via Python's `zipfile` module, since neither `zip` nor a suitable substitute was
+preinstalled) and confirmed the `creates` idempotency skip. `package` correctly detected the
+Debian `apt-get` backend and reported the already-installed `bash` package as `changed: false`.
+`sysvinit` — expected to be untestable on a systemd-only host — turned out to work fully for real:
+this Debian 13 install still ships LSB-compatible `/etc/init.d` scripts (e.g. `cron`), so both the
+running-state (`status`) and enabled-state (`S##` symlink glob) checks were confirmed against a
+genuine service. `expect` answered a real interactive `read` prompt in a throwaway shell script.
+`debconf` needed the daemon restarted as root (writing debconf's database requires root even
+though the read side doesn't) — once running as root, it set a real value, confirmed via
+`debconf-show`, and confirmed idempotent on a repeat call. `pip` and `subversion` needed two
+packages the test host didn't have yet (`python3-venv`, `subversion` — both installed via
+`apt-get install`, left in place afterward as harmless additions, not reverted): `pip` created a
+real virtualenv and confirmed its own pip's version via `pip show`; `subversion` checked out a
+real local `file://` repository, confirmed idempotent, then confirmed a second commit was
+correctly fetched and updated — the same update-detection shape as the `git` test. Only `reboot`
+was not exercised against the live daemon, for the reason stated above. This completes the
+`ansible.builtin` module coverage plan: all ~28 modules in the confirmed real-remaining scope are
+now implemented.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** Batch 6 of the `ansible.builtin` coverage plan above (pip, git,
-  subversion, unarchive, script, expect, debconf, reboot, package, systemd_service, sysvinit,
-  ping). Optionally: multi-task plan/apply (playbook-style) with confirmation — the full Ansible
-  replacement
+- **Multi-task plan/apply (playbook-style) with confirmation** — the full Ansible replacement,
+  building on the now-complete `ansible.builtin` module coverage above.
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
   fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
   alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign
