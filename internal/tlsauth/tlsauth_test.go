@@ -126,3 +126,55 @@ func TestMatchesAny_EmptyList(t *testing.T) {
 		t.Fatal("expected no match against an empty trusted key list")
 	}
 }
+
+func writeCertFile(t *testing.T, cert *x509.Certificate) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "cert.pem")
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+	if err := os.WriteFile(path, pemBytes, 0o600); err != nil {
+		t.Fatalf("writing cert file: %v", err)
+	}
+	return path
+}
+
+func TestPublicKeyPEMFromCertFile_MatchesTheCertsOwnKey(t *testing.T) {
+	cert, wantPubPEM := generateCert(t)
+	certPath := writeCertFile(t, cert)
+
+	got, err := PublicKeyPEMFromCertFile(certPath)
+	if err != nil {
+		t.Fatalf("PublicKeyPEMFromCertFile: %v", err)
+	}
+	if string(got) != string(wantPubPEM) {
+		t.Errorf("got %s, want %s", got, wantPubPEM)
+	}
+
+	// Round-trip through LoadTrustedKey/MatchesAny — proves the extracted
+	// key is actually usable as a pin, not just textually similar.
+	keyPath := writeKeyFile(t, got)
+	key, err := LoadTrustedKey("selecta", keyPath)
+	if err != nil {
+		t.Fatalf("LoadTrustedKey: %v", err)
+	}
+	if _, ok := MatchesAny(cert, []TrustedKey{key}); !ok {
+		t.Error("expected the extracted public key to match the certificate it came from")
+	}
+}
+
+func TestPublicKeyPEMFromCertFile_MissingFile(t *testing.T) {
+	_, err := PublicKeyPEMFromCertFile("/nonexistent/cert.pem")
+	if err == nil {
+		t.Fatal("expected error for a missing certificate file")
+	}
+}
+
+func TestPublicKeyPEMFromCertFile_NotPEM(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "notpem.txt")
+	if err := os.WriteFile(path, []byte("not a pem file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := PublicKeyPEMFromCertFile(path)
+	if err == nil {
+		t.Fatal("expected error for non-PEM content")
+	}
+}

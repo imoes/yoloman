@@ -165,14 +165,88 @@ mode: "bogus"
 	}
 }
 
-func TestValidate_ProxyModeRequiresSatellites(t *testing.T) {
+func TestValidate_ProxyModeWithNoStaticSatellitesIsValid(t *testing.T) {
+	// Satellites can now be enrolled dynamically at runtime (see
+	// internal/fleet.SatelliteRegistry) — a proxy legitimately starts
+	// with zero statically configured satellites and grows its list
+	// later, so this must NOT be a validation error (a real behavior
+	// change from before dynamic enrollment existed).
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Proxy.Satellites) != 0 {
+		t.Errorf("expected no static satellites, got %+v", cfg.Proxy.Satellites)
+	}
+}
+
+func TestValidate_ProxyModeMissingEverythingStillErrors(t *testing.T) {
+	// With no proxy: block at all, client_cert_file/client_key_file are
+	// still required, even though satellites alone are no longer
+	// mandatory.
 	path := writeTemp(t, `
 listen: "127.0.0.1:8010"
 mode: "proxy"
 `)
 	_, err := Load(path)
 	if err == nil {
-		t.Fatal("expected error for mode=proxy with no satellites configured")
+		t.Fatal("expected error for mode=proxy with no client identity configured")
+	}
+}
+
+func TestValidate_ProxyModeDefaultsSatellitesPath(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Proxy.SatellitesPath == "" {
+		t.Error("expected a default proxy.satellites_path")
+	}
+}
+
+func TestValidate_ProxyModeRejectsEmptySatellitesPath(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
+  satellites_path: ""
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for mode=proxy with an explicitly empty satellites_path")
+	}
+}
+
+func TestValidate_ProxyModeEnrollSecretParsed(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+mode: "proxy"
+proxy:
+  client_cert_file: /etc/agentic-mcp/proxy-cert.pem
+  client_key_file: /etc/agentic-mcp/proxy-key.pem
+  enroll_secret: "shared-secret"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Proxy.EnrollSecret != "shared-secret" {
+		t.Errorf("EnrollSecret = %q, want shared-secret", cfg.Proxy.EnrollSecret)
 	}
 }
 

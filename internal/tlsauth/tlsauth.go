@@ -61,3 +61,31 @@ func MatchesAny(cert *x509.Certificate, keys []TrustedKey) (TrustedKey, bool) {
 	}
 	return TrustedKey{}, false
 }
+
+// PublicKeyPEMFromCertFile reads a PEM-encoded X.509 certificate file (e.g.
+// a proxy's own client_cert_file, the identity it presents when it later
+// polls a satellite) and returns its public key, PEM-encoded as PKIX
+// SubjectPublicKeyInfo — the exact shape LoadTrustedKey expects to read
+// back on the other end. Used by the enrollment endpoint (see
+// docs/plan.md's Selecta design) to hand out "the public key of the
+// identity that will actually connect to you" without needing a second,
+// separate keypair just for enrollment.
+func PublicKeyPEMFromCertFile(certFile string) ([]byte, error) {
+	data, err := os.ReadFile(certFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading certificate %q: %w", certFile, err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("certificate %q: not a PEM file", certFile)
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("certificate %q: parsing: %w", certFile, err)
+	}
+	der, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("certificate %q: marshaling public key: %w", certFile, err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}), nil
+}

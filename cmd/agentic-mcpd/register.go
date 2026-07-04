@@ -27,25 +27,30 @@ func newBearerToken() (string, error) {
 }
 
 // runRegister implements `agentic-mcpd register`: the client side of a
-// one-time bootstrap handshake with a future central Fleet Commander
-// ("Bossman", see docs/plan.md's roadmap). It exchanges a shared enrollment
-// secret for Bossman's public key, writes that key to disk, and prints the
-// config.yaml snippet the operator needs to add to tls.trusted_client_keys
-// — it does not modify config.yaml itself, to avoid corrupting a hand-edited
-// file.
+// one-time bootstrap handshake with whichever enrollment authority this
+// agent is joining — a central Fleet Commander ("Bossman", see
+// docs/plan.md's roadmap) or a Selecta (a proxy-mode agent accepting
+// dynamically enrolled satellites, see internal/server/enroll.go). Both
+// speak the identical wire protocol (internal/enroll.Request/Response), so
+// one client-side command works generically against either: it exchanges a
+// shared enrollment secret for the enrolling authority's public key, writes
+// that key to disk, and prints the config.yaml snippet the operator needs
+// to add to tls.trusted_client_keys — it does not modify config.yaml
+// itself, to avoid corrupting a hand-edited file.
 func runRegister(args []string) error {
 	fs := flag.NewFlagSet("agentic-mcpd register", flag.ContinueOnError)
-	bossmanURL := fs.String("bossman-url", "", "Bossman enrollment endpoint, e.g. https://bossman.internal:8443")
-	enrollSecret := fs.String("enroll-secret", "", "shared bootstrap secret provided by the Bossman operator")
-	name := fs.String("name", "", "this agent's name as reported to Bossman (default: hostname)")
-	address := fs.String("address", "", "this agent's own reachable host:port, so Bossman can reach it later (optional)")
+	enrollURL := fs.String("enroll-url", "", "enrollment endpoint of the Bossman or Selecta this agent is joining, e.g. https://selecta.internal:8443")
+	enrollSecret := fs.String("enroll-secret", "", "shared bootstrap secret provided by the Bossman/Selecta operator")
+	name := fs.String("name", "", "this agent's name as reported to the enrollment authority (default: hostname)")
+	address := fs.String("address", "", "this agent's own reachable host:port, so it can be reached later (optional)")
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml (read for this agent's own bearer token)")
-	trustedKeyPath := fs.String("trusted-key-path", "/etc/agentic-mcp/trusted/bossman.pub.pem", "where to write Bossman's public key")
+	keyName := fs.String("key-name", "enroller", "name under which to pin the fetched key in tls.trusted_client_keys")
+	trustedKeyPath := fs.String("trusted-key-path", "/etc/agentic-mcp/trusted/enroller.pub.pem", "where to write the enrollment authority's public key")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *bossmanURL == "" {
-		return fmt.Errorf("register: --bossman-url is required")
+	if *enrollURL == "" {
+		return fmt.Errorf("register: --enroll-url is required")
 	}
 	if *enrollSecret == "" {
 		return fmt.Errorf("register: --enroll-secret is required")
@@ -68,7 +73,7 @@ func runRegister(args []string) error {
 		agentName = h
 	}
 
-	result, err := enroll.Register(context.Background(), *bossmanURL, enroll.Request{
+	result, err := enroll.Register(context.Background(), *enrollURL, enroll.Request{
 		Name:         agentName,
 		EnrollSecret: *enrollSecret,
 		Token:        cfg.Token,
@@ -85,18 +90,18 @@ func runRegister(args []string) error {
 		return fmt.Errorf("register: writing %q: %w", *trustedKeyPath, err)
 	}
 
-	fmt.Printf("Registered %q with Bossman", agentName)
+	fmt.Printf("Registered %q with %s", agentName, *enrollURL)
 	if result.AgentID != "" {
 		fmt.Printf(" (agent id: %s)", result.AgentID)
 	}
 	fmt.Println(".")
-	fmt.Printf("Bossman's public key written to %s\n\n", *trustedKeyPath)
-	fmt.Println("Add this to config.yaml to let Bossman authenticate to /mcp and /api/v1/:")
+	fmt.Printf("Its public key was written to %s\n\n", *trustedKeyPath)
+	fmt.Println("Add this to config.yaml to let it authenticate to /mcp and /api/v1/:")
 	fmt.Println()
 	fmt.Println("tls:")
 	fmt.Println("  enabled: true")
 	fmt.Println("  trusted_client_keys:")
-	fmt.Println("    - name: bossman")
+	fmt.Printf("    - name: %s\n", *keyName)
 	fmt.Printf("      public_key_path: %s\n", *trustedKeyPath)
 	fmt.Println()
 	fmt.Println("Then restart agentic-mcpd for the change to take effect.")

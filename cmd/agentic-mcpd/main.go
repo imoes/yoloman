@@ -23,6 +23,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
+	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
 )
 
 func main() {
@@ -73,7 +74,15 @@ func run(args []string) error {
 		slog.Warn("failed to record startup marker", "error", err)
 	}
 	startRetentionLoop(cfg, st)
-	startProxyPollLoop(cfg, st)
+
+	proxyRegistry, satelliteManager := startProxyManager(cfg, st)
+	if proxyRegistry != nil {
+		defer proxyRegistry.Close()
+	}
+	if satelliteManager != nil {
+		defer satelliteManager.Close()
+	}
+	proxyPublicKeyPEM := loadProxyPublicKeyOrWarn(cfg)
 
 	comps, err := loadComponents(cfg)
 	if err != nil {
@@ -118,21 +127,25 @@ func run(args []string) error {
 	}
 
 	restHandler := server.NewRESTHandler(server.RESTConfig{
-		ProcRoot:      "/proc",
-		ModReg:        comps.modReg,
-		Tasks:         comps.taskList,
-		Policy:        comps.policy,
-		Store:         st,
-		Write:         cfg.Write,
-		Token:         cfg.Token,
-		Tokens:        cfg.TokenEntries(),
-		ACL:           acl,
-		Sessions:      sessions,
-		PAMAuth:       pamAuth,
-		EBPF:          collector,
-		Audit:         al,
-		UploadsDir:    cfg.UploadsDir,
-		MaxUploadSize: cfg.MaxUploadSize,
+		ProcRoot:          "/proc",
+		ModReg:            comps.modReg,
+		Tasks:             comps.taskList,
+		Policy:            comps.policy,
+		Store:             st,
+		Write:             cfg.Write,
+		Token:             cfg.Token,
+		Tokens:            cfg.TokenEntries(),
+		ACL:               acl,
+		Sessions:          sessions,
+		PAMAuth:           pamAuth,
+		EBPF:              collector,
+		Audit:             al,
+		UploadsDir:        cfg.UploadsDir,
+		MaxUploadSize:     cfg.MaxUploadSize,
+		Mode:              cfg.Mode,
+		ProxyEnrollSecret: cfg.Proxy.EnrollSecret,
+		ProxyPublicKeyPEM: proxyPublicKeyPEM,
+		SatelliteManager:  satelliteManager,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }
@@ -259,44 +272,59 @@ func runDownsample(cfg config.Config, st store.Store) {
 	}
 }
 
-// startProxyPollLoop runs one background poll ticker per configured
-// satellite when mode: proxy is set (see docs/plan.md's "Three operating
-// modes"). Each tick pulls that satellite's metrics_dump for the interval
-// since the previous poll and writes them into the local store labeled by
-// satellite name. A no-op when mode is not "proxy".
-func startProxyPollLoop(cfg config.Config, st store.Store) {
+// startProxyManager opens the durable satellite registry, loads this
+// proxy's own client certificate, and starts polling every satellite —
+// both statically configured (config.yaml's proxy.satellites) and
+// dynamically enrolled (see fleet.SatelliteRegistry) — when mode: proxy is
+// set (see docs/plan.md's "Three operating modes" / Selecta design). A
+// no-op (nil, nil) when mode is not "proxy". Any setup failure is logged
+// and degrades gracefully to (nil, nil), the same non-fatal posture the
+// rest of this daemon's optional subsystems (eBPF, PAM) already follow —
+// this agent's own MCP/REST functionality must keep working even if
+// satellite polling can't start. The caller must Close both the returned
+// registry and manager (in either order) when non-nil.
+func startProxyManager(cfg config.Config, st store.Store) (*fleet.SatelliteRegistry, *fleet.Manager) {
 	if cfg.Mode != "proxy" {
-		return
+		return nil, nil
+	}
+	registry, err := fleet.OpenRegistry(cfg.Proxy.SatellitesPath)
+	if err != nil {
+		slog.Error("proxy mode: failed to open satellite registry, satellite polling disabled", "error", err)
+		return nil, nil
 	}
 	clientCert, err := fleet.LoadClientCert(cfg.Proxy.ClientCertFile, cfg.Proxy.ClientKeyFile)
 	if err != nil {
 		slog.Error("proxy mode: failed to load this agent's client certificate, satellite polling disabled", "error", err)
-		return
+		registry.Close()
+		return nil, nil
 	}
-	for _, sat := range cfg.Proxy.Satellites {
-		interval := sat.PollInterval.Duration()
-		if interval <= 0 {
-			interval = time.Minute
-		}
-		p := &fleet.Puller{Satellite: sat, ClientCert: clientCert, Store: st}
-		go func() {
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
-			last := time.Now().Add(-interval)
-			for range ticker.C {
-				now := time.Now()
-				n, err := p.PullOnce(context.Background(), last, now)
-				if err != nil {
-					slog.Error("satellite poll failed", "satellite", p.Satellite.Name, "error", err)
-					continue
-				}
-				last = now
-				if n > 0 {
-					slog.Info("satellite poll completed", "satellite", p.Satellite.Name, "points", n)
-				}
-			}
-		}()
+	manager := fleet.NewManager(registry, clientCert, st)
+	if err := manager.Start(context.Background(), cfg.Proxy.Satellites); err != nil {
+		slog.Error("proxy mode: failed to start satellite polling", "error", err)
+		manager.Close()
+		registry.Close()
+		return nil, nil
 	}
+	return registry, manager
+}
+
+// loadProxyPublicKeyOrWarn reads this proxy's own client_cert_file's
+// public key (see tlsauth.PublicKeyPEMFromCertFile) for the enrollment
+// endpoint to hand out — only attempted when enrollment is actually
+// configured (mode: proxy with a non-empty proxy.enroll_secret), and
+// logged-not-fatal on failure, consistent with every other optional
+// subsystem here: enrollment just won't be available, the rest of the
+// daemon still starts.
+func loadProxyPublicKeyOrWarn(cfg config.Config) []byte {
+	if cfg.Mode != "proxy" || cfg.Proxy.EnrollSecret == "" {
+		return nil
+	}
+	pem, err := tlsauth.PublicKeyPEMFromCertFile(cfg.Proxy.ClientCertFile)
+	if err != nil {
+		slog.Error("proxy mode: failed to read this proxy's own public key, enrollment endpoint disabled", "error", err)
+		return nil
+	}
+	return pem
 }
 
 // loadCommandPolicyOrEmpty loads the pipeline command policy if the file

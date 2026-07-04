@@ -692,56 +692,155 @@ Confirmed design points (unchanged from the original discussion):
   in-process TLS server configured with `ClientAuth: RequireAnyClientCert` (success, untrusted-cert
   rejection via a genuine TLS handshake failure, and missing-token rejection).
 
-## Bossman enrollment (`agentic-mcpd register`, implemented)
+## Enrollment (`agentic-mcpd register`, implemented)
 
 The three operating modes above rely on `tls.trusted_client_keys` being populated with a caller's
 pinned public key — previously only achievable by manually copying a key file to every agent.
-Once a central Fleet Commander ("Bossman," see the Roadmap) exists, doing that by hand across a
-whole fleet doesn't scale. `agentic-mcpd register` is this agent's client-side half of a one-time
-bootstrap handshake that automates it — even though Bossman itself doesn't exist yet, this
-repo defines the contract a future Bossman implementation must satisfy, and ships/tests the
-client side against it now.
+`agentic-mcpd register` is this agent's client-side half of a one-time bootstrap handshake that
+automates it. It is deliberately generic: the same command works against **either** enrollment
+authority in this project —
 
-**Protocol:** `POST <bossman-url>/api/v1/enroll` with a JSON body `{name, enroll_secret, token,
+- a future central Fleet Commander ("Bossman," see the Roadmap), or
+- a **Selecta** — a `mode: proxy` agent that itself accepts dynamically enrolled satellites (see
+  "Selecta: dynamic satellite enrollment" below) —
+
+since both speak the identical wire protocol defined here. A Duppy (standalone node agent) simply
+points `register` at whichever one it's joining.
+
+**Protocol:** `POST <enroll-url>/api/v1/enroll` with a JSON body `{name, enroll_secret, token,
 address}` — `name` identifies this agent (defaults to its hostname), `enroll_secret` is a shared
-bootstrap secret proving this agent is authorized to join the fleet (the only authentication
-possible before any trust exists — no pinned key, no client cert yet), `token` is this agent's own
-existing REST/MCP bearer token (so Bossman knows how to call it back), `address` is optionally
-this agent's own reachable `host:port`. A successful response is `{bossman_public_key,
-agent_id}` — `bossman_public_key` is Bossman's PEM-encoded PKIX public key, written to disk and
-referenced from `tls.trusted_client_keys` so Bossman can subsequently authenticate itself over TLS
-client certificates (see `internal/tlsauth`) exactly like a proxy talking to a satellite.
+bootstrap secret proving this agent is authorized to join (the only authentication possible before
+any trust exists — no pinned key, no client cert yet), `token` is this agent's own existing
+REST/MCP bearer token (so the enrolling authority knows how to call it back), `address` is
+optionally this agent's own reachable `host:port`. A successful response is `{bossman_public_key,
+agent_id}` — `bossman_public_key` (field name kept for wire compatibility regardless of which
+authority answers) is the enroller's PEM-encoded PKIX public key, written to disk and referenced
+from `tls.trusted_client_keys` so the enroller can subsequently authenticate itself over TLS client
+certificates (see `internal/tlsauth`) exactly like a proxy talking to a satellite.
 
 **Deliberately does not auto-edit config.yaml.** `register` writes the fetched public key to a
-file (`--trusted-key-path`, default `/etc/agentic-mcp/trusted/bossman.pub.pem`) and prints the
-`tls.trusted_client_keys` YAML snippet for the operator to add — round-tripping arbitrary
-hand-edited YAML while preserving comments/structure was judged too risky for a first
-implementation; safer to have the operator (or a provisioning tool) confirm the change explicitly.
+file (`--trusted-key-path`, default `/etc/agentic-mcp/trusted/enroller.pub.pem`) and prints the
+`tls.trusted_client_keys` YAML snippet for the operator to add (pinned under `--key-name`, default
+`enroller`) — round-tripping arbitrary hand-edited YAML while preserving comments/structure was
+judged too risky for a first implementation; safer to have the operator (or a provisioning tool)
+confirm the change explicitly.
 
 **`--generate-token` is a separate, standalone flag**, not part of `register`: `agentic-mcpd
 --generate-token` prints a fresh 32-byte (64 hex char) cryptographically random token via
 `crypto/rand` and exits — for bootstrapping a new agent's own `config.yaml` token (or rotating an
-existing one) independently of any Bossman interaction. `register` reads this token back out of
+existing one) independently of any enrollment interaction. `register` reads this token back out of
 the already-loaded config rather than generating one inline, keeping the two concerns cleanly
 separate as confirmed with the user.
 
-**Implementation:** new `internal/enroll` package (`Register(ctx, bossmanURL, Request) (Result,
+**Implementation:** new `internal/enroll` package (`Register(ctx, enrollURL, Request) (Result,
 error)`) does the HTTP POST/JSON exchange using the standard library's default TLS verification
-(a normal CA-signed or pre-trusted cert on Bossman's enrollment endpoint — there's no pinned key
-to verify against yet, since establishing one is the whole point of this call). `cmd/agentic-mcpd`
-dispatches `os.Args[1] == "register"` to `runRegister` (its own flag set: `--bossman-url`,
-`--enroll-secret`, `--name`, `--address`, `--config`, `--trusted-key-path`) in
+(a normal CA-signed or pre-trusted cert on the enrollment endpoint — there's no pinned key to
+verify against yet, since establishing one is the whole point of this call). `cmd/agentic-mcpd`
+dispatches `os.Args[1] == "register"` to `runRegister` (its own flag set: `--enroll-url`,
+`--enroll-secret`, `--name`, `--address`, `--config`, `--key-name`, `--trusted-key-path`) in
 `cmd/agentic-mcpd/register.go`; `newBearerToken()` in the same file backs `--generate-token`.
 
 **Verification:** `internal/enroll/enroll_test.go` covers success, wrong-secret rejection, an
 empty-public-key response, an unreachable server, and a 500 whose message propagates into the
 returned error — all against a real `httptest.Server`, not a mocked interface. End to end: a
-minimal mock Bossman (a ~30-line Python `http.server` implementing exactly the
+minimal mock enrollment server (a ~30-line Python `http.server` implementing exactly the
 `POST /api/v1/enroll` contract above) was run for real, and the actual `agentic-mcpd` binary was
 invoked against it — `register` with the correct secret wrote a real key file to disk and printed
 the correct config snippet; the same call with a wrong secret failed with the server's real 401
 response propagated into the CLI's error message. `--generate-token` was run twice, confirmed to
 produce distinct 64-character hex strings each time.
+
+## Selecta: dynamic satellite enrollment (implemented)
+
+`mode: proxy` (a Selecta) originally only polled the fixed list of satellites in its own
+`config.yaml`'s `proxy.satellites` — adding or removing one required an edit + restart. A Selecta
+now additionally accepts satellites enrolling themselves at runtime via the exact same
+`agentic-mcpd register` command and `internal/enroll` wire protocol Bossman enrollment uses (see
+above) — no second protocol was introduced, since the trust direction is identical: the entity
+that will poll (the Selecta) needs its public key pinned by the entity it polls (the satellite),
+which is exactly the enrollment handshake's shape.
+
+**Config additions** (`internal/config`): `proxy.enroll_secret` — shared bootstrap secret; when
+empty, `POST /api/v1/enroll` is not registered at all (enrollment stays off by default).
+`proxy.satellites_path` — SQLite file backing the dynamic satellite registry, defaulting to
+`/var/lib/agentic-mcp/satellites.db`. Validation no longer requires at least one static satellite
+under `mode: proxy` — a Selecta with zero satellites configured up front (everything arrives via
+enrollment) is now a valid, supported configuration; it still requires a client cert/key pair,
+since that's the identity it presents when polling any satellite, static or dynamic.
+
+**`internal/fleet.SatelliteRegistry`** (`registry.go`, new): a small SQLite-backed store — one
+`satellites` table (`name` PK, `address`, `token`, `poll_interval_ns`, `created_at`) — with
+`Add`/`Remove`/`List`. Poll interval is persisted as raw nanoseconds, not seconds: an early version
+stored `int64(interval.Seconds())`, which silently truncated any sub-second interval to `0` and
+fell back to the 1-minute default — caught by a real test using a 10ms interval, fixed by storing
+`int64(interval)` directly.
+
+**`internal/fleet.Manager`** (`manager.go`, new): reconciles the static `config.yaml` satellite
+list with the dynamic registry and takes immediate effect on mutation — `Enroll`/`Remove` start or
+cancel that satellite's polling goroutine right away, rather than waiting for a periodic
+reconciliation pass or a restart. `Start` loads both static and dynamic satellites once at daemon
+startup; re-enrolling a name that collides with a static entry cancels and restarts its poller
+under the new parameters (same cancel-and-restart path used for any re-enrollment).
+
+**Own public key without a second keypair:** a Selecta hands out its public key during enrollment
+by extracting it directly from `proxy.client_cert_file` — the identity it already uses when
+polling satellites — via the new `tlsauth.PublicKeyPEMFromCertFile(certFile string) ([]byte,
+error)`, rather than minting an enrollment-specific keypair nobody else needs.
+
+**REST surface** (`internal/server/enroll.go`, new), mounted only when `mode: proxy` and a
+satellite manager exists:
+- `POST /api/v1/enroll` — gated behind both `cfg.Write` and a non-empty `proxy.enroll_secret`;
+  absent entirely (404, not 403) otherwise, so an unconfigured Selecta reveals nothing about
+  whether enrollment could ever be turned on.
+- `GET /api/v1/proxy/satellites` — lists currently polled satellites (static + dynamic).
+- `DELETE /api/v1/proxy/satellites/{name}` — the requested "delete a satellite again" capability;
+  gated behind `cfg.Write` like every other mutating route in this project; stops that satellite's
+  poller immediately and removes it from the registry.
+
+**`cmd/agentic-mcpd/main.go`** wiring: `startProxyManager` (opens the registry, loads the client
+cert, starts the `Manager`) replaces the old one-ticker-per-satellite `startProxyPollLoop`;
+`loadProxyPublicKeyOrWarn` reads the Selecta's own public key for the enrollment endpoint to hand
+out, only when `proxy.enroll_secret` is actually set. Both degrade gracefully (log + continue
+without satellite polling / without the enrollment endpoint) rather than failing the whole daemon,
+consistent with every other optional subsystem here (eBPF, PAM).
+
+**Verification:** `internal/fleet/registry_test.go` (8 tests) and `manager_test.go` (8 tests,
+including a `fakePuller` test double and immediate start/stop-on-mutation coverage) unit-test the
+registry and manager in isolation; `internal/server/enroll_test.go` (8 tests) covers the REST
+layer including write-gate enforcement, wrong-secret rejection, and route absence outside proxy
+mode; `internal/tlsauth/tlsauth_test.go` gained 3 tests for `PublicKeyPEMFromCertFile`, including a
+round-trip through `LoadTrustedKey`/`MatchesAny` proving the extracted key is actually usable as a
+pin, not just textually similar. `agentic-mcpd register` now uses generic `--enroll-url` (was
+`--bossman-url`) and `--key-name` flags so the identical CLI command targets a Selecta or a future
+Bossman.
+
+**Real end-to-end verification** (two real `agentic-mcpd` binaries on
+`host1.example.internal`, not mocked): a Selecta (`mode: proxy`, `write: true`,
+`proxy.enroll_secret` set, `proxy.satellites: []` — zero satellites configured up front) and a
+Duppy (`mode: standalone`, TLS enabled, empty `trusted_client_keys`) were started as separate
+processes. `agentic-mcpd register --enroll-url http://<selecta>:8051 --enroll-secret ... --name
+duppy1 --address 127.0.0.1:8052 --key-name selecta` was run for real against the Selecta:
+- The call succeeded, printed `Registered "duppy1" ... (agent id: duppy1)`, and wrote the
+  Selecta's real public key to disk.
+- `GET /api/v1/proxy/satellites` on the Selecta immediately showed `duppy1` — proving `Enroll`
+  takes effect without a restart.
+- The Selecta's first poll tick (60s default, since enrolled satellites carry no
+  `poll_interval`) **succeeded even before Duppy trusted the Selecta's certificate**
+  (`satellite poll completed satellite=duppy1 points=1`) — confirming bearer-token auth alone is
+  sufficient when `trusted_client_keys` is empty, and mTLS pinning is an additive, not required,
+  layer (matches `internal/tlsauth`'s documented "empty list ⇒ no client-cert enforcement"
+  behavior).
+- The printed `tls.trusted_client_keys` snippet was then added to Duppy's config.yaml and Duppy
+  was restarted; the Selecta's next poll tick still succeeded
+  (`satellite poll completed satellite=duppy1 points=1`), confirming the Selecta's client
+  certificate (the same one it hands out during enrollment) is genuinely accepted under full mTLS
+  enforcement, not just coincidentally matching by bearer token.
+- `DELETE /api/v1/proxy/satellites/duppy1` returned `{"name":"duppy1","removed":true}`;
+  `GET /api/v1/proxy/satellites` immediately showed `{"satellites":null}`; and — checked over the
+  next full poll interval, not just the list view — the Selecta's log gained **zero** further
+  "satellite poll" lines for `duppy1`, confirming the poller goroutine was actually cancelled, not
+  merely hidden from the list.
+- Test processes and directories were removed from the test host afterward.
 
 ## File upload (staging)
 

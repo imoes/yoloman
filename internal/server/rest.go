@@ -11,6 +11,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
+	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/store"
@@ -59,6 +60,25 @@ type RESTConfig struct {
 
 	// Audit is optional (nil disables audit logging).
 	Audit *audit.Logger
+
+	// Mode mirrors config.Config.Mode ("standalone"/"satellite"/"proxy") —
+	// the enrollment endpoint and satellite management routes are only
+	// mounted when this is "proxy" (a Selecta).
+	Mode string
+	// ProxyEnrollSecret, when non-empty (and Mode == "proxy" and
+	// Write == true), activates POST /api/v1/enroll — see
+	// docs/plan.md's Selecta enrollment design.
+	ProxyEnrollSecret string
+	// ProxyPublicKeyPEM is this proxy's own client_cert_file's public key,
+	// PEM-encoded (see tlsauth.PublicKeyPEMFromCertFile), precomputed once
+	// at startup and handed out by the enrollment endpoint — the identity
+	// that will actually connect to a newly enrolled satellite, so no
+	// separate enrollment keypair is needed.
+	ProxyPublicKeyPEM []byte
+	// SatelliteManager is non-nil only in proxy mode; backs both the
+	// enrollment endpoint (Enroll) and GET/DELETE
+	// /api/v1/proxy/satellites (List/Remove).
+	SatelliteManager *fleet.Manager
 }
 
 type ctxKey int
@@ -103,7 +123,11 @@ func identityFromRequest(r *http.Request, cfg RESTConfig) (authz.Identity, bool)
 // same "auth disabled" dev-mode fallback used elsewhere in the daemon.
 func withIdentity(cfg RESTConfig, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/auth/login" {
+		// /api/v1/enroll authenticates itself via its own shared
+		// enroll_secret (see handleEnroll) — there is no bearer token or
+		// session yet at the point a caller is trying to bootstrap trust,
+		// same reasoning as the /api/v1/auth/login bypass below.
+		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/enroll" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -190,6 +214,7 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 		handleMetricsQuery(w, r, cfg.Store)
 	})
 	RegisterConnectionsDumpRoute(mux, cfg.Store)
+	RegisterEnrollRoutes(mux, cfg)
 
 	mux.HandleFunc("GET /api/v1/acl/tools/{name}", func(w http.ResponseWriter, r *http.Request) {
 		handleGetToolACL(w, r, cfg)

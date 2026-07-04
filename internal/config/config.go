@@ -89,6 +89,25 @@ type Proxy struct {
 	ClientCertFile string      `yaml:"client_cert_file"`
 	ClientKeyFile  string      `yaml:"client_key_file"`
 	Satellites     []Satellite `yaml:"satellites"`
+
+	// EnrollSecret, when set, activates this proxy's own server-side
+	// POST /api/v1/enroll endpoint ("Selecta" acting as an enrollment
+	// authority for its satellites — see docs/plan.md) — a standalone
+	// agent runs `agentic-mcpd register --enroll-url https://<this
+	// proxy>` to add itself as a satellite. The handed-out public key is
+	// this proxy's own ClientCertFile's public key (the identity it
+	// already uses to poll satellites), so a newly enrolled satellite
+	// pins exactly the certificate that will actually connect to it —
+	// no separate enrollment keypair needed. Left empty (the default),
+	// the endpoint is not registered at all, the same registration-gate
+	// pattern used elsewhere in this project (e.g. the write gate).
+	EnrollSecret string `yaml:"enroll_secret"`
+
+	// SatellitesPath is where dynamically enrolled/removed satellites
+	// (via the enrollment endpoint and DELETE /api/v1/proxy/satellites)
+	// are persisted, layered on top of the statically configured
+	// Satellites list above — see internal/fleet.SatelliteRegistry.
+	SatellitesPath string `yaml:"satellites_path"`
 }
 
 // Satellite is one proxy-mode upstream: a satellite agent reachable over
@@ -200,6 +219,7 @@ func Default() Config {
 		UploadsDir:    "/var/lib/agentic-mcp/uploads",
 		MaxUploadSize: 512 * 1024 * 1024,
 		Mode:          "standalone",
+		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
 	}
 }
 
@@ -277,11 +297,15 @@ func (c Config) Validate() error {
 	switch c.Mode {
 	case "", "standalone", "satellite":
 	case "proxy":
-		if len(c.Proxy.Satellites) == 0 {
-			return fmt.Errorf("mode: proxy requires at least one entry under proxy.satellites")
-		}
+		// No longer requires at least one statically configured satellite:
+		// since satellites can now be enrolled dynamically at runtime (see
+		// internal/fleet.SatelliteRegistry and the enrollment endpoint), a
+		// proxy legitimately starts with zero and grows its list later.
 		if c.Proxy.ClientCertFile == "" || c.Proxy.ClientKeyFile == "" {
 			return fmt.Errorf("mode: proxy requires proxy.client_cert_file and proxy.client_key_file (this agent's own client identity)")
+		}
+		if c.Proxy.SatellitesPath == "" {
+			return fmt.Errorf("mode: proxy requires proxy.satellites_path")
 		}
 		seen := make(map[string]bool, len(c.Proxy.Satellites))
 		for i, sat := range c.Proxy.Satellites {
