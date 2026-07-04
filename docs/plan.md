@@ -1433,3 +1433,46 @@ endpoint returned them with correctly aggregated `event_count` (4 for 4 repeated
 the same port) — then **killed and restarted the daemon** and confirmed the previously observed
 edges were still present in the dump afterward, the exact guarantee (restart-survival) that
 motivated moving off the RAM-only ring buffer in the first place.
+
+## Bossman — Block B1/B2: FastAPI scaffold + TimescaleDB schema (implemented)
+
+`bossman/` (a new subdirectory of this same repo, per the confirmed monorepo-not-separate-repo
+decision): a `uv`-managed Python project, app-factory pattern (`create_app`, not a module-level
+singleton, so tests don't need the real lifespan/DB pool to run), `pydantic-settings` config read
+from `BOSSMAN_`-prefixed env vars (not a YAML file like the Go agent — Bossman follows this team's
+conventional env-var-configured service pattern instead), `/healthz` matching the Go daemon's own
+bare, unauthenticated liveness-check convention.
+
+**Schema** (SQLAlchemy 2.0 declarative models in `bossman/db/models.py`, Alembic migration in
+`bossman/alembic/versions/`): `agents`, `host_edges` (aggregated relationships), `connection_events`
++ `metrics` (TimescaleDB hypertables — raw history), `metrics_hourly` (continuous aggregate, the
+RRD-replacement rollup), `plan_runs`/`plan_run_steps` (the Ansible-replacement audit trail),
+`bossman_users`/`api_tokens` (the dual human/machine auth split already decided). Hypertable/
+continuous-aggregate/retention-policy calls are raw SQL in the migration (`op.execute(...)`) since
+none of that is expressible via SQLAlchemy's own DDL — the ORM models only describe each table's
+plain relational shape.
+
+**Two real bugs found and fixed while actually running this against a real database** (not just
+reviewing the code):
+1. `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` cannot run inside a transaction
+   block by default (it tries to materialize immediately, which TimescaleDB implements outside
+   transactional DDL) — Alembic wraps every migration in a transaction. Fixed with `WITH NO DATA`
+   on the `CREATE MATERIALIZED VIEW`, which skips the immediate materialization; the continuous
+   aggregate policy refreshes it on its own schedule regardless, so nothing is lost.
+2. Every timestamp column defaulted to Postgres `TIMESTAMP WITHOUT TIME ZONE` (SQLAlchemy's plain
+   `DateTime()`), which `asyncpg` then refuses to bind a timezone-aware Python `datetime` into — a
+   real, immediate failure the moment a real integration test tried to insert one. Since a fleet
+   spans hosts across timezones, comparing/bucketing naive timestamps would have been silently
+   wrong even if the driver had allowed it. Fixed by making every timestamp column explicitly
+   `DateTime(timezone=True)`.
+
+**Verified, real, not mocked:** a real `timescale/timescaledb:latest-pg16` Docker container as the
+dev database (see `bossman/README.md`); `alembic upgrade head` / `alembic downgrade base` both run
+successfully against it; confirmed via `psql` that `connection_events`/`metrics` are genuine
+hypertables (`timescaledb_information.hypertables`), `metrics_hourly` is a genuine continuous
+aggregate, and all three retention/refresh policies are actually registered as scheduled background
+jobs (`timescaledb_information.jobs`) — not just that the migration ran without erroring. A real
+pytest integration suite (`tests/test_models.py`, skips gracefully if no database is reachable
+rather than mocking one away) inserts and queries rows through the actual ORM models against the
+real hypertables, including the two bugs above being caught by this exact test suite before ever
+being committed.
