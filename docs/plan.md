@@ -1575,3 +1575,70 @@ pytest integration suite (`tests/test_models.py`, skips gracefully if no databas
 rather than mocking one away) inserts and queries rows through the actual ORM models against the
 real hypertables, including the two bugs above being caught by this exact test suite before ever
 being committed.
+
+## Bossman — Block B3: enrollment server (implemented)
+
+Bossman's server side of the exact same handshake the Selecta section above already implements —
+`POST /api/v1/enroll` accepting `{name, enroll_secret, token, address}` and returning
+`{bossman_public_key, agent_id}`. No new wire protocol: this is the contract `internal/enroll`
+(the Go `agentic-mcpd register` client) was written against from the start.
+
+**`bossman/bossman/services/keys.py`** (new): `ensure_client_keypair(key_path, cert_path)`
+generates a P-256 keypair + self-signed certificate once and persists it to disk — idempotent, a
+restart reuses the existing identity rather than silently rotating it (rotation would require
+re-running enrollment against every already-enrolled agent, an accepted v1 trade-off per the plan
+above). `own_public_key_pem(cert_path)` extracts the PEM-encoded PKIX public key from that
+certificate — the direct Python counterpart of the Go node agent's
+`tlsauth.PublicKeyPEMFromCertFile`, handed out during enrollment so a Duppy can pin it in its own
+`tls.trusted_client_keys` exactly like a Selecta's client certificate.
+
+**`bossman/bossman/services/enrollment.py`** (new): `enroll_agent(session, configured_secret,
+EnrollRequest)` — framework-free business logic (no FastAPI import), so it stays reachable from
+the REST API, a future MCP facade, and tests without duplicating logic. Validates the caller's
+`enroll_secret` with `secrets.compare_digest` (constant-time, mirroring the Go daemon's own
+`crypto/subtle.ConstantTimeCompare`) and upserts an `Agent` row by name — a first-time enrollment
+creates it `enrolled`; re-enrolling an already-known name (reinstall, token rotation) updates the
+existing row in place instead of erroring, mirroring the Go Selecta's `Manager.Enroll`
+re-enrollment semantics.
+
+**`bossman/bossman/api/enroll.py`** (new): the FastAPI route, mounted in `create_app()` only when
+`settings.enroll_secret` is non-empty — an unconfigured Bossman accepts no enrollments at all,
+identical gating to the Go Selecta's `proxy.enroll_secret`. `400` on an empty `name`/`token`,
+`401` on a wrong `enroll_secret` (propagating `InvalidEnrollSecret`), `200` with the freshly
+generated/loaded public key and the agent's UUID on success.
+
+**Real bug found and fixed while wiring this up, not by code review:** a DB-backed HTTP test using
+two separately-constructed `TestClient` instances failed with `RuntimeError: ... got Future ...
+attached to a different loop` — `bossman/db/session.py`'s original `_engine` was a module-level
+singleton created once at import time, but each `TestClient` spins up its own event loop, and a
+pooled `asyncpg` connection created under one loop cannot be reused under another (this is exactly
+the DB-pool wiring Block B1's scaffold had explicitly deferred to "a later block" in
+`bossman/main.py`'s lifespan, just never exercised until a DB-backed HTTP test existed). Fixed by
+binding the engine's lifetime to the FastAPI app instance instead of the process: `make_engine()`
+is now called inside `lifespan()`, storing the session factory on `app.state`, and
+`get_session(request: Request)` reads it from there — disposed cleanly in `lifespan`'s `finally`
+block on shutdown. This is also the architecturally correct shape per the original B1 plan, not
+just a test workaround.
+
+**Verification:**
+- `tests/test_keys.py` (3 tests): keypair generation, idempotency (identical bytes across two
+  calls), and that the extracted public key is well-formed PEM.
+- `tests/test_enrollment_service.py` (3 tests, real DB via `db_session`): new-agent creation,
+  re-enrollment updating the existing row in place (not creating a duplicate), and wrong-secret
+  rejection creating no row.
+- `tests/test_enroll_api.py` (4 tests, real DB, real HTTP via `TestClient(app)` as a context
+  manager so the lifespan actually runs): success end to end, the same keypair being returned
+  across two different enrollments (proving persistence, not per-call regeneration), wrong-secret
+  rejection, and route absence (404) when no `enroll_secret` is configured.
+- **Real end-to-end run, the actual Go binary against the actual Bossman dev server** (not just
+  Python-side tests): `uv run uvicorn bossman.main:app` was started for real against the same
+  `timescale/timescaledb` dev container Block B1/B2 verified against, with a real
+  `BOSSMAN_ENROLL_SECRET` set. The real, freshly-built `agentic-mcpd` binary's `register`
+  subcommand was run against it (`--enroll-url http://127.0.0.1:8090 --enroll-secret e2e-secret
+  --name duppy-e2e-1 --address 127.0.0.1:8091`) and succeeded, printing a real agent UUID and
+  writing a real PEM public key to disk (confirmed valid with `openssl pkey -pubin -text`, a real
+  P-256 key, not just PEM-shaped text). `psql` confirmed the real row in `agents`
+  (`enrollment_state='enrolled'`, correct `token`/`address`). A second `register` call with a
+  wrong `--enroll-secret` failed for real with the server's actual 401 propagated into the CLI's
+  error message (`register: enrollment rejected: 401 Unauthorized: {"detail":"invalid
+  enroll_secret"}`). Test rows and the dev Bossman process were cleaned up afterward.
