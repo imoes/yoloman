@@ -36,6 +36,29 @@ type DownsampleStats struct {
 	HourlyRowsCreated    int
 	HourlyRowsAggregated int
 	DailyRowsCreated     int
+	EdgesPruned          int
+}
+
+// Edge is one persisted (process, destination) connection relationship —
+// the durable counterpart of ebpf.TopTalker's in-memory aggregation,
+// surviving restarts and reachable via a cursor-based bulk dump (see
+// docs/plan.md's Bossman "v3" Block A) the same way metrics already are.
+// Unlike metrics, an edge has several non-numeric dimensions (source
+// process, destination, port, first/last-seen) that don't fit the generic
+// Point{metric,value,labels} shape, so it gets its own table/methods
+// instead of being shoehorned into WritePoints.
+type Edge struct {
+	Comm       string
+	DstAddr    string
+	DstPort    uint16
+	EventCount int64
+	FirstSeen  time.Time
+	LastSeen   time.Time
+	// LatencyNs is the most recently observed latency for this
+	// (comm, destination) pair, or nil if none has been observed yet
+	// (e.g. TCP connection edges carry no latency; disk I/O-derived
+	// edges, if ever added, would).
+	LatencyNs *int64
 }
 
 // Store is the storage backend for metrics/events. v1 ships a single SQLite
@@ -63,8 +86,25 @@ type Store interface {
 	// aggregates hourly points older than hourlyCutoff into daily points,
 	// deleting the source hourly rows. It is safe to call repeatedly
 	// (e.g. from a periodic ticker); each call only processes rows past
-	// the given cutoffs.
+	// the given cutoffs. It also prunes connection edges last seen
+	// before rawCutoff (see EdgesPruned), riding the same retention
+	// cadence as metrics rather than needing a separate cron mechanism.
 	Downsample(ctx context.Context, rawCutoff, hourlyCutoff time.Time) (DownsampleStats, error)
+
+	// UpsertEdge records one observed (comm, destination) connection: on
+	// first sight, inserts a new row with event_count=1; on a repeat
+	// sight of the same (comm, dst_addr, dst_port), increments
+	// event_count, advances last_seen, and overwrites latencyNs with the
+	// latest observation (nil leaves any existing latency untouched,
+	// rather than clearing it, since not every caller can supply one).
+	UpsertEdge(ctx context.Context, comm, dstAddr string, dstPort uint16, latencyNs *int64) error
+
+	// ListEdgesSince returns every edge whose LastSeen is >= since — the
+	// cursor a bulk-dump caller (a proxy, or a future Bossman poller)
+	// uses to fetch only what changed since its last successful pull, the
+	// same incremental-pull shape ListMetricNames/Query already give for
+	// metrics.
+	ListEdgesSince(ctx context.Context, since time.Time) ([]Edge, error)
 
 	Close() error
 }

@@ -290,3 +290,183 @@ func TestListMetricNames_Empty(t *testing.T) {
 		t.Errorf("expected no names in an empty store, got %v", names)
 	}
 }
+
+func TestUpsertEdge_FirstSightCreatesRowWithCountOne(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatalf("UpsertEdge: %v", err)
+	}
+
+	edges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatalf("ListEdgesSince: %v", err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 edge, got %d", len(edges))
+	}
+	e := edges[0]
+	if e.Comm != "curl" || e.DstAddr != "1.1.1.1" || e.DstPort != 443 {
+		t.Errorf("unexpected edge identity: %+v", e)
+	}
+	if e.EventCount != 1 {
+		t.Errorf("EventCount = %d, want 1", e.EventCount)
+	}
+	if e.LatencyNs != nil {
+		t.Errorf("LatencyNs = %v, want nil", e.LatencyNs)
+	}
+}
+
+func TestUpsertEdge_RepeatSightIncrementsCountAndAdvancesLastSeen(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+	firstEdges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstSeen := firstEdges[0].FirstSeen
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	edges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("expected the same (comm,dst,port) to stay a single row, got %d", len(edges))
+	}
+	if edges[0].EventCount != 3 {
+		t.Errorf("EventCount = %d, want 3 after 3 upserts", edges[0].EventCount)
+	}
+	if !edges[0].FirstSeen.Equal(firstSeen) {
+		t.Errorf("FirstSeen changed across repeat upserts: %v -> %v", firstSeen, edges[0].FirstSeen)
+	}
+}
+
+func TestUpsertEdge_DistinctDestinationsAreSeparateRows(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertEdge(ctx, "curl", "2.2.2.2", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertEdge(ctx, "nginx", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	edges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 distinct edges, got %d", len(edges))
+	}
+}
+
+func TestUpsertEdge_LatencyUpdatesOnNonNilObservationOnly(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	firstLatency := int64(5_000_000)
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, &firstLatency); err != nil {
+		t.Fatal(err)
+	}
+	// A subsequent upsert with no latency observation must not clear the
+	// existing value.
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+	edges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edges[0].LatencyNs == nil || *edges[0].LatencyNs != firstLatency {
+		t.Errorf("LatencyNs = %v, want %d preserved across a nil-latency upsert", edges[0].LatencyNs, firstLatency)
+	}
+
+	secondLatency := int64(9_000_000)
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, &secondLatency); err != nil {
+		t.Fatal(err)
+	}
+	edges, err = s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edges[0].LatencyNs == nil || *edges[0].LatencyNs != secondLatency {
+		t.Errorf("LatencyNs = %v, want updated to %d", edges[0].LatencyNs, secondLatency)
+	}
+}
+
+func TestListEdgesSince_FiltersOutOlderEdges(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	future := time.Now().Add(time.Hour)
+	edges, err := s.ListEdgesSince(ctx, future)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 0 {
+		t.Errorf("expected no edges last seen after a future cursor, got %d", len(edges))
+	}
+}
+
+func TestDownsample_PrunesOldEdges(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// The edge's last_seen is "now"; a cutoff in the future should prune it.
+	stats, err := s.Downsample(ctx, time.Now().Add(time.Hour), time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Downsample: %v", err)
+	}
+	if stats.EdgesPruned != 1 {
+		t.Errorf("EdgesPruned = %d, want 1", stats.EdgesPruned)
+	}
+
+	edges, err := s.ListEdgesSince(ctx, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(edges) != 0 {
+		t.Errorf("expected the pruned edge to be gone, got %d remaining", len(edges))
+	}
+}
+
+func TestDownsample_DoesNotPruneRecentEdges(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertEdge(ctx, "curl", "1.1.1.1", 443, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := s.Downsample(ctx, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatalf("Downsample: %v", err)
+	}
+	if stats.EdgesPruned != 0 {
+		t.Errorf("EdgesPruned = %d, want 0 for a recently-seen edge", stats.EdgesPruned)
+	}
+}

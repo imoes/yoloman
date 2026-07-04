@@ -1392,3 +1392,44 @@ Docker-style cgroup path (`/sys/fs/cgroup/docker-test-fake/docker-<64-hex>.scope
 real cgroupfs, no simulation) and confirmed real `exec_events` captured from within it carried the
 exact matching `container_id` — proving the full pipeline (kernel event → pid capture → `/proc`
 lookup → JSON output) end to end.
+
+## Bossman — Block A: durable connection-edge persistence (implemented)
+
+The first piece of the Bossman plan (see the "Ergänzung: Bossman (Fleet Commander)" plan history):
+Bossman's design assumes it can pull connection-relationship data with real history from every
+node agent, the same way it already pulls metrics via `GET /api/v1/metrics`. Before this block,
+`ebpf.Collector`'s TCP connection data lived only in a RAM-only, capped ring buffer — no
+persistence, no cursor, no bulk-dump path, and a lossy window under any polling gap or restart.
+
+- **`internal/store`**: new `connection_edges` table (`comm`, `dst_addr`, `dst_port`,
+  `event_count`, `first_seen`, `last_seen`, `latency_ns`, unique on `(comm, dst_addr, dst_port)`)
+  plus `Store.UpsertEdge`/`ListEdgesSince` — the exact shape from the earlier Bossman planning
+  session, deliberately its own table rather than shoehorned into the generic
+  `Point{metric,value,labels}` schema (an edge has several non-numeric dimensions that don't fit).
+  `Downsample` now also prunes edges last seen before the raw cutoff (`DownsampleStats.EdgesPruned`),
+  riding the exact same retention cadence as metrics rather than a second cron mechanism.
+- **`internal/ebpf`**: new `EdgeSink` interface (`UpsertEdge(ctx, comm, dstAddr, dstPort, latencyNs)
+  error`) — deliberately *not* an import of `internal/store` from `internal/ebpf`, since
+  `store.Store` already has this exact method set and therefore satisfies `EdgeSink` structurally,
+  no adapter needed. `Collector.SetEdgeSink` wires it optionally (nil is a fully valid, working
+  collector — same graceful-degradation posture as every other dependency here); on each
+  `ESTABLISHED` transition (the same aggregation `TopTalkers` already computes in memory), the
+  collector also calls the sink, best-effort (a logged warning, never a fatal error, on failure).
+- **`internal/server`**: new `GET /api/v1/net/connections/dump?since=<RFC3339 or duration>` —
+  the durable, cursor-based counterpart to the existing live `net_connections` tool/route.
+  Deliberately **REST-only, no MCP tool** — this endpoint is for machine-to-machine fleet polling
+  (a proxy, or Bossman), not for an AI to call directly (which already has `net_connections`/
+  `top_talkers` for the live view) — directly matching the user's explicit direction that Bossman
+  should poll node agents over REST, not MCP.
+- **`cmd/agentic-mcpd/main.go`**: `collector.SetEdgeSink(st)` wired right after the collector
+  starts, since `st` (the already-open `store.Store`) satisfies `ebpf.EdgeSink` with zero glue code.
+
+**Verified:** unit tests for the store methods (idempotent upsert-by-identity, event count
+increments, `first_seen` stays fixed across repeats, latency preserved when a later observation
+carries none, cursor filtering, pruning), a fake-`EdgeSink` test proving only `ESTABLISHED`
+transitions trigger a persist call, and REST route tests. Real, end-to-end, on
+`host1.example.internal`: generated genuine loopback TCP connections, confirmed the dump
+endpoint returned them with correctly aggregated `event_count` (4 for 4 repeated connections to
+the same port) — then **killed and restarted the daemon** and confirmed the previously observed
+edges were still present in the dump afterward, the exact guarantee (restart-survival) that
+motivated moving off the RAM-only ring buffer in the first place.

@@ -189,6 +189,7 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	mux.HandleFunc("GET /api/v1/metrics/{metric}", func(w http.ResponseWriter, r *http.Request) {
 		handleMetricsQuery(w, r, cfg.Store)
 	})
+	RegisterConnectionsDumpRoute(mux, cfg.Store)
 
 	mux.HandleFunc("GET /api/v1/acl/tools/{name}", func(w http.ResponseWriter, r *http.Request) {
 		handleGetToolACL(w, r, cfg)

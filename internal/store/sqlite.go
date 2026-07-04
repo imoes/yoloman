@@ -22,6 +22,19 @@ CREATE TABLE IF NOT EXISTS metrics (
 	resolution TEXT NOT NULL DEFAULT 'raw'
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_lookup ON metrics(metric, resolution, ts);
+
+CREATE TABLE IF NOT EXISTS connection_edges (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	comm TEXT NOT NULL,
+	dst_addr TEXT NOT NULL,
+	dst_port INTEGER NOT NULL,
+	event_count INTEGER NOT NULL DEFAULT 0,
+	first_seen INTEGER NOT NULL,
+	last_seen INTEGER NOT NULL,
+	latency_ns INTEGER,
+	UNIQUE(comm, dst_addr, dst_port)
+);
+CREATE INDEX IF NOT EXISTS idx_connection_edges_last_seen ON connection_edges(last_seen);
 `
 
 // SQLiteStore is the v1 Store backend: a single local SQLite file (or
@@ -182,7 +195,72 @@ func (s *SQLiteStore) Downsample(ctx context.Context, rawCutoff, hourlyCutoff ti
 	stats.HourlyRowsAggregated = aggregated2
 	stats.DailyRowsCreated = created2
 
+	pruned, err := s.pruneEdges(ctx, rawCutoff)
+	if err != nil {
+		return stats, fmt.Errorf("pruning connection edges: %w", err)
+	}
+	stats.EdgesPruned = pruned
+
 	return stats, nil
+}
+
+// pruneEdges deletes connection edges last seen before cutoff, riding the
+// same retention cadence as metrics (see Downsample) rather than needing a
+// separate cron mechanism.
+func (s *SQLiteStore) pruneEdges(ctx context.Context, cutoff time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM connection_edges WHERE last_seen < ?`, cutoff.Unix())
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	return int(n), err
+}
+
+func (s *SQLiteStore) UpsertEdge(ctx context.Context, comm, dstAddr string, dstPort uint16, latencyNs *int64) error {
+	now := time.Now().Unix()
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO connection_edges (comm, dst_addr, dst_port, event_count, first_seen, last_seen, latency_ns)
+		VALUES (?, ?, ?, 1, ?, ?, ?)
+		ON CONFLICT(comm, dst_addr, dst_port) DO UPDATE SET
+			event_count = event_count + 1,
+			last_seen = excluded.last_seen,
+			latency_ns = COALESCE(excluded.latency_ns, connection_edges.latency_ns)
+	`, comm, dstAddr, dstPort, now, now, latencyNs)
+	if err != nil {
+		return fmt.Errorf("upserting edge %s->%s:%d: %w", comm, dstAddr, dstPort, err)
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ListEdgesSince(ctx context.Context, since time.Time) ([]Edge, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT comm, dst_addr, dst_port, event_count, first_seen, last_seen, latency_ns
+		FROM connection_edges
+		WHERE last_seen >= ?
+		ORDER BY last_seen ASC
+	`, since.Unix())
+	if err != nil {
+		return nil, fmt.Errorf("listing edges: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Edge
+	for rows.Next() {
+		var e Edge
+		var firstSeen, lastSeen int64
+		var latencyNs sql.NullInt64
+		if err := rows.Scan(&e.Comm, &e.DstAddr, &e.DstPort, &e.EventCount, &firstSeen, &lastSeen, &latencyNs); err != nil {
+			return nil, err
+		}
+		e.FirstSeen = time.Unix(firstSeen, 0).UTC()
+		e.LastSeen = time.Unix(lastSeen, 0).UTC()
+		if latencyNs.Valid {
+			v := latencyNs.Int64
+			e.LatencyNs = &v
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // consolidate averages every (metric, labels) series' `from`-resolution

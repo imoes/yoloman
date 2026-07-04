@@ -96,6 +96,9 @@ func run(args []string) error {
 	collector := startEBPFCollector(cfg)
 	if collector != nil {
 		defer collector.Close()
+		// st (store.Store) already satisfies ebpf.EdgeSink structurally —
+		// no adapter needed. See docs/plan.md's Bossman "v3" Block A.
+		collector.SetEdgeSink(st)
 	}
 
 	// Audit entries are written to stderr as JSON lines: under systemd

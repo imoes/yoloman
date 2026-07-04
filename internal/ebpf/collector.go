@@ -95,6 +95,16 @@ type DiskIOEvent struct {
 	ContainerID string        `json:"container_id,omitempty"`
 }
 
+// EdgeSink receives observed connection edges for durable persistence — an
+// optional dependency (nil is a fully valid, working Collector, matching
+// every other dependency's graceful-degradation pattern in this project)
+// so this package doesn't need to import internal/store directly. Every
+// method of internal/store.Store already has this exact signature, so a
+// *store.SQLiteStore satisfies EdgeSink with no adapter needed.
+type EdgeSink interface {
+	UpsertEdge(ctx context.Context, comm, dstAddr string, dstPort uint16, latencyNs *int64) error
+}
+
 // Collector loads the eBPF programs, attaches them to their tracepoints,
 // and consumes the shared ring buffer into bounded in-memory event lists.
 type Collector struct {
@@ -107,6 +117,24 @@ type Collector struct {
 	execs     []ExecEvent
 	disks     []DiskIOEvent
 	maxEvents int
+
+	edgeSink EdgeSink
+}
+
+// SetEdgeSink wires an optional destination for durable connection-edge
+// persistence (see EdgeSink and docs/plan.md's Bossman "v3" Block A) — call
+// before Run. Leaving it unset (the default) keeps this package's pre-v3
+// behavior: edges only live in the bounded in-memory window.
+func (c *Collector) SetEdgeSink(sink EdgeSink) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.edgeSink = sink
+}
+
+func (c *Collector) getEdgeSink() EdgeSink {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.edgeSink
 }
 
 // New loads and attaches the collector. Callers should treat any error as
@@ -201,11 +229,11 @@ func (c *Collector) Run(ctx context.Context) {
 			slog.Warn("ebpf: ring buffer read error", "error", err)
 			continue
 		}
-		c.handleRecord(record.RawSample)
+		c.handleRecord(ctx, record.RawSample)
 	}
 }
 
-func (c *Collector) handleRecord(raw []byte) {
+func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 	var ev collectorEvent
 	if err := binary.Read(bytes.NewReader(raw), binary.LittleEndian, &ev); err != nil {
 		slog.Warn("ebpf: decoding event", "error", err)
@@ -214,18 +242,32 @@ func (c *Collector) handleRecord(raw []byte) {
 
 	switch ev.Type {
 	case eventTypeTCPConn:
+		comm := commToString(ev.Comm[:])
+		dstAddr := ipFromRaw(ev.Daddr)
+		newState := tcpStateName(ev.Newstate)
 		c.appendConn(TCPConnEvent{
 			Timestamp:   time.Now(),
 			PID:         ev.Pid,
-			Comm:        commToString(ev.Comm[:]),
+			Comm:        comm,
 			SrcAddr:     ipFromRaw(ev.Saddr),
-			DstAddr:     ipFromRaw(ev.Daddr),
+			DstAddr:     dstAddr,
 			SrcPort:     ev.Sport,
 			DstPort:     ev.Dport,
 			OldState:    tcpStateName(ev.Oldstate),
-			NewState:    tcpStateName(ev.Newstate),
+			NewState:    newState,
 			ContainerID: containerIDForPID(ev.Pid),
 		})
+		// Persist the same ESTABLISHED-only aggregation TopTalkers already
+		// computes in memory, so it survives restarts and is reachable via
+		// ListEdgesSince's bulk-dump cursor (see docs/plan.md's Bossman "v3"
+		// Block A) — best-effort: a nil sink (the default) just skips this.
+		if newState == "ESTABLISHED" {
+			if sink := c.getEdgeSink(); sink != nil {
+				if err := sink.UpsertEdge(ctx, comm, dstAddr, ev.Dport, nil); err != nil {
+					slog.Warn("ebpf: persisting connection edge", "error", err)
+				}
+			}
+		}
 	case eventTypeExec:
 		c.appendExec(ExecEvent{
 			Timestamp:   time.Now(),

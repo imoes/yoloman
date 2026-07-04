@@ -2,6 +2,7 @@ package ebpf
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"net"
 	"testing"
@@ -47,7 +48,7 @@ func TestHandleRecord_TCPConnEvent(t *testing.T) {
 	}
 	setComm(&ev.Comm, "curl")
 
-	c.handleRecord(encodeEvent(t, ev))
+	c.handleRecord(context.Background(), encodeEvent(t, ev))
 
 	conns := c.RecentConns(0)
 	if len(conns) != 1 {
@@ -80,7 +81,7 @@ func TestHandleRecord_ExecEvent(t *testing.T) {
 	setComm(&ev.Comm, "sh")
 	setFilename(&ev.Filename, "/usr/bin/sh")
 
-	c.handleRecord(encodeEvent(t, ev))
+	c.handleRecord(context.Background(), encodeEvent(t, ev))
 
 	execs := c.RecentExecs(0)
 	if len(execs) != 1 {
@@ -105,7 +106,7 @@ func TestHandleRecord_DiskIOEvent(t *testing.T) {
 	setComm(&ev.Comm, "postgres")
 	copy(ev.DiskRwbs[:], "W")
 
-	c.handleRecord(encodeEvent(t, ev))
+	c.handleRecord(context.Background(), encodeEvent(t, ev))
 
 	disks := c.RecentDiskIO(0)
 	if len(disks) != 1 {
@@ -136,7 +137,7 @@ func TestCollector_RecentDiskIO_BoundedByMaxEvents(t *testing.T) {
 	c := &Collector{maxEvents: 3}
 	for i := 0; i < 5; i++ {
 		ev := collectorEvent{Type: eventTypeDiskIO, DiskSector: uint64(i)}
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	disks := c.RecentDiskIO(0)
 	if len(disks) != 3 {
@@ -152,7 +153,7 @@ func TestCollector_SlowestDiskIO(t *testing.T) {
 	latencies := []uint64{1_000_000, 50_000_000, 500_000, 10_000_000}
 	for _, ns := range latencies {
 		ev := collectorEvent{Type: eventTypeDiskIO, DiskLatencyNs: ns}
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	slowest := c.SlowestDiskIO(2)
 	if len(slowest) != 2 {
@@ -166,7 +167,7 @@ func TestCollector_SlowestDiskIO(t *testing.T) {
 func TestHandleRecord_UnknownTypeIgnored(t *testing.T) {
 	c := &Collector{maxEvents: 100}
 	ev := collectorEvent{Type: 99}
-	c.handleRecord(encodeEvent(t, ev))
+	c.handleRecord(context.Background(), encodeEvent(t, ev))
 	if len(c.RecentConns(0)) != 0 || len(c.RecentExecs(0)) != 0 || len(c.RecentDiskIO(0)) != 0 {
 		t.Error("expected unknown event type to be ignored")
 	}
@@ -201,7 +202,7 @@ func TestCollector_RecentConns_BoundedByMaxEvents(t *testing.T) {
 	c := &Collector{maxEvents: 3}
 	for i := 0; i < 5; i++ {
 		ev := collectorEvent{Type: eventTypeTCPConn, Pid: uint32(i)}
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	conns := c.RecentConns(0)
 	if len(conns) != 3 {
@@ -217,7 +218,7 @@ func TestCollector_RecentConns_Limit(t *testing.T) {
 	c := &Collector{maxEvents: 100}
 	for i := 0; i < 10; i++ {
 		ev := collectorEvent{Type: eventTypeTCPConn, Pid: uint32(i)}
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	conns := c.RecentConns(3)
 	if len(conns) != 3 {
@@ -235,7 +236,7 @@ func TestCollector_TopTalkers(t *testing.T) {
 			Type: eventTypeTCPConn, Daddr: rawIPv4(dst), Dport: port, Newstate: newstate,
 		}
 		setComm(&ev.Comm, comm)
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	add("curl", "1.1.1.1", 443, 1) // ESTABLISHED
 	add("curl", "1.1.1.1", 443, 1) // ESTABLISHED again -> count 2
@@ -256,7 +257,7 @@ func TestCollector_TopTalkers_LimitN(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		ev := collectorEvent{Type: eventTypeTCPConn, Dport: uint16(1000 + i), Newstate: 1}
 		setComm(&ev.Comm, "svc")
-		c.handleRecord(encodeEvent(t, ev))
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
 	}
 	top := c.TopTalkers(2)
 	if len(top) != 2 {
