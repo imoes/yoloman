@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -16,12 +17,28 @@ const DefaultTimeout = 30 * time.Second
 // returned, guarding against pathological or runaway output.
 const DefaultMaxOutput = 1 << 20 // 1 MiB
 
-// Result is the outcome of running a pipeline: the last stage's stdout
-// (capped at maxOutput) and stderr, and its exit code.
-type Result struct {
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
+// StageResult captures one pipeline stage's own exit code and stderr. A
+// stage earlier than the last can fail (or print a diagnostic to stderr)
+// while the overall pipeline still "succeeds" in the sense that the final
+// stage ran to completion (e.g. `false | wc -l` still produces output) —
+// without per-stage detail, that failure would be invisible to a caller
+// (or an AI) trying to understand why a pipeline didn't do what was
+// expected.
+type StageResult struct {
+	Cmd      string `json:"cmd"`
 	ExitCode int    `json:"exit_code"`
+	Stderr   string `json:"stderr,omitempty"`
+}
+
+// Result is the outcome of running a pipeline: the last stage's stdout
+// (capped at maxOutput), Stdout/Stderr/ExitCode mirror the last stage for
+// backward-compatible convenience access, and Stages carries every stage's
+// own exit code and stderr for full visibility into what actually happened.
+type Result struct {
+	Stdout   string        `json:"stdout"`
+	Stderr   string        `json:"stderr"`
+	ExitCode int           `json:"exit_code"`
+	Stages   []StageResult `json:"stages"`
 }
 
 // Run validates every stage against policy, then executes the stages
@@ -74,16 +91,21 @@ func Run(ctx context.Context, policy *Policy, stages [][]string, timeout time.Du
 	}
 
 	exitCode := 0
+	stageResults := make([]StageResult, len(cmds))
 	for i, c := range cmds {
+		sr := StageResult{Cmd: strings.Join(stages[i], " ")}
 		if err := c.Wait(); err != nil {
 			var exitErr *exec.ExitError
 			if !errors.As(err, &exitErr) {
 				return Result{}, fmt.Errorf("pipeline: running stage %d (%s): %w", i, stages[i][0], err)
 			}
+			sr.ExitCode = exitErr.ExitCode()
 			if i == len(cmds)-1 {
-				exitCode = exitErr.ExitCode()
+				exitCode = sr.ExitCode
 			}
 		}
+		sr.Stderr = strings.TrimSpace(stderrs[i].String())
+		stageResults[i] = sr
 	}
 
 	out := finalOut.Bytes()
@@ -92,7 +114,8 @@ func Run(ctx context.Context, policy *Policy, stages [][]string, timeout time.Du
 	}
 	return Result{
 		Stdout:   string(out),
-		Stderr:   stderrs[len(stderrs)-1].String(),
+		Stderr:   stageResults[len(stageResults)-1].Stderr,
 		ExitCode: exitCode,
+		Stages:   stageResults,
 	}, nil
 }

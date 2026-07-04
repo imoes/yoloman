@@ -110,3 +110,35 @@ func TestRun_SingleStage(t *testing.T) {
 		t.Errorf("stdout = %q, want %q", res.Stdout, "solo")
 	}
 }
+
+// TestRun_EarlierStageFailureVisibleInStages guards against losing an
+// earlier stage's failure: `ls <missing> | cat` fails at stage 0 (real
+// stderr output, non-zero exit) but stage 1 (cat) still runs to completion
+// on empty input and exits 0 — the overall pipeline "succeeds" by the old
+// last-stage-only definition, silently hiding why stage 0 didn't do what
+// was expected. Stages must expose stage 0's real exit code and stderr.
+func TestRun_EarlierStageFailureVisibleInStages(t *testing.T) {
+	stages := [][]string{
+		{"ls", "/no-such-path-xyz-123"},
+		{"cat"},
+	}
+	res, err := Run(context.Background(), permissivePolicy("ls", "cat"), stages, 0, 0)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.ExitCode != 0 {
+		t.Errorf("overall ExitCode = %d, want 0 (last stage succeeded)", res.ExitCode)
+	}
+	if len(res.Stages) != 2 {
+		t.Fatalf("expected 2 per-stage results, got %d", len(res.Stages))
+	}
+	if res.Stages[0].ExitCode == 0 {
+		t.Error("expected stage 0 (ls on a missing path) to report a non-zero exit code")
+	}
+	if res.Stages[0].Stderr == "" {
+		t.Error("expected stage 0's stderr to be captured, not lost")
+	}
+	if res.Stages[1].ExitCode != 0 {
+		t.Errorf("expected stage 1 (cat) to succeed, got exit code %d", res.Stages[1].ExitCode)
+	}
+}

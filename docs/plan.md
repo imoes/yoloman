@@ -850,6 +850,32 @@ simulated one). The same `systemd` failure was also called through a real MCP se
 `claude` CLI connected as a genuine MCP client) and confirmed to come back with `isError: true`
 and the same error message.
 
+**Follow-up fix (same audit, one more turn): the exit code alone still wasn't enough.** The
+initial audit confirmed every failure surfaces *an* error, but the error text for anything routed
+through `internal/modules.CommandRunner` (`apt`, `systemd`, and every future runner-based module)
+was just `"<cmd>: exit status N"` — no indication of *why*. An AI deciding what to do next needs
+the real reason ("Unit not found" vs "permission denied" vs "dependency failed"), not just a
+number. `defaultCommandRunner` (`internal/modules/runner.go`) now wraps a failing command's error
+with its actual stderr text via `wrapExitError` — `cmd.Output()` already populates
+`exec.ExitError.Stderr` whenever `cmd.Stderr` is left nil, so this required no new capture
+plumbing, just surfacing what was already collected. Re-running the exact same live failures above
+confirms the difference: the `systemd` case now reads `"...exit status 1: Failed to restart
+this-unit-definitely-does-not-exist.service: Die Wartezeit für die Verbindung ist abgelaufen"`
+(a timeout, not a missing unit — the real reason) instead of the bare exit code, and `apt` now
+surfaces the actual dpkg lock/permission error instead of just "exit status 100".
+
+The same gap existed in `internal/pipeline.Run`: `Result` only ever exposed the *last* stage's
+stderr, so `failing-stage | trivially-successful-stage` (e.g. `ls <missing> | cat`) would report
+overall success with zero visibility into why the first stage didn't do what was expected.
+`Result` gained a `Stages []StageResult` field (`{cmd, exit_code, stderr}` per stage) alongside the
+existing last-stage-mirroring `Stdout`/`Stderr`/`ExitCode` fields (kept for backward compatibility).
+
+Verified: `internal/modules/runner_test.go` (new) covers a real failing command's error including
+its actual (locale-independent-asserted) stderr text, a clean success path, and a missing-binary
+error. `internal/pipeline/exec_test.go` gained `TestRun_EarlierStageFailureVisibleInStages`,
+constructing exactly the `ls <missing> | cat` scenario above and asserting stage 0's real exit code
+and stderr both survive in `Result.Stages` even though the pipeline "succeeds" overall.
+
 ## Roadmap (after this v1 — separate plans)
 
 - **Module completion:** the remaining `ansible.builtin` write modules (`template`,
