@@ -69,21 +69,22 @@ func RegisterUploadFile(s *mcp.Server, uploadsDir string, write bool, acl *authz
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in UploadFileInput) (*mcp.CallToolResult, UploadFileOutput, error) {
 		start := time.Now()
+		identity := mcpCallerIdentity(ctx)
 		params := map[string]any{"name": in.Name}
-		if err := checkACL(ctx, acl, "upload_file", true); err != nil {
-			al.LogCall(identityLabel(authz.TokenIdentity), "upload_file", true, false, params, start, err)
+		if err := checkACL(ctx, acl, identity, "upload_file", true); err != nil {
+			al.LogCall(identityLabel(identity), "upload_file", true, false, params, start, err)
 			return nil, UploadFileOutput{}, err
 		}
 
 		data, err := base64.StdEncoding.DecodeString(in.ContentBase64)
 		if err != nil {
 			err = fmt.Errorf("content_base64: %w", err)
-			al.LogCall(identityLabel(authz.TokenIdentity), "upload_file", true, false, params, start, err)
+			al.LogCall(identityLabel(identity), "upload_file", true, false, params, start, err)
 			return nil, UploadFileOutput{}, err
 		}
 
 		n, err := upload.WriteStaged(uploadsDir, in.Name, bytes.NewReader(data), maxMCPUploadBytes)
-		al.LogCall(identityLabel(authz.TokenIdentity), "upload_file", true, err == nil, params, start, err)
+		al.LogCall(identityLabel(identity), "upload_file", true, err == nil, params, start, err)
 		if err != nil {
 			return nil, UploadFileOutput{}, err
 		}

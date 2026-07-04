@@ -392,3 +392,95 @@ max_upload_size: 0
 		t.Fatal("expected error for max_upload_size <= 0")
 	}
 }
+
+func TestValidate_TokensValid(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+token: "legacy-secret"
+tokens:
+  - name: bossman
+    token: bossman-secret
+  - name: ci-pipeline
+    token: ci-secret
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Tokens) != 2 {
+		t.Fatalf("expected 2 tokens, got %d", len(cfg.Tokens))
+	}
+	if cfg.Tokens[0].Name != "bossman" || cfg.Tokens[0].Token != "bossman-secret" {
+		t.Errorf("unexpected first token: %+v", cfg.Tokens[0])
+	}
+}
+
+func TestValidate_TokensDuplicateName(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tokens:
+  - name: dup
+    token: a
+  - name: dup
+    token: b
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for duplicate tokens name")
+	}
+}
+
+func TestValidate_TokensEmptyName(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tokens:
+  - name: ""
+    token: a
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for empty token name")
+	}
+}
+
+func TestValidate_TokensEmptyToken(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tokens:
+  - name: bossman
+    token: ""
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for empty token value")
+	}
+}
+
+func TestValidate_TokensRejectsReservedName(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+tokens:
+  - name: service-token
+    token: a
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected error for a token named after the reserved legacy identity")
+	}
+}
+
+func TestTokenEntries_ConvertsToAuthzShape(t *testing.T) {
+	cfg := Config{Tokens: []NamedToken{
+		{Name: "bossman", Token: "bossman-secret"},
+	}}
+	entries := cfg.TokenEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Name != "bossman" || entries[0].Token != "bossman-secret" {
+		t.Errorf("unexpected entry: %+v", entries[0])
+	}
+}
+
+func TestTokenEntries_EmptyWhenNoTokens(t *testing.T) {
+	cfg := Config{}
+	if entries := cfg.TokenEntries(); entries != nil {
+		t.Errorf("expected nil entries for no configured tokens, got %+v", entries)
+	}
+}

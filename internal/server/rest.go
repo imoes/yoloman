@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,10 +33,17 @@ type RESTConfig struct {
 	UploadsDir    string
 	MaxUploadSize int64
 
-	// Token is the shared bearer token (also used for /mcp). Present here
-	// so REST can accept it as one of two valid credentials, the other
-	// being a PAM-login session.
+	// Token is the shared, backward-compatible bearer token (also used for
+	// /mcp) — matches resolve to the fixed authz.TokenIdentity. Present
+	// here so REST can accept it as one of two valid credentials, the
+	// other being a PAM-login session.
 	Token string
+	// Tokens holds additional named bearer tokens, each resolving to its
+	// own Identity (see docs/plan.md's per-token RBAC design and
+	// internal/authz.ResolveBearerToken) — the REST counterpart to
+	// cmd/agentic-mcpd/http.go's MCP bearer-auth wiring, built via
+	// config.Config.TokenEntries().
+	Tokens []authz.TokenEntry
 	// ACL, Sessions, and PAMAuth are all optional (nil disables the
 	// corresponding feature): with ACL nil, only the write gate applies
 	// (pre-step-8 behavior); with PAMAuth/Sessions nil, /api/v1/auth/login
@@ -59,18 +65,20 @@ type ctxKey int
 
 const identityCtxKey ctxKey = iota
 
-// identityFromRequest resolves the caller's authz.Identity from either the
-// shared bearer token (-> authz.TokenIdentity) or a session token/cookie
-// created by a prior PAM login (-> the logged-in user's identity).
+// identityFromRequest resolves the caller's authz.Identity from either a
+// bearer token (the shared legacy token -> authz.TokenIdentity, or one of
+// cfg.Tokens' named entries -> that entry's own Identity — see
+// authz.ResolveBearerToken) or a session token/cookie created by a prior
+// PAM login (-> the logged-in user's identity).
 func identityFromRequest(r *http.Request, cfg RESTConfig) (authz.Identity, bool) {
 	auth := r.Header.Get("Authorization")
 
-	if cfg.Token != "" {
+	if cfg.Token != "" || len(cfg.Tokens) > 0 {
 		const bearerPrefix = "Bearer "
 		if strings.HasPrefix(auth, bearerPrefix) {
 			given := auth[len(bearerPrefix):]
-			if subtle.ConstantTimeCompare([]byte(given), []byte(cfg.Token)) == 1 {
-				return authz.TokenIdentity, true
+			if identity, ok := authz.ResolveBearerToken(given, cfg.Token, cfg.Tokens); ok {
+				return identity, true
 			}
 		}
 	}

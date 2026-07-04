@@ -122,6 +122,7 @@ func run(args []string) error {
 		Store:         st,
 		Write:         cfg.Write,
 		Token:         cfg.Token,
+		Tokens:        cfg.TokenEntries(),
 		ACL:           acl,
 		Sessions:      sessions,
 		PAMAuth:       pamAuth,

@@ -7,21 +7,34 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 )
 
 // Config is the top-level daemon configuration (config.yaml).
 type Config struct {
-	Listen       string `yaml:"listen"`
-	Token        string `yaml:"token"`
-	Write        bool   `yaml:"write"`
-	TLS          TLS    `yaml:"tls"`
-	EBPF         EBPF   `yaml:"ebpf"`
-	DB           DB     `yaml:"db"`
-	PAM          PAM    `yaml:"pam"`
-	UI           UI     `yaml:"ui"`
-	ToolsDir     string `yaml:"tools_dir"`
-	CommandsFile string `yaml:"commands_file"`
-	ACLPath      string `yaml:"acl_path"`
+	Listen string `yaml:"listen"`
+	Token  string `yaml:"token"`
+	// Tokens holds additional named bearer tokens beyond the single
+	// legacy Token above, each scoped independently via ACL rules keyed
+	// to its name (PrincipalToken rows matching that name — see
+	// internal/authz.TokenEntry/ResolveBearerToken and docs/plan.md's
+	// per-token RBAC design). Token remains the default, backward-
+	// compatible single-token identity ("service-token"); entries here
+	// each get their own named Identity, so different machine callers
+	// (e.g. a CI pipeline vs. the future Bossman) can be granted
+	// different tool scopes instead of every bearer token resolving to
+	// the same fixed principal.
+	Tokens       []NamedToken `yaml:"tokens"`
+	Write        bool         `yaml:"write"`
+	TLS          TLS          `yaml:"tls"`
+	EBPF         EBPF         `yaml:"ebpf"`
+	DB           DB           `yaml:"db"`
+	PAM          PAM          `yaml:"pam"`
+	UI           UI           `yaml:"ui"`
+	ToolsDir     string       `yaml:"tools_dir"`
+	CommandsFile string       `yaml:"commands_file"`
+	ACLPath      string       `yaml:"acl_path"`
 
 	// UploadsDir is the fixed staging directory the upload_file MCP tool
 	// and the PUT /api/v1/upload REST endpoint write into — never an
@@ -41,6 +54,27 @@ type Config struct {
 	// data alongside its own).
 	Mode  string `yaml:"mode"`
 	Proxy Proxy  `yaml:"proxy"`
+}
+
+// NamedToken is one additional bearer token, scoped to its own ACL
+// identity (Kind: token, Name: Name) — see Config.Tokens.
+type NamedToken struct {
+	Name  string `yaml:"name"`
+	Token string `yaml:"token"`
+}
+
+// TokenEntries converts c.Tokens to the []authz.TokenEntry shape
+// authz.ResolveBearerToken expects, so callers (the MCP and REST auth
+// middleware) don't need to know about config.NamedToken's YAML shape.
+func (c Config) TokenEntries() []authz.TokenEntry {
+	if len(c.Tokens) == 0 {
+		return nil
+	}
+	entries := make([]authz.TokenEntry, len(c.Tokens))
+	for i, t := range c.Tokens {
+		entries[i] = authz.TokenEntry{Name: t.Name, Token: t.Token}
+	}
+	return entries
 }
 
 // Proxy configures proxy-mode satellite polling: a list of satellites this
@@ -204,6 +238,22 @@ func (c Config) Validate() error {
 	}
 	if c.MaxUploadSize <= 0 {
 		return fmt.Errorf("max_upload_size must be > 0")
+	}
+	seenTokenNames := make(map[string]bool, len(c.Tokens))
+	for i, t := range c.Tokens {
+		if t.Name == "" {
+			return fmt.Errorf("tokens[%d]: name must not be empty", i)
+		}
+		if t.Name == authz.TokenPrincipalName {
+			return fmt.Errorf("tokens[%d]: name %q is reserved for the legacy single token", i, authz.TokenPrincipalName)
+		}
+		if seenTokenNames[t.Name] {
+			return fmt.Errorf("tokens: duplicate name %q", t.Name)
+		}
+		seenTokenNames[t.Name] = true
+		if t.Token == "" {
+			return fmt.Errorf("tokens[%s]: token must not be empty", t.Name)
+		}
 	}
 	if c.TLS.Enabled && (c.TLS.CertFile == "" || c.TLS.KeyFile == "") {
 		return fmt.Errorf("tls.enabled requires tls.cert_file and tls.key_file")

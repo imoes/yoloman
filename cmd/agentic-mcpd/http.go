@@ -1,13 +1,13 @@
 package main
 
 import (
-	"crypto/subtle"
 	"crypto/tls"
 	"log/slog"
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
 	"github.com/mutkluge/agentic-mcp/internal/webui"
@@ -34,7 +34,7 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	mcpFinal := withBearerAuth(cfg.Token, mcpHandler)
+	mcpFinal := withBearerAuth(cfg.Token, cfg.TokenEntries(), mcpHandler)
 	restFinal := restHandler
 	if len(cfg.TLS.TrustedClientKeys) > 0 {
 		trusted := loadTrustedClientKeys(cfg.TLS.TrustedClientKeys)
@@ -68,12 +68,21 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 	return http.ListenAndServe(cfg.Listen, mux)
 }
 
-// withBearerAuth wraps h with bearer-token authentication using a
-// constant-time comparison. If token is empty, auth is disabled (intended
-// only for local/dev use — the packaged config always has a generated token).
-func withBearerAuth(token string, h http.Handler) http.Handler {
+// withBearerAuth wraps h with bearer-token authentication, checking the
+// presented token against legacyToken (the single, backward-compatible
+// token — matches on it resolve to the fixed authz.TokenIdentity) and each
+// of extra's named tokens (see docs/plan.md's per-token RBAC design and
+// internal/authz.ResolveBearerToken) — every comparison constant-time. On a
+// match, the resolved Identity is attached to the request context via
+// authz.WithIdentity, so downstream ACL checks — including MCP tool
+// dispatch, which only ever sees a context.Context, not this *http.Request
+// (see internal/server/modules.go) — can scope access per token instead of
+// treating every caller as the same fixed principal. If both legacyToken
+// and extra are empty, auth is disabled (intended only for local/dev use —
+// the packaged config always has a generated token).
+func withBearerAuth(legacyToken string, extra []authz.TokenEntry, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token == "" {
+		if legacyToken == "" && len(extra) == 0 {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -84,11 +93,12 @@ func withBearerAuth(token string, h http.Handler) http.Handler {
 			return
 		}
 		given := auth[len(prefix):]
-		if subtle.ConstantTimeCompare([]byte(given), []byte(token)) != 1 {
+		identity, ok := authz.ResolveBearerToken(given, legacyToken, extra)
+		if !ok {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		h.ServeHTTP(w, r)
+		h.ServeHTTP(w, r.WithContext(authz.WithIdentity(r.Context(), identity)))
 	})
 }
 

@@ -97,10 +97,15 @@ func NewDefaultModuleRegistry() *modules.Registry {
 // modules (Writes() == false) are always registered; writing modules are
 // only registered when write is true — the write gate. acl may be nil (no
 // ACL enforcement beyond the write gate); when set, every call is also
-// checked against acl.Authorize using the fixed MCP token identity (see
-// authz.TokenIdentity — v1 has one shared bearer token, so this is the only
-// principal MCP calls can be attributed to). al may be nil (no audit
-// logging).
+// checked against acl.Authorize using the caller's Identity — resolved from
+// the request context via authz.IdentityFromContext, attached there by the
+// bearer-auth middleware (see cmd/agentic-mcpd/http.go's withBearerAuth),
+// falling back to the fixed authz.TokenIdentity if none was attached (e.g.
+// auth disabled entirely in dev mode). This is what makes per-token RBAC
+// (docs/plan.md) actually apply to MCP calls: a named token's ACL rules are
+// only meaningful if MCP dispatch resolves *that* token's identity instead
+// of always attributing every caller to the same fixed principal. al may be
+// nil (no audit logging).
 func RegisterModules(s *mcp.Server, reg *modules.Registry, write bool, acl *authz.ACL, al *audit.Logger) {
 	for _, m := range reg.All() {
 		if m.Writes() && !write {
@@ -136,17 +141,34 @@ func registerModuleTool(s *mcp.Server, m modules.Module, acl *authz.ACL, al *aud
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
 		start := time.Now()
-		if err := checkACL(ctx, acl, m.Name(), m.Writes()); err != nil {
-			al.LogCall(identityLabel(authz.TokenIdentity), m.Name(), m.Writes(), false, in, start, err)
+		identity := mcpCallerIdentity(ctx)
+		if err := checkACL(ctx, acl, identity, m.Name(), m.Writes()); err != nil {
+			al.LogCall(identityLabel(identity), m.Name(), m.Writes(), false, in, start, err)
 			return nil, modules.Result{}, err
 		}
 		res, err := m.Run(ctx, in, false)
-		al.LogCall(identityLabel(authz.TokenIdentity), m.Name(), m.Writes(), res.Changed, in, start, err)
+		al.LogCall(identityLabel(identity), m.Name(), m.Writes(), res.Changed, in, start, err)
 		if err != nil {
 			return nil, modules.Result{}, err
 		}
 		return nil, res, nil
 	})
+}
+
+// mcpCallerIdentity resolves the caller's Identity attached to ctx by the
+// bearer-auth middleware (cmd/agentic-mcpd/http.go's withBearerAuth),
+// falling back to the fixed authz.TokenIdentity when none is set (auth
+// disabled entirely, or a transport that doesn't go through that
+// middleware, e.g. tests using in-memory transports). This is what makes
+// per-token RBAC (docs/plan.md) actually apply to MCP calls: a named
+// token's ACL rules only matter if dispatch resolves *that* token's
+// identity instead of always attributing every caller to one fixed
+// principal.
+func mcpCallerIdentity(ctx context.Context) authz.Identity {
+	if identity := authz.IdentityFromContext(ctx); identity.Kind != "" {
+		return identity
+	}
+	return authz.TokenIdentity
 }
 
 // identityLabel formats an authz.Identity as a compact "kind:name" string
@@ -155,13 +177,13 @@ func identityLabel(identity authz.Identity) string {
 	return fmt.Sprintf("%s:%s", identity.Kind, identity.Name)
 }
 
-// checkACL enforces acl (if non-nil) for the fixed MCP token identity,
-// returning an error (surfaced as an MCP tool error) if access is denied.
-func checkACL(ctx context.Context, acl *authz.ACL, tool string, writes bool) error {
+// checkACL enforces acl (if non-nil) for identity, returning an error
+// (surfaced as an MCP tool error) if access is denied.
+func checkACL(ctx context.Context, acl *authz.ACL, identity authz.Identity, tool string, writes bool) error {
 	if acl == nil {
 		return nil
 	}
-	dec, err := acl.Authorize(ctx, authz.TokenIdentity, tool, writes)
+	dec, err := acl.Authorize(ctx, identity, tool, writes)
 	if err != nil {
 		return fmt.Errorf("checking ACL: %w", err)
 	}

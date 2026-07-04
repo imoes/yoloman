@@ -41,17 +41,18 @@ func registerTaskTool(s *mcp.Server, task *tasks.Task, modReg *modules.Registry,
 		OutputSchema: moduleResultOutputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, modules.Result, error) {
 		start := time.Now()
+		identity := mcpCallerIdentity(ctx)
 		writes, err := task.Writes(modReg)
 		if err != nil {
-			al.LogCall(identityLabel(authz.TokenIdentity), task.Name, false, false, in, start, err)
+			al.LogCall(identityLabel(identity), task.Name, false, false, in, start, err)
 			return nil, modules.Result{}, err
 		}
-		if err := checkACL(ctx, acl, task.Name, writes); err != nil {
-			al.LogCall(identityLabel(authz.TokenIdentity), task.Name, writes, false, in, start, err)
+		if err := checkACL(ctx, acl, identity, task.Name, writes); err != nil {
+			al.LogCall(identityLabel(identity), task.Name, writes, false, in, start, err)
 			return nil, modules.Result{}, err
 		}
 		res, err := task.Run(ctx, modReg, policy, in, false)
-		al.LogCall(identityLabel(authz.TokenIdentity), task.Name, writes, res.Changed, in, start, err)
+		al.LogCall(identityLabel(identity), task.Name, writes, res.Changed, in, start, err)
 		if err != nil {
 			return nil, modules.Result{}, err
 		}
@@ -105,13 +106,14 @@ func RegisterRunPipeline(s *mcp.Server, policy *pipeline.Policy, write bool, acl
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in RunPipelineInput) (*mcp.CallToolResult, pipeline.Result, error) {
 		start := time.Now()
+		identity := mcpCallerIdentity(ctx)
 		params := map[string]any{"stages": in.Stages}
-		if err := checkACL(ctx, acl, "run_pipeline", true); err != nil {
-			al.LogCall(identityLabel(authz.TokenIdentity), "run_pipeline", true, false, params, start, err)
+		if err := checkACL(ctx, acl, identity, "run_pipeline", true); err != nil {
+			al.LogCall(identityLabel(identity), "run_pipeline", true, false, params, start, err)
 			return nil, pipeline.Result{}, err
 		}
 		res, err := pipeline.Run(ctx, policy, in.Stages, 0, 0)
-		al.LogCall(identityLabel(authz.TokenIdentity), "run_pipeline", true, true, params, start, err)
+		al.LogCall(identityLabel(identity), "run_pipeline", true, true, params, start, err)
 		if err != nil {
 			return nil, pipeline.Result{}, err
 		}
