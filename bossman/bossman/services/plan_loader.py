@@ -215,6 +215,33 @@ def load_plans_dir(plans_dir: str | Path) -> list[Plan]:
     return plans
 
 
+def render_catalog_text(plans_dir: str | Path) -> str:
+    """Renders a deterministic, sorted description of every available
+    plan — meant to become static, cacheable system-prompt content for
+    whatever LLM client drives Bossman's MCP facade (see docs/plan.md's
+    Bossman plan, section B.6: Anthropic prompt caching requires the
+    cached prefix to be byte-identical across calls, so this must never
+    embed a timestamp, UUID, or anything that varies run to run). Given
+    the same files on disk, two calls always produce identical text.
+    Regenerating this is a deliberate, explicit action (see
+    services.catalog.CatalogCache) — never done per tool call."""
+    try:
+        plans = load_plans_dir(plans_dir)
+    except PlanError:
+        return "No plans are currently available (the plans directory could not be read)."
+    if not plans:
+        return "No plans are currently available."
+
+    lines = ["Available plans (call run_plan(plan, host, params, dry_run) to execute one):", ""]
+    for plan in sorted(plans, key=lambda p: p.name):
+        lines.append(f"- {plan.name}: {plan.description}")
+        for pname in sorted(plan.params):
+            spec = plan.params[pname]
+            requirement = "required" if spec.required else f"default={spec.default!r}"
+            lines.append(f"    - {pname} ({spec.type}, {requirement})")
+    return "\n".join(lines)
+
+
 def load_host_vars(plans_dir: str | Path, hostname: str) -> dict[str, Any]:
     """Loads plans_dir/host_vars/<hostname>.yaml if it exists, else {}."""
     path = Path(plans_dir) / "host_vars" / f"{hostname}.yaml"

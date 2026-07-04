@@ -1,0 +1,222 @@
+"""The MCP facade for Bossman (see docs/plan.md's Bossman plan, sections
+B.6/B.8): the AI-facing tool surface, deliberately kept at plan+host
+granularity only — list_hosts, host_status, host_relationships,
+list_plans, get_catalog, run_plan, get_plan_run — never the ~52 granular
+module tools a standalone node agent exposes directly. That granularity
+was needed for the standalone-node-agent case the plan explicitly carved
+out as this facade's non-goal ("per MCP macht keinen Sinn nur wenn der
+Client als standalone läuft").
+
+build_mcp_server is a factory, not a module-level singleton: it closes
+over a specific session_factory/settings/catalog_cache/client_factory so
+tests can construct an instance against a throwaway database and a fake
+AgentClient, the same test-seam discipline every other services/ module
+in this project already follows.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from mcp.server.fastmcp import FastMCP
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import selectinload
+
+from bossman.config import Settings
+from bossman.db.models import Agent, HostEdge, Metric, PlanRun
+from bossman.mcp.auth import current_identity
+from bossman.services.agent_client import client_for
+from bossman.services.catalog import CatalogCache
+from bossman.services.plan_engine import run_plan as engine_run_plan
+from bossman.services.plan_loader import PlanError, load_host_vars, load_plans_dir
+
+
+def build_mcp_server(
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    catalog_cache: CatalogCache,
+    client_factory=client_for,
+) -> FastMCP:
+    # streamable_http_path="/" because this server is itself mounted at
+    # /mcp in bossman/main.py — FastMCP's own default internal path is
+    # also "/mcp", which would double up to /mcp/mcp and 404 every real
+    # request (caught by an actual MCP client run against a live server,
+    # not by any in-process test, which never asked FastMCP for its own
+    # ASGI app).
+    mcp = FastMCP(name="bossman", instructions=catalog_cache.text, streamable_http_path="/")
+
+    @mcp.tool()
+    async def list_hosts() -> list[dict[str, Any]]:
+        """List every known agent: name, address, mode, last_seen, tags."""
+        async with session_factory() as session:
+            agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
+        return [
+            {
+                "name": a.name,
+                "address": a.address,
+                "mode": a.mode,
+                "last_seen": a.last_seen_at.isoformat() if a.last_seen_at else None,
+                "tags": a.agent_metadata,
+            }
+            for a in agents
+        ]
+
+    @mcp.tool()
+    async def host_status(host: str) -> dict[str, Any]:
+        """Facts, latest metric snapshot, and latest plan run for one host (by name)."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            recent_metrics = (
+                await session.scalars(
+                    select(Metric).where(Metric.agent_id == agent.id).order_by(Metric.time.desc()).limit(20)
+                )
+            ).all()
+            latest_run = await session.scalar(
+                select(PlanRun).where(PlanRun.agent_id == agent.id).order_by(PlanRun.started_at.desc()).limit(1)
+            )
+
+        return {
+            "name": agent.name,
+            "address": agent.address,
+            "mode": agent.mode,
+            "enrollment_state": agent.enrollment_state,
+            "last_seen": agent.last_seen_at.isoformat() if agent.last_seen_at else None,
+            "recent_metrics": [
+                {"metric": m.metric, "value": m.value, "time": m.time.isoformat()} for m in recent_metrics
+            ],
+            "last_plan_run": (
+                {"plan_run_id": str(latest_run.id), "plan_name": latest_run.plan_name, "status": latest_run.status}
+                if latest_run is not None
+                else None
+            ),
+        }
+
+    @mcp.tool()
+    async def host_relationships(host: str, depth: int = 1) -> dict[str, Any]:
+        """Connection edges originating from one host (by name). v1 supports depth=1 only —
+        a direct "who does this host talk to" view; multi-hop traversal is a documented future
+        extension (see docs/plan.md), not built speculatively here."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            edges = (await session.scalars(select(HostEdge).where(HostEdge.src_agent_id == agent.id))).all()
+
+        return {
+            "edges": [
+                {
+                    "dst_addr": str(e.dst_addr),
+                    "dst_port": e.dst_port,
+                    "comm": e.src_comm,
+                    "event_count": e.event_count,
+                    "latency_ms_p50": e.latency_ms_p50,
+                }
+                for e in edges
+            ]
+        }
+
+    @mcp.tool()
+    async def list_plans() -> list[dict[str, Any]]:
+        """List every available plan: name, description, params."""
+        try:
+            plans = load_plans_dir(settings.plans_dir)
+        except PlanError as exc:
+            raise ValueError(str(exc)) from exc
+        return [
+            {
+                "name": p.name,
+                "description": p.description,
+                "params": {
+                    name: {"type": s.type, "required": s.required, "default": s.default}
+                    for name, s in p.params.items()
+                },
+            }
+            for p in plans
+        ]
+
+    @mcp.tool()
+    async def get_catalog() -> str:
+        """The static, cached plan-catalog text — byte-identical across calls until an
+        operator explicitly reloads it (POST /api/v1/plans/reload). Meant to be pasted into an
+        LLM client's own system prompt with cache_control so the plan catalog doesn't cost
+        input tokens on every turn — that's the whole point of it being static (see
+        docs/plan.md's prompt-caching design)."""
+        return catalog_cache.text
+
+    @mcp.tool()
+    async def run_plan(plan: str, host: str, params: dict[str, Any] | None = None, dry_run: bool = False) -> dict[str, Any]:
+        """Run a named plan against a host by name — "take plan X, run it against host Y"."""
+        try:
+            plans = load_plans_dir(settings.plans_dir)
+        except PlanError as exc:
+            raise ValueError(str(exc)) from exc
+        plan_obj = next((p for p in plans if p.name == plan), None)
+        if plan_obj is None:
+            raise ValueError(f"no such plan {plan!r}")
+
+        requested_by = current_identity.get() or "mcp-facade"
+
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            if not agent.address:
+                raise ValueError(f"host {host!r} has no reachable address")
+
+            host_vars = load_host_vars(settings.plans_dir, agent.name)
+            client = client_factory(agent, settings)
+            try:
+                plan_run = await engine_run_plan(
+                    session,
+                    agent,
+                    plan_obj,
+                    host_vars=host_vars,
+                    explicit_params=params or {},
+                    dry_run=dry_run,
+                    client=client,
+                    requested_by=requested_by,
+                )
+            except PlanError as exc:
+                raise ValueError(str(exc)) from exc
+
+        return {"plan_run_id": str(plan_run.id), "status": plan_run.status}
+
+    @mcp.tool()
+    async def get_plan_run(plan_run_id: str) -> dict[str, Any]:
+        """Full step-by-step detail for one plan run, by its id."""
+        try:
+            run_id = UUID(plan_run_id)
+        except ValueError as exc:
+            raise ValueError(f"{plan_run_id!r} is not a valid plan run id") from exc
+
+        async with session_factory() as session:
+            run = await session.get(PlanRun, run_id, options=[selectinload(PlanRun.steps)])
+            if run is None:
+                raise ValueError(f"no such plan run {plan_run_id}")
+            steps = sorted(run.steps, key=lambda s: s.step_index)
+
+        return {
+            "plan_run_id": str(run.id),
+            "plan_name": run.plan_name,
+            "status": run.status,
+            "params": run.params,
+            "dry_run": run.dry_run,
+            "started_at": run.started_at.isoformat(),
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "steps": [
+                {
+                    "step_name": s.step_name,
+                    "module": s.module,
+                    "changed": s.changed,
+                    "http_status": s.http_status,
+                    "error": s.error,
+                }
+                for s in steps
+            ],
+        }
+
+    return mcp

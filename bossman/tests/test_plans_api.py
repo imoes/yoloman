@@ -109,6 +109,43 @@ async def test_list_and_get_plan(db_session, tmp_path, monkeypatch):
     await db_session.commit()
 
 
+async def test_reload_plans_regenerates_catalog_cache(db_session, tmp_path, monkeypatch):
+    _write_plan(tmp_path)
+    monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+
+    with TestClient(app) as client:
+        before_text = app.state.catalog_cache.text
+        assert "demo" in before_text
+
+        (tmp_path / "second.yaml").write_text(MODULE_PLAN.format(plan_name="second"))
+        # The cache must not pick up the new file until reload is called —
+        # that's the whole point of the cache (see services/catalog.py).
+        assert app.state.catalog_cache.text == before_text
+
+        resp = client.post("/api/v1/plans/reload", headers=_headers(raw))
+
+        assert resp.status_code == 200
+        assert resp.json()["reloaded"] is True
+        assert "second" in app.state.catalog_cache.text
+        assert app.state.catalog_cache.text != before_text
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_reload_plans_requires_auth(tmp_path, monkeypatch):
+    _write_plan(tmp_path)
+    monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
+    app = create_app()
+
+    with TestClient(app) as client:
+        resp = client.post("/api/v1/plans/reload")
+
+    assert resp.status_code == 401
+
+
 async def test_run_plan_success_with_fake_client(db_session, tmp_path, monkeypatch):
     _write_plan(tmp_path)
     monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))

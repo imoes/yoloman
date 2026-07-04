@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,10 +19,15 @@ from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
 from bossman.db.session import get_session
 from bossman.services.agent_client import client_for
+from bossman.services.catalog import CatalogCache
 from bossman.services.plan_engine import run_plan
 from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars, load_plans_dir
 
 router = APIRouter()
+
+
+async def get_catalog_cache(request: Request) -> CatalogCache:
+    return request.app.state.catalog_cache
 
 
 def get_client_factory():
@@ -106,6 +111,24 @@ async def get_plan(
 ) -> PlanDetailOut:
     plan = _find_plan_or_404(settings, name)
     return PlanDetailOut(**_plan_out(plan).model_dump(), steps=[_step_out(s) for s in plan.steps])
+
+
+class ReloadResponse(BaseModel):
+    reloaded: bool
+    catalog_length: int
+
+
+@router.post("/api/v1/plans/reload", response_model=ReloadResponse)
+async def reload_plans(
+    cache: CatalogCache = Depends(get_catalog_cache),
+    _identity=Depends(get_current_identity),
+) -> ReloadResponse:
+    """Re-renders the MCP facade's static plan-catalog text from disk (see
+    services/catalog.py) — the only thing that invalidates it. Anthropic
+    prompt caching needs that text byte-identical across calls, so it is
+    never re-rendered per request, only on this explicit operator action."""
+    text = cache.reload()
+    return ReloadResponse(reloaded=True, catalog_length=len(text))
 
 
 class RunPlanRequest(BaseModel):

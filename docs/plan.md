@@ -1936,3 +1936,109 @@ replacement audit trail's read side.
   `requested_by` (the logged-in username) and the step's real request/response bodies. `cat` on the
   agent's own filesystem independently confirmed the substituted message was actually written.
   All test rows, processes, and scratch files were removed afterward.
+
+## Bossman — Block B8: MCP facade + prompt caching (implemented)
+
+The AI-facing tool surface (see docs/plan.md's Bossman plan, sections B.6/B.8) — deliberately kept
+at plan+host granularity only (`list_hosts`, `host_status`, `host_relationships`, `list_plans`,
+`get_catalog`, `run_plan`, `get_plan_run`), never the ~52 granular module tools a standalone node
+agent exposes directly. That granularity exists for the standalone case the plan explicitly ruled
+out for Bossman ("per MCP macht keinen Sinn nur wenn der Client als standalone läuft").
+
+**`bossman/bossman/services/plan_loader.py`** gained `render_catalog_text(plans_dir)` — a
+deterministic, sorted rendering of every plan's name/description/params, built to be
+**byte-identical across calls given the same files on disk**: Anthropic prompt caching only pays
+off if the cached prefix never changes call to call (see the earlier prompt-caching research in
+this file), so nothing here may vary run to run (no timestamps, no dict-ordering nondeterminism —
+plans and their params are both explicitly sorted).
+
+**`bossman/bossman/services/catalog.py`** (new): `CatalogCache` holds that rendered text in
+memory, generated once at construction and only regenerated when `.reload()` is called explicitly
+— never per request. This is the concrete mechanism behind "Der System-Prompt-Text wird nur bei
+POST /api/v1/plans/reload neu gerendert" from the earlier prompt-caching design section: the
+in-process cache *is* what stays byte-identical; the reload endpoint is the only thing allowed to
+invalidate it.
+
+**`bossman/bossman/api/plans.py`** gained `POST /api/v1/plans/reload` (auth-gated like every other
+route in this block), reading the shared `CatalogCache` off `app.state.catalog_cache` and returning
+the new rendered length — confirming the reload actually happened without dumping the whole text
+back over the wire.
+
+**`bossman/bossman/mcp/server.py`** (new): `build_mcp_server(session_factory, settings,
+catalog_cache, client_factory=client_for)` is a factory, not a module-level singleton — the same
+test-seam discipline every other `services/`-adjacent module in this project follows, letting tests
+construct an instance against a throwaway database and a fake `AgentClient`. `FastMCP`'s
+`instructions` field is set from `catalog_cache.text` at construction — a best-effort initial value
+many MCP clients fold directly into their own system prompt at session-initialize time (the actual
+prompt-caching handoff point: whatever orchestrates the real LLM conversation is what applies
+`cache_control: {"type": "ephemeral"}`, not Bossman itself, since Bossman only serves MCP tools, it
+doesn't call the Anthropic API on its own behalf). `get_catalog()` additionally exposes the same
+text as a plain tool call, for a caller that wants the guaranteed-current cached text after a
+reload without restarting its own MCP session. `run_plan`'s `requested_by` reads
+`bossman.mcp.auth.current_identity`, a `contextvars.ContextVar` set by the auth middleware below —
+task-local, so it doesn't leak between concurrent requests, and falls back to the literal string
+`"mcp-facade"` if unset (defensive, not expected to happen in practice).
+
+**`bossman/bossman/mcp/auth.py`** (new): `McpBearerAuthMiddleware` is raw ASGI middleware, not the
+`mcp` SDK's own OAuth-flavored `TokenVerifier`/`AuthSettings` machinery — that machinery targets
+full OAuth2 resource-server flows (issuer URLs, scopes, a registered authorization server), far
+more than Bossman's single shared-secret bearer token needs, and using it would mean
+re-implementing `services.auth`'s already-correct `api_tokens` verification a second time inside an
+OAuth adapter instead of just calling it directly. The MCP facade is exclusively for machine/AI
+callers — never a human JWT — so this middleware only ever accepts a valid, unrevoked API token.
+
+**`bossman/bossman/main.py`** wiring: the MCP server is built and mounted **inside** `lifespan`
+(not `create_app()`), because it needs a real `session_factory` to close over, which only exists
+once the lifespan has started; `app.mount()` during startup is safe since it completes before the
+ASGI server accepts any real HTTP scope. `mcp_server.streamable_http_app()` is called once (to
+force lazy `session_manager` initialization) before `async with mcp_server.session_manager.run():
+yield` — the officially documented pattern for mounting a `FastMCP` streamable-HTTP server inside a
+larger ASGI app, per the `mcp` SDK's own `session_manager` property docstring ("exposed to enable
+advanced use cases like mounting multiple FastMCP servers in a single FastAPI application").
+
+**Two real bugs found only by running an actual separate-process MCP client against a real running
+Bossman — neither would have been caught by any in-process test, and weren't, until the manual run
+surfaced them:**
+1. `FastMCP`'s own internal streamable-HTTP route defaults to path `/mcp`. Mounting the wrapped app
+   at `/mcp` in `main.py` therefore doubled up to an effective `/mcp/mcp`, and every real request
+   404'd after an initial redirect. An in-process `TestClient` auth test that only checked for a
+   non-`401` status code passed anyway (a `404` is not `401`), masking the bug completely — status-
+   code-only assertions were not enough here. Fixed by constructing `FastMCP(...,
+   streamable_http_path="/")`, so the outer mount ("/mcp") is the *only* "/mcp" in the path.
+2. The MCP transport's own DNS-rebinding protection (`transport_security`) rejects a `Host` header
+   it doesn't recognize — encountered while writing an in-process regression test for bug 1, using
+   `httpx.ASGITransport` with the default `base_url="http://testserver"`; fixed by pointing the test
+   client's `base_url` at `FastMCP`'s own configured default host/port (`127.0.0.1:8000`) instead.
+
+**Verification:**
+- `tests/test_mcp_server.py` (11 tests, real DB via `db_session`, `FakeAgentClient` injected via
+  `client_factory` — calls tool closures directly through `FastMCP.call_tool`, the same "test the
+  function, not the transport" approach the poller/plan-engine tests already use): every tool's
+  success path against real rows, `host_status`/`host_relationships`/`get_plan_run`'s unknown-
+  target error paths, `run_plan` writing a real `PlanRun` with `requested_by` correctly sourced from
+  `current_identity`, and `CatalogCache`'s "unchanged until explicit reload" contract proven by
+  editing a file on disk between two reads.
+- `tests/test_mcp_auth.py` (3 tests): missing/garbage bearer both rejected with `401`, and — after
+  the two bugs above were fixed — a **real, full MCP protocol session** (`initialize` →
+  `list_tools`) driven in-process via `httpx.ASGITransport` and the real `mcp` client library, not
+  just a bare HTTP status-code check. This test is written specifically because a weaker version of
+  it (checking only `!= 401`) is exactly what let bug 1 slip past review earlier in this block.
+- **Real end-to-end run, an actual separate MCP client process against a real running Bossman and a
+  real running Duppy** (the run that found both bugs above, before they were fixed): a real
+  `bossman_users`-free, API-token-authenticated session was opened with `mcp.client.streamable_http
+  .streamablehttp_client` against a live `uvicorn` Bossman instance; `initialize()` returned the
+  real rendered catalog as `instructions`; `list_tools()` showed all seven tools; `list_plans()`
+  found a real plan file from disk; `run_plan(plan="mcp_e2e_plan", host="duppy-b8-e2e", params=
+  {"message": "hello via real MCP client"})` executed for real against a real, write-enabled
+  `agentic-mcpd` binary and returned `status: "succeeded"`; `get_plan_run(...)` showed the correct
+  step detail. Independently confirmed via `cat` on the agent's own filesystem that the exact
+  substituted message was actually written. All test rows, processes, and scratch files were removed
+  afterward (a stray leftover row's cleanup was itself only fixed by running each `DELETE` as its
+  own `psql -c` invocation — `psql -c "stmt1; stmt2; stmt3;"` runs all three statements as one
+  implicit transaction, so an error partway through silently rolled back deletes that had already
+  printed `DELETE 1`).
+
+---
+
+This closes out Block B (Bossman backend, B1–B8) from the Bossman plan above. Remaining per that
+plan: Block C (Angular frontend) and Block D (deployment/docs).

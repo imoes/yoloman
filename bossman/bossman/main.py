@@ -15,6 +15,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from bossman.api import agents, auth, enroll, health, plans, relationships, runs
 from bossman.config import get_settings
 from bossman.db.session import make_engine
+from bossman.mcp.auth import McpBearerAuthMiddleware
+from bossman.mcp.server import build_mcp_server
+from bossman.services.catalog import CatalogCache
 from bossman.services.poller import poller_loop
 
 
@@ -27,11 +30,22 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     engine = make_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    app.state.catalog_cache = CatalogCache(settings.plans_dir)
+
+    # The MCP facade (Block B8) is mounted here rather than in create_app()
+    # because it needs a real session_factory to close over, and that only
+    # exists once this lifespan has started — app.mount() during startup
+    # is safe since it completes before the ASGI server accepts any HTTP
+    # scope, so every real request sees /mcp already registered.
+    mcp_server = build_mcp_server(app.state.session_factory, settings, app.state.catalog_cache)
+    mcp_app = mcp_server.streamable_http_app()  # must run before .session_manager is accessed below
+    app.mount("/mcp", McpBearerAuthMiddleware(mcp_app, app.state.session_factory))
 
     stop_event = asyncio.Event()
     poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event))
     try:
-        yield
+        async with mcp_server.session_manager.run():
+            yield
     finally:
         # Cancel rather than just signal-and-wait: an in-flight poll
         # cycle can be blocked on a slow/unreachable agent's HTTP request
