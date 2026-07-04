@@ -109,19 +109,9 @@ func (t *Template) Run(ctx context.Context, params map[string]any, dryRunArg boo
 	}
 	dryRun := dryRunArg || paramDryRun
 
-	vars := map[string]string{}
-	if raw, ok := params["vars"]; ok && raw != nil {
-		m, ok := raw.(map[string]any)
-		if !ok {
-			return Result{}, fmt.Errorf("vars: expected an object, got %T", raw)
-		}
-		for k, v := range m {
-			s, ok := v.(string)
-			if !ok {
-				return Result{}, fmt.Errorf("vars[%s]: expected string, got %T", k, v)
-			}
-			vars[k] = s
-		}
+	vars, err := stringMapParam(params, "vars")
+	if err != nil {
+		return Result{}, err
 	}
 
 	_, hasContent := params["content"]

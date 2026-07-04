@@ -57,8 +57,9 @@ the safety checks" part the name jokes about. Read the full model in
   `user`, `group`, `cron`, `hostname`, `timezone`, `apt_key`, `apt_repository`,
   `deb822_repository`, `dpkg_selections`, `yum`, `dnf`, `dnf5`, `yum_repository`, `rpm_key`
   (the RedHat-family package modules are unit-tested only — this project's real test host is
-  Debian), plus read-only facts (`setup`, `stat`, `find`, `slurp`, `service_facts`,
-  `package_facts`, `getent`). Idempotent, `check_mode`-aware, `changed: true/false` reporting — no Ansible
+  Debian), `get_url`, `uri`, `known_hosts`, `iptables`, plus read-only facts (`setup`, `stat`,
+  `find`, `slurp`, `fetch`, `wait_for`, `service_facts`, `package_facts`, `getent`). Idempotent,
+  `check_mode`-aware, `changed: true/false` reporting — no Ansible
   installation required on either end. Every module's description names its Ansible/Chef/Puppet/
   Salt/Terraform equivalent, so an AI can translate a task from any of those formats without
   external docs. Working through full `ansible.builtin` coverage in batches — see

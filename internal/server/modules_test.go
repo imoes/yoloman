@@ -116,13 +116,17 @@ func TestRegisterModules_CallToolRoundTrip(t *testing.T) {
 
 func TestNewDefaultModuleRegistry_ContainsExpectedModules(t *testing.T) {
 	reg := NewDefaultModuleRegistry()
-	readOnly := []string{"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent"}
+	readOnly := []string{
+		"setup", "stat", "find", "slurp", "service_facts", "package_facts", "getent",
+		"fetch", "wait_for",
+	}
 	writing := []string{
 		"file", "copy", "lineinfile", "systemd", "service", "apt", "command",
 		"blockinfile", "replace", "assemble", "tempfile", "template",
 		"user", "group", "cron", "hostname", "timezone",
 		"apt_key", "apt_repository", "deb822_repository", "dpkg_selections",
 		"yum", "dnf", "dnf5", "yum_repository", "rpm_key",
+		"get_url", "uri", "known_hosts", "iptables",
 	}
 	for _, name := range append(readOnly, writing...) {
 		if _, ok := reg.Get(name); !ok {

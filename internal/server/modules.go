@@ -14,13 +14,14 @@ import (
 
 // NewDefaultModuleRegistry returns a registry populated with all of v1's
 // modules: the read/facts set (setup, stat, find, slurp, service_facts,
-// package_facts, getent), always active, plus the write set (file, copy,
-// lineinfile, systemd, service, apt, command, blockinfile, replace,
-// assemble, tempfile, template, user, group, cron, hostname, timezone,
-// apt_key, apt_repository, deb822_repository, dpkg_selections, yum, dnf,
-// dnf5, yum_repository, rpm_key — batch-implemented against ansible.builtin
-// per docs/plan.md's module coverage plan), only ever exposed as tools when
-// the write gate (config.Write) is open — see RegisterModules.
+// package_facts, getent, fetch, wait_for), always active, plus the write
+// set (file, copy, lineinfile, systemd, service, apt, command, blockinfile,
+// replace, assemble, tempfile, template, user, group, cron, hostname,
+// timezone, apt_key, apt_repository, deb822_repository, dpkg_selections,
+// yum, dnf, dnf5, yum_repository, rpm_key, get_url, uri, known_hosts,
+// iptables — batch-implemented against ansible.builtin per docs/plan.md's
+// module coverage plan), only ever exposed as tools when the write gate
+// (config.Write) is open — see RegisterModules.
 func NewDefaultModuleRegistry() *modules.Registry {
 	reg := modules.NewRegistry()
 	for _, m := range []modules.Module{
@@ -57,6 +58,12 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewDnf5(),
 		modules.NewYumRepository(),
 		modules.NewRpmKey(),
+		modules.NewFetch(),
+		modules.NewWaitFor(),
+		modules.NewGetURL(),
+		modules.NewURI(),
+		modules.NewKnownHosts(),
+		modules.NewIptables(),
 	} {
 		if err := reg.Register(m); err != nil {
 			// Registration only fails on a duplicate name among modules

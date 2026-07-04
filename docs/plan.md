@@ -1059,11 +1059,61 @@ against an `rpmModule` interface and table-driven over all three real `Module` i
 not just the shared core — so each concrete type is genuinely exercised, including present/absent/
 latest transitions, the before/after version-comparison logic, dry-run, and failure propagation.
 
+### Batch 5 — network/download modules (implemented): get_url, uri, wait_for, fetch, known_hosts, iptables
+
+- **`fetch`** — a thin alias over `slurp` (same underlying `Run`, different parameter name
+  `src` vs. `path`). Real Ansible's `fetch` copies a file *from* the managed host *to* the
+  separate machine running Ansible; this agent has no such separate control-node filesystem (it
+  *is* both ends), so fetching and slurping a file's content are the same operation here — no
+  point building two things that behave identically.
+- **`get_url`** — downloads a file, deliberately matching real Ansible's *conservative*
+  idempotency rather than a naive "always check": if `dest` already exists, it's left alone
+  entirely unless `force: true` or a `checksum` is given that doesn't match — no HEAD request or
+  hash comparison "just to check" when neither was asked for, avoiding needless network traffic
+  for a file presumably already correct.
+- **`uri`** — an arbitrary HTTP request tool, deliberately **write-gated regardless of method**.
+  `method` is a runtime parameter (GET vs. POST/PUT/DELETE/...), and this tool can reach and
+  mutate arbitrary remote systems; trusting the caller's stated method to decide the write gate
+  would mean a write:false agent still has an SSRF-shaped hole for anyone routing a mutating
+  request through what looks like a "read" tool. Uniformly gating it, even for plain GETs, is the
+  conservative default here.
+- **`wait_for`** — polls a TCP port or file for a state transition. Read-only (never mutates
+  system state, so it isn't write-gated) but capped at a 600-second maximum timeout regardless of
+  the requested value, so a single tool call can't be used to tie up server resources indefinitely.
+- **`known_hosts`** — present/absent SSH known_hosts entries, identified by hostname (the entry's
+  first field) so a changed host key replaces the same entry rather than accumulating stale
+  duplicates. Host-key hashing (`ssh-keygen -H` style) is not implemented — entries are always
+  written in plain hostname form.
+- **`iptables`** — present/absent netfilter rules, idempotent via `iptables -C` (the check flag
+  purpose-built for exactly this: exit 0 means the exact rule exists, exit 1 means it doesn't — a
+  normal negative result, not an error; anything else is a genuine failure). A focused subset of
+  real Ansible's ~40 parameters (protocol/source/destination/ports/interfaces/jump/comment cover
+  the common case).
+
+**Verified:** 47 new unit tests (including `TestWaitFor_RealPortDetection`, exercising a real
+`net.Listen`-backed TCP listener rather than a fake dialer, and the `uri` suite running against
+real `httptest.Server` instances rather than mocked HTTP). All six also run for real on
+`host1.example.internal`. `fetch`/`wait_for`/`known_hosts` ran directly: `fetch` read a real
+`/etc/hostname`; `wait_for` confirmed the daemon's own real listening port; `known_hosts` wrote and
+read back a real entry. `get_url`/`uri` needed a workaround — the test host turned out to have no
+outbound internet access (an isolated test network), so a real local Python `http.server` was
+started on the host itself as a genuine, independently-reachable HTTP endpoint: `get_url`
+downloaded from it (confirmed idempotent on a repeat call, and confirmed a `sha256:` checksum
+verifies correctly against a real download), and `uri` performed a real GET with real response
+headers and a real 404 correctly rejected as not in the default `status_code` allow-list.
+`iptables` was verified most carefully, given the blast radius of a mistake: a brand-new, entirely
+unreferenced custom chain (`BATCH5TEST`, "0 references" the whole time, confirmed via `iptables -L
+-v`) was created first so the test rule could never affect real traffic; the module added a rule
+with the exact expected match criteria (`tcp dpt:12345`, the given comment) and packet counters at
+zero, confirmed idempotent on a repeat call, removed the rule, and the custom chain itself was then
+deleted — `INPUT`/`OUTPUT`/`FORWARD` were never touched.
+
 ## Roadmap (after this v1 — separate plans)
 
-- **Module completion:** Batches 5–6 of the `ansible.builtin` coverage plan above (network/
-  download and the rest). Optionally: multi-task plan/apply (playbook-style) with confirmation —
-  the full Ansible replacement
+- **Module completion:** Batch 6 of the `ansible.builtin` coverage plan above (pip, git,
+  subversion, unarchive, script, expect, debconf, reboot, package, systemd_service, sysvinit,
+  ping). Optionally: multi-task plan/apply (playbook-style) with confirmation — the full Ansible
+  replacement
 - **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
   fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
   alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign
