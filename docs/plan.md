@@ -1874,3 +1874,65 @@ mount it on a throwaway `/api/v1/whoami` route to verify the dependency end to e
   call to `new_bossman_user` — no seed script or CLI exists yet. Left for Block B7 (a user-
   management REST surface) or a small provisioning script, whichever turns out to be the right
   home for it once that block's actual shape is clearer.
+
+## Bossman — Block B7: REST API (implemented)
+
+The resource surface tying every earlier block together: `/agents`, `/agents/{id}/metrics`,
+`/relationships`, `/plans`, `/plans/{name}/run`, `/runs` (see docs/plan.md's Bossman plan, section
+B.7) — the first block where `get_current_identity` (Block B6) actually gates real routes, not just
+a throwaway test route.
+
+**`bossman/bossman/api/agents.py`** (new): `GET /api/v1/agents` (inventory), `GET
+/api/v1/agents/{id}` (404 if unknown), `GET /api/v1/agents/{id}/metrics` — omitting `metric=`
+returns catalog discovery (every distinct metric name recorded for that agent, per the "Offene
+Punkte" note above: "damit der Host-Detail-Tab automatisch weiß, welche Graphen es zeichnen kann");
+passing it returns that metric's points, optionally bounded by `since=`. Always serves Bossman's
+own already-aggregated Postgres data (`services/poller.py`'s target) — never a live pull from the
+agent itself, which is the entire point of polling ahead of time.
+
+**`bossman/bossman/api/relationships.py`** (new): `GET /api/v1/relationships[?agent_id=]` reads
+straight from `host_edges`. v1 scope is direct edges only (depth=1) — the plan's own DB-choice
+reasoning ("eine relationale Edges-Tabelle mit `WITH RECURSIVE` reicht völlig aus") already
+anticipated multi-hop traversal as an available, not yet needed, extension; not built speculatively
+here.
+
+**`bossman/bossman/api/plans.py`** (new): `GET /api/v1/plans` / `GET /api/v1/plans/{name}` list/
+describe plans straight off disk via `plan_loader.load_plans_dir` (no caching — plans are small,
+infrequently read files; correctness over micro-optimization). `POST /api/v1/plans/{name}/run` is
+the actual "take plan X, run it against host Y" instruction: `{agent, params, dry_run}` where
+`agent` is a **name** (matching `Agent.name`), not a UUID — the plan's own MCP-facade design
+(`run_plan(plan, host, params, dry_run)`) already establishes host-by-name as the natural caller
+shape. Looks up the agent, loads its `host_vars`, builds an `AgentClient` via a new
+`get_client_factory` FastAPI dependency (defaulting to the shared `agent_client.client_for`, added
+in this block by extracting it out of `services/poller.py`'s own private factory so both the
+poller and this route construct clients identically) — and delegates to
+`services.plan_engine.run_plan`. `get_client_factory` is overridable via
+`app.dependency_overrides`, the FastAPI-native counterpart of the `client_factory` test seam
+already used by the poller and the plan engine's own tests.
+
+**`bossman/bossman/api/runs.py`** (new): `GET /api/v1/runs[?agent_id=&plan_name=&status=&limit=]`
+and `GET /api/v1/runs/{id}` (with its ordered `plan_run_steps`, via `selectinload`) — the Ansible-
+replacement audit trail's read side.
+
+**Verification:**
+- `tests/test_agents_api.py` (5 tests), `tests/test_relationships_api.py` (3), `tests/
+  test_plans_api.py` (5, a `FakeAgentClient` injected via `app.dependency_overrides[
+  get_client_factory]`), `tests/test_runs_api.py` (5) — all real HTTP via `TestClient(app)` as a
+  context manager, real Postgres via `db_session`, real API-token auth (`services.auth.
+  new_api_token`, not a stub): every route's success path, its `401` when unauthenticated, `404`s
+  for unknown agents/plans/runs, catalog-discovery vs. filtered metric queries, `on_failure`/
+  parameter-validation propagating as `422`, and confirming a rejected run leaves no orphan
+  `PlanRun` row.
+- **Real end-to-end run, the whole stack at once** — the first time in this project's Bossman work
+  that auth, agent inventory, plans, and runs were all exercised together through actual separate
+  processes rather than in-process `TestClient` calls: a real Bossman (`uvicorn`) and a real,
+  write-enabled `agentic-mcpd` Duppy were started as independent processes; a real
+  `bossman_users` row and a real enrolled `Agent` row were inserted directly (the "known gap" noted
+  in Block B6 — no seed script exists yet); then, purely via `curl` against the running Bossman
+  HTTP server: `POST /api/v1/auth/login` returned a genuine JWT, `GET /api/v1/agents` listed the
+  real agent, `GET /api/v1/plans` listed a real plan file from disk, `POST
+  /api/v1/plans/demo_plan/run` executed for real against the real Duppy (an actual `copy` module
+  call over the real REST API, not a fake), and `GET /api/v1/runs/{id}` showed the correct
+  `requested_by` (the logged-in username) and the step's real request/response bodies. `cat` on the
+  agent's own filesystem independently confirmed the substituted message was actually written.
+  All test rows, processes, and scratch files were removed afterward.

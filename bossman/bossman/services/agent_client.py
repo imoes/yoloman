@@ -13,9 +13,13 @@ for proxy mode). No CA bundle is configured for the identical reason.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from bossman.config import Settings
+    from bossman.db.models import Agent
 
 
 class AgentClientError(Exception):
@@ -136,3 +140,17 @@ class AgentClient:
             return resp.json()
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: upload {remote_name!r}: decoding response: {exc}") from exc
+
+
+def client_for(agent: Agent, settings: Settings) -> AgentClient:
+    """Builds the AgentClient for talking to agent using Bossman's own
+    mTLS client identity — the one shared construction path used by both
+    the background poller (services/poller.py) and the plan-run REST
+    route (api/plans.py), so there's exactly one place that knows how an
+    agent's stored address/token map to a live connection."""
+    return AgentClient(
+        address=agent.address,
+        token=agent.token,
+        client_cert_path=settings.client_cert_path,
+        client_key_path=settings.client_key_path,
+    )

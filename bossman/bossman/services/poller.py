@@ -28,20 +28,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
-from bossman.services.agent_client import AgentClient, AgentClientError
+from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 
 logger = logging.getLogger(__name__)
 
 ClientFactory = Callable[[Agent, Settings], AgentClient]
 
-
-def _default_client_factory(agent: Agent, settings: Settings) -> AgentClient:
-    return AgentClient(
-        address=agent.address,
-        token=agent.token,
-        client_cert_path=settings.client_cert_path,
-        client_key_path=settings.client_key_path,
-    )
+_default_client_factory: ClientFactory = client_for
 
 
 @dataclass

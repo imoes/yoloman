@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import auth, enroll, health
+from bossman.api import agents, auth, enroll, health, plans, relationships, runs
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.services.poller import poller_loop
@@ -56,6 +56,13 @@ def create_app() -> FastAPI:
     # equivalent "not configured" state for human auth the way enrollment
     # has proxy.enroll_secret.
     app.include_router(auth.router, tags=["auth"])
+    # The fleet inventory/plan/run REST surface (Block B7) — every route
+    # in these routers is individually gated behind get_current_identity,
+    # so there's no conditional mounting here the way enroll needs.
+    app.include_router(agents.router, tags=["agents"])
+    app.include_router(relationships.router, tags=["relationships"])
+    app.include_router(plans.router, tags=["plans"])
+    app.include_router(runs.router, tags=["runs"])
     # Only mounted when enrollment is actually configured — an
     # unconfigured Bossman accepts no enrollments at all, matching the Go
     # Selecta's identical gating on proxy.enroll_secret.
