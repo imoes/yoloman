@@ -2131,3 +2131,181 @@ agent that was never enrolled through `/api/v1/enroll`:**
   verification for this block is the Playwright run above, which exercises real user flows against
   a real backend rather than isolated component rendering. Revisit Karma if per-component unit
   coverage becomes valuable later.
+
+## Bossman — Block B8 refinement: chunked plan caching + Ansible ingestion (implemented)
+
+Two goals from this session: stop re-parsing every plan file on every call (pure performance), and
+extend the plan format enough to faithfully translate a real Ansible role — proven against the
+actual `img_docker` role from `~/Dev/ansible/ansible03/roles/img_docker` — into Bossman's plan
+format, laying the groundwork for a future incremental (only-retranslate-what-changed) translator
+without yet building that translator.
+
+**`bossman/bossman/services/plan_loader.py`** reworked around a new `Chunk` dataclass: a `Plan` is
+now `chunks: list[Chunk]`, not `steps: list[PlanStep]` directly (a `steps` property still exposes
+the flattened view for callers that don't care about chunk boundaries, e.g. the REST API's plan-
+detail listing). Each `Chunk` carries `name`, `steps`, an optional `os_family: list[str]` (the
+Ansible `include_tasks: "{{ ansible_distribution }}.packages.yml"` equivalent), and an optional
+`source_hash` (a sha256 of the *foreign* source text — an Ansible task file — a chunk was
+translated from, set by the translator at authoring time). `chunk_id` is a sha256 of the chunk's
+own canonical JSON (name + os_family + steps), making every chunk content-addressed: identical
+steps always hash to the same id regardless of which file produced them. `Plan.version()` — the
+`plan_runs.plan_version` drift-detection value — is now a hash over all `chunk_id`s instead of
+re-reading `source_path.read_bytes()` on every call (proven in tests by deleting the source file
+after parsing and confirming `version()` still works). `PlanStep` gained `when: str | None` and
+`register: str | None`. A plain flat `steps:` list (the pre-chunking syntax) still parses — it
+becomes one implicit `Chunk(name="main", ...)` — proven byte-identical (`chunk_id`/`version()`
+equality) to the equivalent explicit `chunks:` syntax, so every plan written before chunking
+existed keeps working unchanged. New `chunks_needing_retranslation(existing_chunks,
+current_source_hashes)` — the incremental-retranslation scaffold: diffs a plan's persisted chunks
+against a fresh `{chunk_name: source_hash}` map and returns which chunk names actually need
+re-running through a (future) translator, purely by hash comparison, fully testable independent of
+any real orchestrator parser. New `hash_source_text(text)` (sha256 hex) is what a translator calls
+once at authoring time to compute a chunk's `source_hash`.
+
+**`bossman/bossman/services/when_eval.py`** (new): a small, deliberately non-Turing-complete
+grammar for a step's `when:` — `not <expr>`, `<path> is [not] defined`, `<path> == /!=  <literal>`,
+or a bare truthy path — evaluated against one flat context dict combining resolved plan params and
+every prior step's `register`ed result (the same single-namespace model Ansible itself uses for
+variables). This is a deliberate security boundary, not just a scoping cut: a plan file may
+originate from an LLM translation of an untrusted source (an Ansible role, a Salt state), so
+evaluating a small whitelisted grammar rather than `eval()`ing arbitrary text matters even though
+nothing in this project currently generates plans from an LLM yet.
+
+**`bossman/bossman/services/plan_engine.py`** extended: `_distribution_family()` normalizes the
+`setup` module's raw `ansible_distribution` fact (e.g. "Debian GNU/Linux") to the canonical family
+id (`debian`/`ubuntu`/`redhat`/...) a chunk's `os_family` matches against — done Bossman-side, not
+in the Go agent's `setup` module, keeping it a normalization concern scoped to what OS-dispatch
+needs. `run_plan()` now: resolves the host's distribution family via exactly one lazy `setup` call
+— only if at least one chunk actually declares `os_family` — and always records that resolution as
+a `PlanRunStep` (success or failure), since an OS-dispatch decision is as much part of the audit
+trail as any other step; skips a whole `os_family`-restricted chunk with one summary row if the
+family doesn't match; evaluates each step's `when:` against a running `context` dict (params +
+registered results), recording a skip row (not a failure) on `false`, and folding a `WhenError`
+into that step's own error row; stores a step's response into `context` when `register:` is set;
+and, after every chunk, runs an optional `plan.final_handler` step once — only if the run wasn't
+aborted and at least one step actually reported `changed: True` — the normalized form of Ansible's
+`notify:`/handler pattern.
+
+**`bossman/bossman/services/catalog.py`** (from the prior refinement) needed no further change:
+`CatalogCache` already cached parsed `Plan` objects wholesale, so chunk-awareness came for free —
+`render_catalog_markdown()` still only surfaces name/description/params (chunk/step detail stays
+out of the cached prefix on purpose).
+
+**Real capability gap found and fixed in the Go node agent while translating `img_docker`:**
+`internal/modules/file.go`'s own doc comment already flagged it — `state=link` (symlinks) was
+"not yet implemented", only `file|directory|absent|touch`. The role's very first two Docker-specific
+tasks are exactly this (`/var/lib/docker -> /data1/var_lib_docker`,
+`/var/lib/containerd -> /data1/var_lib_containerd`), so this was a hard blocker, not a nice-to-have.
+Implemented `state: link` (`src` = link target, new required-when-used param): idempotent (a
+symlink already pointing at `src` is `changed: false`; a stale target is atomically removed and
+recreated); `check_mode`-safe (predicts `changed` without touching the filesystem); rejects a path
+that exists and is anything other than a symlink, rather than silently clobbering a real file/
+directory. Owner/group on a symlink use a new `applyOwnerGroupOnLink` (`os.Lchown`, operating on
+the link itself) rather than the existing `applyOwnerGroupMode` (`os.Chown`, which follows the
+symlink) — reusing the latter would have chowned the *target* every run while still reporting the
+*link's* unrelated ownership as unchanged next time, a permanent non-convergence bug. Mode on a
+symlink is intentionally unsupported (Linux mostly ignores symlink permission bits, and neither the
+translated role nor real Ansible usage here needs it). Six new table-driven-style unit tests in
+`internal/modules/file_test.go` (create+idempotent, dry-run doesn't touch disk, retarget when `src`
+differs, missing `src` errors, existing-non-symlink errors, and a targeted proof that chowning the
+link never touches the target's own owner/group).
+
+**`configs/commands.yaml`** gained `curl`, `gpg`, and `systemctl` (the last with `forbid_patterns`
+blocking `stop`/`disable`/`mask`/`poweroff`/`reboot`/`halt`/`kill`, the same blacklist-known-
+dangerous-flags pattern already used for `find`) — needed for the role's GPG-key-import pipeline
+(`curl ... | gpg --dearmor -o ...`, Ubuntu chunk) and the unconditional `systemctl daemon-reload`
+pipeline step every chunk set converges on.
+
+**`bossman/plans/img_docker.yaml`** (new): the actual translated role, seven chunks
+(`data_dirs`, `debian_packages`/`ubuntu_packages`/`redhat_packages` each restricted via
+`os_family`, `proxy_config`, `docker_compose_wrapper`, `daemon_reload`) plus a `restart_docker`
+`final_handler`, every OS/task-file-derived chunk carrying the real sha256 `source_hash` of the
+Ansible source file it was translated from (computed once via `hash_source_text`). Deliberate,
+documented translation decisions instead of fabricating unsupported Ansible features:
+- `ansible.builtin.file`'s symlink steps translate directly now that `state: link` exists (see
+  above) — no workaround needed after the Go-side fix.
+- `templates/docker.list`'s `{{ ansible_distribution | lower() }}` / `{{
+  ansible_distribution_release }}` (a Jinja2 filter plus a fact the Go agent's `setup` module
+  doesn't gather) become a flat `docker_apt_codename` plan param (default `bookworm`, overridable
+  per host via `host_vars/<hostname>.yaml`) plus the OS name hardcoded per already-OS-dispatched
+  chunk — the chunk selection itself *is* the distribution branch, so no filter is needed inside it.
+- `templates/http-proxy.conf`'s nested `docker.proxy`/`docker.noproxy` vars (Bossman params are
+  flat) become `docker_proxy_url`/`docker_noproxy`, gated by `when: docker_proxy_url is defined` —
+  an unset optional param with no default is absent from the step's context entirely, which is
+  exactly what `is defined` needs to evaluate false.
+- The Debian chunk's real Read-Modify-Write `daemon.json` merge (`slurp` → `b64decode | from_json`
+  → `combine` → `to_nice_json`, dependent on the file's pre-existing content) is explicitly out of
+  scope — no Read-Modify-Write primitive or runtime Jinja2 exists yet. Translated instead as the
+  static, pre-computed result of merging the role's own `docker_daemon_base` +
+  `docker_daemon_gelf` defaults (the fresh-install case), matching the same static-`copy`-of-a-
+  fully-rendered-file pattern the *same real role* already uses, un-simplified, for Ubuntu/RHEL
+  (`templates/daemon.json`) — an honest simplification mirroring existing behavior elsewhere in the
+  role, not a fabrication.
+- The RHEL chunk drops `rpm_key` (the Go module requires a `fingerprint` param real Ansible derives
+  automatically; guessing Docker's GPG fingerprint by hand was rejected as unverifiable) and the
+  RHEL8-specific `containerd-selinux` swap `block:` (out of scope, documented) in favor of
+  `ansible.builtin.yum_repository` with `gpgkey:` pointing at the same key URL — the Go agent's
+  native, simpler equivalent for exactly this case — and `ansible.builtin.package` (backend auto-
+  detected) instead of a hardcoded `yum`/`dnf` module name.
+- `systemctl daemon-reload` (no dedicated flag on the Go `systemd` module) becomes a `pipeline:`
+  step, the established Bossman convention for anything without a purpose-built module.
+
+**`bossman/plans/host_vars/host1.example.internal.yaml`** (new): `docker_apt_codename:
+trixie` — this project's real verification host runs Debian 13, confirmed live via its own `setup`
+facts during the E2E run below.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres/TimescaleDB via the `bossman-dev-db` dev container): `test_when_eval.py` (11
+  new tests), `test_catalog.py` (7, unchanged from the prior refinement, still passing chunk-aware),
+  `test_plan_loader.py` (+19 tests: chunk-id content-addressing, flat-vs-chunks byte-equality,
+  when/register/os_family/final_handler parsing and validation, `chunks_needing_retranslation`,
+  `hash_source_text` determinism, and a dedicated `test_img_docker_plan_parses_and_has_expected_
+  chunk_shape` loading the real `bossman/plans/img_docker.yaml` off disk — not a synthetic
+  fixture), `test_plan_engine.py` (+9: register→when, unsupported-when-is-a-step-error, OS-dispatch
+  selects/skips/setup-failure-skips-everything/not-triggered-when-unneeded, final_handler runs-on-
+  change/skips-on-no-change/skips-on-abort). 169 tests total, `ruff check` clean.
+- `go build`/`go vet`/`go test ./...` clean across the whole module after the `file.go` change;
+  `internal/modules` alone: 2.2s, all green, including the six new symlink tests.
+- **Real end-to-end run against `host1.example.internal`** (this project's standing real-
+  Debian-13 verification host, already provisioned by the *actual* `img_docker` Ansible role
+  months prior — an unusually strong fidelity check, since a faithful translation should mostly
+  find *nothing* to change): built `agentic-mcpd` fresh (with the `state: link` fix), deployed it
+  to a scratch directory over SSH with a generated bearer token, `write: true`, TLS enabled via a
+  locally-generated self-signed server cert and Bossman's own real `ensure_client_keypair`-
+  generated P-256 client identity pinned in the daemon's `tls.trusted_client_keys` (exactly the
+  enrollment trust model Block B3 already established, just without going through the `/api/v1/
+  enroll` HTTP round-trip for a disposable test run) — confirmed a request without the client cert
+  was rejected (`401 client certificate required`) before running anything for real. Called
+  `plan_engine.run_plan()` directly against a real `Agent` row and the real, non-fake `AgentClient`:
+  - **`dry_run=true`**: succeeded, 22 recorded steps. OS-dispatch correctly resolved
+    `ansible_distribution: "Debian GNU/Linux"` → family `debian` and selected the `debian_packages`
+    chunk, recording `ubuntu_packages (chunk)`/`redhat_packages (chunk)` as skipped with no agent
+    calls. The `_containerd_dir.data.exists` `when:`-gated symlink step correctly skipped (the real
+    symlink already existed) — proof `register`/`when`/the real `stat` module's `data.exists` shape
+    all compose correctly end to end, not just in mocked unit tests. Nearly every step reported
+    `changed: false` because the host was already correctly configured by the real role months ago
+    — the strongest possible fidelity signal for a translation.
+  - **`dry_run=false` (real apply)**: succeeded, 22 steps, zero errors. `docker.list` and
+    `daemon.json` reported `changed: true` (the translated content omits Ansible's own
+    `# Ansible managed ...` banner comment and re-serializes the JSON with different key
+    order/whitespace — a cosmetic, expected difference, not a semantic one) and were rewritten for
+    real; `final_handler` fired (`systemctl daemon-reload` + `systemd: docker restarted`) since
+    something had changed. Confirmed for real afterward: `systemctl is-active docker` → `active`;
+    `docker run --rm hello-world` completed successfully post-restart; `cat /etc/apt/sources.list.d/
+    docker.list` and `/etc/docker/daemon.json` showed exactly the applied content.
+  - **Second real apply (idempotency check)**: `docker.list`/`daemon.json`/packages/etc. all
+    correctly reported `changed: false` this time. One genuine, documented non-bug surfaced:
+    `create_var_lib_docker_dir` (`file`, `state: directory`, `mode: "0755"`) reported `changed:
+    true` — modern `dockerd` itself `chmod`s its data-root directory to `0710` on every startup as a
+    security hardening default, which the *first* run's own `final_handler` restart had just
+    triggered. This is a real, permanent two-state oscillation between Docker's own runtime
+    behavior and the role's declared `mode: "0755"` — and it is **not specific to this
+    translation**: the original, unmodified Ansible role declares the identical `mode: "0755"` on
+    the identical directory, so a real `ansible-playbook` run against a modern `dockerd` would
+    oscillate in exactly the same way. Documented here rather than "fixed" by dropping the mode
+    assertion, since doing so would mean the translation is no longer faithful to the source role.
+  - No containers were running on the test host before this verification (`docker ps -a` empty),
+    so the real `systemd: docker restarted` was safe to execute. All scratch state (the temporary
+    daemon process, its config/TLS/SQLite files under `/tmp/agentic-mcp-e2e`, the throwaway `Agent`/
+    `PlanRun`/`PlanRunStep` rows) was removed afterward; confirmed via `psql` that zero rows
+    referencing the E2E run's identifiers remain.

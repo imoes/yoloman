@@ -1,8 +1,9 @@
-"""Executes a Plan against one agent, step by step, persisting the
-plan_runs/plan_run_steps audit trail (see docs/plan.md's Bossman plan,
-section B.5) — the Ansible-replacement history the project's whole
-Nordstern-UX design goal depends on: check_mode preview -> confirm ->
-apply, with every step's request/response/changed/error recorded.
+"""Executes a Plan against one agent, chunk by chunk and step by step,
+persisting the plan_runs/plan_run_steps audit trail (see docs/plan.md's
+Bossman plan, section B.5 and the later chunked-plan-caching +
+Ansible-ingestion plan) — the Ansible-replacement history the project's
+whole Nordstern-UX design goal depends on: check_mode preview -> confirm
+-> apply, with every step's request/response/changed/error recorded.
 
 Framework-free (no FastAPI import), like services/enrollment.py and
 services/poller.py, for the same reason: reachable from the REST API, the
@@ -19,11 +20,112 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, PlanRun, PlanRunStep
 from bossman.services.agent_client import AgentClient, AgentClientError
-from bossman.services.plan_loader import Plan, PlanError, resolve_params, substitute
+from bossman.services.plan_loader import Plan, PlanError, PlanStep, resolve_params, substitute
+from bossman.services.when_eval import WhenError, eval_when
 
 
 def _read_local_file(path: Path) -> bytes:
     return path.read_bytes()
+
+
+def _distribution_family(name: str | None) -> str | None:
+    """Normalizes the setup module's raw ansible_distribution fact (the
+    host's /etc/os-release NAME field, e.g. "Debian GNU/Linux", "Ubuntu",
+    "Red Hat Enterprise Linux") to the small canonical family id a
+    chunk's `os_family` list matches against. Real Ansible does an
+    equivalent distribution-to-family normalization internally; doing it
+    here (not in the Go agent's setup module) keeps this a Bossman-side
+    concern, scoped to what OS-dispatch actually needs."""
+    if not name:
+        return None
+    lowered = name.lower()
+    if "debian" in lowered:
+        return "debian"
+    if "ubuntu" in lowered:
+        return "ubuntu"
+    if any(k in lowered for k in ("red hat", "redhat", "centos", "rocky", "alma", "fedora")):
+        return "redhat"
+    return lowered.split()[0]
+
+
+async def _execute_step(
+    step: PlanStep,
+    args: dict[str, Any],
+    client: AgentClient,
+    effective_dry_run: bool,
+    plan: Plan,
+    read_local_file,
+) -> tuple[dict[str, Any], dict[str, Any] | None, bool | None, int | None, str | None]:
+    """Runs one step for real (or its check_mode/dry_run variant) and
+    returns (request_body, response_body, changed, http_status, error) —
+    pure with respect to the database; run_plan builds the PlanRunStep
+    row from this. Never raises: AgentClientError/PlanError/OSError are
+    caught and folded into `error`, since a persisted partial audit trail
+    is the point of a plan run, not an exception that discards it."""
+    request_body: dict[str, Any] = {}
+    response_body: dict[str, Any] | None = None
+    changed: bool | None = None
+    http_status: int | None = None
+    error: str | None = None
+
+    try:
+        if step.kind == "module":
+            request_body = substitute(step.body, args)
+            if effective_dry_run:
+                request_body = {**request_body, "dry_run": True}
+            response_body = await client.call_tool(step.module, request_body)
+            changed = response_body.get("changed")
+            http_status = 200
+        elif step.kind == "pipeline":
+            request_body = {"stages": substitute(step.pipeline, args)}
+            if effective_dry_run:
+                response_body = {"skipped": "dry_run: pipeline steps have no preview mode"}
+            else:
+                response_body = await client.call_tool("run_pipeline", request_body)
+                changed = True
+                http_status = 200
+        else:  # upload
+            local_path = substitute(step.upload_local_path, args)
+            remote_name = substitute(step.upload_remote_name, args)
+            request_body = {"local_path": local_path, "remote_name": remote_name}
+            if effective_dry_run:
+                response_body = {"skipped": "dry_run: upload steps have no preview mode"}
+            else:
+                data = read_local_file(plan.source_path.parent / local_path)
+                response_body = await client.upload_file(remote_name, data)
+                changed = True
+                http_status = 200
+    except (AgentClientError, PlanError, OSError) as exc:
+        error = str(exc)
+
+    return request_body, response_body, changed, http_status, error
+
+
+def _step_row(
+    plan_run_id,
+    index: int,
+    name: str,
+    module_label: str | None,
+    request_body: dict[str, Any],
+    response_body: dict[str, Any] | None,
+    changed: bool | None,
+    http_status: int | None,
+    error: str | None,
+    started_at: datetime,
+) -> PlanRunStep:
+    return PlanRunStep(
+        plan_run_id=plan_run_id,
+        step_index=index,
+        step_name=name,
+        module=module_label,
+        request_body=request_body,
+        response_body=response_body,
+        changed=changed,
+        http_status=http_status,
+        error=error,
+        started_at=started_at,
+        finished_at=datetime.now(timezone.utc),
+    )
 
 
 async def run_plan(
@@ -37,13 +139,29 @@ async def run_plan(
     requested_by: str | None = None,
     read_local_file=_read_local_file,
 ) -> PlanRun:
-    """Resolves plan parameters, then runs every step against client in
-    order, recording each into plan_run_steps regardless of outcome.
+    """Resolves plan parameters, then runs every chunk/step against client
+    in order, recording each into plan_run_steps regardless of outcome.
     Raises PlanError only for a setup failure that happens *before* any
     step runs (missing required param, bad pattern) — once the PlanRun
     row exists, every failure is captured in the row/step data instead of
     raised, since a persisted partial audit trail is the whole point of a
-    plan run, not an exception that leaves the caller with nothing."""
+    plan run, not an exception that leaves the caller with nothing.
+
+    Chunk-level semantics (see docs/plan.md's Ansible-ingestion plan):
+    - A chunk with `os_family` set is skipped entirely (one summary row,
+      no per-step rows) if the host's distribution family — resolved via
+      one `setup` call, only when at least one chunk actually needs it —
+      doesn't match. This is the OS-dispatch equivalent of Ansible's
+      `include_tasks: "{{ ansible_distribution }}.packages.yml"`.
+    - A step's `when:` is evaluated against a context combining resolved
+      params and every prior step's `register`ed result (shared
+      namespace, like Ansible's own variables) via services.when_eval's
+      small, non-Turing-complete grammar. A false `when` skips just that
+      step (one row, no agent call) and is never itself a failure.
+    - `plan.final_handler`, if set, runs once at the end — only if the
+      run wasn't aborted early and at least one step reported
+      `changed: True` — the normalized form of an Ansible notify/handler.
+    """
     args = resolve_params(plan, host_vars, explicit_params)
 
     plan_run = PlanRun(
@@ -58,71 +176,149 @@ async def run_plan(
     session.add(plan_run)
     await session.flush()
 
+    context: dict[str, Any] = dict(args)
     any_step_failed = False
+    any_step_changed = False
+    aborted = False
+    index = 0
 
-    for index, step in enumerate(plan.steps):
-        effective_dry_run = dry_run or step.check_mode
+    if any(c.os_family is not None for c in plan.chunks):
         started_at = datetime.now(timezone.utc)
-        request_body: dict[str, Any] = {}
-        response_body: dict[str, Any] | None = None
-        changed: bool | None = None
-        http_status: int | None = None
-        error: str | None = None
-        module_label = step.module if step.kind == "module" else step.kind
-
-        try:
-            if step.kind == "module":
-                request_body = substitute(step.body, args)
-                if effective_dry_run:
-                    request_body = {**request_body, "dry_run": True}
-                response_body = await client.call_tool(step.module, request_body)
-                changed = response_body.get("changed")
-                http_status = 200
-            elif step.kind == "pipeline":
-                request_body = {"stages": substitute(step.pipeline, args)}
-                if effective_dry_run:
-                    response_body = {"skipped": "dry_run: pipeline steps have no preview mode"}
-                else:
-                    response_body = await client.call_tool("run_pipeline", request_body)
-                    changed = True
-                    http_status = 200
-            else:  # upload
-                local_path = substitute(step.upload_local_path, args)
-                remote_name = substitute(step.upload_remote_name, args)
-                request_body = {"local_path": local_path, "remote_name": remote_name}
-                if effective_dry_run:
-                    response_body = {"skipped": "dry_run: upload steps have no preview mode"}
-                else:
-                    data = read_local_file(plan.source_path.parent / local_path)
-                    response_body = await client.upload_file(remote_name, data)
-                    changed = True
-                    http_status = 200
-        except (AgentClientError, PlanError, OSError) as exc:
-            error = str(exc)
-
+        family, setup_error = await _resolve_distribution_family_from_agent(client)
+        # Always recorded, success or failure — an OS-dispatch decision is
+        # as much a part of the audit trail as any other step, not just
+        # its failures.
         session.add(
-            PlanRunStep(
-                plan_run_id=plan_run.id,
-                step_index=index,
-                step_name=step.name,
-                module=module_label,
-                request_body=request_body,
-                response_body=response_body,
-                changed=changed,
-                http_status=http_status,
-                error=error,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc),
+            _step_row(
+                plan_run.id,
+                index,
+                "resolve OS family (setup)",
+                "setup",
+                {},
+                None if setup_error else {"resolved_family": family},
+                None,
+                None,
+                setup_error,
+                started_at,
             )
         )
         await session.flush()
+        index += 1
+        if setup_error is not None:
+            any_step_failed = True
+    else:
+        family = None
 
+    for chunk in plan.chunks:
+        if aborted:
+            break
+
+        if chunk.os_family is not None and (family is None or family not in chunk.os_family):
+            session.add(
+                _step_row(
+                    plan_run.id,
+                    index,
+                    f"{chunk.name} (chunk)",
+                    None,
+                    {},
+                    {"skipped": "os_family mismatch", "expected": chunk.os_family, "actual": family},
+                    None,
+                    None,
+                    None,
+                    datetime.now(timezone.utc),
+                )
+            )
+            await session.flush()
+            index += 1
+            continue
+
+        for step in chunk.steps:
+            started_at = datetime.now(timezone.utc)
+            module_label = step.module if step.kind == "module" else step.kind
+
+            if step.when is not None:
+                try:
+                    should_run = eval_when(step.when, context)
+                except WhenError as exc:
+                    session.add(_step_row(plan_run.id, index, step.name, module_label, {}, None, None, None, str(exc), started_at))
+                    await session.flush()
+                    index += 1
+                    any_step_failed = True
+                    if step.on_failure == "abort":
+                        aborted = True
+                        break
+                    continue
+                if not should_run:
+                    session.add(
+                        _step_row(
+                            plan_run.id,
+                            index,
+                            step.name,
+                            module_label,
+                            {},
+                            {"skipped": f"when: {step.when} evaluated false"},
+                            None,
+                            None,
+                            None,
+                            started_at,
+                        )
+                    )
+                    await session.flush()
+                    index += 1
+                    continue
+
+            effective_dry_run = dry_run or step.check_mode
+            request_body, response_body, changed, http_status, error = await _execute_step(
+                step, args, client, effective_dry_run, plan, read_local_file
+            )
+
+            if step.register and response_body is not None:
+                context[step.register] = response_body
+
+            session.add(
+                _step_row(plan_run.id, index, step.name, module_label, request_body, response_body, changed, http_status, error, started_at)
+            )
+            await session.flush()
+            index += 1
+
+            if changed:
+                any_step_changed = True
+            if error is not None:
+                any_step_failed = True
+                if step.on_failure == "abort":
+                    aborted = True
+                    break
+
+    if not aborted and any_step_changed and plan.final_handler is not None:
+        handler = plan.final_handler
+        started_at = datetime.now(timezone.utc)
+        effective_dry_run = dry_run or handler.check_mode
+        request_body, response_body, changed, http_status, error = await _execute_step(
+            handler, args, client, effective_dry_run, plan, read_local_file
+        )
+        module_label = handler.module if handler.kind == "module" else handler.kind
+        session.add(
+            _step_row(plan_run.id, index, handler.name, module_label, request_body, response_body, changed, http_status, error, started_at)
+        )
+        await session.flush()
         if error is not None:
             any_step_failed = True
-            if step.on_failure == "abort":
-                break
 
     plan_run.status = "failed" if any_step_failed else "succeeded"
     plan_run.finished_at = datetime.now(timezone.utc)
     await session.commit()
     return plan_run
+
+
+async def _resolve_distribution_family_from_agent(client: AgentClient) -> tuple[str | None, str | None]:
+    """Calls the agent's `setup` tool once and returns (family, error) —
+    error is set (family is None) if the call itself failed; family may
+    still legitimately be None if the agent had no distribution fact to
+    report, which is not an error."""
+    try:
+        facts = await client.call_tool("setup", {})
+    except AgentClientError as exc:
+        return None, str(exc)
+    data = facts.get("data") if isinstance(facts, dict) else None
+    raw_distribution = data.get("ansible_distribution") if isinstance(data, dict) else None
+    return _distribution_family(raw_distribution), None

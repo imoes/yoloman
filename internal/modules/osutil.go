@@ -101,3 +101,37 @@ func applyOwnerGroupMode(path, owner, group, mode string, dryRun bool) (changed 
 
 	return changed, nil
 }
+
+// applyOwnerGroupOnLink is applyOwnerGroupMode's counterpart for a symlink
+// itself (state=link in file.go): it reads and writes the link's own
+// uid/gid via lchown, never following it into the target. Mode is
+// intentionally not supported here — symlink permission bits are ignored
+// by Linux for nearly every operation that matters, unlike a real file.
+func applyOwnerGroupOnLink(path, owner, group string, dryRun bool) (changed bool, err error) {
+	curUID, curGID, err := currentOwnerGroup(path)
+	if err != nil {
+		return false, err
+	}
+	wantUID, wantGID := curUID, curGID
+	if owner != "" {
+		wantUID, err = resolveOwner(owner)
+		if err != nil {
+			return false, fmt.Errorf("owner: %w", err)
+		}
+	}
+	if group != "" {
+		wantGID, err = resolveGroup(group)
+		if err != nil {
+			return false, fmt.Errorf("group: %w", err)
+		}
+	}
+	if wantUID != curUID || wantGID != curGID {
+		changed = true
+		if !dryRun {
+			if err := os.Lchown(path, wantUID, wantGID); err != nil {
+				return changed, fmt.Errorf("lchown: %w", err)
+			}
+		}
+	}
+	return changed, nil
+}

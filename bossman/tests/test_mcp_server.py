@@ -183,15 +183,15 @@ async def test_list_plans_and_get_catalog(db_session, session_factory, tmp_path)
     catalog_result = await mcp.call_tool("get_catalog", {})
     content = catalog_result[0] if isinstance(catalog_result, tuple) else catalog_result
     assert "mcp_demo_plan" in content[0].text
-    assert content[0].text == cache.text  # byte-identical to the cache, not re-rendered
+    assert content[0].text == cache.catalog_markdown  # byte-identical to the cache, not re-rendered
 
 
 async def test_get_catalog_unchanged_until_explicit_reload(tmp_path):
     cache = CatalogCache(str(tmp_path))
-    before = cache.text
+    before = cache.catalog_markdown
     (tmp_path / "new_plan.yaml").write_text("name: new_plan\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
 
-    assert cache.text == before  # a new file on disk does not change the cached text
+    assert cache.catalog_markdown == before  # a new file on disk does not change the cached text
     after = cache.reload()
     assert after != before
     assert "new_plan" in after

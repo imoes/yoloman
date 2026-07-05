@@ -1,23 +1,31 @@
 """Loads and resolves Bossman plan YAML files (see docs/plan.md's Bossman
-plan, section B.5) — a filesystem-native, multi-step extension of the Go
-node agent's own tools.d/*.yaml single-task syntax
-(internal/tasks/task.go): same `ansible.builtin.<module>:` key,
-`params: {type, required, pattern, default}`, and `{{ placeholder }}`
-substitution semantics (a string that is *entirely* one placeholder keeps
-the argument's native type; a placeholder embedded in a larger string is
-stringified) — deliberately kept byte-for-byte compatible so an operator
-who already knows tools.d syntax needs nothing new to write a plan step.
+plan, section B.5 and the later chunked-plan-caching + Ansible-ingestion
+plan) — a filesystem-native, multi-step extension of the Go node agent's
+own tools.d/*.yaml single-task syntax (internal/tasks/task.go): same
+`ansible.builtin.<module>:` key, `params: {type, required, pattern,
+default}`, and `{{ placeholder }}` substitution semantics (a string that
+is *entirely* one placeholder keeps the argument's native type; a
+placeholder embedded in a larger string is stringified) — deliberately
+kept byte-for-byte compatible so an operator who already knows tools.d
+syntax needs nothing new to write a plan step.
 
-What a plan adds on top of a single task: an ordered `steps:` list (each
-one a module call, a pipeline, or a file upload), and a
-default < host_vars/<hostname>.yaml < explicit-call-params precedence
-chain — this is what makes "run plan X against host Y" a minimal
-instruction, per the plan's stated goal.
+A plan is an ordered list of **chunks**, each a named group of steps
+(`when`/`register`/`check_mode`/`on_failure`, module/pipeline/upload —
+see PlanStep) optionally restricted to an `os_family`. Chunking exists for
+two reasons: it is the unit an OS-dispatch decision (Ansible's
+`include_tasks: "{{ ansible_distribution }}.packages.yml"` pattern) skips
+wholesale, and it is the unit a future incremental translator re-hashes
+independently (`chunk_id`/`source_hash`) so editing one part of a
+translated role doesn't require re-translating the rest. A plain flat
+`steps:` list (the pre-chunking syntax) is still valid — it becomes one
+implicit, unconditional chunk, so every plan written before chunking
+existed keeps working unchanged.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,6 +35,8 @@ import yaml
 
 ANSIBLE_PREFIX = "ansible.builtin."
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
+
+_STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "pipeline", "upload")
 
 
 class PlanError(Exception):
@@ -47,6 +57,8 @@ class PlanStep:
     kind: str  # "module" | "pipeline" | "upload"
     check_mode: bool = False
     on_failure: str = "abort"  # "abort" | "continue"
+    when: str | None = None
+    register: str | None = None
 
     module: str | None = None
     body: dict[str, Any] = field(default_factory=dict)
@@ -54,21 +66,78 @@ class PlanStep:
     upload_local_path: str | None = None
     upload_remote_name: str | None = None
 
+    def canonical_dict(self) -> dict[str, Any]:
+        """A plain, JSON-serializable, order-independent representation
+        used for chunk_id hashing — every field that defines this step's
+        actual behavior, nothing dynamic (no timestamps/run-specific
+        data)."""
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "check_mode": self.check_mode,
+            "on_failure": self.on_failure,
+            "when": self.when,
+            "register": self.register,
+            "module": self.module,
+            "body": self.body,
+            "pipeline": self.pipeline,
+            "upload_local_path": self.upload_local_path,
+            "upload_remote_name": self.upload_remote_name,
+        }
+
+
+@dataclass
+class Chunk:
+    name: str
+    steps: list[PlanStep]
+    os_family: list[str] | None = None
+    # Hash of the *foreign* source text (e.g. an Ansible role's
+    # tasks/debian.packages.yml) this chunk was translated from — None for
+    # natively hand-authored Bossman chunks, where there is no separate
+    # source to diff against. Set by the (human/AI) translator at
+    # authoring time; see chunks_needing_retranslation() below for how
+    # it's used to scope a future incremental re-translation to just the
+    # chunks whose source actually changed.
+    source_hash: str | None = None
+
+    @property
+    def chunk_id(self) -> str:
+        """Content-addressed id: a sha256 of this chunk's own normalized,
+        canonical representation. Identical steps (regardless of which
+        file/translation produced them) always hash to the same id."""
+        payload = json.dumps(
+            {"name": self.name, "os_family": self.os_family, "steps": [s.canonical_dict() for s in self.steps]},
+            sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
 
 @dataclass
 class Plan:
     name: str
     description: str
     params: dict[str, ParamSpec]
-    steps: list[PlanStep]
+    chunks: list[Chunk]
     source_path: Path
+    # An optional final step run once, after every chunk, only if at least
+    # one prior step actually reported changed=True — the normalized form
+    # of Ansible's notify/handler pattern (img_docker's "Restart Docker").
+    final_handler: PlanStep | None = None
+
+    @property
+    def steps(self) -> list[PlanStep]:
+        """Flattened view across all chunks, in declaration order — kept
+        for callers that only care about "the plan's steps" without
+        chunk boundaries (e.g. the REST API's plan-detail step listing)."""
+        return [s for c in self.chunks for s in c.steps]
 
     def version(self) -> str:
-        """A sha256 of the plan file's own bytes — plan_runs.plan_version's
-        drift-detection value (see docs/plan.md): "was the plan file
-        edited since this run happened", not a hand-maintained version
-        number."""
-        return hashlib.sha256(self.source_path.read_bytes()).hexdigest()
+        """plan_runs.plan_version's drift-detection value: a hash over
+        every chunk's own content-addressed chunk_id, in order. Derived
+        entirely from already-parsed, in-memory chunk data — no repeated
+        disk read, unlike the original file-bytes-based version()."""
+        payload = "|".join(c.chunk_id for c in self.chunks)
+        return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _parse_param_specs(plan_name: str, raw: Any) -> dict[str, ParamSpec]:
@@ -118,12 +187,20 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
     if on_failure not in ("abort", "continue"):
         raise PlanError(f"plan {plan_name!r}, step {name!r}: on_failure must be 'abort' or 'continue'")
 
+    when = raw.get("when")
+    if when is not None and not isinstance(when, str):
+        raise PlanError(f"plan {plan_name!r}, step {name!r}: 'when' must be a string")
+
+    register = raw.get("register")
+    if register is not None and not isinstance(register, str):
+        raise PlanError(f"plan {plan_name!r}, step {name!r}: 'register' must be a string")
+
     module_key = None
     module_body = None
     pipeline_raw = raw.get("pipeline")
     upload_raw = raw.get("upload")
     for k, v in raw.items():
-        if k in ("name", "check_mode", "on_failure", "pipeline", "upload"):
+        if k in _STEP_META_KEYS:
             continue
         if not k.startswith(ANSIBLE_PREFIX):
             raise PlanError(f"plan {plan_name!r}, step {name!r}: unexpected key {k!r}")
@@ -146,6 +223,8 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             kind="module",
             check_mode=check_mode,
             on_failure=on_failure,
+            when=when,
+            register=register,
             module=module_key[len(ANSIBLE_PREFIX) :],
             body=module_body or {},
         )
@@ -155,6 +234,8 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             kind="pipeline",
             check_mode=check_mode,
             on_failure=on_failure,
+            when=when,
+            register=register,
             pipeline=_parse_pipeline_stages(plan_name, name, pipeline_raw),
         )
     if not isinstance(upload_raw, dict) or not upload_raw.get("local_path") or not upload_raw.get("remote_name"):
@@ -164,8 +245,37 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
         kind="upload",
         check_mode=check_mode,
         on_failure=on_failure,
+        when=when,
+        register=register,
         upload_local_path=upload_raw["local_path"],
         upload_remote_name=upload_raw["remote_name"],
+    )
+
+
+def _parse_chunk(plan_name: str, raw: dict[str, Any]) -> Chunk:
+    if not isinstance(raw, dict):
+        raise PlanError(f"plan {plan_name!r}: each chunk must be a mapping")
+    name = raw.get("name")
+    if not name:
+        raise PlanError(f"plan {plan_name!r}: a chunk is missing required 'name'")
+
+    os_family = raw.get("os_family")
+    if os_family is not None and (not isinstance(os_family, list) or not all(isinstance(x, str) for x in os_family)):
+        raise PlanError(f"plan {plan_name!r}, chunk {name!r}: 'os_family' must be a list of strings")
+
+    source_hash = raw.get("source_hash")
+    if source_hash is not None and not isinstance(source_hash, str):
+        raise PlanError(f"plan {plan_name!r}, chunk {name!r}: 'source_hash' must be a string")
+
+    steps_raw = raw.get("steps")
+    if not isinstance(steps_raw, list) or not steps_raw:
+        raise PlanError(f"plan {plan_name!r}, chunk {name!r}: 'steps' must be a non-empty list")
+
+    return Chunk(
+        name=name,
+        steps=[_parse_step(plan_name, s) for s in steps_raw],
+        os_family=os_family,
+        source_hash=source_hash,
     )
 
 
@@ -180,12 +290,39 @@ def parse_plan(data: bytes, source_path: Path) -> Plan:
     description = raw.get("description", "")
     params = _parse_param_specs(name, raw.get("params"))
 
+    chunks_raw = raw.get("chunks")
     steps_raw = raw.get("steps")
-    if not isinstance(steps_raw, list) or not steps_raw:
-        raise PlanError(f"plan {name!r}: 'steps' must be a non-empty list")
-    steps = [_parse_step(name, s) for s in steps_raw]
+    if chunks_raw is not None and steps_raw is not None:
+        raise PlanError(f"plan {name!r}: specify either 'chunks' or 'steps', not both")
 
-    return Plan(name=name, description=description, params=params, steps=steps, source_path=source_path)
+    if chunks_raw is not None:
+        if not isinstance(chunks_raw, list) or not chunks_raw:
+            raise PlanError(f"plan {name!r}: 'chunks' must be a non-empty list")
+        chunks = [_parse_chunk(name, c) for c in chunks_raw]
+    elif steps_raw is not None:
+        # Backward-compatible shorthand: a flat steps: list is one
+        # implicit, unconditional chunk.
+        if not isinstance(steps_raw, list) or not steps_raw:
+            raise PlanError(f"plan {name!r}: 'steps' must be a non-empty list")
+        chunks = [Chunk(name="main", steps=[_parse_step(name, s) for s in steps_raw])]
+    else:
+        raise PlanError(f"plan {name!r}: must have either 'chunks' or 'steps'")
+
+    final_handler = None
+    handler_raw = raw.get("final_handler")
+    if handler_raw is not None:
+        if not isinstance(handler_raw, dict):
+            raise PlanError(f"plan {name!r}: 'final_handler' must be a mapping")
+        final_handler = _parse_step(name, handler_raw)
+
+    return Plan(
+        name=name,
+        description=description,
+        params=params,
+        chunks=chunks,
+        source_path=source_path,
+        final_handler=final_handler,
+    )
 
 
 def load_plan_file(path: str | Path) -> Plan:
@@ -215,31 +352,54 @@ def load_plans_dir(plans_dir: str | Path) -> list[Plan]:
     return plans
 
 
-def render_catalog_text(plans_dir: str | Path) -> str:
-    """Renders a deterministic, sorted description of every available
-    plan — meant to become static, cacheable system-prompt content for
-    whatever LLM client drives Bossman's MCP facade (see docs/plan.md's
-    Bossman plan, section B.6: Anthropic prompt caching requires the
-    cached prefix to be byte-identical across calls, so this must never
-    embed a timestamp, UUID, or anything that varies run to run). Given
-    the same files on disk, two calls always produce identical text.
-    Regenerating this is a deliberate, explicit action (see
-    services.catalog.CatalogCache) — never done per tool call."""
-    try:
-        plans = load_plans_dir(plans_dir)
-    except PlanError:
-        return "No plans are currently available (the plans directory could not be read)."
-    if not plans:
-        return "No plans are currently available."
+def render_catalog_markdown(plans: list[Plan]) -> str:
+    """Renders a deterministic Markdown catalog of already-parsed plans —
+    meant to become static, cacheable system-prompt content for whatever
+    LLM client drives Bossman's MCP facade (see docs/plan.md's Bossman
+    plan: Anthropic prompt caching requires the cached prefix to be
+    byte-identical across calls, so this must never embed a timestamp,
+    UUID, or the target host — the host is always a tool-call argument,
+    never described here). Given the same plans, two calls always produce
+    identical text.
 
-    lines = ["Available plans (call run_plan(plan, host, params, dry_run) to execute one):", ""]
+    Markdown, not JSON: caching is prefix-based (Tools -> System ->
+    Messages), so the block's *format* doesn't affect whether a cache hit
+    happens, only how many tokens the cached prefix costs — and Markdown
+    measurably costs fewer tokens than JSON for this prose-heavy content
+    (plan descriptions stay as the plan author's own prose). The
+    machine-facing `list_plans` MCP tool / REST route return JSON from
+    the same parsed Plan objects, computed once, not re-derived from this
+    text.
+
+    Deliberately excludes step bodies — this is a "what plans exist and
+    what do they need" catalog, not an execution log. Full step detail is
+    on-demand via get_plan/get_plan_run, which don't need to be part of
+    the cached prefix.
+    """
+    if not plans:
+        return "_No plans are currently available._\n"
+
+    lines = [
+        "# Available plans",
+        "",
+        "Call `run_plan(plan, host, params, dry_run)` to execute one. `host` is always a tool-call "
+        "argument, never named in this catalog, so the catalog stays identical no matter which host "
+        "you target.",
+        "",
+    ]
     for plan in sorted(plans, key=lambda p: p.name):
-        lines.append(f"- {plan.name}: {plan.description}")
-        for pname in sorted(plan.params):
-            spec = plan.params[pname]
-            requirement = "required" if spec.required else f"default={spec.default!r}"
-            lines.append(f"    - {pname} ({spec.type}, {requirement})")
-    return "\n".join(lines)
+        lines.append(f"## {plan.name}")
+        lines.append("")
+        lines.append(plan.description or "_No description._")
+        if plan.params:
+            lines.append("")
+            lines.append("Params:")
+            for pname in sorted(plan.params):
+                spec = plan.params[pname]
+                requirement = "required" if spec.required else f"default={spec.default!r}"
+                lines.append(f"- `{pname}` ({spec.type}, {requirement})")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def load_host_vars(plans_dir: str | Path, hostname: str) -> dict[str, Any]:
@@ -313,3 +473,33 @@ def substitute(val: Any, args: dict[str, Any]) -> Any:
     if isinstance(val, list):
         return [substitute(v, args) for v in val]
     return val
+
+
+def chunks_needing_retranslation(existing_chunks: list[Chunk], current_source_hashes: dict[str, str]) -> list[str]:
+    """The incremental-retranslation scaffold: given the chunks already
+    persisted for a plan and a fresh `{chunk_name: source_hash}` map
+    computed from the *current* foreign source (an Ansible role's task
+    files, re-hashed), returns the names of chunks whose source actually
+    changed (or that are new) — the only ones a future translator would
+    need to re-run an LLM/parser over. Chunks whose source_hash still
+    matches are left untouched, proving the "don't recompute what hasn't
+    changed" mechanism independent of any real orchestrator parser, which
+    is future work.
+
+    A chunk with no source_hash (natively hand-authored, no foreign
+    source) is never flagged — there's nothing to diff it against.
+    """
+    existing_by_name = {c.name: c for c in existing_chunks if c.source_hash is not None}
+    stale = []
+    for chunk_name, source_hash in current_source_hashes.items():
+        existing = existing_by_name.get(chunk_name)
+        if existing is None or existing.source_hash != source_hash:
+            stale.append(chunk_name)
+    return sorted(stale)
+
+
+def hash_source_text(text: str) -> str:
+    """sha256 of a foreign source excerpt (e.g. one Ansible task file's
+    raw bytes) — the value a (human/AI) translator computes once at
+    authoring time and pastes into a chunk's `source_hash:` field."""
+    return hashlib.sha256(text.encode()).hexdigest()

@@ -26,9 +26,10 @@ func (f *File) Description() string {
 		"check_mode: pass dry_run=true to preview whether anything would change without " +
 		"touching the filesystem.\n\n" +
 		"Cross-tool equivalents:\n" +
-		"- Ansible: ansible.builtin.file. Same path/state/owner/group/mode parameter names; v1 " +
-		"supports state=file|directory|absent|touch (Ansible additionally supports link/hard " +
-		"for symlinks/hardlinks, not yet implemented here).\n" +
+		"- Ansible: ansible.builtin.file. Same path/state/owner/group/mode parameter names; " +
+		"supports state=file|directory|absent|touch|link (state=link requires 'src', the link " +
+		"target; Ansible additionally supports state=hard for hardlinks, not yet implemented " +
+		"here).\n" +
 		"- Chef: the `directory` resource (state=directory), `file` resource with action :delete " +
 		"(state=absent) or action :create_if_missing / :touch (state=touch), and a `file` " +
 		"resource's owner/group/mode properties for attribute assertions.\n" +
@@ -46,10 +47,11 @@ func (f *File) Description() string {
 func (f *File) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"path":    stringProp(`Path to manage, e.g. "/opt/app/data" or "/etc/myapp/config.d".`),
-		"state":   stringEnumProp(`Desired state. Default "file" (assert attributes on an existing file, error if missing).`, "file", "directory", "absent", "touch"),
+		"state":   stringEnumProp(`Desired state. Default "file" (assert attributes on an existing file, error if missing).`, "file", "directory", "absent", "touch", "link"),
+		"src":     stringProp(`The symlink target. Required when state=link, e.g. "/data1/var_lib_docker" for path "/var/lib/docker".`),
 		"owner":   stringProp("Optional desired owner (username or numeric uid). Leave unset to not manage ownership."),
 		"group":   stringProp("Optional desired group (group name or numeric gid). Leave unset to not manage group."),
-		"mode":    stringProp(`Optional desired permission mode as an octal string, e.g. "0644" or "755". Leave unset to not manage mode.`),
+		"mode":    stringProp(`Optional desired permission mode as an octal string, e.g. "0644" or "755". Leave unset to not manage mode. Ignored when state=link — symlink permission bits are not meaningfully manageable on Linux.`),
 		"dry_run": boolProp("When true, report what would change without modifying the filesystem (check_mode).", false),
 	}, "path")
 }
@@ -77,6 +79,10 @@ func (f *File) Run(ctx context.Context, params map[string]any, dryRunArg bool) (
 	if err != nil {
 		return Result{}, err
 	}
+	src, err := stringParam(params, "src", false, "")
+	if err != nil {
+		return Result{}, err
+	}
 	paramDryRun, err := boolParam(params, "dry_run", false)
 	if err != nil {
 		return Result{}, err
@@ -92,8 +98,10 @@ func (f *File) Run(ctx context.Context, params map[string]any, dryRunArg bool) (
 		return f.runTouch(path, owner, group, mode, dryRun)
 	case "file":
 		return f.runFile(path, owner, group, mode, dryRun)
+	case "link":
+		return f.runLink(path, src, owner, group, dryRun)
 	default:
-		return Result{}, fmt.Errorf("state: unsupported value %q (want file|directory|absent|touch)", state)
+		return Result{}, fmt.Errorf("state: unsupported value %q (want file|directory|absent|touch|link)", state)
 	}
 }
 
@@ -174,6 +182,63 @@ func (f *File) runTouch(path, owner, group, mode string, dryRun bool) (Result, e
 	}
 
 	return Result{Changed: changed, Msg: "touched", Data: map[string]any{"path": path, "state": "touch", "checked_at": time.Now().Unix()}}, nil
+}
+
+func (f *File) runLink(path, src, owner, group string, dryRun bool) (Result, error) {
+	if src == "" {
+		return Result{}, fmt.Errorf("file: state=link requires 'src' (the link target)")
+	}
+
+	fi, err := os.Lstat(path)
+	switch {
+	case err == nil && fi.Mode()&os.ModeSymlink != 0:
+		currentTarget, rerr := os.Readlink(path)
+		if rerr != nil {
+			return Result{}, fmt.Errorf("file: reading existing symlink %q: %w", path, rerr)
+		}
+		if currentTarget != src {
+			if !dryRun {
+				if rerr := os.Remove(path); rerr != nil {
+					return Result{}, fmt.Errorf("file: removing stale symlink %q: %w", path, rerr)
+				}
+				if rerr := os.Symlink(src, path); rerr != nil {
+					return Result{}, fmt.Errorf("file: creating symlink %q -> %q: %w", path, src, rerr)
+				}
+			}
+			return f.finishLink(path, src, owner, group, true, dryRun)
+		}
+	case err == nil:
+		return Result{}, fmt.Errorf("file: %q exists and is not a symlink", path)
+	case os.IsNotExist(err):
+		if !dryRun {
+			if serr := os.Symlink(src, path); serr != nil {
+				return Result{}, fmt.Errorf("file: creating symlink %q -> %q: %w", path, src, serr)
+			}
+		}
+		return f.finishLink(path, src, owner, group, true, dryRun)
+	default:
+		return Result{}, err
+	}
+
+	return f.finishLink(path, src, owner, group, false, dryRun)
+}
+
+// finishLink applies owner/group to an already-correct symlink (via
+// lchown, which acts on the link itself rather than following it — using
+// the regular chown-based applyOwnerGroupMode here would silently retarget
+// every subsequent run's ownership check at src instead of path, making
+// state=link never converge to changed=false) and folds in the
+// create/retarget outcome already known by the caller.
+func (f *File) finishLink(path, src, owner, group string, alreadyChanged, dryRun bool) (Result, error) {
+	changed := alreadyChanged
+	if (!dryRun || !alreadyChanged) && (owner != "" || group != "") {
+		attrChanged, err := applyOwnerGroupOnLink(path, owner, group, dryRun)
+		if err != nil {
+			return Result{}, err
+		}
+		changed = changed || attrChanged
+	}
+	return Result{Changed: changed, Msg: "symlink present", Data: map[string]any{"path": path, "src": src, "state": "link"}}, nil
 }
 
 func (f *File) runFile(path, owner, group, mode string, dryRun bool) (Result, error) {

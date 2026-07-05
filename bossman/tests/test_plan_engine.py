@@ -298,3 +298,249 @@ async def test_run_plan_missing_required_param_raises_before_any_row_created(db_
 
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def _steps(db_session, plan_run):
+    rows = (
+        await db_session.scalars(
+            select(PlanRunStep).where(PlanRunStep.plan_run_id == plan_run.id).order_by(PlanRunStep.step_index)
+        )
+    ).all()
+    return rows
+
+
+REGISTER_WHEN_PLAN = """
+name: register_when_plan
+steps:
+  - name: check_dir
+    register: _dir_stat
+    ansible.builtin.stat:
+      path: /tmp/somewhere
+  - name: create_if_missing
+    when: not _dir_stat.data.exists
+    ansible.builtin.file:
+      path: /tmp/somewhere
+      state: directory
+"""
+
+
+async def test_run_plan_register_feeds_later_when_true(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, REGISTER_WHEN_PLAN)
+    fake = FakeAgentClient(tool_responses={"stat": {"changed": False, "data": {"exists": False}}})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "succeeded"
+    assert [name for name, _ in fake.tool_calls] == ["stat", "file"]  # the guarded step actually ran
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 2
+    assert steps[1].response_body is None or "skipped" not in steps[1].response_body
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+async def test_run_plan_register_feeds_later_when_false_skips_without_agent_call(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, REGISTER_WHEN_PLAN)
+    fake = FakeAgentClient(tool_responses={"stat": {"changed": False, "data": {"exists": True}}})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "succeeded"
+    assert [name for name, _ in fake.tool_calls] == ["stat"]  # "file" never called — when was false
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 2
+    assert steps[1].response_body == {"skipped": "when: not _dir_stat.data.exists evaluated false"}
+    assert steps[1].error is None
+    assert steps[1].changed is None
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+WHEN_ERROR_PLAN = """
+name: bad_when_plan
+steps:
+  - name: guarded
+    when: docker.proxy | default('x')
+    ansible.builtin.copy: {}
+"""
+
+
+async def test_run_plan_unsupported_when_expression_is_recorded_as_step_error(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, WHEN_ERROR_PLAN)
+    fake = FakeAgentClient()
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "failed"
+    assert fake.tool_calls == []  # never reached the agent
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 1
+    assert "unsupported when-expression" in steps[0].error
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+OS_DISPATCH_PLAN = """
+name: os_dispatch_plan
+chunks:
+  - name: debian_packages
+    os_family: [debian]
+    steps:
+      - name: install_debian
+        ansible.builtin.apt:
+          name: docker-ce
+  - name: redhat_packages
+    os_family: [redhat]
+    steps:
+      - name: install_redhat
+        ansible.builtin.package:
+          name: docker-ce
+  - name: common
+    steps:
+      - name: enable_service
+        ansible.builtin.service:
+          name: docker
+          state: started
+"""
+
+
+async def test_run_plan_os_dispatch_selects_matching_chunk_and_skips_others(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, OS_DISPATCH_PLAN)
+    fake = FakeAgentClient(
+        tool_responses={"setup": {"changed": False, "data": {"ansible_distribution": "Debian GNU/Linux"}}}
+    )
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "succeeded"
+    called = [name for name, _ in fake.tool_calls]
+    assert called == ["setup", "apt", "service"]  # redhat's "package" tool never called
+    steps = await _steps(db_session, plan_run)
+    # setup + install_debian + skipped-redhat-chunk row + enable_service
+    assert len(steps) == 4
+    assert steps[0].step_name == "resolve OS family (setup)"
+    assert steps[0].response_body == {"resolved_family": "debian"}
+    skipped = steps[2]
+    assert skipped.response_body["skipped"] == "os_family mismatch"
+    assert skipped.response_body["expected"] == ["redhat"]
+    assert skipped.response_body["actual"] == "debian"
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+async def test_run_plan_os_dispatch_setup_failure_skips_all_restricted_chunks(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, OS_DISPATCH_PLAN)
+    fake = FakeAgentClient(tool_errors={"setup": AgentClientError("agent unreachable")})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "failed"
+    # Neither os_family-restricted chunk runs without a resolved family;
+    # the unconditional "common" chunk still does.
+    called = [name for name, _ in fake.tool_calls]
+    assert called == ["setup", "service"]
+    steps = await _steps(db_session, plan_run)
+    assert steps[0].error == "agent unreachable"
+    assert steps[1].response_body["skipped"] == "os_family mismatch"
+    assert steps[1].response_body["actual"] is None
+    assert steps[2].response_body["skipped"] == "os_family mismatch"
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+async def test_run_plan_os_dispatch_not_triggered_when_no_chunk_needs_it(db_session, tmp_path):
+    """Plans with no os_family-restricted chunk must never pay for the
+    extra setup() round trip — the whole point of only resolving the
+    distribution family lazily."""
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, MODULE_PLAN)
+    fake = FakeAgentClient()
+
+    plan_run = await run_plan(
+        db_session, agent, plan, host_vars={}, explicit_params={"message": "hi"}, dry_run=False, client=fake
+    )
+
+    assert "setup" not in [name for name, _ in fake.tool_calls]
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+FINAL_HANDLER_PLAN = """
+name: with_handler
+steps:
+  - name: install
+    ansible.builtin.apt:
+      name: docker-ce
+final_handler:
+  name: restart_docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+"""
+
+
+async def test_run_plan_final_handler_runs_when_something_changed(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, FINAL_HANDLER_PLAN)
+    fake = FakeAgentClient(tool_responses={"apt": {"changed": True}, "service": {"changed": True}})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert [name for name, _ in fake.tool_calls] == ["apt", "service"]
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 2
+    assert steps[1].step_name == "restart_docker"
+    assert steps[1].changed is True
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+async def test_run_plan_final_handler_does_not_run_when_nothing_changed(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, FINAL_HANDLER_PLAN)
+    fake = FakeAgentClient(tool_responses={"apt": {"changed": False}})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert [name for name, _ in fake.tool_calls] == ["apt"]  # "service" (the handler) never called
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 1
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+ABORT_WITH_HANDLER_PLAN = """
+name: abort_with_handler
+steps:
+  - name: first
+    ansible.builtin.apt:
+      name: docker-ce
+  - name: second
+    ansible.builtin.file:
+      path: /data1
+final_handler:
+  name: restart_docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+"""
+
+
+async def test_run_plan_final_handler_does_not_run_when_aborted(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, ABORT_WITH_HANDLER_PLAN)
+    fake = FakeAgentClient(tool_responses={"apt": {"changed": True}}, tool_errors={"file": AgentClientError("boom")})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "failed"
+    assert [name for name, _ in fake.tool_calls] == ["apt", "file"]  # handler ("service") never called after abort
+    steps = await _steps(db_session, plan_run)
+    assert len(steps) == 2
+
+    await _cleanup(db_session, agent, plan_run)

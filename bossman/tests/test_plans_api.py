@@ -109,6 +109,31 @@ async def test_list_and_get_plan(db_session, tmp_path, monkeypatch):
     await db_session.commit()
 
 
+async def test_list_plans_route_served_from_cache_not_reparsed_per_request(db_session, tmp_path, monkeypatch):
+    """The behavioral proof that GET /api/v1/plans reads the in-process
+    cache, not the disk, on every call: add a second plan file after the
+    app has already started — it must not appear until /plans/reload runs."""
+    _write_plan(tmp_path)
+    monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+
+    with TestClient(app) as client:
+        first = client.get("/api/v1/plans", headers=_headers(raw))
+        assert [p["name"] for p in first.json()] == ["demo"]
+
+        _write_plan(tmp_path, plan_name="added_later")
+        second = client.get("/api/v1/plans", headers=_headers(raw))
+        assert [p["name"] for p in second.json()] == ["demo"]  # unchanged — cache, not disk
+
+        client.post("/api/v1/plans/reload", headers=_headers(raw))
+        third = client.get("/api/v1/plans", headers=_headers(raw))
+        assert sorted(p["name"] for p in third.json()) == ["added_later", "demo"]
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
 async def test_reload_plans_regenerates_catalog_cache(db_session, tmp_path, monkeypatch):
     _write_plan(tmp_path)
     monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
@@ -116,20 +141,20 @@ async def test_reload_plans_regenerates_catalog_cache(db_session, tmp_path, monk
     app = create_app()
 
     with TestClient(app) as client:
-        before_text = app.state.catalog_cache.text
+        before_text = app.state.catalog_cache.catalog_markdown
         assert "demo" in before_text
 
         (tmp_path / "second.yaml").write_text(MODULE_PLAN.format(plan_name="second"))
         # The cache must not pick up the new file until reload is called —
         # that's the whole point of the cache (see services/catalog.py).
-        assert app.state.catalog_cache.text == before_text
+        assert app.state.catalog_cache.catalog_markdown == before_text
 
         resp = client.post("/api/v1/plans/reload", headers=_headers(raw))
 
         assert resp.status_code == 200
         assert resp.json()["reloaded"] is True
-        assert "second" in app.state.catalog_cache.text
-        assert app.state.catalog_cache.text != before_text
+        assert "second" in app.state.catalog_cache.catalog_markdown
+        assert app.state.catalog_cache.catalog_markdown != before_text
 
     await db_session.delete(api_token)
     await db_session.commit()

@@ -21,7 +21,7 @@ from bossman.db.session import get_session
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.plan_engine import run_plan
-from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars, load_plans_dir
+from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars
 
 router = APIRouter()
 
@@ -80,36 +80,28 @@ def _step_out(step: PlanStep) -> dict[str, Any]:
     }
 
 
-def _find_plan_or_404(settings: Settings, name: str) -> Plan:
-    try:
-        plans = load_plans_dir(settings.plans_dir)
-    except PlanError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    for plan in plans:
-        if plan.name == name:
-            return plan
-    raise HTTPException(status_code=404, detail=f"no such plan {name!r}")
+def _find_plan_or_404(cache: CatalogCache, name: str) -> Plan:
+    plan = cache.get(name)
+    if plan is None:
+        raise HTTPException(status_code=404, detail=f"no such plan {name!r}")
+    return plan
 
 
 @router.get("/api/v1/plans", response_model=list[PlanOut])
 async def list_plans(
-    settings: Settings = Depends(get_settings),
+    cache: CatalogCache = Depends(get_catalog_cache),
     _identity=Depends(get_current_identity),
 ) -> list[PlanOut]:
-    try:
-        plans = load_plans_dir(settings.plans_dir)
-    except PlanError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return [_plan_out(p) for p in plans]
+    return [_plan_out(p) for p in cache.plans]
 
 
 @router.get("/api/v1/plans/{name}", response_model=PlanDetailOut)
 async def get_plan(
     name: str,
-    settings: Settings = Depends(get_settings),
+    cache: CatalogCache = Depends(get_catalog_cache),
     _identity=Depends(get_current_identity),
 ) -> PlanDetailOut:
-    plan = _find_plan_or_404(settings, name)
+    plan = _find_plan_or_404(cache, name)
     return PlanDetailOut(**_plan_out(plan).model_dump(), steps=[_step_out(s) for s in plan.steps])
 
 
@@ -152,10 +144,11 @@ async def run_plan_route(
     body: RunPlanRequest,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    cache: CatalogCache = Depends(get_catalog_cache),
     identity=Depends(get_current_identity),
     client_factory=Depends(get_client_factory),
 ) -> RunPlanResponse:
-    plan = _find_plan_or_404(settings, name)
+    plan = _find_plan_or_404(cache, name)
 
     agent = await session.scalar(select(Agent).where(Agent.name == body.agent))
     if agent is None:

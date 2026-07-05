@@ -30,7 +30,7 @@ from bossman.mcp.auth import current_identity
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.plan_engine import run_plan as engine_run_plan
-from bossman.services.plan_loader import PlanError, load_host_vars, load_plans_dir
+from bossman.services.plan_loader import PlanError, load_host_vars
 
 
 def build_mcp_server(
@@ -45,7 +45,7 @@ def build_mcp_server(
     # request (caught by an actual MCP client run against a live server,
     # not by any in-process test, which never asked FastMCP for its own
     # ASGI app).
-    mcp = FastMCP(name="bossman", instructions=catalog_cache.text, streamable_http_path="/")
+    mcp = FastMCP(name="bossman", instructions=catalog_cache.catalog_markdown, streamable_http_path="/")
 
     @mcp.tool()
     async def list_hosts() -> list[dict[str, Any]]:
@@ -122,21 +122,7 @@ def build_mcp_server(
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
-        try:
-            plans = load_plans_dir(settings.plans_dir)
-        except PlanError as exc:
-            raise ValueError(str(exc)) from exc
-        return [
-            {
-                "name": p.name,
-                "description": p.description,
-                "params": {
-                    name: {"type": s.type, "required": s.required, "default": s.default}
-                    for name, s in p.params.items()
-                },
-            }
-            for p in plans
-        ]
+        return catalog_cache.list_json
 
     @mcp.tool()
     async def get_catalog() -> str:
@@ -145,16 +131,12 @@ def build_mcp_server(
         LLM client's own system prompt with cache_control so the plan catalog doesn't cost
         input tokens on every turn — that's the whole point of it being static (see
         docs/plan.md's prompt-caching design)."""
-        return catalog_cache.text
+        return catalog_cache.catalog_markdown
 
     @mcp.tool()
     async def run_plan(plan: str, host: str, params: dict[str, Any] | None = None, dry_run: bool = False) -> dict[str, Any]:
         """Run a named plan against a host by name — "take plan X, run it against host Y"."""
-        try:
-            plans = load_plans_dir(settings.plans_dir)
-        except PlanError as exc:
-            raise ValueError(str(exc)) from exc
-        plan_obj = next((p for p in plans if p.name == plan), None)
+        plan_obj = catalog_cache.get(plan)
         if plan_obj is None:
             raise ValueError(f"no such plan {plan!r}")
 
