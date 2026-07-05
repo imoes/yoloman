@@ -30,6 +30,7 @@ class AgentOut(BaseModel):
     enrollment_state: str
     last_seen_at: datetime | None
     metadata: dict
+    groups: list[str]
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -41,6 +42,7 @@ class AgentOut(BaseModel):
             enrollment_state=agent.enrollment_state,
             last_seen_at=agent.last_seen_at,
             metadata=agent.agent_metadata,
+            groups=agent.groups,
         )
 
 
@@ -73,6 +75,28 @@ async def get_agent(
     _identity=Depends(get_current_identity),
 ) -> AgentOut:
     return AgentOut.from_model(await _get_agent_or_404(session, agent_id))
+
+
+class UpdateGroupsRequest(BaseModel):
+    groups: list[str]
+
+
+@router.patch("/api/v1/agents/{agent_id}/groups", response_model=AgentOut)
+async def update_agent_groups(
+    agent_id: UUID,
+    body: UpdateGroupsRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> AgentOut:
+    """Host-group membership (see docs/plan.md's monitoring Block E2/E3) —
+    the unit a check_rules row can target with scope_type=group, which a
+    host-scoped rule can then override. Replaces the whole list rather
+    than adding/removing one at a time, matching how the Settings UI's
+    host-groups editor naturally works (a multi-select, not a diff)."""
+    agent = await _get_agent_or_404(session, agent_id)
+    agent.groups = body.groups
+    await session.commit()
+    return AgentOut.from_model(agent)
 
 
 @router.get("/api/v1/agents/{agent_id}/metrics")

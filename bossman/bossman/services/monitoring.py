@@ -16,12 +16,14 @@ the REST API, MCP tools, and tests without duplicating logic.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckRule, Metric, Service, ServiceStateHistory
+from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory
 
 _COMPARISONS = {
     "gt": lambda value, threshold: value > threshold,
@@ -158,3 +160,184 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
 
     await session.flush()
     return updated
+
+
+# ---------------------------------------------------------------------------
+# Shared query/mutation layer for the "unbehandelte Probleme" surface —
+# used by both api/monitoring.py (REST) and mcp/server.py (the MCP-native
+# admin entry point this whole project is built around), so the
+# in-downtime/filtering logic lives exactly once.
+
+
+@dataclass
+class ServiceView:
+    """One Service plus the two things that don't live on the row itself:
+    its host's name (a join) and whether it's currently covered by an
+    active Downtime (a point-in-time computation, not stored state)."""
+
+    service: Service
+    agent_name: str
+    in_downtime: bool
+
+
+async def is_in_downtime(session: AsyncSession, agent_id: UUID, service_name: str, now: datetime) -> bool:
+    """Whether some Downtime row covers this exact (agent_id,
+    service_name) right now. `Downtime.service_name IS NULL` means a
+    whole-host downtime, which covers every service on that host."""
+    exists_clause = (
+        select(Downtime.id)
+        .where(
+            Downtime.agent_id == agent_id,
+            or_(Downtime.service_name.is_(None), Downtime.service_name == service_name),
+            Downtime.starts_at <= now,
+            Downtime.ends_at >= now,
+        )
+        .exists()
+    )
+    return bool(await session.scalar(select(exists_clause)))
+
+
+async def _to_view(session: AsyncSession, service: Service, agent_name: str, now: datetime) -> ServiceView:
+    in_downtime = await is_in_downtime(session, service.agent_id, service.name, now)
+    return ServiceView(service=service, agent_name=agent_name, in_downtime=in_downtime)
+
+
+async def to_view(session: AsyncSession, service: Service) -> ServiceView:
+    """Public single-service wrapper around _to_view for callers (REST
+    routes after a mutation) that only have the Service itself, not an
+    already-joined agent_name — looks the Agent up by service.agent_id."""
+    agent = await session.get(Agent, service.agent_id)
+    return await _to_view(session, service, agent.name, datetime.now(timezone.utc))
+
+
+async def query_problems(
+    session: AsyncSession,
+    *,
+    state: str | None = None,
+    host: str | None = None,
+    acknowledged: bool | None = None,
+    include_downtime: bool = False,
+) -> list[ServiceView]:
+    """Every non-OK service, most recently changed first — the "unbehandelte
+    Probleme" view every real monitoring system leads with. Excludes
+    services currently under an active Downtime unless include_downtime is
+    set, since a downtime means "we already know, don't page anyone"."""
+    now = datetime.now(timezone.utc)
+    stmt = select(Service, Agent.name).join(Agent, Agent.id == Service.agent_id).where(Service.state != "OK")
+    if state is not None:
+        stmt = stmt.where(Service.state == state)
+    if host is not None:
+        stmt = stmt.where(Agent.name == host)
+    if acknowledged is not None:
+        stmt = stmt.where(Service.acknowledged == acknowledged)
+    stmt = stmt.order_by(Service.last_state_change.desc())
+
+    rows = (await session.execute(stmt)).all()
+    results = []
+    for service, agent_name in rows:
+        view = await _to_view(session, service, agent_name, now)
+        if not include_downtime and view.in_downtime:
+            continue
+        results.append(view)
+    return results
+
+
+async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[ServiceView] | None:
+    """Every service for one host, by id. Returns None (not an empty list)
+    if the agent itself doesn't exist, so callers can tell "no services
+    yet" apart from "no such host"."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        return None
+    now = datetime.now(timezone.utc)
+    services = (await session.scalars(select(Service).where(Service.agent_id == agent_id).order_by(Service.name))).all()
+    return [await _to_view(session, s, agent.name, now) for s in services]
+
+
+async def acknowledge_service(session: AsyncSession, service_id: UUID, comment: str, ack_by: str) -> Service | None:
+    service = await session.get(Service, service_id)
+    if service is None:
+        return None
+    service.acknowledged = True
+    service.ack_comment = comment
+    service.ack_by = ack_by
+    await session.commit()
+    return service
+
+
+async def unacknowledge_service(session: AsyncSession, service_id: UUID) -> Service | None:
+    service = await session.get(Service, service_id)
+    if service is None:
+        return None
+    service.acknowledged = False
+    service.ack_comment = None
+    service.ack_by = None
+    await session.commit()
+    return service
+
+
+async def create_downtime(
+    session: AsyncSession,
+    *,
+    agent_id: UUID,
+    service_name: str | None,
+    starts_at: datetime,
+    ends_at: datetime,
+    comment: str,
+    created_by: str | None,
+) -> Downtime | None:
+    """Returns None if agent_id doesn't exist; raises ValueError if
+    ends_at <= starts_at — a real validation error, not a "not found"."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        return None
+    if ends_at <= starts_at:
+        raise ValueError("ends_at must be after starts_at")
+
+    downtime = Downtime(
+        agent_id=agent_id,
+        service_name=service_name,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        comment=comment,
+        created_by=created_by,
+    )
+    session.add(downtime)
+    await session.commit()
+    return downtime
+
+
+@dataclass
+class FleetSummary:
+    hosts_total: int
+    hosts_by_enrollment: dict[str, int]
+    services_by_state: dict[str, int]
+    open_problems: int
+
+
+async def fleet_summary(session: AsyncSession) -> FleetSummary:
+    """Counters for the fleet overview page: hosts by enrollment state,
+    services by monitoring state, and how many are genuinely open problems
+    (non-OK, unacknowledged, not in downtime) — the number that should
+    actually draw a human's attention."""
+    agents = (await session.scalars(select(Agent))).all()
+    hosts_by_enrollment: dict[str, int] = {}
+    for a in agents:
+        hosts_by_enrollment[a.enrollment_state] = hosts_by_enrollment.get(a.enrollment_state, 0) + 1
+
+    now = datetime.now(timezone.utc)
+    services = (await session.scalars(select(Service))).all()
+    services_by_state: dict[str, int] = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0}
+    open_problems = 0
+    for s in services:
+        services_by_state[s.state] = services_by_state.get(s.state, 0) + 1
+        if s.state != "OK" and not s.acknowledged:
+            if not await is_in_downtime(session, s.agent_id, s.name, now):
+                open_problems += 1
+
+    return FleetSummary(
+        hosts_total=len(agents),
+        hosts_by_enrollment=hosts_by_enrollment,
+        services_by_state=services_by_state,
+        open_problems=open_problems,
+    )

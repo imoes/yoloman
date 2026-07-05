@@ -16,6 +16,7 @@ in this project already follows.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -25,14 +26,38 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from bossman.config import Settings
-from bossman.db.models import Agent, HostEdge, Metric, PlanRun
+from bossman.db.models import Agent, HostEdge, Metric, PlanRun, Service
 from bossman.mcp.auth import current_identity
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.embedding_client import EmbeddingClient
+from bossman.services.monitoring import (
+    ServiceView,
+    acknowledge_service,
+    create_downtime,
+    fleet_summary,
+    query_agent_services,
+    query_problems,
+    to_view,
+)
 from bossman.services.plan_engine import run_plan as engine_run_plan
 from bossman.services.plan_loader import PlanError, load_host_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans as search_plans_service
+
+
+def _service_view_dict(view: ServiceView) -> dict[str, Any]:
+    s = view.service
+    return {
+        "service_id": str(s.id),
+        "host": view.agent_name,
+        "name": s.name,
+        "state": s.state,
+        "value": s.value,
+        "output": s.output,
+        "acknowledged": s.acknowledged,
+        "in_downtime": view.in_downtime,
+        "last_state_change": s.last_state_change.isoformat(),
+    }
 
 
 def build_mcp_server(
@@ -216,6 +241,88 @@ def build_mcp_server(
                 }
                 for s in steps
             ],
+        }
+
+    @mcp.tool()
+    async def list_problems(state: str | None = None, acknowledged: bool | None = None) -> list[dict[str, Any]]:
+        """List every active fleet problem — a non-OK service that isn't currently covered by a
+        downtime — the CheckMK-style "unbehandelte Probleme" view an admin (human or AI) should
+        triage first. Optionally filter by state (WARN|CRIT|UNKNOWN) and/or acknowledged."""
+        async with session_factory() as session:
+            views = await query_problems(session, state=state, acknowledged=acknowledged)
+        return [_service_view_dict(v) for v in views]
+
+    @mcp.tool()
+    async def host_services(host: str) -> list[dict[str, Any]]:
+        """Every monitored service for one host (by name), with its current state — the
+        CheckMK-style drill-down from a host to its services."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            views = await query_agent_services(session, agent.id)
+        return [_service_view_dict(v) for v in views or []]
+
+    @mcp.tool()
+    async def acknowledge_problem(host: str, service: str, comment: str = "") -> dict[str, Any]:
+        """Acknowledge one host's service problem — "we know, don't page anyone" (CheckMK's own
+        acknowledge semantics). Stays suppressed until the service's state changes again."""
+        requested_by = current_identity.get() or "mcp-facade"
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            svc = await session.scalar(select(Service).where(Service.agent_id == agent.id, Service.name == service))
+            if svc is None:
+                raise ValueError(f"no such service {service!r} on host {host!r}")
+            updated = await acknowledge_service(session, svc.id, comment, requested_by)
+            view = await to_view(session, updated)
+        return _service_view_dict(view)
+
+    @mcp.tool()
+    async def schedule_downtime(host: str, minutes: int, service: str | None = None, comment: str = "") -> dict[str, Any]:
+        """Schedule a maintenance downtime window starting now for `minutes` minutes — for one
+        named service, or the whole host if service is omitted (CheckMK's host-vs-service
+        downtime distinction). Problems covered by an active downtime are excluded from
+        list_problems, since a downtime means "expected, don't alert"."""
+        requested_by = current_identity.get() or "mcp-facade"
+        now = datetime.now(timezone.utc)
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            try:
+                downtime = await create_downtime(
+                    session,
+                    agent_id=agent.id,
+                    service_name=service,
+                    starts_at=now,
+                    ends_at=now + timedelta(minutes=minutes),
+                    comment=comment,
+                    created_by=requested_by,
+                )
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+        return {
+            "downtime_id": str(downtime.id),
+            "host": host,
+            "service_name": downtime.service_name,
+            "starts_at": downtime.starts_at.isoformat(),
+            "ends_at": downtime.ends_at.isoformat(),
+        }
+
+    @mcp.tool()
+    async def fleet_health() -> dict[str, Any]:
+        """Fleet-wide counters: hosts by enrollment state, services by monitoring state, and how
+        many are genuinely open problems (non-OK, unacknowledged, not in downtime) needing
+        attention — the number that should actually draw a human's or an AI's focus first."""
+        async with session_factory() as session:
+            summary = await fleet_summary(session)
+        return {
+            "hosts_total": summary.hosts_total,
+            "hosts_by_enrollment": summary.hosts_by_enrollment,
+            "services_by_state": summary.services_by_state,
+            "open_problems": summary.open_problems,
         }
 
     return mcp

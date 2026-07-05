@@ -8,14 +8,14 @@ network) is injected via build_mcp_server's client_factory parameter.
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, HostEdge, Metric, PlanEmbedding, PlanRun
+from bossman.db.models import Agent, HostEdge, Metric, PlanEmbedding, PlanRun, Service
 from bossman.mcp.auth import current_identity
 from bossman.mcp.server import build_mcp_server
 from bossman.services.catalog import CatalogCache
@@ -331,3 +331,174 @@ async def test_get_plan_run_invalid_id_raises(session_factory, tmp_path):
 
     with pytest.raises(ToolError, match="not a valid plan run id"):
         await mcp.call_tool("get_plan_run", {"plan_run_id": "not-a-uuid"})
+
+
+# ---------------------------------------------------------------------------
+# Monitoring tools (see docs/plan.md's monitoring Block E3) — the MCP-native
+# admin entry point for the "unbehandelte Probleme" surface, backed by the
+# exact same services/monitoring.py functions as api/monitoring.py's REST
+# routes, so the two facades can never diverge.
+
+
+async def _make_service(db_session, agent, **overrides) -> Service:
+    now = datetime.now(timezone.utc)
+    fields = {
+        "agent_id": agent.id,
+        "name": "CPU load",
+        "metric": "cpu_pct",
+        "state": "CRIT",
+        "value": 99.0,
+        "output": "value 99.0 gt crit threshold 95.0",
+        "last_state_change": now,
+        "last_checked": now,
+        "acknowledged": False,
+    }
+    fields.update(overrides)
+    service = Service(**fields)
+    db_session.add(service)
+    await db_session.flush()
+    await db_session.commit()
+    return service
+
+
+async def test_mcp_list_problems_shows_non_ok_services(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    service = await _make_service(db_session, agent, state="CRIT")
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    problems = await _call(mcp, "list_problems")
+
+    assert any(p["service_id"] == str(service.id) and p["host"] == agent.name for p in problems)
+
+    await db_session.delete(service)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_list_problems_filters_by_state(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    warn_service = await _make_service(db_session, agent, name="Disk space", state="WARN")
+    crit_service = await _make_service(db_session, agent, name="CPU load", state="CRIT")
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    problems = await _call(mcp, "list_problems", {"state": "CRIT"})
+
+    names = [p["name"] for p in problems if p["host"] == agent.name]
+    assert names == ["CPU load"]
+
+    await db_session.delete(warn_service)
+    await db_session.delete(crit_service)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_host_services_lists_all_states(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    service = await _make_service(db_session, agent, state="OK", output="fine")
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    services = await _call(mcp, "host_services", {"host": agent.name})
+
+    assert [s["name"] for s in services] == ["CPU load"]
+    assert services[0]["state"] == "OK"
+
+    await db_session.delete(service)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_host_services_unknown_host_raises(session_factory, tmp_path):
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    with pytest.raises(ToolError, match="no such host"):
+        await mcp.call_tool("host_services", {"host": "nope"})
+
+
+async def test_mcp_acknowledge_problem_sets_ack_fields(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    service = await _make_service(db_session, agent)
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    token = current_identity.set("mcp-ack-tester")
+    try:
+        result = await _call(mcp, "acknowledge_problem", {"host": agent.name, "service": service.name, "comment": "investigating"})
+    finally:
+        current_identity.reset(token)
+
+    assert result["acknowledged"] is True
+
+    await db_session.delete(service)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_acknowledge_problem_unknown_service_raises(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    with pytest.raises(ToolError, match="no such service"):
+        await mcp.call_tool("acknowledge_problem", {"host": agent.name, "service": "nope"})
+
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_schedule_downtime_creates_window(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    before = datetime.now(timezone.utc)
+    result = await _call(mcp, "schedule_downtime", {"host": agent.name, "minutes": 30, "comment": "planned reboot"})
+
+    starts_at = datetime.fromisoformat(result["starts_at"])
+    ends_at = datetime.fromisoformat(result["ends_at"])
+    assert ends_at - starts_at == timedelta(minutes=30)
+    assert starts_at >= before - timedelta(seconds=5)
+    assert result["service_name"] is None
+
+    from bossman.db.models import Downtime
+
+    await db_session.delete(await db_session.get(Downtime, uuid.UUID(result["downtime_id"])))
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_mcp_schedule_downtime_unknown_host_raises(session_factory, tmp_path):
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    with pytest.raises(ToolError, match="no such host"):
+        await mcp.call_tool("schedule_downtime", {"host": "nope", "minutes": 10})
+
+
+async def test_mcp_fleet_health_reports_counters(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    ok_service = await _make_service(db_session, agent, name="Disk space", state="OK", output="fine")
+    crit_service = await _make_service(db_session, agent, name="CPU load", state="CRIT")
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    health = await _call(mcp, "fleet_health")
+
+    assert health["hosts_total"] >= 1
+    assert health["services_by_state"]["CRIT"] >= 1
+    assert health["services_by_state"]["OK"] >= 1
+    assert health["open_problems"] >= 1
+
+    await db_session.delete(ok_service)
+    await db_session.delete(crit_service)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.commit()
