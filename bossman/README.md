@@ -1,5 +1,7 @@
 # Bossman
 
+![Bossman — Linux Solutions](../docs/assets/bossman.jpg)
+
 Fleet Commander for `agentic-mcpd` ("Duppy") node agents — see
 [`docs/plan.md`](../docs/plan.md) in the repo root for the full design.
 

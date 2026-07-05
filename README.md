@@ -114,14 +114,17 @@ the safety checks" part the name jokes about. Read the full model in
   enables the systemd unit, `postrm` stops the service without ever deleting the token/store/audit
   history. Real-installed and run under genuine `systemd` in a Rocky Linux 9 container.
 
-## What's coming: Bossman
+## The Fleet Commander: Bossman
 
-The Node Agent (this repo) runs on every server. A future, separate central component — codename
+![Bossman — Linux Solutions](docs/assets/bossman.jpg)
+
+The Node Agent (this repo) runs on every server. A separate central component — codename
 **Bossman** (Jamaican patois for "the boss," a fitting counterpart to YOLO-MAN: he runs on every
-machine, Bossman keeps an eye on the whole fleet) — will aggregate the fleet, translate Ansible
-playbooks, Puppet manifests, Chef recipes, and Salt states into this agent's own module calls, and
-give an AI one MCP endpoint for the whole infrastructure instead of one per box. Not yet built; see
-[docs/plan.md](docs/plan.md) for the roadmap.
+machine, Bossman keeps an eye on the whole fleet) — aggregates the fleet, translates Ansible
+playbooks (and, via a real LLM-backed translator, arbitrary foreign automation sources) into this
+agent's own module calls, and gives an AI one MCP endpoint for the whole infrastructure instead of
+one per box. Lives in [`bossman/`](bossman/) (backend) and [`bossman-ui/`](bossman-ui/) (frontend);
+see [docs/plan.md](docs/plan.md) for the full, continuously-updated implementation record.
 
 ## Build
 

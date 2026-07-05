@@ -26,6 +26,10 @@ import { AuthService } from '../../../core/auth/auth.service';
     <div class="bm-login-page">
       <div class="bm-login-stripe"></div>
       <mat-card class="bm-login-card">
+        <div class="bm-login-mascots">
+          <img src="assets/yolo-man.jpg" alt="YOLO-MAN — the node agent that runs on every server" />
+          <img src="assets/bossman.jpg" alt="Bossman — the fleet commander watching over all of them" />
+        </div>
         <mat-card-header>
           <mat-card-title>Bossman</mat-card-title>
           <mat-card-subtitle>Fleet Commander</mat-card-subtitle>
@@ -82,6 +86,18 @@ import { AuthService } from '../../../core/auth/auth.service';
       .bm-login-card {
         width: 360px;
         padding: 8px 8px 16px;
+      }
+      .bm-login-mascots {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px 8px 0;
+      }
+      .bm-login-mascots img {
+        width: 96px;
+        height: 96px;
+        object-fit: cover;
+        border-radius: 8px;
       }
       .bm-full-width {
         width: 100%;
