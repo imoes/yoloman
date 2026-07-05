@@ -30,6 +30,7 @@ from bossman.services.monitoring import (
     fleet_summary,
     query_agent_services,
     query_problems,
+    service_state_history,
     to_view,
     unacknowledge_service,
 )
@@ -99,6 +100,24 @@ async def list_agent_services(
     if views is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
     return [ServiceOut.from_view(v) for v in views]
+
+
+class ServiceHistoryPointOut(BaseModel):
+    time: datetime
+    state: str
+    value: float | None
+
+
+@router.get("/api/v1/agents/{agent_id}/services/{service_name}/history", response_model=list[ServiceHistoryPointOut])
+async def get_service_history(
+    agent_id: UUID,
+    service_name: str,
+    limit: int = Query(200, ge=1, le=1000),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[ServiceHistoryPointOut]:
+    rows = await service_state_history(session, agent_id, service_name, limit=limit)
+    return [ServiceHistoryPointOut(time=r.time, state=r.state, value=r.value) for r in rows]
 
 
 class AcknowledgeRequest(BaseModel):

@@ -26,3 +26,19 @@ export function runStatusBadge(status: string): BadgeStatus {
       return 'unknown';
   }
 }
+
+/** Maps a monitoring Service's OK/WARN/CRIT/UNKNOWN state (see
+ * bossman/services/monitoring.py's compute_state) onto the same badge
+ * palette as everything else in this app. */
+export function serviceStateBadge(state: string): BadgeStatus {
+  switch (state) {
+    case 'OK':
+      return 'ok';
+    case 'WARN':
+      return 'warn';
+    case 'CRIT':
+      return 'crit';
+    default:
+      return 'unknown';
+  }
+}

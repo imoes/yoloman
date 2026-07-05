@@ -242,6 +242,24 @@ async def query_problems(
     return results
 
 
+async def service_state_history(
+    session: AsyncSession, agent_id: UUID, service_name: str, limit: int = 200
+) -> list[ServiceStateHistory]:
+    """One service's state timeline, newest first — the "Zustands-Historie"
+    half of the Übersicht→Host→Service→Graph drill-down (the metric value
+    itself is served by the existing agents/{id}/metrics endpoint;  this is
+    just the derived OK/WARN/CRIT/UNKNOWN state over time)."""
+    rows = (
+        await session.scalars(
+            select(ServiceStateHistory)
+            .where(ServiceStateHistory.agent_id == agent_id, ServiceStateHistory.service_name == service_name)
+            .order_by(ServiceStateHistory.time.desc())
+            .limit(limit)
+        )
+    ).all()
+    return list(rows)
+
+
 async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[ServiceView] | None:
     """Every service for one host, by id. Returns None (not an empty list)
     if the agent itself doesn't exist, so callers can tell "no services

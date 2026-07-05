@@ -5,16 +5,22 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
+import { MonitoringService } from '../../core/services/monitoring.service';
 import { Agent, MetricPoint } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
+import { ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
 import { TimeRangePickerComponent } from '../../shared/components/time-range-picker/time-range-picker.component';
-import { agentHealthStatus, runStatusBadge } from '../../shared/status.util';
+import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
+import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
+import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
 @Component({
   selector: 'app-host-detail',
@@ -27,6 +33,7 @@ import { agentHealthStatus, runStatusBadge } from '../../shared/status.util';
     MatCardModule,
     MatFormFieldModule,
     MatSelectModule,
+    MatButtonModule,
     HostStatusBadgeComponent,
     MetricChartComponent,
     TimeRangePickerComponent,
@@ -74,6 +81,64 @@ import { agentHealthStatus, runStatusBadge } from '../../shared/status.util';
                 <app-metric-chart [points]="metricPoints()" [metricName]="selectedMetric()!" />
               } @else {
                 <p class="bm-empty">No metrics recorded for this host yet.</p>
+              }
+            </div>
+          </mat-tab>
+
+          <mat-tab label="Services">
+            <div class="bm-tab-content">
+              @if (services().length) {
+                <table class="bm-table">
+                  <thead>
+                    <tr>
+                      <th>Service</th>
+                      <th>State</th>
+                      <th>Value</th>
+                      <th>Since</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (svc of services(); track svc.id) {
+                      <tr [class.bm-row-selected]="selectedService()?.id === svc.id" class="bm-row-link" (click)="selectService(svc)">
+                        <td>{{ svc.name }}</td>
+                        <td><app-status-badge [status]="serviceBadge(svc)" [label]="svc.state" /></td>
+                        <td>{{ svc.value !== null ? (svc.value | number: '1.0-2') : '—' }}</td>
+                        <td>{{ svc.last_state_change | date: 'short' }}</td>
+                        <td class="bm-actions">
+                          @if (!svc.acknowledged) {
+                            <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
+                          } @else {
+                            <button mat-button (click)="unacknowledge(svc, $event)">Unacknowledge</button>
+                          }
+                          <button mat-button (click)="scheduleDowntime(svc, $event)">Downtime</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+
+                @if (selectedService(); as svc) {
+                  <div class="bm-service-detail">
+                    <h3>{{ svc.name }} — {{ svc.output }}</h3>
+                    <app-metric-chart [points]="serviceMetricPoints()" [metricName]="svc.metric" />
+                    @if (serviceHistory().length) {
+                      <ul class="bm-history-list">
+                        @for (h of serviceHistory(); track h.time) {
+                          <li>
+                            <app-status-badge [status]="historyBadge(h)" [label]="h.state" />
+                            <span>{{ h.time | date: 'medium' }}</span>
+                            @if (h.value !== null) {
+                              <span class="bm-history-value">{{ h.value | number: '1.0-2' }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                }
+              } @else {
+                <p class="bm-empty">No monitored services on this host yet — define a check rule in Settings.</p>
               }
             </div>
           </mat-tab>
@@ -164,6 +229,36 @@ import { agentHealthStatus, runStatusBadge } from '../../shared/status.util';
       .bm-facts dd {
         margin: 0;
       }
+      .bm-actions {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .bm-row-selected {
+        background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
+      }
+      .bm-service-detail {
+        margin-top: 20px;
+      }
+      .bm-history-list {
+        list-style: none;
+        padding: 0;
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .bm-history-list li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+        font-size: 13px;
+      }
+      .bm-history-value {
+        opacity: 0.7;
+      }
       .bm-metric-controls {
         display: flex;
         align-items: center;
@@ -201,6 +296,8 @@ export class HostDetailComponent implements OnInit {
   private agentService = inject(AgentService);
   private relationshipService = inject(RelationshipService);
   private runService = inject(RunService);
+  private monitoringService = inject(MonitoringService);
+  private dialog = inject(MatDialog);
 
   agent = signal<Agent | null>(null);
   metricNames = signal<string[]>([]);
@@ -208,6 +305,10 @@ export class HostDetailComponent implements OnInit {
   metricPoints = signal<MetricPoint[]>([]);
   edges = signal<HostEdge[]>([]);
   runs = signal<PlanRun[]>([]);
+  services = signal<ServiceState[]>([]);
+  selectedService = signal<ServiceState | null>(null);
+  serviceMetricPoints = signal<MetricPoint[]>([]);
+  serviceHistory = signal<ServiceHistoryPoint[]>([]);
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
@@ -229,6 +330,73 @@ export class HostDetailComponent implements OnInit {
 
     this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
+    this.reloadServices(id);
+  }
+
+  private reloadServices(agentId: string): void {
+    this.monitoringService.agentServices(agentId).subscribe((services) => {
+      this.services.set(services);
+      const selected = this.selectedService();
+      if (selected) {
+        const updated = services.find((s) => s.id === selected.id) ?? null;
+        this.selectedService.set(updated);
+      }
+    });
+  }
+
+  selectService(svc: ServiceState): void {
+    this.selectedService.set(svc);
+    const agent = this.agent();
+    if (!agent) return;
+    this.agentService.metricSeries(agent.id, svc.metric, this.since).subscribe((res) => this.serviceMetricPoints.set(res.points));
+    this.monitoringService.serviceHistory(agent.id, svc.name).subscribe((history) => this.serviceHistory.set(history));
+  }
+
+  serviceBadge(svc: ServiceState) {
+    return serviceStateBadge(svc.state);
+  }
+
+  historyBadge(h: ServiceHistoryPoint) {
+    return serviceStateBadge(h.state);
+  }
+
+  acknowledge(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    const ref = this.dialog.open(AcknowledgeDialogComponent, {
+      width: '420px',
+      data: { serviceName: svc.name, hostName: svc.agent_name },
+    });
+    ref.afterClosed().subscribe((comment: string | undefined) => {
+      if (comment === undefined) return;
+      this.monitoringService.acknowledge(svc.id, comment).subscribe(() => this.reloadServices(svc.agent_id));
+    });
+  }
+
+  unacknowledge(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    this.monitoringService.unacknowledge(svc.id).subscribe(() => this.reloadServices(svc.agent_id));
+  }
+
+  scheduleDowntime(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    const ref = this.dialog.open(DowntimeDialogComponent, {
+      width: '420px',
+      data: { hostName: svc.agent_name, serviceName: svc.name },
+    });
+    ref.afterClosed().subscribe((result: DowntimeDialogResult | undefined) => {
+      if (!result) return;
+      const now = new Date();
+      const endsAt = new Date(now.getTime() + result.minutes * 60_000);
+      this.monitoringService
+        .createDowntime({
+          agent_id: svc.agent_id,
+          service_name: svc.name,
+          starts_at: now.toISOString(),
+          ends_at: endsAt.toISOString(),
+          comment: result.comment,
+        })
+        .subscribe(() => this.reloadServices(svc.agent_id));
+    });
   }
 
   onMetricChange(metric: string): void {

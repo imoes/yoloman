@@ -7,6 +7,7 @@ export interface Agent {
   enrollment_state: string;
   last_seen_at: string | null;
   metadata: Record<string, unknown>;
+  groups: string[];
 }
 
 export interface MetricPoint {

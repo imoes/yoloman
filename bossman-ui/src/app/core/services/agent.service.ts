@@ -26,4 +26,8 @@ export class AgentService {
     if (since) url += `&since=${encodeURIComponent(since)}`;
     return this.http.get<MetricSeriesResponse>(url);
   }
+
+  updateGroups(id: string, groups: string[]) {
+    return this.http.patch<Agent>(`${this.base}/${id}/groups`, { groups });
+  }
 }

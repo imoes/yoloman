@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from bossman.db.models import Agent, Downtime, Service
+from bossman.db.models import Agent, Downtime, Service, ServiceStateHistory
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
@@ -338,6 +338,29 @@ async def test_check_rule_rejects_invalid_comparison(db_session):
 
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+async def test_get_service_history_returns_newest_first(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    now = datetime.now(timezone.utc)
+    older = ServiceStateHistory(time=now - timedelta(minutes=5), agent_id=agent.id, service_name="CPU load", state="OK", value=10.0)
+    newer = ServiceStateHistory(time=now, agent_id=agent.id, service_name="CPU load", state="CRIT", value=99.0)
+    db_session.add_all([older, newer])
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services/CPU%20load/history", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [p["state"] for p in body] == ["CRIT", "OK"]
+
+    await db_session.delete(api_token)
+    await db_session.delete(older)
+    await db_session.delete(newer)
+    await db_session.flush()
+    await _cleanup(db_session, agent)
 
 
 async def test_update_agent_groups(db_session):

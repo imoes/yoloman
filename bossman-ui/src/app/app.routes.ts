@@ -24,6 +24,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/hosts/host-detail.component').then((m) => m.HostDetailComponent),
   },
   {
+    path: 'problems',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/problems/problems-list.component').then((m) => m.ProblemsListComponent),
+  },
+  {
     path: 'topology',
     canActivate: [authGuard],
     loadComponent: () => import('./features/topology/topology.component').then((m) => m.TopologyComponent),
