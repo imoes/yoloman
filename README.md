@@ -126,6 +126,19 @@ agent's own module calls, and gives an AI one MCP endpoint for the whole infrast
 one per box. Lives in [`bossman/`](bossman/) (backend) and [`bossman-ui/`](bossman-ui/) (frontend);
 see [docs/plan.md](docs/plan.md) for the full, continuously-updated implementation record.
 
+**Try the whole Bossman stack locally** with Docker Compose — Postgres/TimescaleDB, migrations, an
+`admin`/`admin123` seed user, the FastAPI backend, and the Angular frontend behind nginx:
+
+```bash
+docker compose up -d --build
+```
+
+Then open the URL `docker-compose.override.yml` publishes for `bossman-ui` (`4201` by default in
+this checkout — see that file's comments for why, and adjust it for your own machine's free ports)
+and sign in with `admin` / `admin123`. `docker-compose.yml` is the portable, shareable stack
+definition; `docker-compose.override.yml` (merged in automatically, no `-f` flag needed) is where
+anything specific to *your* machine belongs — port choices, an outbound proxy, etc.
+
 ## Build
 
 ```bash
