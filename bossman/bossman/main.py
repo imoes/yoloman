@@ -14,13 +14,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import agents, auth, enroll, health, plans, relationships, runs
+from bossman.api import agents, auth, chunks, enroll, health, plans, relationships, runs
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
 from bossman.services import keys
 from bossman.services.catalog import CatalogCache
+from bossman.services.embedding_client import embedding_client_for
 from bossman.services.poller import poller_loop
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
     engine = make_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
+    app.state.embedding_client = embedding_client_for(settings)
 
     # The MCP facade (Block B8) is mounted here rather than in create_app()
     # because it needs a real session_factory to close over, and that only
@@ -121,6 +123,7 @@ def create_app() -> FastAPI:
     app.include_router(relationships.router, tags=["relationships"])
     app.include_router(plans.router, tags=["plans"])
     app.include_router(runs.router, tags=["runs"])
+    app.include_router(chunks.router, tags=["chunks"])
     # Only mounted when enrollment is actually configured — an
     # unconfigured Bossman accepts no enrollments at all, matching the Go
     # Selecta's identical gating on proxy.enroll_secret.

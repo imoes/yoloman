@@ -54,6 +54,21 @@ class Settings(BaseSettings):
     # the Angular CLI's default dev-server ports.
     cors_allowed_origins: list[str] = ["http://localhost:4200", "http://localhost:4300"]
 
+    # OpenAI-compatible embedding endpoint used for the chunk-similarity
+    # cache (see docs/plan.md's "Chunk-similarity embedding cache"): a
+    # fuzzy, additive layer on top of plan_loader's exact source_hash
+    # comparison, for source chunks that don't hash-match anything already
+    # translated. embedding_token is "" when the endpoint requires no auth
+    # (true for the current bge-m3 deployment).
+    embedding_base_url: str = "https://llm.example.internal/embed"
+    embedding_model: str = "bge-m3"
+    embedding_dim: int = 1024
+    embedding_token: str = ""
+
+    # Cosine-similarity cutoff for find_similar_chunks: a candidate below
+    # this is considered unrelated, not a reuse suggestion.
+    chunk_similarity_threshold: float = 0.85
+
 
 def get_settings() -> Settings:
     return Settings()

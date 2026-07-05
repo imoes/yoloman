@@ -12,10 +12,20 @@ plain relational shape each table has either way.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+
+# Embedding dimension for the chunk-similarity cache's vector column (see
+# docs/plan.md's "Chunk-similarity embedding cache") — the bge-m3 model
+# behind the currently configured embedding endpoint. A column type can't
+# read Settings at import time, so this is a plain constant, matching the
+# migration's own hardcoded `vector(1024)`; switching embedding models
+# means updating both together and re-embedding everything, since vectors
+# from different models aren't comparable.
+CHUNK_EMBEDDING_DIM = 1024
 
 # Every timestamp column in this schema is timezone-aware (Postgres
 # TIMESTAMPTZ) — a fleet spans hosts in different timezones, and comparing/
@@ -212,3 +222,28 @@ class ApiToken(Base):
     token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+
+class ChunkEmbedding(Base):
+    """One translated plan chunk's foreign source text, embedded — the
+    fuzzy, additive layer on top of plan_loader's exact chunk_id/
+    source_hash comparison (see services/chunk_similarity.py and
+    docs/plan.md's "Chunk-similarity embedding cache"). `chunk_id` is the
+    natural primary key: it's already content-addressed (a sha256 of the
+    chunk's normalized steps), so one row per distinct translated chunk
+    content, regardless of which plan/file first produced it."""
+
+    __tablename__ = "chunk_embeddings"
+
+    chunk_id: Mapped[str] = mapped_column(String, primary_key=True)
+    plan_name: Mapped[str] = mapped_column(String, nullable=False)
+    chunk_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_hash: Mapped[str | None] = mapped_column(String)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(CHUNK_EMBEDDING_DIM), nullable=False)
+    # Which embedding model produced `embedding` — a model switch
+    # invalidates old rows (their vectors live in an incomparable space),
+    # so callers filter/re-index by this rather than assuming every row is
+    # current.
+    model: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
