@@ -26,14 +26,9 @@ import { AuthService } from '../../../core/auth/auth.service';
     <div class="bm-login-page">
       <div class="bm-login-stripe"></div>
       <mat-card class="bm-login-card">
-        <div class="bm-login-mascots">
-          <img src="assets/yolo-man.jpg" alt="YOLO-MAN — the node agent that runs on every server" />
-          <img src="assets/bossman.jpg" alt="Bossman — the fleet commander watching over all of them" />
+        <div class="bm-login-logo">
+          <img src="assets/bossman.jpg" alt="Bossman — Fleet Commander" />
         </div>
-        <mat-card-header>
-          <mat-card-title>Bossman</mat-card-title>
-          <mat-card-subtitle>Fleet Commander</mat-card-subtitle>
-        </mat-card-header>
         <mat-card-content>
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <mat-form-field appearance="outline" class="bm-full-width">
@@ -87,17 +82,16 @@ import { AuthService } from '../../../core/auth/auth.service';
         width: 360px;
         padding: 8px 8px 16px;
       }
-      .bm-login-mascots {
+      .bm-login-logo {
         display: flex;
         justify-content: center;
-        gap: 12px;
-        padding: 16px 8px 0;
+        padding: 24px 8px 8px;
       }
-      .bm-login-mascots img {
-        width: 96px;
-        height: 96px;
+      .bm-login-logo img {
+        width: 180px;
+        height: 180px;
         object-fit: cover;
-        border-radius: 8px;
+        border-radius: 12px;
       }
       .bm-full-width {
         width: 100%;

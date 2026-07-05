@@ -1,5 +1,5 @@
 import { Component, Inject, OnInit, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -39,6 +39,7 @@ interface ParamEntry {
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
@@ -52,19 +53,27 @@ interface ParamEntry {
     <h2 mat-dialog-title>Run {{ data.plan.name }}</h2>
     <mat-dialog-content>
       @if (stage() === 'form') {
-        <app-host-picker [agents]="agents()" (selected)="selectedHost.set($event)" />
-        <form [formGroup]="form" class="bm-param-form">
-          @for (p of paramEntries; track p.name) {
-            @if (p.spec.type === 'bool') {
-              <mat-checkbox [formControlName]="p.name">{{ p.name }}</mat-checkbox>
-            } @else {
-              <mat-form-field appearance="outline" class="bm-full-width">
-                <mat-label>{{ p.name }}{{ p.spec.required ? ' *' : '' }}</mat-label>
-                <input matInput [type]="p.spec.type === 'number' ? 'number' : 'text'" [formControlName]="p.name" />
-              </mat-form-field>
+        @if (agentsLoaded() && agents().length === 0) {
+          <p class="bm-empty">
+            No hosts are enrolled yet, so there's nothing to run this plan against. Enroll a host
+            first — go to <a routerLink="/settings" (click)="dialogRef.close()">Settings</a> for the
+            enrollment command.
+          </p>
+        } @else {
+          <app-host-picker [agents]="agents()" (selected)="selectedHost.set($event)" />
+          <form [formGroup]="form" class="bm-param-form">
+            @for (p of paramEntries; track p.name) {
+              @if (p.spec.type === 'bool') {
+                <mat-checkbox [formControlName]="p.name">{{ p.name }}</mat-checkbox>
+              } @else {
+                <mat-form-field appearance="outline" class="bm-full-width">
+                  <mat-label>{{ p.name }}{{ p.spec.required ? ' *' : '' }}</mat-label>
+                  <input matInput [type]="p.spec.type === 'number' ? 'number' : 'text'" [formControlName]="p.name" />
+                </mat-form-field>
+              }
             }
-          }
-        </form>
+          </form>
+        }
       }
 
       @if (stage() === 'previewing' || stage() === 'applying') {
@@ -100,9 +109,11 @@ interface ParamEntry {
     <mat-dialog-actions align="end">
       @if (stage() === 'form') {
         <button mat-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-raised-button color="primary" [disabled]="!canPreview()" (click)="preview()">
-          Preview (dry run)
-        </button>
+        @if (!agentsLoaded() || agents().length > 0) {
+          <button mat-raised-button color="primary" [disabled]="!canPreview()" (click)="preview()">
+            Preview (dry run)
+          </button>
+        }
       }
       @if (stage() === 'previewed') {
         <button mat-button (click)="stage.set('form')">Back</button>
@@ -140,6 +151,10 @@ interface ParamEntry {
       .bm-error {
         color: var(--bm-red);
       }
+      .bm-empty {
+        opacity: 0.8;
+        line-height: 1.5;
+      }
     `,
   ],
 })
@@ -151,6 +166,7 @@ export class RunPlanDialogComponent implements OnInit {
   private router = inject(Router);
 
   agents = signal<Agent[]>([]);
+  agentsLoaded = signal(false);
   selectedHost = signal<string | null>(null);
   stage = signal<Stage>('form');
   previewResult = signal<PlanRunDetail | null>(null);
@@ -174,7 +190,10 @@ export class RunPlanDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.agentService.list().subscribe((agents) => this.agents.set(agents));
+    this.agentService.list().subscribe((agents) => {
+      this.agents.set(agents);
+      this.agentsLoaded.set(true);
+    });
   }
 
   canPreview(): boolean {

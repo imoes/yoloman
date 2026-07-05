@@ -1,0 +1,86 @@
+"""End-to-end tests for GET /api/v1/enroll/info through the real FastAPI
+app and real database (see tests/conftest.py's db_session fixture) — the
+route is always mounted (unlike POST /api/v1/enroll), so it must answer
+sensibly both when enrollment is configured and when it isn't.
+"""
+
+from fastapi.testclient import TestClient
+
+from bossman.main import create_app
+from bossman.services.auth import new_api_token
+
+
+async def _make_api_token(db_session):
+    row, raw = new_api_token("enroll-info-caller")
+    db_session.add(row)
+    await db_session.flush()
+    await db_session.commit()
+    return row, raw
+
+
+def _headers(raw):
+    return {"Authorization": f"Bearer {raw}"}
+
+
+async def test_enroll_info_requires_auth(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_ENROLL_SECRET", "s3cr3t")
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/enroll/info")
+    assert resp.status_code == 401
+
+
+async def test_enroll_info_reports_not_configured(db_session, monkeypatch):
+    monkeypatch.delenv("BOSSMAN_ENROLL_SECRET", raising=False)
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/enroll/info", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "configured": False,
+        "enroll_url": None,
+        "enroll_secret": None,
+        "register_command": None,
+    }
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_enroll_info_reports_command_when_configured(db_session, monkeypatch):
+    monkeypatch.setenv("BOSSMAN_ENROLL_SECRET", "s3cr3t")
+    monkeypatch.setenv("BOSSMAN_PUBLIC_URL", "https://bossman.example.com:8000")
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/enroll/info", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["configured"] is True
+    assert body["enroll_url"] == "https://bossman.example.com:8000"
+    assert body["enroll_secret"] == "s3cr3t"
+    assert body["register_command"] == (
+        "agentic-mcpd register --enroll-url https://bossman.example.com:8000 "
+        "--enroll-secret s3cr3t --name $(hostname)"
+    )
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_enroll_info_falls_back_to_placeholder_url_when_public_url_unset(db_session, monkeypatch):
+    monkeypatch.setenv("BOSSMAN_ENROLL_SECRET", "s3cr3t")
+    monkeypatch.delenv("BOSSMAN_PUBLIC_URL", raising=False)
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/enroll/info", headers=_headers(raw))
+
+    body = resp.json()
+    assert body["configured"] is True
+    assert "<this-bossman-host>" in body["enroll_url"]
+
+    await db_session.delete(api_token)
+    await db_session.commit()

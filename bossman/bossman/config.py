@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     # per-agent trust exists.
     enroll_secret: str = ""
 
+    # The address a node agent (Duppy) actually reaches this Bossman at to
+    # run `agentic-mcpd register --enroll-url ...` — deliberately separate
+    # from any browser-facing UI URL (which may go through a reverse proxy
+    # on a different port/host entirely). Surfaced by GET /api/v1/enroll/info
+    # for the Settings page's copy-pasteable register command; left empty
+    # by default since only the operator knows the real externally-
+    # reachable address for their deployment.
+    public_url: str = ""
+
     # Bossman's own TLS client keypair (presented to every node agent it
     # polls, pinned by each agent's tls.trusted_client_keys), persisted so
     # it survives restarts rather than being regenerated on every boot.

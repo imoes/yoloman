@@ -41,6 +41,11 @@ services:
       BOSSMAN_CLIENT_CERT_PATH: /app/data/tls/bossman-client.crt
       BOSSMAN_PLANS_DIR: /app/plans
       BOSSMAN_JWT_SECRET: dev-only-not-for-production
+      # Dev-only shared bootstrap secret for `agentic-mcpd register` (see
+      # docs/plan.md's Block E1 enrollment UX) — enrolling a real host also
+      # needs BOSSMAN_PUBLIC_URL set to a reachable address, which is
+      # host-specific and belongs in docker-compose.override.yml instead.
+      BOSSMAN_ENROLL_SECRET: dev-only-not-for-production
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ./bossman/plans:/app/plans:ro

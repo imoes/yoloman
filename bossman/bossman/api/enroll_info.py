@@ -1,0 +1,51 @@
+"""GET /api/v1/enroll/info — tells a logged-in operator whether
+enrollment is configured and, if so, the exact `agentic-mcpd register`
+command to run against this Bossman instance (see docs/plan.md's
+Monitoring-Ergänzung, Block E1 enrollment UX — the concrete fix for "I
+can't create a new run": with zero enrolled hosts, the run dialog's host
+picker has nothing to show, and enrollment was CLI-only with no
+discoverable command in the UI).
+
+Deliberately a separate, ALWAYS-mounted router from api/enroll.py's own
+POST /api/v1/enroll (which is only mounted when enroll_secret is
+configured, see main.py) — so the Settings page gets a real, informative
+"not configured yet" response instead of a bare 404 either way.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from bossman.api.auth import get_current_identity
+from bossman.config import Settings, get_settings
+
+router = APIRouter()
+
+
+class EnrollInfoResponse(BaseModel):
+    configured: bool
+    enroll_url: str | None = None
+    enroll_secret: str | None = None
+    register_command: str | None = None
+
+
+@router.get("/api/v1/enroll/info", response_model=EnrollInfoResponse)
+async def enroll_info(
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> EnrollInfoResponse:
+    if not settings.enroll_secret:
+        return EnrollInfoResponse(configured=False)
+
+    url = settings.public_url or "http://<this-bossman-host>:8000"
+    command = (
+        f"agentic-mcpd register --enroll-url {url} "
+        f"--enroll-secret {settings.enroll_secret} --name $(hostname)"
+    )
+    return EnrollInfoResponse(
+        configured=True,
+        enroll_url=url,
+        enroll_secret=settings.enroll_secret,
+        register_command=command,
+    )

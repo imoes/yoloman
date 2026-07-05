@@ -2562,3 +2562,64 @@ weakness introduced here.
   proving the fuzzy-cache short-circuit works end to end with a real translation, not just a
   synthetic fixture. All inserted `chunk_embeddings`/`plan_embeddings` rows were removed afterward;
   confirmed via `psql` that both tables are empty again.
+
+## Bossman — Block E1: UX-Fixes (login logo, enrollment UX) (implemented)
+
+Real user feedback against the running compose stack, four points — this block covers two of them
+(the other two, `ansible.builtin`'s internal handling and the CheckMK-style monitoring rework, are
+covered separately: the former needed no code, just an explanation; the latter is Blocks E2–E4).
+
+**Root cause confirmed for "I can't create a new run":** the run-plan dialog
+(`bossman-ui/src/app/features/plans/run-plan-dialog.component.ts`) loads hosts via
+`agentService.list()`; with zero enrolled agents the `<app-host-picker>` renders an empty dropdown,
+`canPreview()` stays `false`, and the "Preview" button stays permanently disabled with no
+explanation — a silent dead end, not a bug in the run logic itself. Enrollment was CLI-only
+(`agentic-mcpd register --enroll-url ... --enroll-secret ...`) with no discoverable command
+anywhere in the UI, and `POST /api/v1/enroll` is only mounted when `BOSSMAN_ENROLL_SECRET` is
+configured (`main.py`) — in the compose stack it wasn't set at all, so enrollment was impossible
+even from the CLI.
+
+**Login (`login.component.ts`):** replaced the two 96×96 mascot images sitting side by side with
+one large (180×180), centered Bossman logo — the logo image already contains the "BOSSMAN / LINUX
+SOLUTIONS" wordmark, so the separate `<mat-card-title>`/`<mat-card-subtitle>` text was dropped too
+(redundant, and part of what read as "thrown together"). Verified visually via a real browser
+(Playwright) against a live `ng serve`.
+
+**Enrollment UX:**
+- `bossman/bossman/config.py`: new `Settings.public_url` — the address a real node agent reaches
+  this Bossman at (deliberately distinct from any browser-facing UI URL behind a reverse proxy).
+- `bossman/bossman/api/enroll_info.py` (new): `GET /api/v1/enroll/info` — **always mounted** (unlike
+  `POST /api/v1/enroll`), so a logged-in operator gets a real "not configured yet" answer instead of
+  a bare 404. Returns `{configured, enroll_url, enroll_secret, register_command}` — the exact
+  command to paste onto a new host.
+- `bossman-ui`: new `EnrollService`/`EnrollInfo` model, and a "Enrollment" card on the Settings page
+  showing the real command with a copy-to-clipboard button (or a plain-language explanation of what
+  to configure, when enrollment isn't set up).
+- Run dialog: when `agents()` is empty (and has actually finished loading — `agentsLoaded()` guards
+  against a false "no hosts" flash before the first API response arrives), the host picker/param
+  form is replaced with a message and a link to Settings; the "Preview" button is hidden entirely
+  rather than shown disabled with no explanation.
+- `docker-compose.yml` gained `BOSSMAN_ENROLL_SECRET` (a portable dev-only default, alongside the
+  existing `BOSSMAN_JWT_SECRET` dev default); `docker-compose.override.yml` gained
+  `BOSSMAN_PUBLIC_URL` (genuinely host-specific — this host's real reachable hostname,
+  `http://host4.example.internal:8123`, not a docker-internal address).
+
+**How `ansible.builtin.*` is handled internally (a question asked, not a bug — answered here for
+the record since it clarifies the whole module dispatch path):** the prefix is pure naming
+convention for familiarity; no Ansible runs anywhere. `plan_loader._parse_step` strips
+`ANSIBLE_PREFIX` and stores only the bare module name (`module="copy"`); `plan_engine._execute_step`
+calls `client.call_tool("copy", body)` → `POST https://{agent}/api/v1/tools/copy`; the Go agent's
+`POST /api/v1/tools/{name}` route (`internal/server/rest.go`) looks the name up in its module
+registry (`internal/server/modules.go`) and runs the native Go implementation
+(`internal/modules/copy.go`) — idempotent, `check_mode`-aware, no Ansible installed or invoked.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres via `bossman-dev-db`): `tests/test_enroll_info_api.py` (4 tests: auth gate,
+  "not configured" shape, full command when configured, placeholder-URL fallback when
+  `BOSSMAN_PUBLIC_URL` is unset). 221 tests total, `ruff check` clean.
+- **Real end-to-end run against the actual compose stack**: rebuilt `bossman`/`bossman-ui` images,
+  restarted the stack, confirmed `GET /api/v1/enroll/info` (authenticated) returns the real command
+  with the real configured secret/URL. In a real browser (Playwright) against the running stack:
+  Settings page renders the Enrollment card with the exact copy-pasteable command; opening the Run
+  dialog for `img_docker` with zero enrolled hosts shows the new empty-state message and a working
+  link to Settings instead of a dead, permanently-disabled form.
