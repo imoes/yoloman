@@ -2623,3 +2623,208 @@ registry (`internal/server/modules.go`) and runs the native Go implementation
   Settings page renders the Enrollment card with the exact copy-pasteable command; opening the Run
   dialog for `img_docker` with zero enrolled hosts shows the new empty-state message and a working
   link to Settings instead of a dead, permanently-disabled form.
+
+## Monitoring core: CheckMK/Zabbix-style Service/State/Problem model (Blocks E2–E4, implemented)
+
+The fourth point of the same user-feedback round ("the host topology doesn't look like CheckMK —
+research how to build a real monitoring system") plus a follow-up instruction to also read the
+Zabbix docs and make every monitoring capability an MCP tool, since Bossman "is meant as an MCP
+server and administration entry point". Research (CheckMK's and Zabbix's own docs, plus the Four
+Golden Signals/RED/USE method literature for what to actually threshold) converged on the same
+shape both real monitoring systems use: Host → **Service** with a **State**
+(OK/WARN/CRIT/UNKNOWN) → **Problem** (a non-OK, unacknowledged, non-downtime service) →
+Acknowledge/Downtime as the two distinct problem-suppression mechanisms → a drill-down IA
+(Overview → Problems → Host → Service → Graph). Two explicit product decisions, confirmed via
+`AskUserQuestion`:
+
+1. **Rule evaluation is Bossman-side**, not the Go agent's own already-existing Nagios/CheckMK
+   plugin-compatible `internal/checks` package (that stays unused for this feature — an optional,
+   separate, later block). Rules are defined per **group** (CheckMK-style) but a **host**-scoped
+   rule always overrides a group rule, which overrides a global rule, for the same metric —
+   `host > group > global`, exactly CheckMK's own rule-set precedence.
+2. **No self-enrolling demo node agent** added to the compose stack — only the enrollment *UX*
+   improves (Block E1, above). Verification against a real host uses the existing, real
+   `host1.example.internal` enrollment path plus, for this window's UI verification,
+   synthetic rows inserted directly via `psql`/the real REST API against the real compose stack
+   (cleaned up afterward) — see the Verification section below for exactly which was used where.
+
+### Block E2 — schema + evaluator (`bossman/bossman/services/monitoring.py`, new)
+
+New Alembic migration (hand-edited after autogenerate to strip the now-familiar spurious
+TimescaleDB/pgvector index-drop false positives — see the recurring note in earlier Bossman
+blocks):
+
+- `agents.groups` — new `TEXT[]` column (`default='{}'`), the host-group membership a
+  `scope_type=group` rule can target. Editable via `PATCH /api/v1/agents/{id}/groups` (whole-list
+  replace, not add/remove-one — matches how a multi-select group editor naturally works).
+- `check_rules` — the rule definitions: `service_name` (the resulting Service's display name),
+  `metric`, `comparison` (`gt|lt|ge|le|eq|ne`), `warn_threshold`/`crit_threshold` (nullable —
+  a threshold that's never checked never trips), `scope_type` (`global|group|host`) +
+  `scope_value` (NULL for global; a group name or exact host name otherwise, enforced by a
+  CheckConstraint), `enabled`.
+- `services` — the per-host materialized state (CheckMK's own "Service" concept): `agent_id`,
+  `name`, `metric`, `state`, `value`, `output` (human-readable one-liner), `rule_id` (which rule
+  produced this state, nullable), `last_state_change`/`last_checked`, `acknowledged`/
+  `ack_comment`/`ack_by`. `UNIQUE(agent_id, name)`.
+- `service_state_history` — a TimescaleDB hypertable (30-day retention, same pattern as `metrics`/
+  `connection_events`): one row per actual state *change*, not per evaluation — the Zustands-Historie
+  half of the eventual Service→Graph drill-down.
+- `downtimes` — `agent_id`, `service_name` (nullable — NULL means the whole host, CheckMK's own
+  host-vs-service downtime distinction), `starts_at`/`ends_at`, `comment`, `created_by`.
+
+`services/monitoring.py` (framework-free, like `plan_engine.py`/`poller.py` — reachable from the
+poller, REST, MCP, and tests without duplicating logic):
+
+- `resolve_effective_rule(rules, host_name, host_groups, metric) -> CheckRule | None` — pure,
+  no DB: filters to enabled rules for the exact metric that actually match this host (global
+  always matches; group matches if in `host_groups`; host matches if `scope_value == host_name`),
+  then picks the most specific scope, breaking ties among equally-specific rules by
+  most-recently-created (two stable sorts: newest-first, then by scope precedence — a stable sort
+  preserves recency-order within each precedence tier).
+- `compute_state(comparison, value, warn, crit) -> (state, output)` — Nagios-style: CRIT checked
+  before WARN (a value tripping both is CRIT, never WARN); `UNKNOWN` when there's no metric value
+  at all (a stale/never-polled host), never silently `OK`.
+- `evaluate_host(session, agent)` — for every metric any enabled rule cares about, resolves the
+  effective rule, reads the latest polled value, computes state, upserts the `services` row, and
+  — only on an actual state change — writes a `service_state_history` row and **clears any
+  acknowledgement** (an ack is tied to the specific problem occurrence it was made for, CheckMK's
+  own model; any state change means a new occurrence, so a stale ack must not silently suppress
+  it). Doesn't commit — same transaction-boundary-is-the-caller's-job convention as the rest of
+  this codebase's service layer.
+- Hooked into `services/poller.py`'s `poll_agent`: `evaluate_host` runs right after a successful
+  metrics pull, in the same transaction, on the metrics that pull just wrote — no second polling
+  loop.
+
+`tests/test_monitoring.py` (21 tests): pure unit tests for `resolve_effective_rule`/`compute_state`
+covering every comparison, tie-breaking, disabled/wrong-metric exclusion; real-DB tests for
+`evaluate_host` including the one that actually proves the precedence requirement:
+`test_evaluate_host_host_rule_overrides_group_rule_for_real` creates a group rule (warn=10) *and*
+a host rule (warn=80) for the same host/metric, writes a metric value of 50.0, and asserts the
+resulting state is `OK` with `rule_id` pointing at the host rule — proving the override actually
+took effect, not just that the precedence function returns the right rule in isolation.
+
+### Block E3 — REST + MCP (the "MCP is the administration entry point" requirement)
+
+All problems/services/acknowledge/downtime/fleet-summary query and mutation logic lives in
+`services/monitoring.py` (`query_problems`, `query_agent_services`, `service_state_history`,
+`acknowledge_service`, `unacknowledge_service`, `create_downtime`, `fleet_summary`, plus the
+`ServiceView`/`to_view`/`is_in_downtime` helpers that join in the agent name and the point-in-time
+downtime check) — `bossman/bossman/api/monitoring.py`'s REST routes are thin wrappers around these
+same functions, and so are the five new MCP tools, so the two facades can never drift apart. (An
+earlier draft had this logic written twice, once inline per REST route; refactored onto the shared
+functions before writing the MCP tools, specifically so they wouldn't become a third copy.)
+
+REST (`bossman/bossman/api/monitoring.py`, mounted in `main.py`, every route behind
+`get_current_identity` like the rest of Block B7's surface):
+
+- `GET /api/v1/problems` — every non-OK service, filterable by `state`/`host`/`acknowledged`,
+  excludes services under an active downtime unless `include_downtime=true`.
+- `GET /api/v1/agents/{id}/services` — one host's full service list (404 if the host doesn't
+  exist, vs. an empty list if it exists but has none — the two are meaningfully different).
+- `GET /api/v1/agents/{id}/services/{name}/history` — the state timeline for one service (newest
+  first, `limit` capped 1–1000) — the "Zustands-Historie" half of the Service→Graph drill-down;
+  the metric *value* history is already served by the existing `agents/{id}/metrics` endpoint, so
+  this endpoint only needed to add the derived state dimension.
+- `POST`/`DELETE /api/v1/services/{id}/acknowledge` — acknowledge (with a comment, `ack_by` taken
+  from the authenticated identity) / clear.
+- `GET`/`POST`/`DELETE /api/v1/downtimes` — list (filterable by `agent_id`/`active_only`), create
+  (422 if `ends_at <= starts_at`), delete.
+- `GET`/`POST`/`PUT`/`DELETE /api/v1/check-rules` — rule CRUD, with `scope_type`/`scope_value`
+  consistency validated the same way the DB CheckConstraint validates it (global ⇒ no
+  `scope_value`; group/host ⇒ `scope_value` required).
+- `PATCH /api/v1/agents/{id}/groups` — host-group membership (added to `api/agents.py`).
+- `GET /api/v1/fleet/summary` — hosts by enrollment state, services by monitoring state, and
+  `open_problems` (non-OK, unacknowledged, not in downtime — the number that should actually draw
+  attention, distinct from the raw non-OK count).
+
+MCP (`bossman/bossman/mcp/server.py`) — the five tools the plan called for, each a thin call into
+the same shared functions:
+
+```
+list_problems(state?, acknowledged?) -> [{service_id, host, name, state, value, output,
+                                           acknowledged, in_downtime, last_state_change}]
+host_services(host) -> [... same shape, all services for one host]
+acknowledge_problem(host, service, comment) -> the updated service view
+schedule_downtime(host, minutes, service?, comment) -> {downtime_id, host, service_name,
+                                                         starts_at, ends_at}
+fleet_health() -> {hosts_total, hosts_by_enrollment, services_by_state, open_problems}
+```
+
+`schedule_downtime` takes a duration in minutes from *now* rather than explicit start/end
+timestamps — matching how an AI caller (or a human via the UI's own downtime dialog, which mirrors
+this same shape) naturally thinks about "silence this for the next half hour", not absolute
+timestamps.
+
+`tests/test_monitoring_api.py` (16 tests) and 9 new tests appended to `tests/test_mcp_server.py`
+(`test_mcp_list_problems_*`, `test_mcp_host_services_*`, `test_mcp_acknowledge_problem_*`,
+`test_mcp_schedule_downtime_*`, `test_mcp_fleet_health_reports_counters`) — full suite 267 tests,
+`ruff check` clean.
+
+### Block E4 — frontend (`bossman-ui`)
+
+- **Fleet Overview** reworked: the enrollment-state tiles are joined by services-by-state tiles
+  (OK/WARN/CRIT/UNKNOWN) and an "Open problems" tile that links to `/problems`, plus a prominent
+  **Unhandled problems** table (top 10, unacknowledged) with an inline Acknowledge action —
+  CheckMK's own "lead with the problems, not just a health percentage" landing principle.
+- **`/problems`** (new route/component): the full filterable problem list — state chips (reusing
+  `StatusFilterChipsComponent`, generalized with a `statuses` input so the existing runs-list usage
+  is unaffected), a host-name filter, and a "show acknowledged" toggle (default off — CheckMK's own
+  default view hides what's already handled). Row actions: Acknowledge (opens a new
+  `AcknowledgeDialogComponent` — comment field, closes with the comment string) and Downtime
+  (opens a new `DowntimeDialogComponent` — minutes + comment, closes with `{minutes, comment}`;
+  the caller computes `starts_at=now`/`ends_at=now+minutes` client-side, mirroring the MCP tool's
+  own shape).
+- **Host detail** gains a **Services** tab: a service table (state badge, value, since, inline
+  Acknowledge/Unacknowledge/Downtime) plus, on row click, a detail panel reusing the existing
+  `MetricChartComponent` (fed by the already-existing `agents/{id}/metrics` endpoint, keyed to the
+  service's own `metric`) and a new compact state-history list (fed by the new
+  `/services/{name}/history` endpoint) — completing Übersicht→Host→Service→Graph.
+- **Settings** gains two editors: a **Check rules** table (create/edit via a new
+  `CheckRuleDialogComponent` with a comparison dropdown, warn/crit threshold fields, and a
+  scope selector that conditionally reveals a group-name/host-name field depending on
+  `scope_type`) and a **Host groups** table (one comma-separated-groups text field per host,
+  `AgentService.updateGroups` on Save).
+- New `MonitoringService` (`core/services/monitoring.service.ts`) + `monitoring.model.ts`, mirroring
+  `RunService`/`AgentService`'s existing shape (typed methods over `HttpClient`, no extra
+  abstraction). `Agent` gained a `groups: string[]` field to match the REST response.
+- Reused the existing `--bm-green/--bm-gold/--bm-red/--bm-unknown` status-badge palette throughout
+  (via `serviceStateBadge()`, a new mapping alongside the existing `agentHealthStatus`/
+  `runStatusBadge` in `status.util.ts`) — no new color language introduced for this feature.
+
+**Deliberately out of scope for this increment** (documented boundary, not an oversight): alerting
+channels (Slack/Teams/email), CheckMK-style service auto-discovery (services here are entirely
+rule-derived, not auto-detected), agent-side Nagios plugin checks (the existing `internal/checks`
+package stays unused), and escalation/flapping-detection/SLA reporting.
+
+### Verification (real, not mocked)
+
+- **pytest against real Postgres** (`bossman-dev-db`): 267 tests total (21 evaluator, 16 REST,
+  9 new MCP, plus all pre-existing suites), `ruff check` clean.
+- **`npx ng build`**: clean, no new bundle warnings.
+- **Real compose-stack rebuild caught a real staleness bug**: `docker compose build bossman
+  bossman-ui` alone left the `migrate`/`seed` services on stale images from before Block E2's
+  migration existed (compose gives each `build:`-only service its own image unless told
+  otherwise) — `GET /api/v1/agents` 500'd with `UndefinedColumnError: column agents.groups does
+  not exist`. Confirmed via `docker exec … psql … select version_num from alembic_version` showing
+  the pre-E2 revision; fixed by rebuilding `migrate`/`seed` too and re-running `docker compose up`,
+  after which `alembic upgrade head` actually printed `Running upgrade f095218bdf99 ->
+  50e78cc78c2a, monitoring core` and the column existed.
+- **Real end-to-end run against the rebuilt stack**: inserted a real agent row + a real `cpu_pct`
+  metric via `psql`, created a real global `CheckRule` via the REST API, ran `evaluate_host`
+  directly (one-shot `docker exec … uv run python -c ...`, since the poller only evaluates hosts it
+  actually reached over the network, which this synthetic agent isn't) — produced a real CRIT
+  `Service` row, confirmed via `GET /api/v1/problems` and `/fleet/summary`. Then, in a real browser
+  (Playwright) against the running stack: logged in; Fleet Overview showed the correct state tiles
+  and the CRIT row in the Unhandled Problems table; acknowledged it from that table (dialog →
+  real `POST /services/{id}/acknowledge` → `ack_by="admin"` persisted); `/problems` correctly hid
+  it by default and revealed it via the "show acknowledged" toggle; scheduled a real 60-minute
+  downtime from there (dialog → real `POST /downtimes`, confirmed via the REST API); Host detail's
+  Services tab showed the service, and clicking it rendered the metric chart + a state-history
+  entry (the chart itself showed no visible line for this single synthetic data point — confirmed
+  this is pre-existing `MetricChartComponent` behavior, reproducible identically on the older
+  Metrics tab, not a regression); Settings' Check rules editor created a group-scoped rule (the
+  conditional group-name field appeared correctly), listed it with the right "group: webservers"
+  label, and deleted it; the Host groups editor saved `webservers, prod` for the host and the REST
+  API confirmed the persisted list. All synthetic rows (`service_state_history`, `downtimes`,
+  `services`, `metrics`, `check_rules`, `agents`) deleted afterward via `psql`, one `DELETE` per
+  `-c` invocation; confirmed `GET /api/v1/agents`/`/check-rules`/`/fleet/summary` all empty again.
