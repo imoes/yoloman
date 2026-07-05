@@ -247,3 +247,37 @@ class ChunkEmbedding(Base):
     # current.
     model: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # The actual translated Bossman chunk content (JSON: {"os_family":
+    # [...] | null, "steps": [...]}), set by services/translator.py after a
+    # real LLM translation succeeds — makes this row self-sufficient for
+    # reuse (services/translator.py's "reused" path reconstructs a Chunk
+    # straight from this column, no dependency on the plan file that
+    # originally produced it still existing/being loaded). NULL for rows
+    # indexed the older way (source text registered for fuzzy matching
+    # only, e.g. by a human referencing an already-committed plan file) —
+    # those rows still match on similarity, they just can't offer a direct
+    # reuse reconstruction.
+    translated_json: Mapped[str | None] = mapped_column(Text)
+
+
+class PlanEmbedding(Base):
+    """One plan's name+description, embedded — backs search_plans (see
+    services/plan_search.py and docs/plan.md's "Plan-catalog RAG"): finding
+    the few relevant plans for a natural-language request without dumping
+    every plan's description into the (cached) system prompt, which stops
+    scaling once the catalog grows past a handful of plans. `name` is the
+    natural primary key — SQLAlchemy load_plans_dir already enforces plan
+    names are unique across the whole plans_dir."""
+
+    __tablename__ = "plan_embeddings"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    # sha256 of the exact text that was embedded (name + description) —
+    # the short-circuit key for index_plan_catalog's "only re-embed what
+    # changed" batch upsert, the same content-addressing idea as
+    # ChunkEmbedding.source_hash/chunk_id.
+    content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(CHUNK_EMBEDDING_DIM), nullable=False)
+    model: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)

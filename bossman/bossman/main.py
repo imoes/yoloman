@@ -14,13 +14,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import agents, auth, chunks, enroll, health, plans, relationships, runs
+from bossman.api import agents, auth, chunks, enroll, health, plans, relationships, runs, translate
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
 from bossman.services import keys
 from bossman.services.catalog import CatalogCache
+from bossman.services.chat_client import chat_client_for
 from bossman.services.embedding_client import embedding_client_for
 from bossman.services.poller import poller_loop
 
@@ -66,13 +67,16 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)
+    app.state.chat_client = chat_client_for(settings)
 
     # The MCP facade (Block B8) is mounted here rather than in create_app()
     # because it needs a real session_factory to close over, and that only
     # exists once this lifespan has started — app.mount() during startup
     # is safe since it completes before the ASGI server accepts any HTTP
     # scope, so every real request sees /mcp already registered.
-    mcp_server = build_mcp_server(app.state.session_factory, settings, app.state.catalog_cache)
+    mcp_server = build_mcp_server(
+        app.state.session_factory, settings, app.state.catalog_cache, app.state.embedding_client
+    )
     mcp_app = mcp_server.streamable_http_app()  # must run before .session_manager is accessed below
     app.mount("/mcp", McpBearerAuthMiddleware(mcp_app, app.state.session_factory))
 
@@ -124,6 +128,7 @@ def create_app() -> FastAPI:
     app.include_router(plans.router, tags=["plans"])
     app.include_router(runs.router, tags=["runs"])
     app.include_router(chunks.router, tags=["chunks"])
+    app.include_router(translate.router, tags=["translate"])
     # Only mounted when enrollment is actually configured — an
     # unconfigured Bossman accepts no enrollments at all, matching the Go
     # Selecta's identical gating on proxy.enroll_secret.

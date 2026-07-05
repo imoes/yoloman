@@ -32,6 +32,7 @@ class SimilarChunk:
     source_hash: str | None
     similarity: float
     source_text: str
+    translated_json: str | None
 
 
 async def index_chunk(
@@ -43,13 +44,22 @@ async def index_chunk(
     chunk_id: str,
     source_hash: str | None,
     source_text: str,
+    translated_json: str | None = None,
 ) -> bool:
     """Embeds and upserts one chunk's source text, keyed by its own
     content-addressed chunk_id — one row per distinct translated chunk
     content, regardless of which plan/file produced it. Returns False
     without calling the embedding endpoint at all if a row for this exact
     chunk_id under this exact model already exists (the cache hit this
-    whole cache exists for); True if a real embed+upsert happened."""
+    whole cache exists for); True if a real embed+upsert happened.
+
+    translated_json, when given, is the actual translated Bossman chunk
+    content (see services/translator.py) — what makes a future
+    find_similar_chunks() hit directly reusable rather than just a
+    "something similar exists over there" pointer. Left None for the
+    older, source-text-only registration path (e.g. a human indexing an
+    already-committed plan's chunk purely so future fuzzy lookups can find
+    it, without necessarily wanting automatic reuse reconstruction)."""
     existing = await session.scalar(
         select(ChunkEmbedding).where(
             ChunkEmbedding.chunk_id == chunk_id, ChunkEmbedding.model == embedding_client.model
@@ -67,6 +77,7 @@ async def index_chunk(
         source_text=source_text,
         embedding=vectors[0],
         model=embedding_client.model,
+        translated_json=translated_json,
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=["chunk_id"],
@@ -77,6 +88,7 @@ async def index_chunk(
             "source_text": stmt.excluded.source_text,
             "embedding": stmt.excluded.embedding,
             "model": stmt.excluded.model,
+            "translated_json": stmt.excluded.translated_json,
         },
     )
     await session.execute(stmt)
@@ -122,6 +134,7 @@ async def find_similar_chunks(
                     source_hash=row.source_hash,
                     similarity=similarity,
                     source_text=row.source_text,
+                    translated_json=row.translated_json,
                 )
             )
     return results

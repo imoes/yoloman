@@ -69,6 +69,23 @@ class Settings(BaseSettings):
     # this is considered unrelated, not a reuse suggestion.
     chunk_similarity_threshold: float = 0.85
 
+    # Cosine-similarity cutoff for search_plans (see docs/plan.md's
+    # "Plan-catalog RAG") — deliberately its OWN, lower value, not
+    # chunk_similarity_threshold: real bge-m3 measurements against short
+    # plan-name+description text put genuine matches at ~0.79-0.85 and
+    # genuine non-matches at ~0.66-0.73, a much narrower band than whole
+    # Ansible-task-file chunks. Reusing 0.85 here would reject real matches.
+    plan_search_threshold: float = 0.75
+
+    # OpenAI-compatible chat-completions endpoint used by the real LLM
+    # translator (see docs/plan.md's "real LLM translator" and
+    # services/translator.py) — a different model/path on the same host as
+    # the embedding endpoint above (qwen3next-79b, completion-only; it does
+    # NOT serve embeddings itself, confirmed by probing it directly).
+    chat_base_url: str = "https://llm.example.internal/qwen79b"
+    chat_model: str = "qwen3next-79b"
+    chat_token: str = ""
+
 
 def get_settings() -> Settings:
     return Settings()

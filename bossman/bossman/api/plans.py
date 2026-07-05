@@ -15,13 +15,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.api.chunks import get_embedding_client
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
 from bossman.db.session import get_session
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
+from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.plan_engine import run_plan
 from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars
+from bossman.services.plan_search import index_plan_catalog, search_plans
 
 router = APIRouter()
 
@@ -121,6 +124,46 @@ async def reload_plans(
     never re-rendered per request, only on this explicit operator action."""
     text = cache.reload()
     return ReloadResponse(reloaded=True, catalog_length=len(text))
+
+
+class SearchPlansRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    threshold: float | None = None
+
+
+class SearchPlanOut(BaseModel):
+    name: str
+    description: str
+    similarity: float
+
+
+class SearchPlansResponse(BaseModel):
+    results: list[SearchPlanOut]
+
+
+@router.post("/api/v1/plans/search", response_model=SearchPlansResponse)
+async def search_plans_route(
+    body: SearchPlansRequest,
+    session: AsyncSession = Depends(get_session),
+    cache: CatalogCache = Depends(get_catalog_cache),
+    embedding_client: EmbeddingClient = Depends(get_embedding_client),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> SearchPlansResponse:
+    """Embedding-based retrieval over the plan catalog (see docs/plan.md's
+    "Plan-catalog RAG") — an alternative to scanning the full
+    catalog_markdown/list_plans dump once the catalog grows past a
+    handful of plans. Re-indexes any plan whose description changed since
+    the last call (cheap after the first time, via index_plan_catalog's
+    own content-hash short-circuit) before searching, so this route never
+    needs a separate "reindex" step."""
+    await index_plan_catalog(session, embedding_client, cache.plans)
+    threshold = body.threshold if body.threshold is not None else settings.plan_search_threshold
+    results = await search_plans(session, embedding_client, query=body.query, top_k=body.top_k, threshold=threshold)
+    return SearchPlansResponse(
+        results=[SearchPlanOut(name=r.name, description=r.description, similarity=r.similarity) for r in results]
+    )
 
 
 class RunPlanRequest(BaseModel):

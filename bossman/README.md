@@ -48,6 +48,52 @@ suggesting reuse instead of re-translating from scratch. Configuration
 | `BOSSMAN_EMBEDDING_TOKEN` | `""` | Bearer token, if the endpoint requires one |
 | `BOSSMAN_CHUNK_SIMILARITY_THRESHOLD` | `0.85` | Cosine-similarity cutoff for a reuse suggestion |
 
+## Plan-catalog RAG
+
+`POST /api/v1/plans/search` (and the MCP tool `search_plans`) find the few relevant
+plans for a natural-language query by embedding every plan's name+description —
+an alternative to scanning the full `catalog_markdown`/`list_plans` dump once the
+catalog grows past a handful of plans. Re-indexes automatically on each call
+(cheap after the first, via a content-hash short-circuit), no separate reindex
+step needed.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BOSSMAN_PLAN_SEARCH_THRESHOLD` | `0.75` | Cosine-similarity cutoff — deliberately lower than the chunk threshold, calibrated against real short plan-description text |
+
+Calibration note (measured against the real endpoint): similarity depends on how
+much of a plan's description a query's wording actually overlaps — a short query
+against a long, detailed description scores lower than one that echoes more of
+the description's own content. If a query isn't finding an expected plan, try a
+more specific query or pass an explicit lower `threshold` in the request.
+
+## Real LLM translator
+
+`POST /api/v1/translate` translates one foreign source file (e.g. an Ansible task
+file) into a Bossman plan chunk via a real LLM call, with the response
+grammar-constrained to a JSON schema (`response_format: json_schema`) so the
+model can't produce structurally invalid output — `services/plan_loader.parse_plan`
+is the sole semantic validation gate, retried with the validation error fed back
+to the model on failure. Checks the chunk-similarity cache first; a close match
+short-circuits the LLM call entirely. REST-only, no MCP tool — this is an
+authoring-time action for a human/CI to review before a plan file is committed,
+not a runtime fleet-management action.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BOSSMAN_CHAT_BASE_URL` | `https://llm.example.internal/qwen79b` | OpenAI-compatible `/v1/chat/completions` endpoint |
+| `BOSSMAN_CHAT_MODEL` | `qwen3next-79b` | Model name passed in the request body |
+| `BOSSMAN_CHAT_TOKEN` | `""` | Bearer token, if the endpoint requires one |
+
+Scoped to module-call steps only in this first increment — `pipeline:`/`upload:`
+steps and `final_handler:` still need to be added by hand afterward, same as
+`img_docker.yaml`'s own translation. `KNOWN_MODULES` in `services/translator.py`
+constrains the `module` field to Bossman's actual implemented module set
+(kept in sync by hand with `internal/modules/*.go`) — the model can't hallucinate
+a module Bossman doesn't have, but it can still use an Ansible parameter alias
+Bossman's own module doesn't implement (e.g. `pkg` instead of `name` for `apt`);
+review translator output before committing it as a real plan.
+
 ## Run
 
 ```bash

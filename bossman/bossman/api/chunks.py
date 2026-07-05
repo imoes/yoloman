@@ -32,6 +32,11 @@ class IndexChunkRequest(BaseModel):
     chunk_id: str
     source_hash: str | None = None
     source_text: str
+    # The actual translated chunk content (JSON), for symmetry with what
+    # services/translator.py passes in-process — lets a human manually
+    # registering a hand-translated chunk also make it reuse-reconstructable,
+    # not just fuzzy-findable. See ChunkEmbedding.translated_json.
+    translated_json: str | None = None
 
 
 class IndexChunkResponse(BaseModel):
@@ -54,6 +59,7 @@ async def index_chunk_route(
         chunk_id=body.chunk_id,
         source_hash=body.source_hash,
         source_text=body.source_text,
+        translated_json=body.translated_json,
     )
     return IndexChunkResponse(indexed=indexed, chunk_id=body.chunk_id)
 
@@ -71,6 +77,7 @@ class SimilarChunkOut(BaseModel):
     source_hash: str | None
     similarity: float
     source_text: str
+    translated_json: str | None
 
 
 class SimilarChunksResponse(BaseModel):
@@ -98,6 +105,7 @@ async def similar_chunks_route(
                 source_hash=c.source_hash,
                 similarity=c.similarity,
                 source_text=c.source_text,
+                translated_json=c.translated_json,
             )
             for c in candidates
         ]

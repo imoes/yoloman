@@ -29,14 +29,17 @@ from bossman.db.models import Agent, HostEdge, Metric, PlanRun
 from bossman.mcp.auth import current_identity
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
+from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.plan_engine import run_plan as engine_run_plan
 from bossman.services.plan_loader import PlanError, load_host_vars
+from bossman.services.plan_search import index_plan_catalog, search_plans as search_plans_service
 
 
 def build_mcp_server(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
     catalog_cache: CatalogCache,
+    embedding_client: EmbeddingClient,
     client_factory=client_for,
 ) -> FastMCP:
     # streamable_http_path="/" because this server is itself mounted at
@@ -123,6 +126,20 @@ def build_mcp_server(
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
         return catalog_cache.list_json
+
+    @mcp.tool()
+    async def search_plans(query: str, top_k: int = 5) -> list[dict[str, Any]]:
+        """Embedding-based search over the plan catalog — an alternative to list_plans/
+        get_catalog for finding the few relevant plans by natural-language intent (e.g. "install
+        docker") once the catalog has grown too large to scan in full. Returns [{name,
+        description, similarity}], most relevant first; an empty list means nothing matched
+        closely enough to suggest, not an error."""
+        async with session_factory() as session:
+            await index_plan_catalog(session, embedding_client, catalog_cache.plans)
+            results = await search_plans_service(
+                session, embedding_client, query=query, top_k=top_k, threshold=settings.plan_search_threshold
+            )
+        return [{"name": r.name, "description": r.description, "similarity": r.similarity} for r in results]
 
     @mcp.tool()
     async def get_catalog() -> str:

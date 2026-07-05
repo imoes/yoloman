@@ -2408,3 +2408,157 @@ a match would produce false-positive reuse suggestions. A future translator work
   returned zero candidates. The paraphrase-vs-near-duplicate calibration finding above was captured
   during this same run. All inserted `chunk_embeddings` rows were removed afterward; confirmed via
   `psql` that the table is empty again.
+
+## Bossman — Plan-catalog RAG + real LLM translator (implemented)
+
+Two independent features on the chunk-similarity foundation above: finding relevant plans by
+natural-language intent instead of dumping the whole catalog into the system prompt, and a real
+automated translator (foreign source text → Bossman chunk) that closes the loop the previous
+increment's docstrings already anticipated ("later a real automated translator ... calls `index`
+after translating").
+
+### Plan-catalog RAG (`search_plans`)
+
+**Calibration, measured against the real endpoint before writing any code:** genuine plan-
+description matches score **0.79–0.85** cosine similarity against a short natural-language query,
+genuine non-matches **0.66–0.73** — a real but narrower gap than the chunk cache's whole-task-file
+comparisons. The existing `chunk_similarity_threshold` (0.85) would have rejected a real match in
+this test, so plan search got its **own** setting, `plan_search_threshold` (default `0.75`).
+
+**`bossman/bossman/db/models.py`**: `PlanEmbedding` — `name` primary key, `description`,
+`content_hash` (sha256 of `"{name}: {description}"`, the batch-upsert short-circuit key),
+`embedding: Vector(1024)`, `model`, `created_at`. New migration
+`bd020d926560_plan_embeddings.py` (hand-written, mirrors the `chunk_embeddings` migration's own
+raw-SQL HNSW index creation).
+
+**`bossman/bossman/services/plan_search.py`** (new, framework-free): `index_plan_catalog(session,
+embedding_client, plans)` — the **batch** analogue of `chunk_similarity.index_chunk`'s short-
+circuit: computes every plan's content hash, embeds only the changed/new ones in a **single**
+batched `embed()` call (not N sequential calls), upserts, returns how many were re-embedded (0 =
+everything already current). `search_plans(session, embedding_client, *, query, top_k, threshold)`
+— cosine search identical in shape to `chunk_similarity.find_similar_chunks`.
+
+**`bossman/bossman/api/plans.py`**: `POST /api/v1/plans/search` — the first route combining
+`CatalogCache` + `EmbeddingClient` + a DB session (previously only pairwise combinations existed:
+`chunks.py` had embeddings+session, `plans.py`'s run route had catalog+session). Calls
+`index_plan_catalog` on the current `cache.plans` before searching, so there's no separate
+"reindex" endpoint to remember — a search after a plan change just costs one extra (cheap,
+short-circuited) pass.
+
+**`bossman/bossman/mcp/server.py`**: new `search_plans(query, top_k=5)` tool. Required extending
+`build_mcp_server(...)`'s signature with an `embedding_client` parameter (previously only
+`session_factory`/`settings`/`catalog_cache`/`client_factory`) — updated the one call site in
+`main.py`'s `lifespan()` and every test call site (10 in `test_mcp_server.py`) to pass a
+(possibly-fake) embedding client. `catalog_markdown`/`list_plans`/`get_catalog` are unchanged and
+remain the default for the current small catalog — `search_plans` is additive, not a replacement,
+and the query (like the host in `run_plan`) is always a tool-call argument, never baked into the
+cached system-prompt prefix.
+
+### Real LLM translator
+
+**Endpoint capability, verified by probing before writing any code:** the completions endpoint
+(`llm.example.internal/qwen79b`, `qwen3next-79b`) supports OpenAI's `response_format:
+{"type":"json_schema", ...}` with genuine grammar-level constraint (llama.cpp/GBNF) — tested with a
+schema containing a **dotted literal key** (`"ansible.builtin.apt"`) and confirmed clean, fence-
+free JSON output (unlike `response_format: json_object`, which wrapped output in markdown fences).
+Since LLM-generated JSON is valid YAML, **`plan_loader.parse_plan()` is reused unmodified** as the
+translator's entire validation gate — no bespoke validator was written; `PlanError` messages
+already are the right retry-feedback signal.
+
+**`bossman/bossman/services/chat_client.py`** (new), mirrors `embedding_client.py`'s shape
+(`ChatClientError`, transport test-seam, central JSON-decode helper, a `chat_client_for(settings)`
+factory) but posts to `/v1/chat/completions` with a `response_format.json_schema` body and a 300s
+default timeout (a 79B model generating hundreds of tokens is a tens-of-seconds affair, measured on
+a real basic probe). Logs `usage.prompt_tokens`/`completion_tokens` and, if present,
+`usage.prompt_tokens_details.cached_tokens` — llama.cpp has its own server-side prompt-prefix
+caching, confirmed present in a real response, conceptually the same cost-saving idea as Anthropic's
+`cache_control` even though the mechanism/header differs.
+
+**`bossman/bossman/services/translator.py`** (new, framework-free): `KNOWN_MODULES` — the **exact**
+53 module names from `internal/modules/*.go`'s own `Name()` methods (found via a corrected grep;
+the first attempt's naive regex silently missed `yum`/`dnf`, which use extra gofmt alignment
+whitespace before their opening brace — caught only because the real end-to-end translation of a
+role that uses `yum:` would otherwise have failed with a schema-enum rejection). This list becomes
+a JSON-schema `enum` on the `module` field — **grammar-level**, not prompt-text — so the model
+cannot structurally hallucinate a module Bossman doesn't actually have. `translate_chunk(session,
+embedding_client, chat_client, *, plan_name, chunk_name, source_text, similarity_threshold,
+max_retries=2)`:
+1. Calls `find_similar_chunks` first; a hit whose row has `translated_json` set short-circuits the
+   whole LLM call and reconstructs a real `Chunk` by feeding the stored JSON back through
+   `parse_plan` (no separate deserializer).
+2. Otherwise calls `chat_client.complete_json` with a schema requiring `{name, module, params}` per
+   step (`when`/`register`/`check_mode` optional) and `steps: minItems 1`.
+3. Reshapes `{module, params}` into the real `ansible.builtin.<module>: params` form in Python
+   (a literal dotted key is more failure-prone for a model to produce directly than a plain
+   enum-constrained string field) and validates via `parse_plan`.
+4. On `PlanError`, appends the invalid output plus the error text as new messages and retries (up
+   to `max_retries`); on exhaustion, raises `TranslationError` carrying the last error.
+5. On success, persists via `chunk_similarity.index_chunk(..., translated_json=...)` — the concrete
+   fulfillment of what `chunk_similarity.py`'s and `api/chunks.py`'s own docstrings had been
+   anticipating since the previous increment.
+
+**`ChunkEmbedding` schema change** (migration `f095218bdf99`): new nullable `translated_json: Text`
+column — makes a cache row **self-sufficient** for reuse (the actual translated chunk content, not
+just a pointer to a plan file that might not exist/be loaded). `index_chunk()` gained a matching
+optional parameter; existing callers/tests are unaffected (defaults to `None`, still fuzzy-
+findable, just not directly reuse-reconstructable — the same graceful two-tier behavior as before
+this change).
+
+**`bossman/bossman/api/translate.py`** (new): `POST /api/v1/translate`. REST-only, no MCP tool —
+translation is a one-off authoring action for a human/CI to review before a plan file is committed,
+consistent with the already-established scope cut ("kein KI-Übersetzer via MCP heute") and with
+plans being pure git-managed filesystem content (no "AI writes its own plans" API).
+
+**Explicitly out of scope for this first translator increment** (documented, same discipline as
+`img_docker`'s own scope cuts): only module-call steps are translated — `pipeline:`/`upload:` steps
+and `final_handler:` still need to be added by hand afterward, exactly like `img_docker.yaml`'s own
+`systemctl daemon-reload` pipeline step and `Restart Docker` handler were. OS-dispatch is not
+inferred by the model — the caller decides `os_family`, matching how a translator would be invoked
+once per already-known OS-specific source file, not asked to guess dispatch logic from prose.
+
+**Real, documented parameter-fidelity gap** (found during the real end-to-end run, not assumed):
+probing the schema with real Ansible source containing `pkg: [...]` (Ansible's alias for `apt`'s
+package list) showed the model faithfully echoes the *source's* key name rather than Bossman's own
+canonical one — `parse_plan` can't catch this (it validates shape, not per-module parameter
+vocabulary against the real Go module registry, which no Python-side code has access to). Mitigated
+with one explicit system-prompt clarification for the single most common alias mismatch
+(`pkg`→`name`, `dest`→`path` for symlinks) — not solved for all 53 modules' full alias surface,
+which is why translator output is explicitly a **draft for review**, not directly-trusted-and-run
+output; this matches the project's existing "plans are git-reviewed content" design, not a new
+weakness introduced here.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres via `bossman-dev-db`): `test_plan_search.py` (6: batch short-circuit, batching
+  only changed plans in one `embed()` call, threshold filtering, cross-model isolation);
+  `test_chat_client.py` (9, `httpx.MockTransport`: schema/body shape, bearer header, defensive
+  fence-stripping, every error path); `test_translator.py` (5: LLM path persists a reusable row,
+  reuse path makes zero LLM calls, **retry path** — a mocked first response of `{"steps": []}`
+  triggers the real `PlanError` "'steps' must be a non-empty list", second response succeeds —
+  exhausted-retries path, `ChatClientError` propagation); `test_translate_api.py` (3: auth gate,
+  success round-trip, 422 after exhausted retries) plus new `search_plans` route/tool tests in
+  `test_plans_api.py`/`test_mcp_server.py`. 217 tests total (up from 190), `ruff check` clean.
+  Migration round-trips (both new revisions) confirmed clean. One real test bug found and fixed
+  along the way: a test manually recomputed a `chunk_id` using the *chunk's* name for the *step's*
+  own name field — content-addressing is per-step, so this silently produced the wrong hash and
+  masked itself as "row not found" rather than an assertion mismatch; fixed and left a comment
+  explaining the distinction so it doesn't recur.
+- **Real end-to-end run against both live endpoints** (no fakes): `index_plan_catalog` against the
+  real, currently-committed `img_docker` plan, then `search_plans("set up docker with a proxy and
+  docker-compose")` found it at `0.7953` similarity — above threshold. A bare `"install docker"`
+  query scored `0.745`, just *below* the `0.75` threshold against `img_docker`'s real (long,
+  detailed) description — the same "verbose content dilutes short-query similarity" lesson already
+  found for chunk search, now confirmed at the plan-description level too; documented as a
+  calibration note (use a query that echoes more of the actual description, or pass a lower
+  `threshold`) rather than papered over by silently lowering the default. Then translated the real,
+  previously-untranslated `~/Dev/ansible/ansible03/roles/img_proftpd/tasks/main.yml` (chosen
+  specifically for being small and free of secrets/PII — a sibling role in the same tree was
+  rejected for this precise reason, containing real password hashes and an employee's SSH key) via
+  the real `qwen3next-79b` endpoint: succeeded on the first attempt, correctly used the `yum`
+  module (the exact module the `KNOWN_MODULES` gofmt-whitespace bug above would have broken),
+  correctly mapped the source's `vars: packages:` indirection to a flat `name` list, and correctly
+  reshaped old-style Ansible inline `key=value` argument strings (`service: name=proftpd
+  state=restarted`-style) into a proper JSON object. Re-translating the identical source text a
+  second time returned `source: "reused"` with the same `chunk_id` and zero further LLM calls,
+  proving the fuzzy-cache short-circuit works end to end with a real translation, not just a
+  synthetic fixture. All inserted `chunk_embeddings`/`plan_embeddings` rows were removed afterward;
+  confirmed via `psql` that both tables are empty again.

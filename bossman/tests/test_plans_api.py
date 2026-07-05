@@ -10,8 +10,9 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from bossman.api.chunks import get_embedding_client
 from bossman.api.plans import get_client_factory
-from bossman.db.models import Agent, PlanRun
+from bossman.db.models import Agent, PlanEmbedding, PlanRun
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
@@ -243,3 +244,62 @@ async def test_run_plan_missing_required_param_422(db_session, tmp_path, monkeyp
     await db_session.delete(agent)
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+class FakeEmbeddingClient:
+    model = "fake-model"
+
+    def __init__(self):
+        self.vectors: dict[str, list[float]] = {}
+
+    def register(self, text: str, vector: list[float]) -> None:
+        self.vectors[text] = vector
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self.vectors[t] for t in texts]
+
+
+def _vec(*components: float, dim: int = 1024) -> list[float]:
+    padded = list(components) + [0.0] * (dim - len(components))
+    return padded[:dim]
+
+
+async def test_search_plans_route(db_session, tmp_path, monkeypatch):
+    _write_plan(tmp_path, plan_name="img_docker")
+    monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+    fake = FakeEmbeddingClient()
+    fake.register("img_docker: test plan", _vec(1.0, 0.0))
+    fake.register("a plan for docker", _vec(0.99, 0.01))
+    app.dependency_overrides[get_embedding_client] = lambda: fake
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/plans/search",
+            json={"query": "a plan for docker", "top_k": 5, "threshold": 0.75},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+    assert len(results) == 1
+    assert results[0]["name"] == "img_docker"
+    assert results[0]["similarity"] > 0.75
+
+    row = await db_session.get(PlanEmbedding, "img_docker")
+    await db_session.delete(row)
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_search_plans_requires_auth(tmp_path, monkeypatch):
+    _write_plan(tmp_path, plan_name="img_docker")
+    monkeypatch.setenv("BOSSMAN_PLANS_DIR", str(tmp_path))
+    app = create_app()
+    app.dependency_overrides[get_embedding_client] = lambda: FakeEmbeddingClient()
+
+    with TestClient(app) as client:
+        resp = client.post("/api/v1/plans/search", json={"query": "docker"})
+
+    assert resp.status_code == 401
