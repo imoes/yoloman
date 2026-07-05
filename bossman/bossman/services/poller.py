@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
+from bossman.services.monitoring import evaluate_host
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,17 @@ async def poll_agent(
 
         if reached_agent:
             agent.last_seen_at = now
+
+        # Runs regardless of whether this cycle's metrics pull succeeded —
+        # a transient pull failure shouldn't also freeze monitoring state
+        # evaluation against whatever value is already stored. Isolated in
+        # its own try/except so one host's evaluation bug can't crash the
+        # whole poll cycle (mirrors the metrics/edges try/except above).
+        try:
+            await evaluate_host(session, agent)
+        except Exception:
+            logger.exception("evaluate_host failed for agent %s", agent.name)
+
         await session.commit()
         return result
 

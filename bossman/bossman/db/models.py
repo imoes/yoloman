@@ -13,8 +13,20 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
+from sqlalchemy import (
+    Boolean,
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -66,6 +78,14 @@ class Agent(Base):
     # in the other.
     last_metrics_pulled_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
     last_edges_pulled_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    # Host-group membership (see docs/plan.md's monitoring Block E2) — the
+    # CheckMK-style unit a check_rule can target instead of (or alongside)
+    # a specific host. A host can belong to more than one group; rule
+    # precedence (services/monitoring.resolve_effective_rule) is host >
+    # group > global, with ties among multiple matching group rules broken
+    # by most-recently-created.
+    groups: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
 
     __table_args__ = (
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
@@ -281,3 +301,111 @@ class PlanEmbedding(Base):
     embedding: Mapped[list[float]] = mapped_column(Vector(CHUNK_EMBEDDING_DIM), nullable=False)
     model: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class CheckRule(Base):
+    """A CheckMK-style monitoring rule: "if <metric> <comparison> <warn/
+    crit threshold>, that's a WARN/CRIT service named <service_name>" (see
+    services/monitoring.py and docs/plan.md's monitoring Block E2). Scoped
+    to `global` (every host), a `group` (agents.groups membership), or one
+    specific `host` (agents.name) — resolve_effective_rule applies the
+    most specific match (host > group > global), the same precedence
+    CheckMK's own rule-set editor uses, per the user's explicit request
+    ("Regeln für Gruppen ... die von Host-Regeln übersteuert werden
+    können")."""
+
+    __tablename__ = "check_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    service_name: Mapped[str] = mapped_column(String, nullable=False)
+    metric: Mapped[str] = mapped_column(String, nullable=False)
+    comparison: Mapped[str] = mapped_column(String, nullable=False)
+    warn_threshold: Mapped[float | None] = mapped_column(Float)
+    crit_threshold: Mapped[float | None] = mapped_column(Float)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False, default="global")
+    # NULL for scope_type=global; a group name for scope_type=group; an
+    # agent name for scope_type=host.
+    scope_value: Mapped[str | None] = mapped_column(String)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "comparison IN ('gt', 'lt', 'ge', 'le', 'eq', 'ne')", name="ck_check_rules_comparison"
+        ),
+        CheckConstraint("scope_type IN ('global', 'group', 'host')", name="ck_check_rules_scope_type"),
+        CheckConstraint(
+            "(scope_type = 'global' AND scope_value IS NULL) OR "
+            "(scope_type IN ('group', 'host') AND scope_value IS NOT NULL)",
+            name="ck_check_rules_scope_value_matches_type",
+        ),
+    )
+
+
+class Service(Base):
+    """The materialized, per-host result of evaluating a CheckRule against
+    the most recently polled metric value — CheckMK's own "Service"
+    concept (see services/monitoring.py's evaluate_host and docs/plan.md's
+    monitoring Block E2). A row with `state != 'OK'` and neither
+    acknowledged nor covered by an active Downtime is an active "problem"
+    (see api/monitoring.py's GET /api/v1/problems)."""
+
+    __tablename__ = "services"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    metric: Mapped[str] = mapped_column(String, nullable=False)
+    state: Mapped[str] = mapped_column(String, nullable=False, default="UNKNOWN")
+    value: Mapped[float | None] = mapped_column(Float)
+    output: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("check_rules.id"))
+    last_state_change: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    last_checked: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ack_comment: Mapped[str | None] = mapped_column(Text)
+    ack_by: Mapped[str | None] = mapped_column(String)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "name", name="uq_services_agent_name"),
+        CheckConstraint("state IN ('OK', 'WARN', 'CRIT', 'UNKNOWN')", name="ck_services_state"),
+        Index("idx_services_agent", "agent_id"),
+    )
+
+
+class ServiceStateHistory(Base):
+    """Zustands-Zeitleiste — a TimescaleDB hypertable (see the Alembic
+    migration), one row per Service state change, mirroring how Metric/
+    ConnectionEvent already separate "current materialized state" from
+    "raw history" (see docs/plan.md's monitoring Block E2)."""
+
+    __tablename__ = "service_state_history"
+
+    time: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False, primary_key=True)
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, primary_key=True
+    )
+    service_name: Mapped[str] = mapped_column(String, nullable=False, primary_key=True)
+    state: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[float | None] = mapped_column(Float)
+
+    __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
+
+
+class Downtime(Base):
+    """A scheduled maintenance window (see docs/plan.md's monitoring Block
+    E2) — `service_name=NULL` means the whole host, matching CheckMK's own
+    host-vs-service downtime distinction."""
+
+    __tablename__ = "downtimes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False)
+    service_name: Mapped[str | None] = mapped_column(String)
+    starts_at: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False)
+    comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("idx_downtimes_agent_window", "agent_id", "starts_at", "ends_at"),)
