@@ -3583,7 +3583,7 @@ contract twice:
   catalog module (G3 loader) → instantly an MCP tool + REST endpoint. Dry-run-first testing in
   the UI (G4).
 
-## Block G8 — MCP translation pipeline: model benchmark + collection translation (planned, in progress)
+## Block G8 — MCP translation pipeline: model benchmark + collection translation (implemented; full run resumable)
 
 The concrete first implementation of the G-series, commissioned directly by the user: two local
 LLMs (`https://llm.example.internal/qwen35b` and `…/qwen79b` — the latter already Bossman's
@@ -3615,3 +3615,51 @@ Planned parts (details refined as implemented, verification numbers appended whe
    posix → crypto → docker → general; per module: fetch source → translate → validate (retry
    with diagnostics) → submit. Pilot: ansible.posix (14) live; the full 667 run continues as a
    resumable background job.
+
+### Block G8 — implemented + real results
+
+Implemented and run live against the two real local endpoints (both OpenAI-compatible, both 256K
+context, confirmed HTTP 200). Delivered as committed code:
+`internal/starmod` + `cmd/starlark-check` (Go validator, 11 tests), `bossman/services/module_library.py`
+(the five MCP tools, 15 tests), `bossman/services/starlark_translation.py` (prompts + `is`/`is not`
+normalization + retry hints, 9 tests), `bossman/services/chat_client.py::complete_text`, and the
+`scripts/` pipeline (`_mcp_pipeline`, `benchmark_starlark_models`, `translate_modules`,
+`dump_module_sources`, `diagnose_translation`). 690 module sources were dumped from the locally
+installed collections; the library is mounted into the Bossman container and grows via the
+`submit_module` MCP tool straight into the repo working tree.
+
+**Two design corrections came out of running it, both real findings:**
+- **Raw text, not a JSON envelope.** The pipeline first inherited the translator's
+  `complete_json` (json-schema-constrained). For a single code payload that is the wrong fit — it
+  forces the model to escape a whole module into one JSON string — and it broke `qwen35b` entirely:
+  a *reasoning* model, it spends its budget in `reasoning_content` and leaves `content` empty
+  (confirmed by a direct probe → empty completion). Switched to `complete_text` (raw Starlark, an
+  optional fence stripped) plus `chat_template_kwargs.enable_thinking=false` to disable reasoning.
+- **Context beats model selection (the awx-ng thesis, confirmed).** Diagnosis on the weaker model
+  showed every failure was the *same* context gap: `if x is None:` — Starlark has no `is` operator,
+  a hard parse error that aborts before anything else. Enriching the contract (a prominent "Starlark
+  is NOT Python" forbidden-list with replacements, a second worked example for the config-file-editor
+  module class, `isinstance → type(x)=="…"`), adding targeted retry hints, and a deterministic
+  `is`/`is not → ==`/`!=` normalization lifted the weaker model measurably.
+
+**Benchmark (6 representative modules across all four collections, ≤3 validator-feedback attempts):**
+
+| Round | qwen35b hard-gate | qwen79b hard-gate |
+|---|---|---|
+| v1 — JSON envelope | 1/6 (5× empty-content: reasoning model) | (aborted; struggled with code-in-JSON escaping) |
+| v2 — raw text + no-think | 2/6 | strong |
+| **v3 — + enriched context + normalization** | **4/6** (`timezone`/`sysctl`/`ini_file` all flipped fail→pass) | **6/6** |
+
+Winner: **qwen79b** (6/6, and already Bossman's configured `chat_model`). Also fixed a real loop
+bug the benchmark exposed — the retry loop stopped only on `ok AND stub_ok`, but `stub_ok` is a soft
+signal (mocked builtins feed canned empty output, which legitimately breaks output-parsing modules),
+so every module ran to max attempts; now it stops on `ok` (parse+lint, the real acceptance gate),
+cutting ~2/3 of the LLM calls on the full run.
+
+**Pilot (ansible.posix, qwen79b, live over MCP): 13/14 translated, validated, and committed** to
+`configs/modules.d/ansible.posix/` (real `.star` + `.yaml` pairs). Only `mount` (a 267-line
+try/except-heavy module) failed after 3 attempts and is resumable. Spot-check of `sysctl.star`: a
+faithful translation — state present/absent, `check_mode`, dedup file rewrite, distro-specific
+reload, value normalization, nested `def` helpers, all via `ctx.*` with `== None`/`fail()`. The
+full 667-module run (crypto → docker → general) proceeds as the resumable background job driven by
+`list_module_status`'s `missing` queue.
