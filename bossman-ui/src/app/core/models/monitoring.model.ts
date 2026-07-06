@@ -61,3 +61,22 @@ export interface FleetSummary {
   services_by_state: Record<string, number>;
   open_problems: number;
 }
+
+/** Matches bossman/api/monitoring.py's FleetHostOut — the host-overview
+ * table's data source (see docs/plan.md's monitoring-cockpit ergänzung
+ * Block F2/F3): real CPU/mem/disk values + a CheckMK-style state rollup,
+ * one row per host including satellites discovered behind a proxy. */
+export interface FleetHost {
+  id: string;
+  name: string;
+  parent_agent_id: string | null;
+  parent_name: string | null;
+  mode: string;
+  enrollment_state: string;
+  last_seen_at: string | null;
+  state_rollup: 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
+  cpu_load: number | null;
+  mem_used_pct: number | null;
+  disk_used_pct_max: number | null;
+  service_counts: Record<string, number>;
+}

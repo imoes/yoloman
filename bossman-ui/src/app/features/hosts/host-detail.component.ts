@@ -14,10 +14,11 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { Agent, MetricPoint } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
-import { ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
+import { FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
 import { TimeRangePickerComponent } from '../../shared/components/time-range-picker/time-range-picker.component';
+import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
 import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -37,6 +38,7 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
     HostStatusBadgeComponent,
     MetricChartComponent,
     TimeRangePickerComponent,
+    PerfOMeterComponent,
   ],
   template: `
     @if (agent(); as agent) {
@@ -47,6 +49,51 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
         </div>
 
         <mat-tab-group>
+          <mat-tab label="Overview">
+            <div class="bm-tab-content">
+              @if (overview(); as ov) {
+                <div class="bm-overview-grid">
+                  <mat-card class="bm-overview-tile">
+                    <div class="bm-overview-label">CPU load</div>
+                    <div class="bm-overview-value">{{ ov.cpu_load !== null ? ov.cpu_load.toFixed(2) : '—' }}</div>
+                  </mat-card>
+                  <mat-card class="bm-overview-tile">
+                    <div class="bm-overview-label">Memory</div>
+                    <app-perf-o-meter [value]="ov.mem_used_pct" [warn]="80" [crit]="90" />
+                  </mat-card>
+                  <mat-card class="bm-overview-tile">
+                    <div class="bm-overview-label">Disk (max)</div>
+                    <app-perf-o-meter [value]="ov.disk_used_pct_max" [warn]="80" [crit]="90" />
+                  </mat-card>
+                  <mat-card class="bm-overview-tile">
+                    <div class="bm-overview-label">Services</div>
+                    <div class="bm-service-counts">
+                      @if (ov.service_counts['CRIT']) {
+                        <span class="bm-count bm-count--crit">{{ ov.service_counts['CRIT'] }} CRIT</span>
+                      }
+                      @if (ov.service_counts['WARN']) {
+                        <span class="bm-count bm-count--warn">{{ ov.service_counts['WARN'] }} WARN</span>
+                      }
+                      @if (ov.service_counts['OK']) {
+                        <span class="bm-count bm-count--ok">{{ ov.service_counts['OK'] }} OK</span>
+                      }
+                      @if (!ov.service_counts['CRIT'] && !ov.service_counts['WARN'] && !ov.service_counts['OK']) {
+                        <span class="bm-empty">No services yet</span>
+                      }
+                    </div>
+                  </mat-card>
+                </div>
+                @if (ov.parent_name) {
+                  <p class="bm-parent-note">
+                    Behind proxy <a [routerLink]="['/hosts', ov.parent_agent_id]">{{ ov.parent_name }}</a>
+                  </p>
+                }
+              } @else {
+                <p class="bm-empty">No metric snapshot yet for this host.</p>
+              }
+            </div>
+          </mat-tab>
+
           <mat-tab label="Facts">
             <div class="bm-tab-content">
               <dl class="bm-facts">
@@ -288,6 +335,53 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
       .bm-empty {
         opacity: 0.6;
       }
+      .bm-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .bm-overview-tile {
+        padding: 4px;
+      }
+      .bm-overview-tile mat-card-content,
+      .bm-overview-tile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+      }
+      .bm-overview-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        opacity: 0.7;
+      }
+      .bm-overview-value {
+        font-size: 28px;
+        font-weight: 600;
+      }
+      .bm-parent-note {
+        margin-top: 16px;
+        opacity: 0.8;
+      }
+      .bm-service-counts {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .bm-count {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .bm-count--ok {
+        color: var(--bm-green);
+      }
+      .bm-count--warn {
+        color: var(--bm-gold);
+      }
+      .bm-count--crit {
+        color: var(--bm-red);
+      }
     `,
   ],
 })
@@ -309,6 +403,7 @@ export class HostDetailComponent implements OnInit {
   selectedService = signal<ServiceState | null>(null);
   serviceMetricPoints = signal<MetricPoint[]>([]);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
+  overview = signal<FleetHost | null>(null);
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
@@ -331,6 +426,7 @@ export class HostDetailComponent implements OnInit {
     this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
     this.reloadServices(id);
+    this.monitoringService.fleetHosts().subscribe((hosts) => this.overview.set(hosts.find((h) => h.id === id) ?? null));
   }
 
   private reloadServices(agentId: string): void {

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { CheckRule, CheckRuleInput, Downtime, FleetSummary, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -87,5 +87,9 @@ export class MonitoringService {
 
   fleetSummary() {
     return this.http.get<FleetSummary>(`${this.base}/fleet/summary`);
+  }
+
+  fleetHosts() {
+    return this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`);
   }
 }

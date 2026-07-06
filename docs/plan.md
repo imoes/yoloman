@@ -3029,3 +3029,47 @@ MCP tool `fleet_hosts` mirrors the REST route exactly (same underlying function,
   the current UI immediately, before Block F3's dedicated overview table even exists.
 - `ruff check .` clean; full `pytest` suite green; no leftover rows in either the dev DB or the
   live compose DB after cleanup.
+
+## Bossman-UI — Block F3: real host-overview table + Perf-O-Meter + host-detail Overview tab (implemented)
+
+The frontend half of the same complaint: the Hosts list showed Name/Address/Mode/Status/Last-seen
+and nothing else — no CPU/RAM/disk anywhere, exactly the "CheckMK/Zabbix host overview with real
+values" gap identified in the audit (CheckMK/Zabbix documentation research: a Perf-O-Meter inline
+bar per key metric, worst-state-wins host rollup, drill-down into a per-host detail). Block F2's
+`GET /api/v1/fleet/hosts` is the data source; this block is purely presentation.
+
+**`shared/components/perf-o-meter`** (new): a compact inline bar — CheckMK's own "Perf-O-Meter" —
+threshold-colored (reusing the existing `--bm-green/--bm-gold/--bm-red/--bm-unknown` vars, no new
+palette introduced), with a numeric label. Deliberately tiny: the full history graph is one click
+away in host detail's existing Metrics/Services tabs, so this only needs to answer "is this fine at
+a glance", not replace the drill-down chain.
+
+**Hosts list rewritten** (`features/hosts/hosts-list.component.ts`): now a real "Latest data" table
+— Name / State (rollup badge) / CPU load / Memory (Perf-O-Meter) / Disk max (Perf-O-Meter) /
+Services (OK/WARN/CRIT counts) / Last seen — sourced from `MonitoringService.fleetHosts()` instead
+of `AgentService.list()`. Satellites are grouped directly under their parent proxy, indented with a
+`↳` glyph (a simple flattened two-level tree — this project's proxy nesting is deliberately
+single-hop, so no recursive tree component was needed). CPU load is shown as plain text, not a
+Perf-O-Meter bar, matching CheckMK's own convention: load isn't naturally a 0–100% quantity, only
+RAM/disk are.
+
+**Host detail gained a new first tab, "Overview"** (`features/hosts/host-detail.component.ts`): four
+tiles — CPU load, Memory (Perf-O-Meter), Disk max (Perf-O-Meter), Services (state counts) — plus a
+"Behind proxy `<parent>`" link when the host is a satellite. Sourced by filtering the same
+`fleetHosts()` call client-side rather than adding a new per-host backend endpoint (the fleet is
+capped at this project's targeted ~100-host scale, so one bulk call is cheap enough for both the
+list and the detail page). The pre-existing Facts/Metrics/Services/Relationships/Runs tabs are
+unchanged.
+
+**Verification (real, not mocked):**
+- `npx ng build` clean.
+- **Real end-to-end run against the actual running compose stack** (the same real 3-tier hosts from
+  Blocks F1/F2): rebuilt and redeployed `bossman-ui`. In a real browser (Playwright): the Hosts page
+  shows exactly the CheckMK-style table described above with **real, distinct values** —
+  `selecta-ansible-runner`: CPU load 0.17, Memory 27.3%, Disk 33.5%, 12 OK services; its satellite
+  `↳ duppy-docker-test`: CPU load 0.00, Memory 18.6%, Disk 26.4%, 12 OK services — both green
+  Perf-O-Meter bars matching their real OK state. Clicking the satellite row opens its detail page
+  on the new Overview tab by default, showing the same four real values as tiles plus a working
+  "Behind proxy selecta-ansible-runner" link.
+- No backend changes in this block; the existing 276-test Python suite stays green as a smoke check
+  that nothing on the API side regressed.
