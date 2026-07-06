@@ -8,6 +8,7 @@ export interface Agent {
   last_seen_at: string | null;
   metadata: Record<string, unknown>;
   groups: string[];
+  parent_agent_id: string | null;
 }
 
 export interface MetricPoint {

@@ -3073,3 +3073,32 @@ unchanged.
   "Behind proxy selecta-ansible-runner" link.
 - No backend changes in this block; the existing 276-test Python suite stays green as a smoke check
   that nothing on the API side regressed.
+
+## Bossman-UI — Block F4: topology proxy→satellite edges (implemented)
+
+The audit's third finding: the topology graph only ever drew real eBPF `host_edges`, so a satellite
+behind a proxy — the exact host Block F2 just made visible everywhere else — still showed up as a
+disconnected dot with no line to its proxy, since no traffic had necessarily been *observed* between
+them yet (eBPF edges require actual connections, not just the relay relationship itself).
+
+`shared/components/topology-graph/topology-graph.component.ts` gained a second, independent edge
+source: a new `ParentEdge{parent, child}` input, derived in `topology.component.ts` straight from
+`agents.parent_agent_id` (added to the Angular `Agent` model, matching Block F2's `AgentOut`) —
+drawn unconditionally, unlike a real `HostEdge`. Styled distinctly (dashed gold, labeled "relays")
+so it reads as "this host relays that one" rather than "observed traffic" (the existing solid grey
+eBPF edges). Node coloring was also upgraded from enrollment-state-only (`agentHealthStatus`) to the
+real per-host service-state rollup (`MonitoringService.fleetHosts()`, Block F2's endpoint) when
+available, falling back to the enrollment-based status for a host with no metric snapshot yet — a
+node's color now reflects "is this host actually healthy", not just "is it enrolled".
+
+**Deliberately out of scope** (an honest scope reduction, not an oversight): host-**group**
+clustering (visually grouping nodes by `agents.groups`, the check_rule-scoping concept) was in the
+original ergänzung's wording but is a materially larger feature (compound/cluster nodes, a
+multi-membership layout) unrelated to the proxy/satellite visibility bug that motivated this block;
+deferred to its own later block if wanted. Multi-hop topology (a satellite that is itself a proxy)
+remains out of scope project-wide, as already documented in this file's Selecta section.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui`; in a real
+browser (Playwright) against the live 3-tier stack, `/topology` now renders both real hosts —
+`selecta-ansible-runner` and `duppy-docker-test` — connected by a dashed gold "relays" edge (instead
+of two disconnected dots), both nodes green (their real `OK` state rollup from `fleet_hosts`).

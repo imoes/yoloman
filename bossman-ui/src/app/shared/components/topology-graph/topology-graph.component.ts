@@ -3,9 +3,18 @@ import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { Agent } from '../../../core/models/agent.model';
 import { HostEdge } from '../../../core/models/edge.model';
-import { agentHealthStatus } from '../../status.util';
+import { agentHealthStatus, serviceStateBadge } from '../../status.util';
 
 cytoscape.use(dagre);
+
+/** A structural proxy->satellite link derived from agents.parent_agent_id
+ * — always drawn, unlike a real eBPF HostEdge which only exists once
+ * traffic has actually been observed (see docs/plan.md's monitoring-
+ * cockpit ergänzung Block F4). */
+export interface ParentEdge {
+  parent: string;
+  child: string;
+}
 
 /** Renders the fleet's host-relationship graph (see docs/plan.md's
  * Bossman plan, section C.1 "Topologie" / C.3's shared component list):
@@ -31,6 +40,8 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
 
   agents = input.required<Agent[]>();
   edges = input.required<HostEdge[]>();
+  parentEdges = input<ParentEdge[]>([]);
+  hostStates = input<Map<string, string> | null>(null);
 
   private cy?: cytoscape.Core;
 
@@ -38,7 +49,9 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const agents = this.agents();
       const edges = this.edges();
-      if (this.cy) this.render(agents, edges);
+      const parentEdges = this.parentEdges();
+      const hostStates = this.hostStates();
+      if (this.cy) this.render(agents, edges, parentEdges, hostStates);
     });
   }
 
@@ -77,23 +90,45 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
             color: '#9a9a9a',
           },
         },
+        // Proxy->satellite structural edges (see docs/plan.md's
+        // monitoring-cockpit ergänzung Block F4): dashed and gold, so
+        // they read as "this host relays that one" rather than
+        // "observed traffic" (the solid grey eBPF edges above) — always
+        // present, unlike a traffic edge which only exists once eBPF has
+        // actually observed a connection.
+        {
+          selector: 'edge.parent-edge',
+          style: {
+            width: 2,
+            'line-color': '#ffc800',
+            'target-arrow-color': '#ffc800',
+            'target-arrow-shape': 'triangle',
+            'line-style': 'dashed',
+            'curve-style': 'bezier',
+            label: 'data(label)',
+            'font-size': 9,
+            color: '#ffc800',
+          },
+        },
       ],
       layout: { name: 'dagre' } as cytoscape.LayoutOptions,
     });
-    this.render(this.agents(), this.edges());
+    this.render(this.agents(), this.edges(), this.parentEdges(), this.hostStates());
   }
 
   ngOnDestroy(): void {
     this.cy?.destroy();
   }
 
-  private render(agents: Agent[], edges: HostEdge[]): void {
+  private render(agents: Agent[], edges: HostEdge[], parentEdges: ParentEdge[], hostStates: Map<string, string> | null): void {
     if (!this.cy) return;
     const known = new Set(agents.map((a) => a.id));
 
-    const nodes = agents.map((a) => ({
-      data: { id: a.id, label: a.name, status: agentHealthStatus(a) },
-    }));
+    const nodes = agents.map((a) => {
+      const rollup = hostStates?.get(a.id);
+      const status = rollup ? serviceStateBadge(rollup) : agentHealthStatus(a);
+      return { data: { id: a.id, label: a.name, status } };
+    });
     const edgeEls = edges
       .filter((e) => e.dst_agent_id && known.has(e.dst_agent_id))
       .map((e) => ({
@@ -105,9 +140,20 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
           width: Math.min(1 + Math.log2(e.event_count + 1), 8),
         },
       }));
+    const parentEdgeEls = parentEdges
+      .filter((e) => known.has(e.parent) && known.has(e.child))
+      .map((e) => ({
+        classes: 'parent-edge',
+        data: {
+          id: `parent-${e.parent}-${e.child}`,
+          source: e.parent,
+          target: e.child,
+          label: 'relays',
+        },
+      }));
 
     this.cy.elements().remove();
-    this.cy.add([...nodes, ...edgeEls]);
+    this.cy.add([...nodes, ...edgeEls, ...parentEdgeEls]);
     this.cy.layout({ name: 'dagre' } as cytoscape.LayoutOptions).run();
   }
 }
