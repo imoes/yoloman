@@ -3139,3 +3139,59 @@ browser (Playwright) against the live stack: Fleet Overview's "Run a plan" butto
 highlight, and every link now render in the exact same green as the status dots and the Perf-O-Meter
 bars (previously two subtly different greens); the sidebar shows the logo on every page, not just
 login. `/login`'s existing large-logo layout is unaffected.
+
+## Bossman — Block F5 (backend): per-operator GridStack dashboard (implemented)
+
+Modeled directly on `~/Dev/code/CentralStation`'s own dashboard-widget architecture, per the
+original F5 decision (AskUserQuestion: "GridStack + Persistenz (empfohlen)") — one polymorphic,
+server-persisted data record per widget rather than a bespoke fixed-card layout, so an operator can
+freely arrange/resize/hide widgets and have that layout survive a reload.
+
+**Schema** (`alembic/versions/fd4f41b40434_dashboard_widgets.py`, `db/models.py`'s new
+`DashboardWidget`): `id, username, widget_type, title, gs_x/y/w/h, config (JSONB), pinned, hidden,
+created_at`. `widget_type` is constrained at the DB level (`CheckConstraint`) to the six types this
+project actually has a real data source for — `top_hosts, problems, gauge, timeseries, donut,
+stat` — deliberately a smaller set than CentralStation's own type union (no `grafana_panel`,
+`war_room`, `ai_summary`, … nothing in Bossman produces that data). `username` is indexed and is
+the ownership boundary: every service function takes it as an explicit parameter and every route
+derives it from `get_current_identity`, never from a request body field — a caller cannot address
+another operator's widget by ID (`update_widget`/`delete_widget` return `None`/`False` for a
+mismatched owner, which the route layer turns into a 404, not a 403 — deliberately not
+distinguishing "not yours" from "doesn't exist" to avoid an existence-leak side channel).
+
+**Service layer** (`services/dashboard.py`, framework-free like every other `services/*.py` module):
+`list_widgets`/`create_widget`/`update_widget`/`delete_widget` (plain CRUD, `DEFAULT_SIZE` per
+`widget_type` applied when a caller omits `gs_w`/`gs_h`, mirroring CentralStation's own
+add-widget-dialog defaults) plus `widget_data(session, widget)`, which dispatches on
+`widget.widget_type` and computes each widget's current payload by calling straight into the
+existing `services/monitoring.py` functions (`fleet_hosts`, `fleet_summary`, `query_problems`) —
+no duplicated aggregation logic, the dashboard widgets are thin views over data Block E2/F2 already
+produce. `gauge`/`timeseries` read `Metric` rows directly (`config.agent_id`/`config.metric`
+required, since those two types are the only ones needing a caller-chosen series).
+
+**REST** (`api/dashboard.py`, mounted in `main.py`): `GET/POST /api/v1/dashboard-widgets`,
+`PATCH/DELETE /api/v1/dashboard-widgets/{id}`, `GET /api/v1/dashboard-widgets/{id}/data` — five
+routes, all behind `get_current_identity` like the rest of Block B7's surface. `widget_type` is
+validated against `WIDGET_TYPES` at the API layer too (422, not just a DB constraint violation) so a
+bad request fails with a clear message instead of an opaque 500.
+
+**Tests** (`tests/test_dashboard_api.py`, new, 6 tests, real Postgres via `bossman-dev-db`, no
+mocking): auth-required (401 without a token); full CRUD round-trip including the `DEFAULT_SIZE`
+default-geometry path; `widget_type` rejection (422 on an unknown type); ownership isolation (a
+second identity's widget is absent from another caller's list, and PATCH/DELETE on it 404s rather
+than leaking whether it exists); `/data` for `stat` (real `open_problems` count against a real CRIT
+service row) and `top_hosts` (real host row returned by `fleet_hosts`) — the two widget types
+needing no extra `config`.
+
+**Verification (real, not mocked):** `uv run ruff check .` clean; `uv run pytest -q` → 282 passed (276
+pre-existing + 6 new dashboard tests), no regressions. Verified against `bossman-dev-db`
+(`postgresql+asyncpg://bossman:bossman@localhost:55432/bossman`) — confirmed via direct `psql`
+inspection that no test rows (`dash-agent-*` Agents, `dashboard_widgets` rows, `dash-*` API tokens)
+were left behind after the run.
+
+**Not yet done, remainder of Block F5**: the frontend half — GridStack container component
+(`afterNextRender` grid init, drag/resize gated by an edit-mode signal, `saveLayout()` PATCHing
+geometry back), a polymorphic `dashboard-widget` renderer (`@switch` on `widget_type`, ECharts
+option builders for `donut`/`timeseries`/`gauge`, a table for `top_hosts`/`problems`, a plain number
+for `stat`), an add-widget catalog dialog, wiring Fleet Overview to use this dashboard, and live
+Playwright verification against the running docker-compose stack.

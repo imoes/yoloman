@@ -417,3 +417,38 @@ class Downtime(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (Index("idx_downtimes_agent_window", "agent_id", "starts_at", "ends_at"),)
+
+
+class DashboardWidget(Base):
+    """One GridStack widget on a Bossman operator's own Fleet Overview
+    dashboard (see docs/plan.md's monitoring-cockpit ergänzung Block F5,
+    modeled directly on CentralStation's own dashboard-widget shape).
+    Keyed by `username`, not a `bossman_users.id` foreign key: services.
+    auth.Identity (what every REST route actually authenticates against)
+    carries a username, not that row's UUID, and looking it up per widget
+    request would be one more join for no real benefit at this project's
+    single-admin-mostly scale — an accepted simplification, not an
+    oversight."""
+
+    __tablename__ = "dashboard_widgets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    username: Mapped[str] = mapped_column(String, nullable=False)
+    widget_type: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    gs_x: Mapped[int] = mapped_column(nullable=False, default=0)
+    gs_y: Mapped[int] = mapped_column(nullable=False, default=0)
+    gs_w: Mapped[int] = mapped_column(nullable=False, default=4)
+    gs_h: Mapped[int] = mapped_column(nullable=False, default=3)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "widget_type IN ('top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat')",
+            name="ck_dashboard_widgets_type",
+        ),
+        Index("idx_dashboard_widgets_username", "username"),
+    )
