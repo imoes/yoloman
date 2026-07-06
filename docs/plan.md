@@ -3353,3 +3353,43 @@ headers (all badged OK, derived from the agent's `check_*_state` metrics — no 
 Perf-O-Meter bars (31.3 % / 0.0 %); expanding `mem_used_pct` shows the green CentralStation-style
 gauge (31.3 %, green arc) beside the green smooth-area history chart. No test data created; nothing
 to clean up.
+
+## Bossman + Bossman-UI — Block F9: CheckMK combined graphs + fix Services "no data" (implemented)
+
+Two issues from a second live review: (1) CheckMK overlays related metrics in one combined graph
+(e.g. CPU load 1/5/15) — Bossman only ever plotted one series; (2) every service on the Services tab
+showed "no data" in its detail chart. Per the user's steer, the overlay reuses CentralStation's own
+multi-series line pattern (`dashboard-widget.component.ts`'s `series_list` timeseries) rather than a
+new charting approach.
+
+**`MetricChartComponent` gained a combined-graph mode** (`shared/components/metric-chart`): a new
+`series: ChartSeries[]` input renders several named lines overlaid — smooth, symbol-less, a distinct
+colour each from a Bossman-green-first palette (mirroring CentralStation's), with a legend and no
+area fill (overlapping fills muddy a multi-line graph, which CentralStation also drops). The single
+`points` green-area mode is unchanged, so every existing caller keeps working.
+
+**Two combined graphs wired up** (`host-detail.component.ts`, `COMBINED_GRAPHS`): `cpu_load1/5/15`
+and `net_rx_bytes/net_tx_bytes`. Expanding *any* member metric in the Metrics tab now loads the
+whole family (`forkJoin` over `metricSeries`) and overlays them; single metrics still show one green
+line + the gauge for percentages.
+
+**Services "no data" — root cause and fix.** Agent-reported checks (CPU load, Memory, Disk /usr, …)
+carry an empty `Service.metric` (their state arrives pre-computed from the Go agent), so the service
+detail chart was fetching `metricSeries(agent, "")` → nothing. `serviceMetricSpec()` now maps a check
+by name onto the real telemetry metric(s) it grades — "CPU load" → the cpu_load combined graph,
+"Memory" → `mem_used_pct`, "Uptime" → `uptime_seconds`, "Disk /X" → `disk_used_pct` filtered to mount
+`/X` (all mounts share one series, distinguished by a `mount` label). A CheckRule-derived service with
+a real `metric` still uses it directly.
+
+**Also fixed: service-history 404 for slash names.** `GET /agents/{id}/services/{service_name}/history`
+used a plain path param, so "Disk /usr" (URL-encoded `%2F`) 404'd — visible as console errors and an
+empty history list. Changed to the `{service_name:path}` converter; new test
+`test_get_service_history_name_with_slash` covers it (real Postgres, 2/2 history tests green).
+
+**Verification (real, not mocked):** `ruff` clean; monitoring history tests green; `npx ng build`
+clean. Rebuilt/redeployed `bossman` + `bossman-ui` into the live `agentic-mcp` stack. In a real
+browser (Playwright) against the real `selecta-ansible-runner`: the Services tab's "CPU load" detail
+now renders a **real combined graph** — cpu_load1 (green) / cpu_load5 (gold) / cpu_load15 (blue)
+overlaid with a legend — plus its state history (no more 404); "Disk /usr" and the other checks all
+render real history charts instead of "no data". In the Metrics tab, expanding `cpu_load5` shows the
+same three-line combined graph. No test data created.

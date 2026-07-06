@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -15,7 +16,7 @@ import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
+import { ChartSeries, MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
 import { MetricGaugeComponent } from '../../shared/components/metric-gauge/metric-gauge.component';
 import { TimeRangePickerComponent } from '../../shared/components/time-range-picker/time-range-picker.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
@@ -55,6 +56,31 @@ function stateFromCode(v: number): ServiceState['state'] {
 }
 
 const STATE_RANK = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
+
+/** CheckMK-style combined graphs: metrics that belong together and are drawn
+ * overlaid in one chart. Expanding any member shows the whole set. */
+const COMBINED_GRAPHS: string[][] = [
+  ['cpu_load1', 'cpu_load5', 'cpu_load15'],
+  ['net_rx_bytes', 'net_tx_bytes'],
+];
+
+function familyMembers(metric: string): string[] {
+  return COMBINED_GRAPHS.find((f) => f.includes(metric)) ?? [metric];
+}
+
+/** Where an agent-reported check's chart data comes from. Agent checks carry
+ * an empty `metric` (their state arrives pre-computed), so we map the check by
+ * name onto the real telemetry metric(s) it grades — otherwise the service
+ * detail chart has nothing to plot ("no data"). Disk checks additionally pin
+ * a mount, since all mounts share the one `disk_used_pct` series. */
+function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string } | null {
+  if (metric) return { members: [metric] };
+  if (name === 'CPU load') return { members: ['cpu_load1', 'cpu_load5', 'cpu_load15'] };
+  if (name === 'Memory') return { members: ['mem_used_pct'] };
+  if (name === 'Uptime') return { members: ['uptime_seconds'] };
+  if (name.startsWith('Disk ')) return { members: ['disk_used_pct'], mount: name.slice('Disk '.length) };
+  return null;
+}
 
 @Component({
   selector: 'app-host-detail',
@@ -227,7 +253,11 @@ const STATE_RANK = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
                                   }
                                   <div class="bm-metric-chart-wrap">
                                     <app-time-range-picker selectedRange="1h" (rangeChange)="onRangeChange($event)" />
-                                    <app-metric-chart [points]="metricPoints()" [metricName]="row.metric" />
+                                    <app-metric-chart
+                                      [points]="metricPoints()"
+                                      [series]="chartSeries()"
+                                      [metricName]="row.metric"
+                                    />
                                   </div>
                                 </div>
                               </td>
@@ -284,7 +314,7 @@ const STATE_RANK = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
                 @if (selectedService(); as svc) {
                   <div class="bm-service-detail">
                     <h3>{{ svc.name }} — {{ svc.output }}</h3>
-                    <app-metric-chart [points]="serviceMetricPoints()" [metricName]="svc.metric" />
+                    <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
                     @if (serviceHistory().length) {
                       <ul class="bm-history-list">
                         @for (h of serviceHistory(); track h.time) {
@@ -584,6 +614,7 @@ export class HostDetailComponent implements OnInit {
   agent = signal<Agent | null>(null);
   selectedMetric = signal<string | null>(null);
   metricPoints = signal<MetricPoint[]>([]);
+  chartSeries = signal<ChartSeries[]>([]);
   latestMetrics = signal<LatestMetric[]>([]);
   metricFilter = signal<'all' | 'crit' | 'warn'>('all');
   expandedMetric = signal<string | null>(null);
@@ -663,7 +694,7 @@ export class HostDetailComponent implements OnInit {
   runs = signal<PlanRun[]>([]);
   services = signal<ServiceState[]>([]);
   selectedService = signal<ServiceState | null>(null);
-  serviceMetricPoints = signal<MetricPoint[]>([]);
+  serviceChartSeries = signal<ChartSeries[]>([]);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
   overview = signal<FleetHost | null>(null);
 
@@ -701,7 +732,17 @@ export class HostDetailComponent implements OnInit {
     this.selectedService.set(svc);
     const agent = this.agent();
     if (!agent) return;
-    this.agentService.metricSeries(agent.id, svc.metric, this.since).subscribe((res) => this.serviceMetricPoints.set(res.points));
+    this.serviceChartSeries.set([]);
+    const spec = serviceMetricSpec(svc.name, svc.metric);
+    if (spec) {
+      forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, this.since))).subscribe((results) => {
+        const series = results.map((res, i) => ({
+          name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
+          points: spec.mount ? res.points.filter((p) => p.labels['mount'] === spec.mount) : res.points,
+        }));
+        this.serviceChartSeries.set(series);
+      });
+    }
     this.monitoringService.serviceHistory(agent.id, svc.name).subscribe((history) => this.serviceHistory.set(history));
   }
 
@@ -818,7 +859,17 @@ export class HostDetailComponent implements OnInit {
     const agent = this.agent();
     const metric = this.selectedMetric();
     if (!agent || !metric) return;
-    this.agentService.metricSeries(agent.id, metric, this.since).subscribe((res) => this.metricPoints.set(res.points));
+    const members = familyMembers(metric);
+    if (members.length > 1) {
+      // Combined graph (e.g. cpu_load1/5/15): overlay all members, no single line.
+      this.metricPoints.set([]);
+      forkJoin(members.map((m) => this.agentService.metricSeries(agent.id, m, this.since))).subscribe((results) => {
+        this.chartSeries.set(results.map((res, i) => ({ name: members[i], points: res.points })));
+      });
+    } else {
+      this.chartSeries.set([]);
+      this.agentService.metricSeries(agent.id, metric, this.since).subscribe((res) => this.metricPoints.set(res.points));
+    }
   }
 
   runStatus(run: PlanRun) {

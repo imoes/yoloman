@@ -363,6 +363,28 @@ async def test_get_service_history_returns_newest_first(db_session):
     await _cleanup(db_session, agent)
 
 
+async def test_get_service_history_name_with_slash(db_session):
+    # Agent-reported disk checks are named "Disk /usr" etc.; the slash must
+    # survive routing (the {service_name:path} converter) instead of 404ing.
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    now = datetime.now(timezone.utc)
+    hist = ServiceStateHistory(time=now, agent_id=agent.id, service_name="Disk /usr", state="OK", value=33.5)
+    db_session.add(hist)
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services/Disk%20%2Fusr/history", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    assert [p["state"] for p in resp.json()] == ["OK"]
+
+    await db_session.delete(api_token)
+    await db_session.delete(hist)
+    await db_session.flush()
+    await _cleanup(db_session, agent)
+
+
 async def test_update_agent_groups(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)

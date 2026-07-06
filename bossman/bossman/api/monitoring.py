@@ -109,7 +109,7 @@ class ServiceHistoryPointOut(BaseModel):
     value: float | None
 
 
-@router.get("/api/v1/agents/{agent_id}/services/{service_name}/history", response_model=list[ServiceHistoryPointOut])
+@router.get("/api/v1/agents/{agent_id}/services/{service_name:path}/history", response_model=list[ServiceHistoryPointOut])
 async def get_service_history(
     agent_id: UUID,
     service_name: str,
