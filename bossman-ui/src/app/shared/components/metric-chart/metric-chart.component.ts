@@ -41,20 +41,36 @@ export class MetricChartComponent {
 
   chartOptions = computed<EChartsCoreOption>(() => {
     const pts = this.points();
+    // Same green-area line CentralStation's dashboard timeseries widget uses
+    // (smooth, symbol-less, translucent fill, muted axis/grid) — reused here
+    // so a Bossman chart reads identically, just in the Rastafari green
+    // instead of CentralStation's blue.
+    const axisText = '#94a3b8';
+    const gridLine = 'rgba(148, 163, 184, 0.18)';
     return {
       backgroundColor: 'transparent',
-      grid: { left: 48, right: 16, top: 24, bottom: 32 },
+      grid: { left: 52, right: 16, top: 24, bottom: 32 },
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'time' },
-      yAxis: { type: 'value' },
+      xAxis: {
+        type: 'time',
+        axisLabel: { color: axisText, fontSize: 11 },
+        axisLine: { lineStyle: { color: gridLine } },
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { color: axisText, fontSize: 11 },
+        splitLine: { lineStyle: { color: gridLine } },
+      },
       series: [
         {
           name: this.metricName(),
           type: 'line',
+          smooth: true,
           showSymbol: false,
           data: pts.map((p) => [p.time, p.value]),
-          color: BM_GREEN,
-          areaStyle: { opacity: 0.08 },
+          lineStyle: { width: 2, color: BM_GREEN },
+          itemStyle: { color: BM_GREEN },
+          areaStyle: { color: BM_GREEN, opacity: 0.15 },
         },
       ],
     };

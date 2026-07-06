@@ -16,11 +16,45 @@ import { PlanRun } from '../../core/models/run.model';
 import { FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
+import { MetricGaugeComponent } from '../../shared/components/metric-gauge/metric-gauge.component';
 import { TimeRangePickerComponent } from '../../shared/components/time-range-picker/time-range-picker.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
 import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+
+type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
+
+/** Zabbix groups latest data by "application"; we group by subsystem so the
+ * useful telemetry sorts to the top and internal counters sink to the bottom
+ * (and hide by default). */
+const GROUP_ORDER: MetricGroupName[] = ['CPU', 'Memory', 'Disk', 'Network', 'System', 'Internal'];
+
+function classifyMetric(name: string): MetricGroupName {
+  if (name.startsWith('check_') || name.endsWith('_start')) return 'Internal';
+  if (name.startsWith('cpu_')) return 'CPU';
+  if (name.startsWith('mem_')) return 'Memory';
+  if (name.startsWith('disk_')) return 'Disk';
+  if (name.startsWith('net_')) return 'Network';
+  return 'System';
+}
+
+/** Maps the Go agent's per-check state metric (`check_<x>_state`, whose value
+ * is a Nagios code) onto the real metric it grades, so the State column is
+ * coloured straight from the agent's own built-in checks even when no Bossman
+ * CheckRule exists. Disk is special-cased below: any `check_disk_*_state`
+ * grades the single collapsed `disk_used_pct` row. */
+const CHECK_STATE_TARGET: Record<string, string> = {
+  check_cpu_load_state: 'cpu_load1',
+  check_memory_state: 'mem_used_pct',
+  check_uptime_state: 'uptime_seconds',
+};
+
+function stateFromCode(v: number): ServiceState['state'] {
+  return v >= 2 ? 'CRIT' : v >= 1 ? 'WARN' : 'OK';
+}
+
+const STATE_RANK = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
 
 @Component({
   selector: 'app-host-detail',
@@ -35,6 +69,7 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
     MatButtonModule,
     HostStatusBadgeComponent,
     MetricChartComponent,
+    MetricGaugeComponent,
     TimeRangePickerComponent,
     PerfOMeterComponent,
   ],
@@ -112,16 +147,18 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
           <mat-tab label="Metrics">
             <div class="bm-tab-content">
               @if (latestMetrics().length) {
-                <!-- CheckMK/Zabbix "Latest data": one row per metric with its
-                     last value + last check, filterable by check state, each
-                     row expanding into the full history chart on click. -->
-                <div class="bm-metric-filter">
+                <!-- CheckMK/Zabbix "Latest data": every metric in a list (not a
+                     dropdown), grouped by subsystem, with a coloured check-state
+                     column, inline Perf-O-Meters for percentages, and each row
+                     expanding into a CentralStation-style gauge + green history
+                     chart. Internal bookkeeping counters are hidden by default. -->
+                <div class="bm-metric-toolbar">
                   <mat-button-toggle-group
                     [value]="metricFilter()"
                     (change)="metricFilter.set($event.value)"
                     aria-label="Metric state filter"
                   >
-                    <mat-button-toggle value="all">All ({{ latestMetrics().length }})</mat-button-toggle>
+                    <mat-button-toggle value="all">All ({{ shownCount() }})</mat-button-toggle>
                     <mat-button-toggle value="crit" [disabled]="!stateCounts().CRIT">
                       Critical ({{ stateCounts().CRIT }})
                     </mat-button-toggle>
@@ -129,9 +166,14 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
                       Warnings ({{ stateCounts().WARN }})
                     </mat-button-toggle>
                   </mat-button-toggle-group>
+                  @if (internalCount()) {
+                    <button mat-button class="bm-internal-toggle" (click)="showInternal.set(!showInternal())">
+                      {{ showInternal() ? 'Hide' : 'Show' }} internal ({{ internalCount() }})
+                    </button>
+                  }
                 </div>
 
-                @if (visibleMetrics().length) {
+                @if (visibleGroups().length) {
                   <table class="bm-table bm-latest">
                     <thead>
                       <tr>
@@ -143,33 +185,54 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
                       </tr>
                     </thead>
                     <tbody>
-                      @for (row of visibleMetrics(); track row.metric) {
-                        <tr
-                          class="bm-row-link"
-                          [class.bm-row-selected]="expandedMetric() === row.metric"
-                          (click)="toggleMetric(row.metric)"
-                        >
+                      @for (grp of visibleGroups(); track grp.group) {
+                        <tr class="bm-group-row">
                           <td class="bm-col-state">
-                            @if (row.state) {
-                              <app-status-badge [status]="stateBadge(row.state)" [label]="row.state" />
-                            } @else {
-                              <span class="bm-nostate" title="No check rule covers this metric">—</span>
+                            @if (grp.state) {
+                              <app-status-badge [status]="stateBadge(grp.state)" [label]="grp.state" />
                             }
                           </td>
-                          <td class="bm-metric-name">{{ row.metric }}</td>
-                          <td class="bm-col-value">{{ formatValue(row.metric, row.value) }}</td>
-                          <td class="bm-col-check">{{ timeAgo(row.time) }}</td>
-                          <td class="bm-col-expand">{{ expandedMetric() === row.metric ? '▾' : '▸' }}</td>
+                          <td colspan="4" class="bm-group-name">{{ grp.group }}</td>
                         </tr>
-                        @if (expandedMetric() === row.metric) {
-                          <tr class="bm-expand-row">
-                            <td colspan="5">
-                              <div class="bm-metric-chart-wrap">
-                                <app-time-range-picker selectedRange="1h" (rangeChange)="onRangeChange($event)" />
-                                <app-metric-chart [points]="metricPoints()" [metricName]="row.metric" />
-                              </div>
+                        @for (row of grp.rows; track row.metric) {
+                          <tr
+                            class="bm-row-link"
+                            [class.bm-row-selected]="expandedMetric() === row.metric"
+                            (click)="toggleMetric(row.metric)"
+                          >
+                            <td class="bm-col-state">
+                              @if (row.state) {
+                                <app-status-badge [status]="stateBadge(row.state)" [label]="row.state" />
+                              } @else {
+                                <span class="bm-nostate" title="No check covers this metric">—</span>
+                              }
                             </td>
+                            <td class="bm-metric-name">{{ row.metric }}</td>
+                            <td class="bm-col-value">
+                              @if (row.isPct) {
+                                <app-perf-o-meter [value]="row.value" [warn]="80" [crit]="90" />
+                              } @else {
+                                {{ formatValue(row.metric, row.value) }}
+                              }
+                            </td>
+                            <td class="bm-col-check">{{ timeAgo(row.time) }}</td>
+                            <td class="bm-col-expand">{{ expandedMetric() === row.metric ? '▾' : '▸' }}</td>
                           </tr>
+                          @if (expandedMetric() === row.metric) {
+                            <tr class="bm-expand-row">
+                              <td colspan="5">
+                                <div class="bm-metric-expand" [class.bm-metric-expand--gauge]="row.isPct">
+                                  @if (row.isPct) {
+                                    <app-metric-gauge [value]="row.value" [warn]="80" [crit]="90" [label]="row.metric" />
+                                  }
+                                  <div class="bm-metric-chart-wrap">
+                                    <app-time-range-picker selectedRange="1h" (rangeChange)="onRangeChange($event)" />
+                                    <app-metric-chart [points]="metricPoints()" [metricName]="row.metric" />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          }
                         }
                       }
                     </tbody>
@@ -359,17 +422,56 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
       .bm-history-value {
         opacity: 0.7;
       }
-      .bm-metric-filter {
+      .bm-metric-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
         margin-bottom: 16px;
       }
+      .bm-internal-toggle {
+        font-size: 12px;
+        opacity: 0.75;
+      }
+      .bm-group-row td {
+        border-top: 2px solid var(--mat-sys-outline-variant);
+        padding-top: 14px;
+        padding-bottom: 4px;
+      }
+      .bm-group-name {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.65;
+      }
       .bm-latest .bm-col-state {
-        width: 90px;
+        width: 96px;
       }
       .bm-latest .bm-col-value {
         text-align: right;
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
         font-weight: 600;
+        min-width: 150px;
+      }
+      .bm-latest .bm-col-value app-perf-o-meter {
+        display: inline-flex;
+        justify-content: flex-end;
+        width: 100%;
+      }
+      .bm-metric-expand {
+        display: flex;
+        gap: 20px;
+        padding: 8px 4px 16px;
+        align-items: stretch;
+      }
+      .bm-metric-expand--gauge app-metric-gauge {
+        flex: 0 0 200px;
+      }
+      .bm-metric-expand .bm-metric-chart-wrap {
+        flex: 1;
+        min-width: 0;
       }
       .bm-latest .bm-col-check {
         width: 110px;
@@ -485,41 +587,77 @@ export class HostDetailComponent implements OnInit {
   latestMetrics = signal<LatestMetric[]>([]);
   metricFilter = signal<'all' | 'crit' | 'warn'>('all');
   expandedMetric = signal<string | null>(null);
+  showInternal = signal(false);
 
-  /** Per-metric check state, joined from services whose CheckRule targets a
-   * metric by name (agent-reported checks carry an empty metric and so stay
-   * stateless here — they live in the Services tab). Drives both the row
-   * badge and the All/Critical/Warnings filter. */
+  /** Per-metric check state, from two sources merged worst-wins: (1) Bossman
+   * CheckRule-derived services (which carry a populated `metric`), and (2) the
+   * Go agent's own built-in `check_*_state` metrics mapped onto the metric
+   * they grade. So the State column is coloured from real checks even before
+   * anyone defines a custom rule. */
   private stateByMetric = computed(() => {
     const map: Record<string, ServiceState['state']> = {};
-    const rank = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
+    const worst = (metric: string, state: ServiceState['state']) => {
+      const prev = map[metric];
+      if (prev === undefined || STATE_RANK[state] > STATE_RANK[prev]) map[metric] = state;
+    };
     for (const svc of this.services()) {
-      if (!svc.metric) continue;
-      const prev = map[svc.metric];
-      if (prev === undefined || rank[svc.state] > rank[prev]) map[svc.metric] = svc.state;
+      if (svc.metric) worst(svc.metric, svc.state);
+    }
+    for (const m of this.latestMetrics()) {
+      if (!m.metric.startsWith('check_') || !m.metric.endsWith('_state')) continue;
+      const target = m.metric.startsWith('check_disk_') ? 'disk_used_pct' : CHECK_STATE_TARGET[m.metric];
+      if (target) worst(target, stateFromCode(m.value));
     }
     return map;
   });
 
-  metricRows = computed(() =>
-    this.latestMetrics().map((m) => ({ ...m, state: this.stateByMetric()[m.metric] ?? null })),
+  /** Every metric enriched with its subsystem group, derived check state, and
+   * whether it's a percentage (→ inline Perf-O-Meter + gauge). */
+  private enrichedRows = computed(() =>
+    this.latestMetrics().map((m) => ({
+      ...m,
+      group: classifyMetric(m.metric),
+      state: this.stateByMetric()[m.metric] ?? null,
+      isPct: m.metric.endsWith('_pct'),
+    })),
   );
+
+  /** Rows eligible for the list before the state filter: internal counters are
+   * dropped unless the operator opts to show them. */
+  private baseRows = computed(() => {
+    const showInt = this.showInternal();
+    return this.enrichedRows().filter((r) => showInt || r.group !== 'Internal');
+  });
+
+  shownCount = computed(() => this.baseRows().length);
+  internalCount = computed(() => this.enrichedRows().filter((r) => r.group === 'Internal').length);
 
   stateCounts = computed(() => {
     const counts = { CRIT: 0, WARN: 0 };
-    for (const r of this.metricRows()) {
+    for (const r of this.enrichedRows()) {
+      if (r.group === 'Internal') continue;
       if (r.state === 'CRIT') counts.CRIT++;
       else if (r.state === 'WARN') counts.WARN++;
     }
     return counts;
   });
 
-  visibleMetrics = computed(() => {
+  /** The list, grouped by subsystem in GROUP_ORDER and filtered by the
+   * All/Critical/Warnings toggle; each group carries its worst-child state for
+   * the header badge. Empty groups are dropped. */
+  visibleGroups = computed(() => {
     const filter = this.metricFilter();
-    const rows = this.metricRows();
-    if (filter === 'crit') return rows.filter((r) => r.state === 'CRIT');
-    if (filter === 'warn') return rows.filter((r) => r.state === 'WARN');
-    return rows;
+    let rows = this.baseRows();
+    if (filter === 'crit') rows = rows.filter((r) => r.state === 'CRIT');
+    else if (filter === 'warn') rows = rows.filter((r) => r.state === 'WARN');
+    return GROUP_ORDER.map((group) => {
+      const grpRows = rows.filter((r) => r.group === group);
+      let state: ServiceState['state'] | null = null;
+      for (const r of grpRows) {
+        if (r.state && (state === null || STATE_RANK[r.state] > STATE_RANK[state])) state = r.state;
+      }
+      return { group, rows: grpRows, state };
+    }).filter((g) => g.rows.length > 0);
   });
   edges = signal<HostEdge[]>([]);
   runs = signal<PlanRun[]>([]);

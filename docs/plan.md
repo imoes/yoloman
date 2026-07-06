@@ -3309,3 +3309,47 @@ badged WARN and the Warnings view filtering to exactly that one row — then the
 services (selecta + duppy) and state-history were deleted, returning the fleet to 12 OK / 0 rules
 (unlike Block F5's dashboard demo, this test data *was* cleaned up since it was a synthetic threshold,
 not real dashboard content).
+
+## Bossman-UI — Block F8: Metrics-tab polish to CheckMK/Zabbix parity, reusing CentralStation visuals (implemented)
+
+Follow-up to a live visual review of F7: the list *worked* but didn't yet *look* like the
+Platzhirsche. Three honest gaps, all visible in one screenshot: (1) alphabetical sort put ~13
+internal `check_*_state`/`*_start` bookkeeping counters at the very top, pushing real telemetry
+(CPU/RAM/disk/net) below the fold — counters neither CheckMK nor Zabbix ever surface; (2) the State
+column was a wall of grey em-dashes because states only joined from Bossman CheckRules (none existed)
+— the opposite of CheckMK's signature coloured state column; (3) plain right-aligned numbers where
+CheckMK shows inline Perf-O-Meter bars. Per the user's steer, the fix **reuses CentralStation's own
+chart/gauge implementation** (`~/Dev/code/CentralStation/frontend`'s `dashboard-widget.component.ts`
+`timeseriesOptions()`/`gaugeOptions()`) rather than reinventing it.
+
+**Four changes:**
+1. **Hide internal counters, group the rest.** New `classifyMetric()` buckets every metric into
+   CPU / Memory / Disk / Network / System / Internal; the list renders grouped section headers in
+   that order (Zabbix "application"-style grouping). Internal counters are dropped by default behind
+   a `Show internal (N)` toggle. Result: the first screen is now CPU/RAM/disk, not `check_*_state`
+   noise (13 shown, 13 internal hidden on the real host).
+2. **Colour the State column from the agent's own checks.** `stateByMetric` now merges two sources
+   worst-wins: Bossman CheckRule services *and* the Go agent's built-in `check_<x>_state` metrics
+   (value = a Nagios code) mapped onto the metric they grade (`CHECK_STATE_TARGET` + a
+   `check_disk_*_state → disk_used_pct` special case). So CPU/Memory/Disk/Uptime rows and their group
+   headers show real green OK badges with no custom rule defined. `stateFromCode()` does 0/1/2 →
+   OK/WARN/CRIT.
+3. **Inline Perf-O-Meter for percentages.** `*_pct` rows render the existing `PerfOMeterComponent`
+   bar (warn 80 / crit 90) in the value column instead of a bare number — CheckMK's look, via a
+   component the host-overview table already uses.
+4. **CentralStation gauge + green area chart on expand.** New `shared/components/metric-gauge`
+   (`app-metric-gauge`) is a near-verbatim port of CentralStation's `gaugeOptions()` (ECharts
+   `type: 'gauge'` with warn/crit arc zones), recoloured to Bossman's green/gold/red (`bm-colors.ts`).
+   Expanding a `%`-row now shows that gauge beside the history chart; `MetricChartComponent` was
+   upgraded to CentralStation's `timeseriesOptions()` styling (smooth line, `width: 2`, translucent
+   green `areaStyle`, muted axis/grid) so both read as the same visual system as the CentralStation
+   widgets the user liked.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui` into the
+live `agentic-mcp` stack; in a real browser (Playwright) against the real `selecta-ansible-runner`:
+the Metrics tab now lists **13** real metrics under CPU / MEMORY / DISK / NETWORK / SYSTEM group
+headers (all badged OK, derived from the agent's `check_*_state` metrics — no rule defined), with
+`Show internal (13)` collapsing the counters; `mem_used_pct` and `disk_used_pct` render inline
+Perf-O-Meter bars (31.3 % / 0.0 %); expanding `mem_used_pct` shows the green CentralStation-style
+gauge (31.3 %, green arc) beside the green smooth-area history chart. No test data created; nothing
+to clean up.
