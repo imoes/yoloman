@@ -40,6 +40,19 @@ class Settings(BaseSettings):
     # Where plan YAML files live (see docs/plan.md's plan-format design).
     plans_dir: str = "/etc/bossman/plans"
 
+    # The Starlark module library (docs/plan.md Blocks G7/G8): translated
+    # collection modules land here as <collection>/<name>.{yaml,star},
+    # written by the submit_module MCP tool.
+    modules_dir: str = "/etc/bossman/modules.d"
+    # Pre-dumped Ansible module sources (argspec + original Python) that
+    # get_module_source serves as the translation template — generated on
+    # a host with ansible + the collections installed (see
+    # scripts/dump_module_sources.py), mounted read-only here.
+    module_sources_dir: str = "/etc/bossman/module_sources"
+    # The starlark-check validator binary (Go, cmd/starlark-check) that
+    # validate_module/submit_module shell out to.
+    starlark_check_path: str = "starlark-check"
+
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

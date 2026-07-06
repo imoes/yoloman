@@ -28,6 +28,7 @@ from sqlalchemy.orm import selectinload
 from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric, PlanRun, Service
 from bossman.mcp.auth import current_identity
+from bossman.services import module_library
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.embedding_client import EmbeddingClient
@@ -353,5 +354,76 @@ def build_mcp_server(
             }
             for h in hosts
         ]
+
+    # ── Starlark module library (docs/plan.md Block G8) ─────────────────
+    # The translation pipeline's MCP surface: the contract, the source
+    # templates, validation, and the write path into modules.d/. Tool
+    # descriptions deliberately embed the FULL contract ("a skill, not a
+    # one-liner") so an LLM driven through these tools needs no external
+    # documentation to deliver clean code.
+
+    @mcp.tool()
+    async def module_contract() -> str:
+        """The complete Starlark module authoring contract v1 — read this FIRST before
+        writing or translating any module. A module is one .star file defining
+        `def main(ctx, params)` that returns `{"changed": bool, "msg": str}` (optionally
+        `"data": dict`), touching the system exclusively through the capability builtins
+        `ctx.run(argv, mutates=False)` / `ctx.file_read` / `ctx.file_write` /
+        `ctx.file_exists` / `ctx.stat` / `ctx.facts()`, honoring `ctx.check_mode`
+        (dry-run: predict, never mutate), failing via `fail("msg")`, with no `load()`
+        and no Python stdlib. The returned markdown contains the exact ctx API
+        semantics, the check_mode discipline, a complete contract-correct example
+        module, and the metadata-YAML schema submit_module expects."""
+        return module_library.CONTRACT_MARKDOWN
+
+    @mcp.tool()
+    async def get_module_source(fqcn: str) -> dict[str, Any]:
+        """The translation template for one Ansible module, by fully qualified
+        collection name (e.g. "ansible.posix.sysctl"): its documented options/argspec
+        (`doc.options` — mirror these in the metadata YAML), description, examples,
+        and the ORIGINAL Python implementation (`source_py`) whose behavior your
+        Starlark translation must reproduce (same parameters, same idempotency, same
+        check_mode semantics). Sources are pre-dumped from the locally installed
+        collections; fqcns are listed by list_module_status()."""
+        return module_library.load_source(settings.module_sources_dir, fqcn)
+
+    @mcp.tool()
+    async def validate_module(star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Validate one Starlark module against contract v1 WITHOUT storing it — use
+        this to iterate until clean before submit_module. Runs the same Go validator
+        the agent runtime is built from: parse, contract lint (main(ctx, params)
+        signature, no load()), and a stub execution with mocked ctx builtins in both
+        check_mode variants. Returns {ok, stub_ok, errors[{stage,message,line}],
+        warnings, calls} — `ok` (parse+lint) is the hard gate for submission; fix
+        every `errors` entry and resubmit. `calls` lists the ctx.* invocations the
+        stub observed, so you can verify the module does what you intended.
+        Optional `params`: sample arguments for the stub run (use realistic values
+        for the module's required options)."""
+        result = module_library.validate_star(settings.starlark_check_path, star_code, params)
+        return result.to_dict()
+
+    @mcp.tool()
+    async def submit_module(fqcn: str, metadata_yaml: str, star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Store one translated module in the library — THE write path that extends
+        the system's vocabulary. Validates first (same hard gate as validate_module;
+        a failing module is rejected, returned as {stored: false, validation}) and
+        only then persists <modules_dir>/<collection>/<name>.star + .yaml. The
+        metadata YAML must follow the schema in module_contract(): required keys
+        name/fqcn/collection/short_description/options/writes/runtime, with
+        runtime: starlark and fqcn == collection + "." + name, and its `options`
+        mirroring the original module's argspec from get_module_source(). Optional
+        `params`: sample arguments for the validation stub run."""
+        return module_library.submit(
+            settings.modules_dir, settings.starlark_check_path, fqcn, metadata_yaml, star_code, params
+        )
+
+    @mcp.tool()
+    async def list_module_status() -> dict[str, Any]:
+        """Translation progress of the module library, derived from the filesystem:
+        {total, translated, collections: {<collection>: {total, translated,
+        missing: [fqcn, ...]}}}. The `missing` lists are the work queue — pick the
+        next fqcn from there, get_module_source() it, translate, validate_module()
+        until ok, then submit_module(). Safe to call any time for resume."""
+        return module_library.status(settings.modules_dir, settings.module_sources_dir)
 
     return mcp
