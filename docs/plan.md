@@ -3393,3 +3393,213 @@ now renders a **real combined graph** — cpu_load1 (green) / cpu_load5 (gold) /
 overlaid with a legend — plus its state history (no more 404); "Disk /usr" and the other checks all
 render real history charts instead of "no data". In the Metrics tab, expanding `cpu_load5` shows the
 same three-line combined graph. No test data created.
+
+## Vision v2 — Easy to Learn, Easy to Work, Easy to Play (planned, G-series)
+
+A sharpening of this document's original "Context & Vision" (top of this file), prompted by the
+user stepping back from a feature request to restate the product's purpose: *"Die Vision ist ein
+Full Managed MCP Server der Easy to Learn, Easy to Work, Easy to Play ist. Indem man ohne
+Programmierkenntnisse Checks schreiben kann und Kommandos definieren kann. Wir suchen ein
+Alleinstellungsmerkmal mit dem wir uns von den etablierten Produkten abheben. Ein einfaches Tool
+für DevOps."* Operating model (user decision): **self-hosted** — the product fully manages the
+customer's fleet; no SaaS block.
+
+This is not a new direction — it is the original vision stated sharper. The mapping onto what this
+plan already built:
+
+- **Easy to Learn** = the north-star UX "describe the machine in prose" (see "Context & Vision")
+  plus `tools.d/` — "the user has nothing new to learn — it *is* Ansible syntax".
+- **Easy to Work** = every module automatically becomes an MCP tool *and* a REST endpoint (see
+  "Module system"); one system instead of CheckMK + Coroot + Ansible.
+- **Easy to Play** = the safety architecture *is* the playground: `check_mode`/dry-run everywhere,
+  write gate default-off, ACL, audit — "reliable and safe, not a blind shell flight".
+- **The USP** was already named in "Differentiation / market gap": *"Nobody combines: eBPF
+  observability + a typed management API (read and write) + zero-dependency agent + fleet
+  orchestration, all AI-native via MCP."*
+
+The mechanics exist; the G-blocks give the system the **vocabulary** (the full Ansible module
+dictionary, Blocks G1–G4, G7–G8) and the **reflexes** (auto-remediation G5, drift detection G6).
+
+**Orchestrator research (web, 2026) — pros/cons of the four incumbents and the compromise we
+implement.** Sources: Red Hat's tool comparison, TechTarget, AutoMQ's 2026 alternatives survey,
+Just After Midnight, UpGuard's Ansible pros/cons.
+
+| Tool | Strength | Weakness |
+|---|---|---|
+| Ansible | agentless, simple YAML, biggest ecosystem (thousands of modules), largest mindshare | SSH fan-out doesn't scale (connection churn, controller bottleneck), push-only, **requires Python on every target**, no drift correction, not event-driven |
+| Puppet | convergence loop (pull, drift correction), mature compliance reporting | its own DSL (learning curve), agent + master maintenance |
+| Chef | pull architecture (client computes locally), strong test/compliance tooling | Ruby DSL, complex, dev-centric |
+| Salt | ZeroMQ event bus (thousands of nodes in seconds), event-driven remediation (beacons/reactor), YAML | operational complexity that overwhelms small teams |
+
+**The compromise ("best of four, none of their weaknesses"):** the persistent Go agent already
+exists, so yolo-man can take each incumbent's best idea without its cost — (1) **Ansible's
+language** (YAML modules everyone knows) without Ansible's weaknesses: a persistent mTLS agent
+instead of SSH fan-out, and native Go modules instead of Python on every target — better than
+Ansible itself on Ansible's home turf; (2) **Salt's event model** without Salt's complexity: a
+monitoring check going CRIT fires a plan (Block G5); (3) **Puppet's convergence** as detection
+only (Block G6, user decision: no auto-fix); (4) **AI-native via MCP** — which none of the four
+have. Positioning against the monitoring incumbents stays as before: CheckMK/Zabbix extend via
+plugin *code* and only ever alert; AWX/Rundeck automate but are heavyweight and blind. Here, one
+YAML file in Ansible syntax is simultaneously a REST endpoint + MCP tool + (for `check:` tasks) a
+monitoring service — and the AI writes that file for you if you can't.
+
+**Chef/Puppet/Salt compatibility is preserved and strengthened.** The two existing anchors stay
+valid: per-module "Cross-tool equivalents" descriptions (see "Module system") and the Roadmap's
+tiered translation strategy (parser for Ansible/Salt, vocabulary mapping for Puppet/Chef). The
+translation direction is *foreign format → this system's modules*: with ~738 target modules
+instead of 52, a Chef resource / Puppet type / Salt state far more often has a direct equivalent,
+and the module-catalog RAG search (Block G2) **is** the promised "lightweight mapping reference" —
+scalable instead of hand-maintained.
+
+The user's concrete request driving the G-series: adopt the missing Ansible collections —
+`ansible.builtin` (71) + `ansible.posix` (14) + `community.general` (593) + `community.docker`
+(28) + `community.crypto` (32) = **738 modules** ("ca. 734") — *"aber nicht hard-gecoded in den
+Agenten sondern als yaml Dateien"*. Today the module vocabulary is hard-coded in three
+disconnected places: the Go registry (`internal/server/modules.go`'s `NewDefaultModuleRegistry`,
+52 modules), the translator's hand-maintained `KNOWN_MODULES` list
+(`bossman/services/translator.py`), and the plan parser's `ANSIBLE_PREFIX = "ansible.builtin."`
+literal (`bossman/services/plan_loader.py`) which actively rejects any other collection. No
+YAML/DB module catalog exists anywhere — that is the gap the G-blocks close.
+
+## Block G1 — Module catalog: YAML schema + generator (`modules.d/`) (planned)
+
+**One YAML per module** in `modules.d/<collection>/<name>.yaml` (e.g.
+`modules.d/community.docker/docker_container.yaml`). Schema: `name`, `fqcn`, `collection`,
+`short_description`, `description`, `options` (the argspec: per-option type/required/default/
+choices/aliases/description), `writes` (write-gate relevance), `examples`, optional `equivalents`
+(chef/puppet/salt/terraform — carrying the existing `Description()` cross-tool convention into
+the catalog), `runtime: native | starlark | script | ansible` (see Block G7), and
+`source: generated | custom` (custom files survive regeneration).
+
+**Generated, not hand-written** (738 files): `bossman/scripts/generate_module_catalog.py` reads
+`ansible-doc -l -j` (module list per collection) + `ansible-doc -j <fqcn>` (argspec) from the
+locally installed collections and emits deterministic, git-diffable YAML. `writes` heuristic:
+`*_info`/`*_facts` → read-only, everything else `writes: true`, plus a manual override map.
+Shipping: generated into the repo (`configs/modules.d/`, package path
+`/usr/share/agentic-mcp/modules.d/`); `/etc/agentic-mcp/modules.d/` is the custom/override
+directory — drop your own module YAML = the system is extended, the literal user requirement.
+
+## Block G2 — Bossman: catalog service, FQCN plans, catalog-driven translator (planned)
+
+- A catalog service analogous to `CatalogCache` (`bossman/services/catalog.py`) loads
+  `modules.d/` at startup; a new `modules` table + pgvector embeddings (bge-m3, like
+  `PlanEmbedding`) power RAG search; REST `GET /api/v1/modules` + `GET /api/v1/modules/{fqcn}`;
+  MCP tool `search_modules`.
+- Parser opening (`plan_loader.py`): any step key that exists as an FQCN in the catalog is
+  accepted (`ansible.builtin.` short form stays compatible); catalog-driven validation
+  (required options, choices).
+- Translator (`translator.py`): the `KNOWN_MODULES` hardcode goes away → RAG retrieval of the
+  top-k relevant modules (including argspec) into the prompt — 738 modules do not fit as a
+  grammar enum, retrieval is the only scalable path and reuses the existing pgvector/bge-m3
+  stack. The same retrieval path serves foreign-format translation (Chef/Puppet/Salt source →
+  the matching target module) with no hand-maintained mapping.
+
+## Block G3 — Agent: `modules.d` loading + Ansible delegation fallback (planned)
+
+- The agent loads `modules.d/` (like `tasks.LoadDir`) → registers every catalog module as a REST
+  tool (`POST /api/v1/tools/<fqcn>`, InputSchema + `writes` from the YAML) — *the modules live in
+  the agent as YAML, not hard-coded*, the literal user requirement.
+- **Hybrid execution:** the 52 native Go modules keep running natively (the USP: "Ansible without
+  Python on the targets"); everything else is delegated by a generic executor to real Ansible
+  **locally on the agent** (`ansible localhost -m <fqcn> -a <json>`, `--check` for dry-run, JSON
+  output → `{changed, msg, data}`) — no central SSH fan-out, so Ansible's scaling weakness stays
+  out. Prerequisite on the agent host: ansible-core + collections (+ module-specific Python deps);
+  enabled by config flag, capability reported in `GET /api/v1/tools`; agents without Python stay
+  fully functional with the native set. Delegation is a fallback: the most-used delegated modules
+  (usage statistics from `PlanRunStep.module`) become candidates for native Go implementation.
+- Avoiding MCP tool explosion: MCP does *not* register 738 individual tools — it keeps tools.d
+  tasks + native modules + a generic `run_module` + `search_modules`; REST gets them all.
+
+## Block G4 — Bossman-UI: module browser (planned)
+
+Browse/search the catalog (RAG-backed), view argspec + examples, and a "adopt as tools.d task"
+button that generates the task YAML with pre-filled parameters — the "Easy to Learn / Easy to
+Play" surface of the vision.
+
+## Block G5 — Auto-remediation: check → plan (Salt-reactor equivalent) (planned)
+
+Wires together two things this plan already built: a monitoring service going CRIT/WARN (Blocks
+E2–E4) fires a designated plan on the affected host (Block B5's plan engine). New table
+`remediation_rules` (service_name/scope → plan + params); execution is a normal `PlanRun` with
+full audit. **Guardrails** (user decision "ja, mit Leitplanken"): only explicitly approved plans
+can be bound; cooldown/rate limit per host+service; never fires during a downtime or on an
+acknowledged problem; optional dry-run-first mode; everything lands in the audit log. UI: rule
+management in Settings + a remediation history on the host detail page. The vision sentence:
+CheckMK alerts — yolo-man repairs.
+
+## Block G6 — Drift detection, not correction (Puppet convergence, detection-only) (planned)
+
+A plan can be **assigned to a host as its desired state**; the poller runs it periodically in
+`check_mode` (the plan engine already supports check_mode per step). Any step reporting
+`changed: true` is a deviation → surfaced as a monitoring problem (a new service
+`Drift: <plan>` in the existing Service/State/Problem model from Blocks E2–E4). **Deliberately no
+auto-fix** (user decision): the operator sees the drift problem and triggers the re-apply, or
+explicitly binds it to a G5 remediation rule later. "Describe the machine in prose" thereby
+becomes a *monitored desired state* instead of a one-shot action.
+
+## Block G7 — Custom module authoring: the extension ladder (LLM-writable modules) (planned)
+
+Answers the user's design question: *"Nehmen wir an das LLM schreibt neue Module um den Go-Agenten
+zu erweitern. Welche Sprache nehmen wir dann? Ansible hat den Vorteil, dass es in Python
+geschrieben ist und man ganz einfach eine Erweiterung schreiben kann. Das ist der absolute
+Pluspunkt für Ansible."* The finding: **Ansible's plus point is a contract, not a language** — the
+official Ansible module contract is "JSON in, JSON on stdout, any language" (binary/want-JSON
+modules; Python's advantage is only the bundled `AnsibleModule` boilerplate). We adopt that
+contract twice:
+
+- **Rung 0 (exists):** tools.d YAML — parameterize existing modules, no code.
+- **Rung 1 — script modules (any language, Ansible's JSON contract):** an executable
+  (Python/Bash/…) at `/etc/agentic-mcp/modules.d/<name>/module` + a metadata YAML (G1 schema,
+  `source: custom`, `runtime: script`); the agent invokes it directly with the Ansible contract
+  (JSON args, `_ansible_check_mode` for dry-run, JSON stdout → `{changed, msg, …}`) — **without
+  an Ansible installation**. An LLM-written Python script thus works exactly like an Ansible
+  module, minus the Ansible runtime. Timeout + output cap as for pipelines; write gate via the
+  metadata's `writes` flag.
+- **Rung 2 — Starlark modules (the sweet spot, `runtime: starlark`):** a Python dialect
+  (google/starlark-go — natively embeddable in Go, sandboxed, deterministic; Bazel's
+  configuration language). One `.star` file + metadata YAML; runs **inside the Go agent itself**
+  — no Python on the target, no deploy, no compilation. **Capability-based builtins instead of
+  ambient authority:** a module can only do what the agent exposes as builtins (`run(argv)`
+  checked against the commands.yaml policy, `file_read`, `file_write`, `facts()`, …); the write
+  gate, dry-run (`ctx.check_mode`) and timeouts are **enforced inside the builtins**, not left to
+  the module author — the LLM *cannot* write an unsafe module. Safer than Ansible itself (where a
+  Python module can do anything), and the architectural fulfilment of "Easy to Play".
+- **Rung 3 (exists):** native Go modules — the quality bar for hot/important modules (candidates
+  picked by usage statistics from G3).
+- **LLM authoring flow:** UI/MCP "create module" → the LLM generates metadata YAML +
+  `.star`/script → dropped into `/etc/agentic-mcp/modules.d/` → the agent registers it like any
+  catalog module (G3 loader) → instantly an MCP tool + REST endpoint. Dry-run-first testing in
+  the UI (G4).
+
+## Block G8 — MCP translation pipeline: model benchmark + collection translation (planned, in progress)
+
+The concrete first implementation of the G-series, commissioned directly by the user: two local
+LLMs (`https://llm.example.internal/qwen35b` and `…/qwen79b` — the latter already Bossman's
+configured `chat_base_url`) are benchmarked on **Starlark module authoring quality**, then the
+better one translates the four non-builtin collections — ansible.posix (14) + community.general
+(593) + community.docker (28) + community.crypto (32) = **667 modules** (the 71 `ansible.builtin`
+stay native Go) — into Rung-2 Starlark modules. *"Das ganze soll über MCP laufen und die
+Bibliothek soll per MCP erweitert werden. Diese Endpunkte mit ausführlicher Beschreibung (der
+Kontrakt) sollen es den LLM ermöglichen sauberen Code abzuliefern."*
+
+Planned parts (details refined as implemented, verification numbers appended when real):
+
+1. **Starlark contract v1 + Go validator** — `internal/starmod` + `cmd/starlark-check`
+   (go.starlark.net): a module defines `main(ctx, params)` → dict `{changed, msg, data?}`;
+   capability builtins (`ctx.run`, `ctx.file_read`, `ctx.file_write`, `ctx.facts`,
+   `ctx.check_mode`); the validator parses, lints the contract, and stub-executes with mocked
+   builtins.
+2. **Bossman module library via MCP** — `bossman/services/module_library.py` + MCP tools whose
+   descriptions embed the full contract (the "skill, not a one-liner" convention):
+   `module_contract`, `get_module_source(fqcn)` (argspec + original Python source from the
+   locally installed collections), `validate_module`, `submit_module` (validates + writes
+   `configs/modules.d/<collection>/<name>.{yaml,star}` — the library grows via MCP),
+   `list_module_status` (progress/resume).
+3. **Benchmark** — `bossman/scripts/benchmark_starlark_models.py`, a real MCP client against the
+   running stack: ~8 representative modules across the four collections, both models, identical
+   prompts, ≤2 validator-feedback retries; scored on parse rate / contract-lint rate /
+   stub-run rate / retries needed.
+4. **Translation** — `bossman/scripts/translate_modules.py`, resumable, winner model, order
+   posix → crypto → docker → general; per module: fetch source → translate → validate (retry
+   with diagnostics) → submit. Pilot: ansible.posix (14) live; the full 667 run continues as a
+   resumable background job.
