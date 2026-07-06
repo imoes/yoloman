@@ -6,7 +6,7 @@ used to reach these routes).
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -134,3 +134,29 @@ async def test_agent_metrics_with_metric_filter_returns_points(db_session):
     assert body["points"][0]["labels"] == {"core": "0"}
 
     await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[metric])
+
+
+async def test_agent_metrics_latest_returns_newest_per_metric(db_session):
+    agent = await _make_agent(db_session)
+    t0 = datetime.now(timezone.utc)
+    older = Metric(time=t0 - timedelta(minutes=5), agent_id=agent.id, metric="cpu_pct", value=10.0, labels={})
+    newer = Metric(time=t0, agent_id=agent.id, metric="cpu_pct", value=42.5, labels={"core": "0"})
+    other = Metric(time=t0 - timedelta(minutes=1), agent_id=agent.id, metric="mem_pct", value=63.0, labels={})
+    db_session.add_all([older, newer, other])
+    await db_session.flush()
+    await db_session.commit()
+    api_token, raw = await _make_api_token(db_session)
+
+    app = create_app()
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/metrics/latest", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    metrics = {m["metric"]: m for m in resp.json()["metrics"]}
+    # One row per metric name, and cpu_pct is its *newest* sample, not the older one.
+    assert set(metrics) == {"cpu_pct", "mem_pct"}
+    assert metrics["cpu_pct"]["value"] == 42.5
+    assert metrics["cpu_pct"]["labels"] == {"core": "0"}
+    assert metrics["mem_pct"]["value"] == 63.0
+
+    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[older, newer, other])

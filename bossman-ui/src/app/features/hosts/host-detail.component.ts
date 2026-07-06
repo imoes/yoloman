@@ -1,17 +1,16 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, MetricPoint } from '../../core/models/agent.model';
+import { Agent, LatestMetric, MetricPoint } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -32,8 +31,7 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
     DecimalPipe,
     MatTabsModule,
     MatCardModule,
-    MatFormFieldModule,
-    MatSelectModule,
+    MatButtonToggleModule,
     MatButtonModule,
     HostStatusBadgeComponent,
     MetricChartComponent,
@@ -113,19 +111,74 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
 
           <mat-tab label="Metrics">
             <div class="bm-tab-content">
-              <div class="bm-metric-controls">
-                <mat-form-field appearance="outline">
-                  <mat-label>Metric</mat-label>
-                  <mat-select [value]="selectedMetric()" (selectionChange)="onMetricChange($event.value)">
-                    @for (m of metricNames(); track m) {
-                      <mat-option [value]="m">{{ m }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-                <app-time-range-picker selectedRange="1h" (rangeChange)="onRangeChange($event)" />
-              </div>
-              @if (selectedMetric()) {
-                <app-metric-chart [points]="metricPoints()" [metricName]="selectedMetric()!" />
+              @if (latestMetrics().length) {
+                <!-- CheckMK/Zabbix "Latest data": one row per metric with its
+                     last value + last check, filterable by check state, each
+                     row expanding into the full history chart on click. -->
+                <div class="bm-metric-filter">
+                  <mat-button-toggle-group
+                    [value]="metricFilter()"
+                    (change)="metricFilter.set($event.value)"
+                    aria-label="Metric state filter"
+                  >
+                    <mat-button-toggle value="all">All ({{ latestMetrics().length }})</mat-button-toggle>
+                    <mat-button-toggle value="crit" [disabled]="!stateCounts().CRIT">
+                      Critical ({{ stateCounts().CRIT }})
+                    </mat-button-toggle>
+                    <mat-button-toggle value="warn" [disabled]="!stateCounts().WARN">
+                      Warnings ({{ stateCounts().WARN }})
+                    </mat-button-toggle>
+                  </mat-button-toggle-group>
+                </div>
+
+                @if (visibleMetrics().length) {
+                  <table class="bm-table bm-latest">
+                    <thead>
+                      <tr>
+                        <th class="bm-col-state">State</th>
+                        <th>Metric</th>
+                        <th class="bm-col-value">Last value</th>
+                        <th class="bm-col-check">Last check</th>
+                        <th class="bm-col-expand"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of visibleMetrics(); track row.metric) {
+                        <tr
+                          class="bm-row-link"
+                          [class.bm-row-selected]="expandedMetric() === row.metric"
+                          (click)="toggleMetric(row.metric)"
+                        >
+                          <td class="bm-col-state">
+                            @if (row.state) {
+                              <app-status-badge [status]="stateBadge(row.state)" [label]="row.state" />
+                            } @else {
+                              <span class="bm-nostate" title="No check rule covers this metric">—</span>
+                            }
+                          </td>
+                          <td class="bm-metric-name">{{ row.metric }}</td>
+                          <td class="bm-col-value">{{ formatValue(row.metric, row.value) }}</td>
+                          <td class="bm-col-check">{{ timeAgo(row.time) }}</td>
+                          <td class="bm-col-expand">{{ expandedMetric() === row.metric ? '▾' : '▸' }}</td>
+                        </tr>
+                        @if (expandedMetric() === row.metric) {
+                          <tr class="bm-expand-row">
+                            <td colspan="5">
+                              <div class="bm-metric-chart-wrap">
+                                <app-time-range-picker selectedRange="1h" (rangeChange)="onRangeChange($event)" />
+                                <app-metric-chart [points]="metricPoints()" [metricName]="row.metric" />
+                              </div>
+                            </td>
+                          </tr>
+                        }
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <p class="bm-empty">
+                    No metrics in {{ metricFilter() === 'crit' ? 'critical' : 'warning' }} state — everything healthy.
+                  </p>
+                }
               } @else {
                 <p class="bm-empty">No metrics recorded for this host yet.</p>
               }
@@ -306,11 +359,44 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
       .bm-history-value {
         opacity: 0.7;
       }
-      .bm-metric-controls {
+      .bm-metric-filter {
+        margin-bottom: 16px;
+      }
+      .bm-latest .bm-col-state {
+        width: 90px;
+      }
+      .bm-latest .bm-col-value {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .bm-latest .bm-col-check {
+        width: 110px;
+        white-space: nowrap;
+        opacity: 0.7;
+      }
+      .bm-latest .bm-col-expand {
+        width: 28px;
+        text-align: center;
+        opacity: 0.6;
+      }
+      .bm-metric-name {
+        font-family: var(--bm-mono, monospace);
+        font-size: 13px;
+      }
+      .bm-nostate {
+        opacity: 0.4;
+      }
+      .bm-expand-row td {
+        border-top: none;
+        background: color-mix(in srgb, var(--mat-sys-primary) 4%, transparent);
+      }
+      .bm-metric-chart-wrap {
         display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 12px;
+        flex-direction: column;
+        gap: 12px;
+        padding: 8px 4px 16px;
       }
       .bm-table {
         width: 100%;
@@ -394,9 +480,47 @@ export class HostDetailComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   agent = signal<Agent | null>(null);
-  metricNames = signal<string[]>([]);
   selectedMetric = signal<string | null>(null);
   metricPoints = signal<MetricPoint[]>([]);
+  latestMetrics = signal<LatestMetric[]>([]);
+  metricFilter = signal<'all' | 'crit' | 'warn'>('all');
+  expandedMetric = signal<string | null>(null);
+
+  /** Per-metric check state, joined from services whose CheckRule targets a
+   * metric by name (agent-reported checks carry an empty metric and so stay
+   * stateless here — they live in the Services tab). Drives both the row
+   * badge and the All/Critical/Warnings filter. */
+  private stateByMetric = computed(() => {
+    const map: Record<string, ServiceState['state']> = {};
+    const rank = { OK: 0, UNKNOWN: 1, WARN: 2, CRIT: 3 } as const;
+    for (const svc of this.services()) {
+      if (!svc.metric) continue;
+      const prev = map[svc.metric];
+      if (prev === undefined || rank[svc.state] > rank[prev]) map[svc.metric] = svc.state;
+    }
+    return map;
+  });
+
+  metricRows = computed(() =>
+    this.latestMetrics().map((m) => ({ ...m, state: this.stateByMetric()[m.metric] ?? null })),
+  );
+
+  stateCounts = computed(() => {
+    const counts = { CRIT: 0, WARN: 0 };
+    for (const r of this.metricRows()) {
+      if (r.state === 'CRIT') counts.CRIT++;
+      else if (r.state === 'WARN') counts.WARN++;
+    }
+    return counts;
+  });
+
+  visibleMetrics = computed(() => {
+    const filter = this.metricFilter();
+    const rows = this.metricRows();
+    if (filter === 'crit') return rows.filter((r) => r.state === 'CRIT');
+    if (filter === 'warn') return rows.filter((r) => r.state === 'WARN');
+    return rows;
+  });
   edges = signal<HostEdge[]>([]);
   runs = signal<PlanRun[]>([]);
   services = signal<ServiceState[]>([]);
@@ -416,12 +540,7 @@ export class HostDetailComponent implements OnInit {
       this.healthStatus.set(agentHealthStatus(agent));
     });
 
-    this.agentService.metricNames(id).subscribe((res) => {
-      this.metricNames.set(res.metrics);
-      if (res.metrics.length && !this.selectedMetric()) {
-        this.onMetricChange(res.metrics[0]);
-      }
-    });
+    this.agentService.metricsLatest(id).subscribe((res) => this.latestMetrics.set(res.metrics));
 
     this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
@@ -495,9 +614,61 @@ export class HostDetailComponent implements OnInit {
     });
   }
 
-  onMetricChange(metric: string): void {
+  /** Expand/collapse a metric row into its full history chart. Only one row
+   * is expanded at a time — collapsing frees the chart, expanding lazily
+   * loads that metric's series. */
+  toggleMetric(metric: string): void {
+    if (this.expandedMetric() === metric) {
+      this.expandedMetric.set(null);
+      return;
+    }
+    this.expandedMetric.set(metric);
     this.selectedMetric.set(metric);
     this.loadMetricSeries();
+  }
+
+  stateBadge(state: ServiceState['state']) {
+    return serviceStateBadge(state);
+  }
+
+  /** Zabbix-style unit conversion for the "Last value" column: bytes become
+   * KiB/MiB/…, percentages get a %, uptime becomes a duration, load stays
+   * two-decimal — so the list reads like a monitoring tool, not raw floats. */
+  formatValue(metric: string, value: number): string {
+    if (metric.endsWith('_pct')) return `${value.toFixed(1)} %`;
+    if (metric.endsWith('_bytes')) return this.humanBytes(value);
+    if (metric === 'uptime_seconds') return this.humanDuration(value);
+    if (metric.startsWith('cpu_load')) return value.toFixed(2);
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  }
+
+  private humanBytes(bytes: number): string {
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+    let v = bytes;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
+    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+
+  private humanDuration(seconds: number): string {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
+  /** Elapsed-time label for the "Last check" column (Zabbix's own idiom). */
+  timeAgo(iso: string): string {
+    const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
   }
 
   onRangeChange(since: string): void {

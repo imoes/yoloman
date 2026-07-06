@@ -54,6 +54,19 @@ class MetricPointOut(BaseModel):
     labels: dict
 
 
+class LatestMetricOut(BaseModel):
+    """One metric's most recent sample — the "Last value / Last check" row of
+    a Zabbix-style latest-data list (see the host-detail Metrics tab). One
+    row per metric *name*; multi-series metrics (e.g. disk_used_pct per mount)
+    collapse to their single newest point, and the full per-label history is
+    still one click away via the per-metric series endpoint."""
+
+    metric: str
+    time: datetime
+    value: float
+    labels: dict
+
+
 @router.get("/api/v1/agents", response_model=list[AgentOut])
 async def list_agents(
     session: AsyncSession = Depends(get_session),
@@ -130,4 +143,32 @@ async def get_agent_metrics(
     return {
         "metric": metric,
         "points": [MetricPointOut(time=p.time, value=p.value, labels=p.labels).model_dump() for p in points],
+    }
+
+
+@router.get("/api/v1/agents/{agent_id}/metrics/latest")
+async def get_agent_metrics_latest(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """The whole latest-data snapshot in one call: the newest sample of every
+    metric this agent has ever reported. Powers the host-detail Metrics tab's
+    list view (a metric name + last value + last check per row) so it no
+    longer has to fan out one series request per metric just to show a
+    value. `DISTINCT ON (metric)` + `time DESC` = Postgres' idiomatic
+    latest-per-group; ordered by metric name for a stable list."""
+    await _get_agent_or_404(session, agent_id)
+
+    stmt = (
+        select(Metric)
+        .where(Metric.agent_id == agent_id)
+        .order_by(Metric.metric, Metric.time.desc())
+        .distinct(Metric.metric)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return {
+        "metrics": [
+            LatestMetricOut(metric=r.metric, time=r.time, value=r.value, labels=r.labels).model_dump() for r in rows
+        ]
     }

@@ -25,3 +25,17 @@ export interface MetricSeriesResponse {
 export interface MetricCatalogResponse {
   metrics: string[];
 }
+
+/** One metric's newest sample — the "last value / last check" row of the
+ * host-detail Metrics tab's latest-data list (matches agents.py's
+ * LatestMetricOut). One entry per metric name. */
+export interface LatestMetric {
+  metric: string;
+  time: string;
+  value: number;
+  labels: Record<string, string>;
+}
+
+export interface LatestMetricsResponse {
+  metrics: LatestMetric[];
+}

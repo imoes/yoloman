@@ -3257,3 +3257,55 @@ data, since this was a real acceptance pass against the product's own running in
 
 This completes Blocks F1 through F6 — the entire monitoring-cockpit rework approved in this
 ergänzung.
+
+## Bossman + Bossman-UI — Block F7: host-detail Metrics tab as a Zabbix/CheckMK "Latest data" list (implemented)
+
+Direct follow-up to explicit user feedback on the F-series cockpit: the host-detail **Metrics** tab
+still forced the operator to pick *one* metric from a `mat-select` dropdown ("Listbox") before
+seeing anything — the exact anti-pattern neither Zabbix nor CheckMK use. Both instead show *all* of
+a host's latest data as a scannable list. This block replaces the listbox with that list.
+
+Grounded in the real tools (Zabbix "Latest data" docs + CheckMK service-view conventions): Zabbix's
+latest-data table is `Name · Last check · Last value` (unit-converted) with a graph one click away;
+CheckMK's service list leads with a colored `State` column and lets you filter by state. The rework
+merges both.
+
+**Backend — `GET /api/v1/agents/{id}/metrics/latest`** (`bossman/api/agents.py`, new
+`LatestMetricOut`): the whole latest-data snapshot in one call — the newest sample of every metric
+the agent has reported, via Postgres `DISTINCT ON (metric) … ORDER BY metric, time DESC`. One row
+per metric *name* (multi-series metrics like `disk_used_pct` per mount collapse to their single
+newest point; full per-label history is still one click away via the existing per-metric series
+endpoint). Avoids the frontend fanning out one series request per metric just to show current
+values. New test `test_agent_metrics_latest_returns_newest_per_metric` (real Postgres) asserts one
+row per name and that it's the *newest* sample, not an older one. Route is a distinct path segment,
+no collision with the existing `…/metrics` catalog/series endpoint.
+
+**Frontend — Metrics tab rewritten** (`features/hosts/host-detail.component.ts`, `LatestMetric`
+model + `AgentService.metricsLatest`):
+- A **"Latest data" table**: `State · Metric · Last value · Last check`, one row per metric — no
+  dropdown. Values are unit-converted like a real monitoring tool (`_bytes`→KiB/MiB/GiB, `_pct`→%,
+  `uptime_seconds`→`13d 21h`, `cpu_load*`→two decimals); "Last check" is a Zabbix-style relative
+  `1m ago`.
+- Row click **expands inline** into the full history chart (reusing `MetricChartComponent` +
+  `TimeRangePickerComponent`), one row at a time — replacing the old single global chart. The
+  drill-down is now attached to each metric instead of gated behind a select.
+- A **`mat-button-toggle-group` filter: All / Critical / Warnings** (default **All**, matching the
+  "Default alle Metriken" requirement, and consistent with the existing `TimeRangePickerComponent`'s
+  toggle idiom rather than introducing a new control). Each metric's state is joined from `services`
+  whose CheckRule targets that metric by name (`stateByMetric` computed); agent-reported checks carry
+  an empty `metric` and stay stateless here (they live in the Services tab). The Critical/Warnings
+  toggles are disabled + count-labeled when empty (`Critical (0)`), and an all-healthy fleet shows a
+  friendly "everything healthy" empty state instead of a blank table.
+
+**Verification (real, not mocked):** `ruff` clean; `test_agents_api.py` 6/6 green against real
+Postgres. Rebuilt/redeployed `bossman` + `bossman-ui` into the live `agentic-mcp` stack. In a real
+browser (Playwright) against the real `selecta-ansible-runner`: the Metrics tab shows all **26**
+metrics as a list with real unit-converted values (`mem_total_bytes` 1.9 GiB, `mem_used_pct` 30.2 %,
+`net_tx_bytes` 1.6 GiB, `uptime_seconds` 13d 21h); clicking `mem_used_pct` expanded it into the live
+history chart + range picker. To prove the state filter end-to-end (the fleet is otherwise all-OK),
+a temporary global CheckRule `mem_used_pct > 20` was created, the poller's evaluator materialized a
+real **WARN** service within one cycle, and the tab then showed `Warnings (1)` with `mem_used_pct`
+badged WARN and the Warnings view filtering to exactly that one row — then the demo rule, its
+services (selecta + duppy) and state-history were deleted, returning the fleet to 12 OK / 0 rules
+(unlike Block F5's dashboard demo, this test data *was* cleaned up since it was a synthetic threshold,
+not real dashboard content).

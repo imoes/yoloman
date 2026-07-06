@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Agent, MetricCatalogResponse, MetricSeriesResponse } from '../models/agent.model';
+import { Agent, LatestMetricsResponse, MetricCatalogResponse, MetricSeriesResponse } from '../models/agent.model';
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -19,6 +19,12 @@ export class AgentService {
   /** Catalog discovery: every metric name recorded for this agent. */
   metricNames(id: string) {
     return this.http.get<MetricCatalogResponse>(`${this.base}/${id}/metrics`);
+  }
+
+  /** The whole latest-data snapshot: newest sample of every metric, in one
+   * call (powers the host-detail Metrics tab's list). */
+  metricsLatest(id: string) {
+    return this.http.get<LatestMetricsResponse>(`${this.base}/${id}/metrics/latest`);
   }
 
   metricSeries(id: string, metric: string, since?: string) {
