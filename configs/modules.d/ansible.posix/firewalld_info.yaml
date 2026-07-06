@@ -1,0 +1,20 @@
+name: firewalld_info
+fqcn: ansible.posix.firewalld_info
+collection: ansible.posix
+short_description: Gather information about firewalld
+description: This module gathers information about firewalld rules.
+options:
+  active_zones:
+    type: bool
+    default: false
+    description: Gather information about active zones.
+  zones:
+    type: list
+    description: Gather information about specific zones. If only works if C(active_zones) is set to C(false).
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather information about active zones\n  ansible.posix.firewalld_info:\n    active_zones:\
+  \ true\n  register: result\n\n- name: Print default zone for debugging\n  ansible.builtin.debug:\n \
+  \   var: result.firewalld_info.default_zone\n\n- name: Gather information about specific zones\n  ansible.posix.firewalld_info:\n\
+  \    zones:\n      - public\n      - external\n      - internal\n  register: result\n"

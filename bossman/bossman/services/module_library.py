@@ -74,6 +74,8 @@ Starlark looks like Python but is a smaller, safer language. Do NOT use:
 - `import ...` / `from ...`  →  none; the module is self-contained.
 - `class ...`  →  none; use plain functions and dicts.
 - `lambda`  →  define a named nested `def`.
+- `isinstance(x, T)`  →  Starlark has no isinstance. Use `type(x) == "bool"`
+  (also "int", "string", "list", "dict", "NoneType", "float").
 - `while True:` / unbounded loops  →  loop over a list or `range(n)`;
   every loop must terminate.
 - regular expressions (`re`)  →  use str methods: `split`, `rsplit`,
