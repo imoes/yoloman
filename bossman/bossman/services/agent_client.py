@@ -96,6 +96,17 @@ class AgentClient:
         body = await self._get_json("/api/v1/net/connections/dump", params)
         return body.get("edges", [])
 
+    async def hosts_overview(self) -> list[dict[str, Any]]:
+        """GET /api/v1/hosts/overview — every host this agent currently
+        knows about: itself alone (standalone/satellite mode), or itself
+        plus every satellite it is polling (proxy mode) — see
+        docs/plan.md's monitoring-cockpit ergänzung Block F1. Each entry
+        is `{host, parent?, mode, last_sample_at?, metrics: [...],
+        checks: [...]}`. No cursor: this is always a full "latest state"
+        snapshot, not a history pull."""
+        body = await self._get_json("/api/v1/hosts/overview", {})
+        return body.get("hosts", [])
+
     async def call_tool(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/tools/{name} — invoke one module/task/pipeline
         tool (see docs/plan.md's Bossman plan, section B.5's plan engine).

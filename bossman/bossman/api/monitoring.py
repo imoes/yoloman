@@ -27,6 +27,7 @@ from bossman.services.monitoring import (
     ServiceView,
     acknowledge_service,
     create_downtime,
+    fleet_hosts,
     fleet_summary,
     query_agent_services,
     query_problems,
@@ -375,3 +376,48 @@ async def fleet_summary_route(
         services_by_state=summary.services_by_state,
         open_problems=summary.open_problems,
     )
+
+
+class FleetHostOut(BaseModel):
+    id: UUID
+    name: str
+    parent_agent_id: UUID | None
+    parent_name: str | None
+    mode: str
+    enrollment_state: str
+    last_seen_at: datetime | None
+    state_rollup: str
+    cpu_load: float | None
+    mem_used_pct: float | None
+    disk_used_pct_max: float | None
+    service_counts: dict[str, int]
+
+
+@router.get("/api/v1/fleet/hosts", response_model=list[FleetHostOut])
+async def fleet_hosts_route(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[FleetHostOut]:
+    """The host-overview table's data source (see docs/plan.md's
+    monitoring-cockpit ergänzung Block F2/F3): one row per host — every
+    directly enrolled agent and every satellite discovered behind a
+    proxy — with real CPU/memory/disk values and a CheckMK-style state
+    rollup, in a single call instead of a per-host metrics fan-out."""
+    hosts = await fleet_hosts(session)
+    return [
+        FleetHostOut(
+            id=h.id,
+            name=h.name,
+            parent_agent_id=h.parent_agent_id,
+            parent_name=h.parent_name,
+            mode=h.mode,
+            enrollment_state=h.enrollment_state,
+            last_seen_at=h.last_seen_at,
+            state_rollup=h.state_rollup,
+            cpu_load=h.cpu_load,
+            mem_used_pct=h.mem_used_pct,
+            disk_used_pct_max=h.disk_used_pct_max,
+            service_counts=h.service_counts,
+        )
+        for h in hosts
+    ]

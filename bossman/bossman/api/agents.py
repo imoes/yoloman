@@ -31,6 +31,7 @@ class AgentOut(BaseModel):
     last_seen_at: datetime | None
     metadata: dict
     groups: list[str]
+    parent_agent_id: UUID | None
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -43,6 +44,7 @@ class AgentOut(BaseModel):
             last_seen_at=agent.last_seen_at,
             metadata=agent.agent_metadata,
             groups=agent.groups,
+            parent_agent_id=agent.parent_agent_id,
         )
 
 

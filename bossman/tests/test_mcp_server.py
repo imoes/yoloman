@@ -502,3 +502,35 @@ async def test_mcp_fleet_health_reports_counters(db_session, session_factory, tm
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def test_mcp_fleet_hosts_reports_parent_link_and_state_rollup(db_session, session_factory, tmp_path):
+    proxy = await _make_agent(db_session, mode="proxy")
+    satellite = Agent(
+        name=f"mcp-sat-{uuid.uuid4().hex[:8]}",
+        token="",
+        mode="satellite",
+        enrollment_state="enrolled",
+        agent_metadata={},
+        parent_agent_id=proxy.id,
+    )
+    db_session.add(satellite)
+    await db_session.commit()
+    crit_service = await _make_service(db_session, satellite, name="Disk /", state="CRIT")
+
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+
+    hosts = await _call(mcp, "fleet_hosts")
+
+    sat_out = next(h for h in hosts if h["name"] == satellite.name)
+    assert sat_out["parent"] == proxy.name
+    assert sat_out["mode"] == "satellite"
+    assert sat_out["state_rollup"] == "CRIT"
+
+    await db_session.delete(crit_service)
+    await db_session.flush()
+    await db_session.delete(satellite)
+    await db_session.flush()
+    await db_session.delete(proxy)
+    await db_session.commit()

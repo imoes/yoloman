@@ -87,6 +87,14 @@ class Agent(Base):
     # by most-recently-created.
     groups: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
 
+    # Set when this agent was discovered as a satellite relayed through a
+    # proxy's own GET /api/v1/hosts/overview (see services/poller.py and
+    # docs/plan.md's monitoring-cockpit ergänzung Block F2) — NULL for a
+    # directly enrolled standalone/proxy agent. This is what turns a
+    # satellite from an invisible label buried in the proxy's metrics into
+    # its own first-class host in the fleet view/topology.
+    parent_agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
+
     __table_args__ = (
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
         CheckConstraint(

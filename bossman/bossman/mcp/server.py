@@ -35,6 +35,7 @@ from bossman.services.monitoring import (
     ServiceView,
     acknowledge_service,
     create_downtime,
+    fleet_hosts as monitoring_fleet_hosts,
     fleet_summary,
     query_agent_services,
     query_problems,
@@ -77,9 +78,12 @@ def build_mcp_server(
 
     @mcp.tool()
     async def list_hosts() -> list[dict[str, Any]]:
-        """List every known agent: name, address, mode, last_seen, tags."""
+        """List every known agent: name, address, mode, last_seen, tags,
+        parent (the proxy this host was discovered behind, if any — see
+        docs/plan.md's monitoring-cockpit ergänzung Block F2)."""
         async with session_factory() as session:
             agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
+            names_by_id = {a.id: a.name for a in agents}
         return [
             {
                 "name": a.name,
@@ -87,6 +91,7 @@ def build_mcp_server(
                 "mode": a.mode,
                 "last_seen": a.last_seen_at.isoformat() if a.last_seen_at else None,
                 "tags": a.agent_metadata,
+                "parent": names_by_id.get(a.parent_agent_id) if a.parent_agent_id else None,
             }
             for a in agents
         ]
@@ -324,5 +329,29 @@ def build_mcp_server(
             "services_by_state": summary.services_by_state,
             "open_problems": summary.open_problems,
         }
+
+    @mcp.tool()
+    async def fleet_hosts() -> list[dict[str, Any]]:
+        """The host-overview table: one entry per host — every directly enrolled agent and
+        every satellite discovered behind a proxy — with real CPU/memory/disk values and a
+        CheckMK-style worst-service-wins state rollup, in a single call."""
+        async with session_factory() as session:
+            hosts = await monitoring_fleet_hosts(session)
+        return [
+            {
+                "id": str(h.id),
+                "name": h.name,
+                "parent": h.parent_name,
+                "mode": h.mode,
+                "enrollment_state": h.enrollment_state,
+                "last_seen": h.last_seen_at.isoformat() if h.last_seen_at else None,
+                "state_rollup": h.state_rollup,
+                "cpu_load": h.cpu_load,
+                "mem_used_pct": h.mem_used_pct,
+                "disk_used_pct_max": h.disk_used_pct_max,
+                "service_counts": h.service_counts,
+            }
+            for h in hosts
+        ]
 
     return mcp

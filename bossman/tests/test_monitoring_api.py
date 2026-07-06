@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from bossman.db.models import Agent, Downtime, Service, ServiceStateHistory
+from bossman.db.models import Agent, Downtime, Metric, Service, ServiceStateHistory
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
@@ -397,3 +397,72 @@ async def test_fleet_summary(db_session):
 
     await db_session.delete(api_token)
     await _cleanup(db_session, agent, ok_service, crit_service)
+
+
+async def test_fleet_hosts_reports_real_metric_values_and_state_rollup(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    warn_service = await _make_service(db_session, agent, name="Disk /", state="WARN")
+    now = datetime.now(timezone.utc)
+    metrics = [
+        Metric(time=now, agent_id=agent.id, metric="cpu_load1", value=0.42, labels={}),
+        Metric(time=now, agent_id=agent.id, metric="mem_used_pct", value=55.5, labels={}),
+        # Real timestamps would differ by microseconds here too (see
+        # poller._disambiguate_colliding_timestamps) since Metric's
+        # primary key is (time, agent_id, metric), not including labels —
+        # this test seeds rows directly via the ORM, so it must stagger
+        # them itself to avoid a duplicate-key error on insert.
+        Metric(time=now, agent_id=agent.id, metric="disk_used_pct", value=30.0, labels={"mount": "/"}),
+        Metric(time=now + timedelta(microseconds=1), agent_id=agent.id, metric="disk_used_pct", value=91.2, labels={"mount": "/data"}),
+    ]
+    db_session.add_all(metrics)
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/fleet/hosts", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    host = next(h for h in resp.json() if h["id"] == str(agent.id))
+    assert host["cpu_load"] == 0.42
+    assert host["mem_used_pct"] == 55.5
+    assert host["disk_used_pct_max"] == 91.2, "the worst (highest) mount must win, not an arbitrary one"
+    assert host["state_rollup"] == "WARN"
+    assert host["service_counts"]["WARN"] == 1
+    assert host["parent_agent_id"] is None
+
+    await db_session.delete(api_token)
+    for m in metrics:
+        await db_session.delete(m)
+    await db_session.flush()
+    await _cleanup(db_session, agent, warn_service)
+
+
+async def test_fleet_hosts_shows_satellite_with_parent_link(db_session):
+    proxy = await _make_agent(db_session, mode="proxy")
+    api_token, raw = await _make_api_token(db_session)
+    satellite = Agent(
+        name=f"sat-{uuid.uuid4().hex[:8]}",
+        token="",
+        mode="satellite",
+        enrollment_state="enrolled",
+        agent_metadata={},
+        parent_agent_id=proxy.id,
+    )
+    db_session.add(satellite)
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/fleet/hosts", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    sat_out = next(h for h in resp.json() if h["id"] == str(satellite.id))
+    assert sat_out["parent_agent_id"] == str(proxy.id)
+    assert sat_out["parent_name"] == proxy.name
+    assert sat_out["mode"] == "satellite"
+    assert sat_out["state_rollup"] == "OK", "a satellite with no services yet should roll up to OK, not crash"
+
+    await db_session.delete(api_token)
+    await db_session.delete(satellite)
+    await db_session.flush()
+    await db_session.delete(proxy)
+    await db_session.commit()

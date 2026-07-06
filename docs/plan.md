@@ -2933,3 +2933,99 @@ mode, last_sample_at, metrics: [{metric,value,labels}], checks: [...]}` per host
   disk usage), proving this is real per-host data, not a duplicated/merged snapshot. This is the
   exact shape Block F2 (Bossman ingestion) needs to make the satellite appear as its own host.
 - `ruff`/Python side untouched by this block (pure Go); `go vet ./...` clean.
+
+## Bossman — Block F2: satellites as first-class hosts + GET /api/v1/fleet/hosts (implemented)
+
+The other half of the same user feedback: Bossman only ever showed the Selecta, never
+`docker-test` behind it, because nothing read the `satellite` label the poller already attached to
+relayed metrics, and there was no bulk endpoint returning real CPU/mem/disk values per host at all
+(`GET /api/v1/agents` had no metrics; `GET /api/v1/agents/{id}/metrics` needs one metric name at a
+time). Block F1's new `GET /api/v1/hosts/overview` (previous section) is what makes this fixable:
+Bossman now polls that endpoint the same way it already polled `/api/v1/metrics`, and ingests every
+host it returns — not just the one it dialed.
+
+**Schema**: `agents.parent_agent_id` (new migration `7bd8fbf091a8`, nullable self-FK) — NULL for a
+directly enrolled agent, set to the proxy's own `agents.id` for a satellite discovered through it.
+Round-tripped (upgrade/downgrade/upgrade) against the real dev DB before use; the usual autogenerate
+false-positive index drops (TimescaleDB/pgvector) stripped as in every prior migration.
+
+**`services/agent_client.py`**: new `AgentClient.hosts_overview()` — `GET /api/v1/hosts/overview`,
+no cursor (always a full "latest state" snapshot, unlike the history-pull `metrics_dump`/
+`connections_dump`).
+
+**`services/monitoring.py`**: new `ingest_agent_checks(session, agent, checks)` — upserts one
+`Service` row per agent-reported check, mirroring `evaluate_host`'s own upsert-with-history shape
+(state-change detection, `service_state_history`, ack-clearing on state change) so agent-native
+checks and Bossman-rule-derived services behave identically for problems/ack/downtime. The two are
+told apart by `rule_id IS NULL` (agent-reported) vs. set (Bossman check_rule) — no extra "source"
+column needed. `_AGENT_CHECK_STATUS` maps the Go agent's `OK/WARNING/CRITICAL/UNKNOWN` vocabulary
+onto this project's own `OK/WARN/CRIT/UNKNOWN` (`ck_services_state`) — the two were named
+independently and don't line up character-for-character.
+
+**`services/poller.py`** (`_ingest_hosts_overview`, `_find_or_create_satellite`,
+`_write_snapshot_metrics`): for every host in a `/hosts/overview` response, the **self entry is
+identified by an absent `parent` field — not by `host == agent.name`.** This was a real bug caught
+against the actual running stack: the Go agent reports its own OS hostname (`os.Hostname()`) as
+`host`, which need not match whatever arbitrary name an operator enrolled it under in Bossman
+(`agentic-mcpd register --name ...`) — the first version matched by name and silently created a
+bogus satellite-of-itself Agent row for the proxy whenever the two names differed (confirmed live:
+`selecta-ansible-runner`'s own real hostname is `host2.example.internal`, a different
+string). Fixed and covered by a regression test using exactly this real name mismatch. Every other
+entry (an actual satellite) is `find_or_create`d by name (`token=""`, `enrollment_state="enrolled"`,
+`mode` taken from the report, `parent_agent_id` set) — a satellite Agent row is never directly
+polled itself (no `address`), so `poll_once`'s own `enrollment_state == "enrolled"` selection
+harmlessly no-ops on it; all its real data arrives via the proxy's relay. Its latest metrics are
+written via `_write_snapshot_metrics` (all sharing the snapshot's `last_sample_at`, an
+approximation — real history for a directly-polled agent still comes from the existing
+`metrics_dump` cursor-pull), its checks ingested, and Bossman's own `evaluate_host` (check_rules)
+runs against it exactly like any directly-enrolled host.
+
+**A second real bug caught by a test, not by inspection**: `metrics`' primary key is `(time,
+agent_id, metric)` — it does not include `labels`. Block F1's agent-side sampler timestamps every
+point in one tick identically (a single `now` passed to every `add()` call in `collect.Sample`), so
+two label-partitioned series of the same metric — disk_used_pct for two different mounts,
+net_rx_bytes for two different interfaces — collide on that primary key, and
+`ON CONFLICT DO NOTHING` silently keeps only one of them (verified directly against Postgres: a
+two-row `VALUES` list with an identical key inserts exactly one row). This risk didn't exist before
+Block F1, since the agent previously never wrote a labeled multi-series metric at all. Fixed with
+`_disambiguate_colliding_timestamps` (nudges every same-key row after the first forward by 1
+microsecond — invisible for graphing, keeps every series' data point), applied in both `_write_metrics`
+(the pre-existing history-pull path, which had this same latent exposure) and the new
+`_write_snapshot_metrics`. Caught by `test_poll_agent_keeps_same_timestamp_multi_label_metrics`,
+which asserts both mounts survive a same-timestamp write — it failed before the fix.
+
+**`GET /api/v1/fleet/hosts`** (new, `api/monitoring.py`) + **`services/monitoring.fleet_hosts`**: one
+row per host — `{id, name, parent_agent_id, parent_name, mode, enrollment_state, last_seen_at,
+state_rollup, cpu_load, mem_used_pct, disk_used_pct_max, service_counts}` — in exactly 5 queries
+total regardless of fleet size (agents, services, and 3 latest-metric lookups via Postgres
+`DISTINCT ON`), never a per-host fan-out. `state_rollup` is CheckMK's own worst-service-wins
+convention (a single CRIT service makes the whole host read CRIT). `disk_used_pct_max` takes the
+worst mount, not an arbitrary one, so a host with one nearly-full disk reads as "nearly full" even
+if its other mounts are empty. This is the data source Block F3's host-overview table needs.
+`AgentOut`/`api/agents.py` gained `parent_agent_id`; the MCP `list_hosts` tool gained `parent`; a new
+MCP tool `fleet_hosts` mirrors the REST route exactly (same underlying function, no duplicated logic
+— this project's standing REST/MCP-parity convention).
+
+**Verification (real, not mocked):**
+- `pytest` against real Postgres: 276 tests total (12 poller tests covering satellite discovery,
+  self-vs-satellite identification by the real bug's exact scenario, the timestamp-collision fix,
+  and failure handling; 2 new `fleet_hosts` REST tests; 1 new MCP `fleet_hosts` test), `ruff check`
+  clean. Migration round-tripped (upgrade/downgrade/upgrade) against the real dev DB.
+- **Real end-to-end run against the actual docker-compose stack and the already-enrolled live
+  3-tier hosts** (`docker-test` = Duppy, `ansible-runner` = Selecta, from the earlier live
+  enrollment session): rebuilt `bossman`/`migrate`/`seed` images (the same staleness trap as every
+  prior block — each compose service gets its own image), ran the real migration, restarted
+  Bossman. Its very first poll cycle logged real `GET https://ansible-runner...:18051/api/v1/hosts/
+  overview "200 OK"`; `agents` immediately showed **`duppy-docker-test` as its own row**, `mode:
+  satellite`, `parent_agent_id` pointing at the Selecta — the concrete fix for "only the Selecta is
+  visible". The first deploy also reproduced the self-vs-satellite bug live (a bogus
+  `host2.example.internal` row appeared, parented to the Selecta's own enrollment name)
+  before the fix; after correcting the code, rebuilding, and cleaning up the bad row, a fresh poll
+  cycle showed exactly the right two rows. `GET /api/v1/fleet/hosts` (queried with a real login
+  token against the running stack) returned both hosts with genuinely different real values
+  (`selecta-ansible-runner`: cpu_load 0.0, mem 27.2%, disk 33.5%; `duppy-docker-test`: cpu_load 0.0,
+  mem 18.6%, disk 26.4%; each with 12 real `OK` services) — and `GET /api/v1/agents` (the existing
+  Hosts list's own backend, untouched by this block) already shows both, confirming the fix reaches
+  the current UI immediately, before Block F3's dedicated overview table even exists.
+- `ruff check .` clean; full `pytest` suite green; no leftover rows in either the dev DB or the
+  live compose DB after cleanup.

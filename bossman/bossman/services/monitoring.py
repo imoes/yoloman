@@ -162,6 +162,78 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
     return updated
 
 
+# Maps the Go agent's Nagios-style checks.Status strings (see
+# internal/checks.Status: OK/WARNING/CRITICAL/UNKNOWN) onto this project's
+# own Service.state vocabulary (OK/WARN/CRIT/UNKNOWN, ck_services_state) —
+# the two were named independently and don't line up character-for-character.
+_AGENT_CHECK_STATUS = {"OK": "OK", "WARNING": "WARN", "CRITICAL": "CRIT", "UNKNOWN": "UNKNOWN"}
+
+
+async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks: list[dict]) -> list[Service]:
+    """Upserts one Service row per agent-reported check (see
+    GET /api/v1/hosts/overview's `checks` field, docs/plan.md's
+    monitoring-cockpit ergänzung Block F1/F2) — the agent-native
+    counterpart to evaluate_host's Bossman-rule-derived services. Both
+    populate the same `services` table; `rule_id IS NULL` is what
+    distinguishes an agent-reported check from a Bossman check_rule
+    result, so a caller never needs a separate "source" column to tell
+    them apart. Mirrors evaluate_host's own upsert-with-history shape
+    (state-change detection, service_state_history, ack-clearing on state
+    change) so the two paths behave identically from a problems/ack/
+    downtime point of view. Does not commit; the caller owns the
+    transaction boundary."""
+    now = datetime.now(timezone.utc)
+    updated: list[Service] = []
+
+    for chk in agent_checks:
+        name = chk.get("name")
+        if not name:
+            continue
+        state = _AGENT_CHECK_STATUS.get(chk.get("status", ""), "UNKNOWN")
+        output = chk.get("message") or ""
+        value = None
+        for pd in chk.get("perfdata") or []:
+            try:
+                value = float(pd.get("value", ""))
+                break
+            except (TypeError, ValueError):
+                continue
+
+        existing = await session.scalar(select(Service).where(Service.agent_id == agent.id, Service.name == name))
+        state_changed = existing is None or existing.state != state
+
+        if existing is None:
+            existing = Service(
+                agent_id=agent.id,
+                name=name,
+                metric="",
+                state=state,
+                value=value,
+                output=output,
+                rule_id=None,
+                last_state_change=now,
+                last_checked=now,
+            )
+            session.add(existing)
+        else:
+            existing.state = state
+            existing.value = value
+            existing.output = output
+            existing.last_checked = now
+            if state_changed:
+                existing.last_state_change = now
+                existing.acknowledged = False
+                existing.ack_comment = None
+                existing.ack_by = None
+
+        if state_changed:
+            session.add(ServiceStateHistory(time=now, agent_id=agent.id, service_name=name, state=state, value=value))
+        updated.append(existing)
+
+    await session.flush()
+    return updated
+
+
 # ---------------------------------------------------------------------------
 # Shared query/mutation layer for the "unbehandelte Probleme" surface —
 # used by both api/monitoring.py (REST) and mcp/server.py (the MCP-native
@@ -359,3 +431,112 @@ async def fleet_summary(session: AsyncSession) -> FleetSummary:
         services_by_state=services_by_state,
         open_problems=open_problems,
     )
+
+
+# Worst-wins precedence for a host's overall state rollup — CheckMK's own
+# convention: a single CRIT service makes the whole host read CRIT on the
+# fleet overview, even if every other service is OK.
+_STATE_SEVERITY = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
+
+
+@dataclass
+class FleetHostSummary:
+    """One row of the fleet host-overview table (see docs/plan.md's
+    monitoring-cockpit ergänzung Block F2/F3) — a CheckMK/Zabbix-style
+    "latest data" snapshot per host, real values only (no per-metric
+    drill-down needed just to see whether a host is healthy)."""
+
+    id: UUID
+    name: str
+    parent_agent_id: UUID | None
+    parent_name: str | None
+    mode: str
+    enrollment_state: str
+    last_seen_at: datetime | None
+    state_rollup: str
+    cpu_load: float | None
+    mem_used_pct: float | None
+    disk_used_pct_max: float | None
+    service_counts: dict[str, int]
+
+
+async def _latest_metric_by_agent(session: AsyncSession, metric_name: str) -> dict[UUID, float]:
+    """The single latest value of a non-mount-labeled metric (e.g.
+    cpu_load1, mem_used_pct) per agent, via Postgres's DISTINCT ON —
+    one query regardless of fleet size, not a per-host fan-out."""
+    stmt = (
+        select(Metric.agent_id, Metric.value)
+        .distinct(Metric.agent_id)
+        .where(Metric.metric == metric_name)
+        .order_by(Metric.agent_id, Metric.time.desc())
+    )
+    rows = (await session.execute(stmt)).all()
+    return {r.agent_id: r.value for r in rows}
+
+
+async def _latest_disk_used_pct_max(session: AsyncSession) -> dict[UUID, float]:
+    """The worst (highest) latest disk_used_pct across every mount an
+    agent reports — a host with one nearly-full disk should read as
+    "nearly full" on the fleet overview, not be diluted by its other,
+    mostly-empty mounts."""
+    mount_label = Metric.labels["mount"].astext
+    stmt = (
+        select(Metric.agent_id, mount_label.label("mount"), Metric.value)
+        .distinct(Metric.agent_id, mount_label)
+        .where(Metric.metric == "disk_used_pct")
+        .order_by(Metric.agent_id, mount_label, Metric.time.desc())
+    )
+    rows = (await session.execute(stmt)).all()
+    out: dict[UUID, float] = {}
+    for r in rows:
+        out[r.agent_id] = max(out.get(r.agent_id, r.value), r.value)
+    return out
+
+
+async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
+    """One row per host — every directly enrolled agent *and* every
+    satellite discovered via a proxy's own GET /api/v1/hosts/overview
+    (services/poller.py's _find_or_create_satellite) — with a CheckMK-
+    style worst-service-wins state rollup and the at-a-glance CPU/memory/
+    disk values a real fleet cockpit needs. Exactly 5 queries total
+    (agents, services, and 3 latest-metric lookups), never one per host:
+    the concrete fix for "no bulk endpoint for a host-overview table"."""
+    agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
+    names_by_id = {a.id: a.name for a in agents}
+
+    services = (await session.scalars(select(Service))).all()
+    services_by_agent: dict[UUID, list[Service]] = {}
+    for s in services:
+        services_by_agent.setdefault(s.agent_id, []).append(s)
+
+    cpu_by_agent = await _latest_metric_by_agent(session, "cpu_load1")
+    mem_by_agent = await _latest_metric_by_agent(session, "mem_used_pct")
+    disk_by_agent = await _latest_disk_used_pct_max(session)
+
+    out = []
+    for agent in agents:
+        agent_services = services_by_agent.get(agent.id, [])
+        counts = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0}
+        worst = "OK"
+        for s in agent_services:
+            counts[s.state] = counts.get(s.state, 0) + 1
+            if _STATE_SEVERITY.get(s.state, 0) > _STATE_SEVERITY.get(worst, 0):
+                worst = s.state
+
+        out.append(
+            FleetHostSummary(
+                id=agent.id,
+                name=agent.name,
+                parent_agent_id=agent.parent_agent_id,
+                parent_name=names_by_id.get(agent.parent_agent_id) if agent.parent_agent_id else None,
+                mode=agent.mode,
+                enrollment_state=agent.enrollment_state,
+                last_seen_at=agent.last_seen_at,
+                state_rollup=worst,
+                cpu_load=cpu_by_agent.get(agent.id),
+                mem_used_pct=mem_by_agent.get(agent.id),
+                disk_used_pct_max=disk_by_agent.get(agent.id),
+                service_counts=counts,
+            )
+        )
+    return out
