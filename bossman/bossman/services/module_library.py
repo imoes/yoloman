@@ -60,6 +60,36 @@ One `.star` file. It MUST define exactly:
   set()). There is NO Python stdlib: no re, no os, no json module —
   interact with the system exclusively through `ctx`.
 
+## Starlark is NOT Python — these WILL fail; use the replacement
+
+Starlark looks like Python but is a smaller, safer language. Do NOT use:
+
+- `x is None` / `x is not None`  →  use `x == None` / `x != None`.
+  **This is by far the most common mistake — the `is` operator does not
+  exist in Starlark and is a hard parse error. Never write `is`/`is not`.**
+- `try:` / `except:` / `raise`  →  there are no exceptions. Call
+  `fail("message")` to abort. The `ctx.*` builtins already `fail()` on
+  error, so never wrap them in try/except — just call them.
+- f-strings `f"{x}"`  →  use `"prefix %s" % x`, `"a" + str(x)`, or `"{}".format(x)`.
+- `import ...` / `from ...`  →  none; the module is self-contained.
+- `class ...`  →  none; use plain functions and dicts.
+- `lambda`  →  define a named nested `def`.
+- `while True:` / unbounded loops  →  loop over a list or `range(n)`;
+  every loop must terminate.
+- regular expressions (`re`)  →  use str methods: `split`, `rsplit`,
+  `find`, `startswith`, `endswith`, `strip`, `replace`, `splitlines`.
+- `open()`, `os.`, `sys.`, `json.`, `print()`  →  none; touch the system
+  only through `ctx.*`.
+- `d[key]` raises no catchable error and hard-fails if key is missing  →
+  use `d.get(key)` or `d.get(key, default)`.
+
+Available builtins: len, range, enumerate, zip, sorted, reversed, min,
+max, abs, any, all, bool, int, float, str, list, dict, tuple, type, hash,
+getattr, hasattr, fail. String methods: split, rsplit, splitlines, strip,
+lstrip, rstrip, startswith, endswith, find, index, count, replace, lower,
+upper, title, join, format. Ternary `A if cond else B`, list/dict
+comprehensions, and `for`/`if`/`elif`/`else` all work normally.
+
 ## The ctx API (capability builtins — the ONLY way to touch the system)
 
 - `ctx.check_mode` → bool. True = dry-run: predict, never mutate.
@@ -119,6 +149,45 @@ Return a dict:
                 fail("failed to start " + name + ": " + start.stderr)
             return {"changed": True, "msg": "started " + name}
         fail("unsupported state: " + state)
+
+## Example 2 — editing a config file idempotently (the most common pattern)
+
+Note: no `is None` (uses `== None`), no try/except (file_read fail()s on
+its own), file_write handles check_mode and returns the predicted change.
+
+    def main(ctx, params):
+        path = params.get("path", "/etc/sysctl.conf")
+        key = params["name"]
+        value = params.get("value")
+        state = params.get("state", "present")
+        if state == "present" and value == None:
+            fail("value is required when state is present")
+
+        content = ctx.file_read(path) if ctx.file_exists(path) else ""
+        lines = content.split("\\n")
+        line = key + " = " + str(value)
+
+        new_lines = []
+        found = False
+        for l in lines:
+            stripped = l.strip()
+            is_entry = stripped.startswith(key + "=") or stripped.startswith(key + " =")
+            if is_entry:
+                found = True
+                if state == "present":
+                    new_lines.append(line)
+                # state == absent: drop the line by not appending it
+            else:
+                new_lines.append(l)
+        if state == "present" and not found:
+            new_lines.append(line)
+
+        new_content = "\\n".join(new_lines)
+        if new_content == content:
+            return {"changed": False, "msg": key + " already correct"}
+        changed = ctx.file_write(path, new_content)
+        verb = "would update " if ctx.check_mode else "updated "
+        return {"changed": changed, "msg": verb + key}
 
 ## Metadata YAML (submitted alongside the .star file)
 

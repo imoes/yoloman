@@ -82,3 +82,15 @@ def test_retry_messages_append_findings():
     assert len(retry) == len(base) + 2
     assert retry[-2]["role"] == "assistant"
     assert "boom" in retry[-1]["content"]
+
+
+def test_hints_target_the_is_operator_and_friends():
+    hints = starlark_translation.hints_for({"errors": [{"stage": "parse", "message": "stdin.star:5:16: got is, want ':'"}]})
+    assert any("is`/`is not`" in h or "`is`" in h for h in hints)
+    # A retry for an `is` parse error carries the targeted fix inline.
+    retry = starlark_translation.build_retry_messages(
+        [], "code", {"errors": [{"stage": "parse", "message": "got is, want ':'"}]}
+    )
+    assert "== None" in retry[-1]["content"]
+    # No hint for an unrecognized error → no "Most likely fix" block.
+    assert not starlark_translation.hints_for({"errors": [{"stage": "lint", "message": "totally novel"}]})

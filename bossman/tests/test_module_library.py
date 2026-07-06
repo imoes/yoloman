@@ -163,3 +163,46 @@ def test_contract_documents_the_full_ctx_api():
         "runtime: starlark",
     ]:
         assert needle in module_library.CONTRACT_MARKDOWN, f"contract is missing: {needle}"
+
+
+def test_contract_warns_about_the_top_python_isms():
+    """The diagnosed failure classes (is/is not, try/except, dict[missing])
+    must be called out explicitly — this is the context that flips weaker
+    models from failing to passing (awx-ng thesis)."""
+    c = module_library.CONTRACT_MARKDOWN
+    assert "is not None" in c and "== None" in c
+    assert "try:" in c and "fail(" in c
+    assert "Starlark is NOT Python" in c
+
+
+def _indented_example_modules(markdown: str) -> list[str]:
+    """Extract each 4-space-indented `def main(ctx, params):` block from the
+    contract markdown and dedent it back to a runnable module."""
+    lines = markdown.split("\n")
+    blocks, current = [], None
+    for line in lines:
+        if line.startswith("    def main(ctx, params):"):
+            if current is not None:
+                blocks.append(current)
+            current = [line[4:]]
+        elif current is not None:
+            if line.strip() == "" or line.startswith("    "):
+                current.append(line[4:] if line.startswith("    ") else line)
+            else:
+                blocks.append(current)
+                current = None
+    if current is not None:
+        blocks.append(current)
+    # Keep only real modules (a def plus a body), not the bare signature
+    # illustration in the "File shape" section.
+    return ["\n".join(b).rstrip() + "\n" for b in blocks if len([ln for ln in b if ln.strip()]) > 1]
+
+
+def test_embedded_example_modules_pass_the_validator(starlark_check):
+    """A broken example teaches broken code — every module the contract
+    shows the LLM must itself pass the real validator's hard gate."""
+    examples = _indented_example_modules(module_library.CONTRACT_MARKDOWN)
+    assert len(examples) >= 2, f"expected >=2 worked examples, found {len(examples)}"
+    for code in examples:
+        result = module_library.validate_star(starlark_check, code, {"name": "x", "path": "/tmp/x", "value": "1"})
+        assert result.ok, f"contract example failed to validate: {result.errors}\n---\n{code}"

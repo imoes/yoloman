@@ -131,8 +131,9 @@ def build_translation_messages(contract: str, record: dict[str, Any]) -> list[di
         "- Reproduce the original module's behavior for its common cases: same option names, "
         "same idempotency, same check_mode semantics. Prefer a faithful core over exotic corner cases; "
         "if an option cannot be supported, fail() with a clear message when it is passed.\n"
-        "- Starlark is NOT Python: no imports, no try/except, no classes, no f-strings, no while-True, "
-        "no regex — use str methods (split, find, strip, startswith) instead.\n"
+        "- Starlark is NOT Python. NEVER write `is` or `is not` (use `== None` / `!= None`) — this is "
+        "the #1 failure. No try/except/raise (call fail()), no imports, no classes, no f-strings, "
+        "no lambda, no while-True, no regex. Use `d.get(k)` not `d[k]` for optional keys.\n"
         "- Interact with the system ONLY through ctx.* builtins. Never invent builtins.\n"
         "- Keep it focused: typically 30-120 lines."
     )
@@ -148,19 +149,49 @@ def build_translation_messages(contract: str, record: dict[str, Any]) -> list[di
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
+# Maps a recognizable substring of a validator finding to a crisp,
+# actionable reminder — the feedback loop IS context (the awx-ng thesis:
+# a good enough prompt lets any model succeed). These target the exact
+# Python-isms weaker models reach for.
+_ERROR_HINTS: list[tuple[str, str]] = [
+    ("got is", "You used the `is`/`is not` operator, which does not exist in Starlark. Replace every "
+               "`X is None` with `X == None` and every `X is not None` with `X != None`."),
+    ("try", "Starlark has no try/except. Remove it and call fail(\"msg\") to abort; ctx.* builtins already fail() on error."),
+    ("undefined: re", "There is no regex module. Use string methods (split, find, startswith, strip, replace)."),
+    ("undefined: os", "There is no os module. Touch the system only through ctx.* builtins."),
+    ("undefined: json", "There is no json module. Parse/emit strings with str methods."),
+    ("f-string", "Starlark has no f-strings. Use \"%s\" % x or \"a\" + str(x)."),
+    ("got def", "A def is misplaced (Starlark has no nested-scope quirks Python allows). Define helpers at top level."),
+]
+
+
+def hints_for(validation: dict[str, Any]) -> list[str]:
+    """Targeted reminders for the failure classes present in a validation
+    result — deduplicated, in first-seen order."""
+    blob = " ".join((e.get("message") or "") for e in (validation.get("errors") or []))
+    out: list[str] = []
+    for needle, hint in _ERROR_HINTS:
+        if needle in blob and hint not in out:
+            out.append(hint)
+    return out
+
+
 def build_retry_messages(
     messages: list[dict[str, str]], star_code: str, validation: dict[str, Any]
 ) -> list[dict[str, str]]:
     """Extends the conversation with the validator's structured findings
-    so the model can repair its own output."""
+    plus targeted hints for common Python-isms, so the model can repair
+    its own output."""
     errors = json.dumps(validation.get("errors") or [], indent=1)
+    hints = hints_for(validation)
+    hint_block = ("\n\nMost likely fix:\n- " + "\n- ".join(hints)) if hints else ""
     return messages + [
         {"role": "assistant", "content": star_code},
         {
             "role": "user",
             "content": (
                 "The validator rejected this module. Fix every finding and return the FULL corrected "
-                f"Starlark module again (code only).\n\nValidator findings:\n{errors}"
+                f"Starlark module again (code only).\n\nValidator findings:\n{errors}{hint_block}"
             ),
         },
     ]
