@@ -15,6 +15,8 @@ import (
 
 	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
+	"github.com/mutkluge/agentic-mcp/internal/checks"
+	"github.com/mutkluge/agentic-mcp/internal/collect"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
@@ -75,7 +77,17 @@ func run(args []string) error {
 	}
 	startRetentionLoop(cfg, st)
 
-	proxyRegistry, satelliteManager := startProxyManager(cfg, st)
+	checkRegistry := collect.NewCheckRegistry()
+	startCollectLoop(cfg, st, checkRegistry)
+	startConfiguredCheckLoops(cfg, st, checkRegistry)
+
+	hostName, err := os.Hostname()
+	if err != nil {
+		hostName = "unknown"
+		slog.Warn("determining hostname failed, GET /api/v1/hosts/overview will report it as \"unknown\"", "error", err)
+	}
+
+	proxyRegistry, satelliteManager, satelliteSnapshots := startProxyManager(cfg, st)
 	if proxyRegistry != nil {
 		defer proxyRegistry.Close()
 	}
@@ -146,6 +158,9 @@ func run(args []string) error {
 		ProxyEnrollSecret: cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM: proxyPublicKeyPEM,
 		SatelliteManager:  satelliteManager,
+		HostName:           hostName,
+		CheckRegistry:      checkRegistry,
+		SatelliteSnapshots: satelliteSnapshots,
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }
@@ -272,6 +287,96 @@ func runDownsample(cfg config.Config, st store.Store) {
 	}
 }
 
+// startCollectLoop runs internal/collect's /proc sampler on a ticker for
+// the lifetime of the process: every tick, it writes the sampled
+// CPU/memory/disk/uptime/network points into the store (exactly like any
+// other metric, so they're gettable via the existing metrics_dump/
+// metrics_query tools) and records the derived built-in checks
+// (CPU load/memory/disk/uptime) into checkReg for GET
+// /api/v1/hosts/overview — see docs/plan.md's monitoring-cockpit
+// ergänzung. This is the fix for the agent previously writing no real
+// metric beyond the one-shot startup marker.
+func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry) {
+	if !cfg.Collect.Enabled {
+		slog.Warn("metric collection disabled (collect.enabled: false) — GET /api/v1/hosts/overview will report no metrics/checks")
+		return
+	}
+	interval := cfg.Collect.Interval.Duration()
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	runOnce := func() {
+		now := time.Now()
+		snap, err := collect.SampleDefault("/proc", now)
+		if err != nil {
+			slog.Error("metric sampling failed", "error", err)
+			return
+		}
+		points := snap.Points
+		for _, c := range snap.Checks {
+			checkReg.Set(c.Name, c.Result, c.At)
+			points = append(points, store.Point{
+				Metric:    collect.CheckStatusMetricName(c.Name),
+				Timestamp: c.At,
+				Value:     collect.StatusValue(c.Status),
+			})
+		}
+		if err := st.WritePoints(context.Background(), points); err != nil {
+			slog.Error("writing sampled metrics failed", "error", err)
+		}
+	}
+	runOnce() // don't wait a full interval before the first real data point exists
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			runOnce()
+		}
+	}()
+}
+
+// startConfiguredCheckLoops runs each cfg.Checks entry (an external
+// Nagios/CheckMK-plugin-style command) on its own ticker, recording every
+// result into the same checkReg the built-in checks use — so an operator's
+// custom checks show up in GET /api/v1/hosts/overview identically to the
+// built-in ones, and are equally graphable via their check_<name>_state
+// metric.
+func startConfiguredCheckLoops(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry) {
+	for _, spec := range cfg.Checks {
+		spec := spec
+		interval := spec.Interval.Duration()
+		if interval <= 0 {
+			interval = time.Minute
+		}
+		timeout := spec.Timeout.Duration()
+
+		runOnce := func() {
+			now := time.Now()
+			result, err := checks.RunDefault(context.Background(), spec.Command, timeout)
+			if err != nil {
+				slog.Error("configured check failed to execute", "check", spec.Name, "error", err)
+				return
+			}
+			checkReg.Set(spec.Name, result, now)
+			if err := st.WritePoints(context.Background(), []store.Point{{
+				Metric:    collect.CheckStatusMetricName(spec.Name),
+				Timestamp: now,
+				Value:     collect.StatusValue(result.Status),
+			}}); err != nil {
+				slog.Error("writing configured check state metric failed", "check", spec.Name, "error", err)
+			}
+		}
+		runOnce()
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for range ticker.C {
+				runOnce()
+			}
+		}()
+	}
+}
+
 // startProxyManager opens the durable satellite registry, loads this
 // proxy's own client certificate, and starts polling every satellite —
 // both statically configured (config.yaml's proxy.satellites) and
@@ -282,30 +387,35 @@ func runDownsample(cfg config.Config, st store.Store) {
 // rest of this daemon's optional subsystems (eBPF, PAM) already follow —
 // this agent's own MCP/REST functionality must keep working even if
 // satellite polling can't start. The caller must Close both the returned
-// registry and manager (in either order) when non-nil.
-func startProxyManager(cfg config.Config, st store.Store) (*fleet.SatelliteRegistry, *fleet.Manager) {
+// registry and manager (in either order) when non-nil. The returned
+// SnapshotCache (nil alongside the other two on any failure/non-proxy
+// case) holds every satellite's latest GET /api/v1/hosts/overview
+// snapshot, kept fresh by the Manager's own polling ticker — see
+// docs/plan.md's monitoring-cockpit ergänzung.
+func startProxyManager(cfg config.Config, st store.Store) (*fleet.SatelliteRegistry, *fleet.Manager, *fleet.SnapshotCache) {
 	if cfg.Mode != "proxy" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	registry, err := fleet.OpenRegistry(cfg.Proxy.SatellitesPath)
 	if err != nil {
 		slog.Error("proxy mode: failed to open satellite registry, satellite polling disabled", "error", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	clientCert, err := fleet.LoadClientCert(cfg.Proxy.ClientCertFile, cfg.Proxy.ClientKeyFile)
 	if err != nil {
 		slog.Error("proxy mode: failed to load this agent's client certificate, satellite polling disabled", "error", err)
 		registry.Close()
-		return nil, nil
+		return nil, nil, nil
 	}
-	manager := fleet.NewManager(registry, clientCert, st)
+	snapshotCache := fleet.NewSnapshotCache()
+	manager := fleet.NewManager(registry, clientCert, st, snapshotCache)
 	if err := manager.Start(context.Background(), cfg.Proxy.Satellites); err != nil {
 		slog.Error("proxy mode: failed to start satellite polling", "error", err)
 		manager.Close()
 		registry.Close()
-		return nil, nil
+		return nil, nil, nil
 	}
-	return registry, manager
+	return registry, manager, snapshotCache
 }
 
 // loadProxyPublicKeyOrWarn reads this proxy's own client_cert_file's

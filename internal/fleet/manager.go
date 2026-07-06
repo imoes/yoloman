@@ -23,10 +23,26 @@ import (
 type Manager struct {
 	registry *SatelliteRegistry
 	puller   pullerFactory
+	// overviewPuller is nil in tests (see newManager) and in production
+	// whenever this proxy has no snapshot cache to fill — startPolling
+	// then simply skips the overview pull, leaving only the existing
+	// metrics-history relay running.
+	overviewPuller overviewPullerFactory
+	// snapshotCache mirrors the same cache overviewPuller (if any)
+	// writes into — kept on Manager too so Remove can evict a departing
+	// satellite's stale snapshot immediately, not just stop polling it.
+	snapshotCache *SnapshotCache
 
 	mu      sync.Mutex
 	cancels map[string]context.CancelFunc
 }
+
+// overviewPullerFactory builds a satellite's GET /api/v1/hosts/overview
+// poll function — kept separate from pullerFactory/pollFunc (the existing
+// metrics-history relay) so neither's tests need to change: a nil
+// overviewPuller means "don't also poll for snapshots", the default for
+// every existing caller/test.
+type overviewPullerFactory func(sat config.Satellite) func(ctx context.Context) error
 
 // pullerFactory exists solely so tests can substitute a fake poll function
 // instead of a real *Puller (which needs a genuine TLS client cert and a
@@ -49,12 +65,31 @@ func newManager(registry *SatelliteRegistry, pullerFor pullerFactory) *Manager {
 }
 
 // NewManager returns a Manager backed by real satellite polling over TLS
-// (see Puller), storing pulled points in st.
-func NewManager(registry *SatelliteRegistry, clientCert tls.Certificate, st store.Store) *Manager {
-	return newManager(registry, func(sat config.Satellite) pollFunc {
+// (see Puller), storing pulled points in st and (if snapshotCache is
+// non-nil) each satellite's latest GET /api/v1/hosts/overview snapshot in
+// snapshotCache — see docs/plan.md's monitoring-cockpit ergänzung. Pass
+// nil for snapshotCache to disable overview polling entirely (e.g. a
+// build that only needs the existing metrics-history relay).
+func NewManager(registry *SatelliteRegistry, clientCert tls.Certificate, st store.Store, snapshotCache *SnapshotCache) *Manager {
+	m := newManager(registry, func(sat config.Satellite) pollFunc {
 		p := &Puller{Satellite: sat, ClientCert: clientCert, Store: st}
 		return p.PullOnce
 	})
+	if snapshotCache != nil {
+		m.snapshotCache = snapshotCache
+		m.overviewPuller = func(sat config.Satellite) func(ctx context.Context) error {
+			p := &Puller{Satellite: sat, ClientCert: clientCert, Store: st}
+			return func(ctx context.Context) error {
+				snap, err := p.PullOverviewOnce(ctx)
+				if err != nil {
+					return err
+				}
+				snapshotCache.Set(sat.Name, snap)
+				return nil
+			}
+		}
+	}
+	return m
 }
 
 // Start loads every satellite from both the static list and the dynamic
@@ -93,6 +128,9 @@ func (m *Manager) Remove(ctx context.Context, name string) error {
 		return err
 	}
 	m.stopPolling(name)
+	if m.snapshotCache != nil {
+		m.snapshotCache.Remove(name)
+	}
 	return nil
 }
 
@@ -126,6 +164,10 @@ func (m *Manager) startPolling(sat config.Satellite) {
 		interval = time.Minute
 	}
 	poll := m.puller(sat)
+	var pollOverview func(ctx context.Context) error
+	if m.overviewPuller != nil {
+		pollOverview = m.overviewPuller(sat)
+	}
 
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -140,11 +182,16 @@ func (m *Manager) startPolling(sat config.Satellite) {
 				n, err := poll(ctx, last, now)
 				if err != nil {
 					slog.Error("satellite poll failed", "satellite", sat.Name, "error", err)
-					continue
+				} else {
+					last = now
+					if n > 0 {
+						slog.Info("satellite poll completed", "satellite", sat.Name, "points", n)
+					}
 				}
-				last = now
-				if n > 0 {
-					slog.Info("satellite poll completed", "satellite", sat.Name, "points", n)
+				if pollOverview != nil {
+					if err := pollOverview(ctx); err != nil {
+						slog.Error("satellite overview poll failed", "satellite", sat.Name, "error", err)
+					}
 				}
 			}
 		}

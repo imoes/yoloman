@@ -57,7 +57,7 @@ func newTestEnrollServer(t *testing.T, write bool, enrollSecret string) (*httpte
 	t.Cleanup(func() { registry.Close() })
 
 	cert := generateTestClientCert(t)
-	manager := fleet.NewManager(registry, cert, nil)
+	manager := fleet.NewManager(registry, cert, nil, nil)
 	t.Cleanup(manager.Close)
 
 	handler := NewRESTHandler(RESTConfig{

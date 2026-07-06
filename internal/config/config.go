@@ -54,6 +54,37 @@ type Config struct {
 	// data alongside its own).
 	Mode  string `yaml:"mode"`
 	Proxy Proxy  `yaml:"proxy"`
+
+	// Collect controls the periodic /proc sampler (internal/collect) that
+	// writes CPU/memory/disk/uptime/network metrics into the local store
+	// and derives built-in CPU/memory/disk/uptime checks from them — see
+	// docs/plan.md's monitoring-cockpit ergänzung. Enabled by default:
+	// without it, this agent writes no real metric at all (only the
+	// one-shot startup marker), leaving any fleet cockpit polling it with
+	// nothing to show.
+	Collect Collect `yaml:"collect"`
+	// Checks lists external Nagios/CheckMK-plugin-style commands
+	// (internal/checks) to run on their own interval, alongside the
+	// built-in checks Collect always derives from sampled metrics. Empty
+	// by default — the built-ins already give every host meaningful
+	// services with zero configuration.
+	Checks []CheckSpec `yaml:"checks"`
+}
+
+// Collect configures the periodic OS-metric sampler.
+type Collect struct {
+	Enabled  bool     `yaml:"enabled"`
+	Interval Duration `yaml:"interval"`
+}
+
+// CheckSpec is one externally configured check: an argv to run via
+// internal/checks.RunDefault on its own ticker, following the Nagios
+// Plugin API contract (exit code + "message | perfdata" stdout).
+type CheckSpec struct {
+	Name     string   `yaml:"name"`
+	Command  []string `yaml:"command"`
+	Interval Duration `yaml:"interval"`
+	Timeout  Duration `yaml:"timeout"`
 }
 
 // NamedToken is one additional bearer token, scoped to its own ACL
@@ -220,6 +251,7 @@ func Default() Config {
 		MaxUploadSize: 512 * 1024 * 1024,
 		Mode:          "standalone",
 		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
+		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second)},
 	}
 }
 
@@ -322,6 +354,20 @@ func (c Config) Validate() error {
 		}
 	default:
 		return fmt.Errorf("unsupported mode %q (must be standalone, satellite, or proxy)", c.Mode)
+	}
+
+	seenCheckNames := make(map[string]bool, len(c.Checks))
+	for i, chk := range c.Checks {
+		if chk.Name == "" {
+			return fmt.Errorf("checks[%d]: name must not be empty", i)
+		}
+		if seenCheckNames[chk.Name] {
+			return fmt.Errorf("checks: duplicate name %q", chk.Name)
+		}
+		seenCheckNames[chk.Name] = true
+		if len(chk.Command) == 0 {
+			return fmt.Errorf("checks[%s]: command must not be empty", chk.Name)
+		}
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
+	"github.com/mutkluge/agentic-mcp/internal/collect"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
@@ -79,6 +80,25 @@ type RESTConfig struct {
 	// enrollment endpoint (Enroll) and GET/DELETE
 	// /api/v1/proxy/satellites (List/Remove).
 	SatelliteManager *fleet.Manager
+
+	// HostName is this agent's own name (os.Hostname() at startup),
+	// reported as the "host" field of its own entry in
+	// GET /api/v1/hosts/overview.
+	HostName string
+	// CheckRegistry holds the latest result of every built-in and
+	// configured check (see internal/collect), read by
+	// GET /api/v1/hosts/overview. Never nil in practice (main.go always
+	// constructs one), but a nil registry degrades to an empty checks
+	// list rather than panicking.
+	CheckRegistry *collect.CheckRegistry
+	// SatelliteSnapshots is non-nil only in proxy mode; it holds the most
+	// recently pulled GET /api/v1/hosts/overview snapshot of every
+	// satellite this proxy polls (see internal/fleet.SnapshotCache), so a
+	// proxy's own /api/v1/hosts/overview can report itself plus every
+	// satellite behind it in one response — see docs/plan.md's
+	// monitoring-cockpit ergänzung ("ein Endpoint der alle Hosts mit
+	// ihren Metriken ausgibt").
+	SatelliteSnapshots *fleet.SnapshotCache
 }
 
 type ctxKey int
@@ -215,6 +235,10 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 	RegisterConnectionsDumpRoute(mux, cfg.Store)
 	RegisterEnrollRoutes(mux, cfg)
+
+	mux.HandleFunc("GET /api/v1/hosts/overview", func(w http.ResponseWriter, r *http.Request) {
+		handleHostsOverview(w, r, cfg)
+	})
 
 	mux.HandleFunc("GET /api/v1/acl/tools/{name}", func(w http.ResponseWriter, r *http.Request) {
 		handleGetToolACL(w, r, cfg)

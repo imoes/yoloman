@@ -2828,3 +2828,108 @@ package stays unused), and escalation/flapping-detection/SLA reporting.
   API confirmed the persisted list. All synthetic rows (`service_state_history`, `downtimes`,
   `services`, `metrics`, `check_rules`, `agents`) deleted afterward via `psql`, one `DELETE` per
   `-c` invocation; confirmed `GET /api/v1/agents`/`/check-rules`/`/fleet/summary` all empty again.
+
+## Node-agent — Block F1/F1b: metric sampler + built-in checks + GET /api/v1/hosts/overview (implemented)
+
+Real user feedback after a live 3-tier deploy (Duppy → Selecta → Bossman): Bossman only ever showed
+the Selecta, never the satellite behind it, and the whole UI had no host-overview table with real
+CPU/RAM/disk values anywhere — an honest audit found the root cause was one level below the UI: the
+Go node agent **wrote no real metric at all**. The only point it had ever written was a one-shot
+`agentic_mcpd_start` startup marker (`cmd/agentic-mcpd/main.go`'s `recordStartupMarker`); `internal/
+checks` (a Nagios/CheckMK-plugin-compatible runner) existed but never ran on a schedule and wasn't
+exposed as a route. A fleet cockpit had nothing to show. This block is the fix, plus the single
+aggregate endpoint the user proposed as "die einfachste Methode": one endpoint per agent that
+returns every host it knows about (itself, plus — for a proxy — every satellite) with its metrics.
+
+**`internal/collect` (new package)** — the metric-collection foundation:
+- `Sample(procRoot, now, statfs)` reads `/proc` via the existing `internal/proc` parsers (no second,
+  parallel `/proc` reader) and returns a `Snapshot{Points, Checks}`: canonical metrics `cpu_load1/5/
+  15`, `cpu_count`, `mem_used_pct`/`mem_used_bytes`/`mem_total_bytes`, `disk_used_pct`/`_total_bytes`/
+  `_used_bytes` (labeled `mount=`), `uptime_seconds`, `net_rx_bytes`/`net_tx_bytes` (labeled `iface=`,
+  loopback excluded). Disk usage comes from a real `statfs(2)` syscall (`statfs_linux.go`), injected
+  as a `statfsFunc` for testability (mirrors `internal/checks.ExecFunc`'s own injection pattern) —
+  a `/proc` fixture file cannot answer a real usage query, only a real mount point can.
+- Mount filtering (`dedupeRealMounts`): an allow-list of real on-disk filesystem types (ext2/3/4,
+  xfs, btrfs, zfs, vfat, ntfs, exfat, f2fs, jfs, reiserfs) plus de-duplication by backing device —
+  without this, a Docker host's `/proc/mounts` lists dozens of per-container `overlay` mounts under
+  `/var/lib/docker` that would flood every sample with noise (confirmed on the real test hosts,
+  which are themselves Docker hosts).
+- **Built-in checks** (`checks.go`), derived from the same sample with zero extra config: "CPU load"
+  (per-core, from load5), "Memory", one "Disk <mount>" per real mount, "Uptime" — pure Go threshold
+  evaluation (`thresholdStatus`, warn/crit constants matching common Nagios/CheckMK defaults), not an
+  external plugin exec, so every host gets meaningful services with no nagios-plugins package
+  installed anywhere. A `CheckRegistry` (thread-safe, `Set`/`Snapshot`) caches the latest
+  `checks.Result` per named check (built-in or external) for the overview endpoint, since a
+  `Result`'s message/perfdata carry information the numeric state metric alone can't.
+- Every check's numeric state is also written to the store as `check_<slug>_state` (0–3, `internal/
+  checks.StatusFromExitCode`'s own convention) via `CheckStatusMetricName`/`StatusValue` — graphable
+  exactly like any other metric, for an operator who wants a state-history chart.
+- `internal/config`: `Collect{Enabled, Interval}` (default `enabled: true, interval: 30s` — metric
+  collection is on by default, since without it the whole cockpit has nothing to show) and `Checks
+  []CheckSpec{Name, Command, Interval, Timeout}` for external Nagios-plugin-style commands, run on
+  their own ticker via `checks.RunDefault`, recorded into the same `CheckRegistry` as the built-ins.
+- `cmd/agentic-mcpd/main.go`: `startCollectLoop` (samples once immediately, then on `cfg.Collect.
+  Interval`) and `startConfiguredCheckLoops` (one ticker per `CheckSpec`) wire the sampler/checks
+  into the store and registry at startup, alongside the existing retention/proxy loops.
+
+**`GET /api/v1/hosts/overview`** (`internal/server/hostoverview.go`, new) — the single endpoint the
+user asked for ("der Selecta braucht einen Endpoint der alle Hosts mit ihren Metriken ausgibt —
+vermutlich die einfachste Methode"): returns `{"hosts": [...]}`, one `HostSnapshot{host, parent?,
+mode, last_sample_at, metrics: [{metric,value,labels}], checks: [...]}` per host.
+- **Self snapshot** (`selfSnapshot`/`latestMetrics`): reuses the existing `ListMetricNames`+`Query`
+  Store interface (same pattern as `metrics.go`'s `dumpAllMetrics`) rather than widening the Store
+  interface for one caller, keeping only the single latest point per distinct (metric, label-set)
+  series — a fleet "latest data" table needs one number per metric per host, not a full history
+  (which the existing `/api/v1/metrics` endpoint already serves for graphing).
+- **Proxy aggregation**: when `cfg.Mode == "proxy"`, every currently cached satellite snapshot (see
+  below) is appended, `Parent` set to this proxy's own host name, `Mode` forced to `"satellite"` —
+  so Bossman polling either a leaf or a proxy always gets back a plain list of 1..N real hosts,
+  never needing to know in advance which kind of agent it's talking to.
+- Same auth chain as every other `/api/v1/` route (bearer token + optional mTLS client-cert gate).
+
+**Proxy-side aggregation** (`internal/fleet`, extended):
+- `SnapshotCache` (new, `snapshot_cache.go`): a thread-safe `map[satelliteName]HostSnapshot`,
+  deliberately in-memory only (not persisted to the local store) — a satellite's overview snapshot
+  is a point-in-time "latest state" view, not a time series this proxy itself needs to retain; the
+  existing `/api/v1/metrics` relay (`Puller.PullOnce`) already covers graphable history.
+- `Puller.PullOverviewOnce` (new method): calls the satellite's own `GET /api/v1/hosts/overview` over
+  the same mTLS client cert as the existing metrics pull, takes the first (and, for a non-proxy
+  satellite, only) entry from its response, and relabels it with the name this proxy knows the
+  satellite by. Multi-hop (a satellite that is itself a proxy) is explicitly out of scope for v1
+  (see the earlier "bewusst außerhalb" note on Multi-Hop-Topologie) — any further entries are
+  ignored rather than recursively re-exposed.
+- `Manager` gained an optional `overviewPuller` (nil in every existing test/caller — `newManager`'s
+  signature is untouched, so no existing test needed to change) that `startPolling`'s ticker also
+  invokes each cycle, best-effort/log-only on failure, alongside the existing metrics pull;
+  `NewManager` gained a `*SnapshotCache` parameter (nil disables overview polling entirely); `Remove`
+  evicts a departing satellite's cached snapshot immediately, not just its poller.
+
+**Verification (real, not mocked):**
+- `go test ./...`: full suite green, including `internal/collect`'s new tests (canonical metrics
+  written; real-mount deduplication — bind mount and Docker `overlay` mounts correctly excluded;
+  built-in checks reflect thresholds — OK at 50%, CRITICAL at 95%; graceful degradation when
+  `/proc` is entirely missing) and `internal/server`'s new `TestHostsOverview_*` tests (self-only
+  shape; only-the-latest-point-per-series; proxy aggregation with a fake cached satellite; a
+  standalone agent never appends satellites even if a cache happens to be set).
+- A real, non-test smoke run against the actual `/proc` on this dev machine (a throwaway
+  `cmd/collect-smoke`, removed afterward) confirmed real values: 67 points, 8 checks, including a
+  genuine `WARNING` on a real `/data1` mount at 80.6% used — proving the sampler works against a
+  real, unpredictable filesystem layout, not just curated fixtures.
+- **Real end-to-end redeploy** onto the same two hosts the earlier live-3-tier enrollment used
+  (`host1.example.internal` = Duppy, `host2.example.internal` = Selecta, already
+  enrolled and mTLS-trusted from that session — no re-enrollment needed, only the binary was
+  replaced and the daemon restarted): `GET /api/v1/hosts/overview` on Duppy (queried via the
+  Selecta's own trusted client cert, since Duppy's `trusted_client_keys` gates all of `/api/v1/`)
+  returned real CPU/mem/disk/uptime metrics and 12 real checks (all `OK`, including per-mount disk
+  checks for `/`, `/boot`, `/data1`, `/home`, `/opt`, `/systems`, `/tmp`, `/usr`, `/var`). After
+  restarting the Selecta, its own next satellite poll tick logged `satellite poll completed
+  satellite=duppy-docker-test points=204` (the existing metrics relay, now carrying real data for
+  the first time) — and, queried from inside the real running Bossman container (using Bossman's
+  own pinned client certificate, the exact identity that will poll this endpoint once Block F2 is
+  built), the Selecta's `GET /api/v1/hosts/overview` returned **two** hosts: itself
+  (`host2.example.internal`, `mode: proxy`, 108 metrics, 12 checks) and the satellite
+  (`duppy-docker-test`, `mode: satellite`, `parent: host2.example.internal`, 52 metrics, 12
+  checks) — with genuinely different values per host (different uptimes: 325.6h vs. 115.3h; different
+  disk usage), proving this is real per-host data, not a duplicated/merged snapshot. This is the
+  exact shape Block F2 (Bossman ingestion) needs to make the satellite appear as its own host.
+- `ruff`/Python side untouched by this block (pure Go); `go vet ./...` clean.

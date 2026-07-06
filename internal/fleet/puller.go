@@ -136,3 +136,61 @@ func (p *Puller) PullOnce(ctx context.Context, from, to time.Time) (int, error) 
 	}
 	return len(points), nil
 }
+
+// overviewResponse mirrors server.HostsOverviewResponse's JSON shape
+// (redeclared, not imported, for the same reason metricsDumpResponse is —
+// see this file's package doc).
+type overviewResponse struct {
+	Hosts []HostSnapshot `json:"hosts"`
+}
+
+// PullOverviewOnce calls the satellite's GET /api/v1/hosts/overview
+// endpoint over TLS (same client cert + bearer token as PullOnce) and
+// returns its own HostSnapshot — the first (and, for a non-proxy
+// satellite, only) entry in the response's hosts list. A satellite that
+// is itself a proxy would return more than one host; this project's v1
+// scope is single-hop only (see docs/plan.md's "bewusst außerhalb:
+// Multi-Hop-Topologie >1"), so any entries beyond the first are ignored
+// rather than recursively re-exposed.
+func (p *Puller) PullOverviewOnce(ctx context.Context) (HostSnapshot, error) {
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				Certificates:       []tls.Certificate{p.ClientCert},
+				InsecureSkipVerify: true, //nolint:gosec // see PullOnce's identical comment
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	url := fmt.Sprintf("https://%s/api/v1/hosts/overview", p.Satellite.Address)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return HostSnapshot{}, fmt.Errorf("satellite %q: building overview request: %w", p.Satellite.Name, err)
+	}
+	if p.Satellite.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+p.Satellite.Token)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return HostSnapshot{}, fmt.Errorf("satellite %q: overview request failed: %w", p.Satellite.Name, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return HostSnapshot{}, fmt.Errorf("satellite %q: overview unexpected status %d: %s", p.Satellite.Name, resp.StatusCode, body)
+	}
+
+	var out overviewResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return HostSnapshot{}, fmt.Errorf("satellite %q: decoding overview response: %w", p.Satellite.Name, err)
+	}
+	if len(out.Hosts) == 0 {
+		return HostSnapshot{}, fmt.Errorf("satellite %q: overview response contained no hosts", p.Satellite.Name)
+	}
+	snap := out.Hosts[0]
+	snap.Host = p.Satellite.Name // the name this proxy knows it by, not whatever hostname it reported
+	return snap, nil
+}
