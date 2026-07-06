@@ -4,6 +4,7 @@ import dagre from 'cytoscape-dagre';
 import { Agent } from '../../../core/models/agent.model';
 import { HostEdge } from '../../../core/models/edge.model';
 import { agentHealthStatus, serviceStateBadge } from '../../status.util';
+import { BM_BLACK, BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
 
 cytoscape.use(dagre);
 
@@ -67,16 +68,16 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
             color: '#e6e6e6',
             'text-valign': 'bottom',
             'text-margin-y': 6,
-            'background-color': '#8a8a8a',
+            'background-color': BM_UNKNOWN,
             width: 28,
             height: 28,
             'border-width': 2,
-            'border-color': '#0d0d0d',
+            'border-color': BM_BLACK,
           },
         },
-        { selector: 'node[status="ok"]', style: { 'background-color': '#1e9600' } },
-        { selector: 'node[status="warn"]', style: { 'background-color': '#ffc800' } },
-        { selector: 'node[status="crit"]', style: { 'background-color': '#d0021b' } },
+        { selector: 'node[status="ok"]', style: { 'background-color': BM_GREEN } },
+        { selector: 'node[status="warn"]', style: { 'background-color': BM_GOLD } },
+        { selector: 'node[status="crit"]', style: { 'background-color': BM_RED } },
         {
           selector: 'edge',
           style: {
@@ -100,14 +101,14 @@ export class TopologyGraphComponent implements AfterViewInit, OnDestroy {
           selector: 'edge.parent-edge',
           style: {
             width: 2,
-            'line-color': '#ffc800',
-            'target-arrow-color': '#ffc800',
+            'line-color': BM_GOLD,
+            'target-arrow-color': BM_GOLD,
             'target-arrow-shape': 'triangle',
             'line-style': 'dashed',
             'curve-style': 'bezier',
             label: 'data(label)',
             'font-size': 9,
-            color: '#ffc800',
+            color: BM_GOLD,
           },
         },
       ],

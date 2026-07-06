@@ -3102,3 +3102,40 @@ remains out of scope project-wide, as already documented in this file's Selecta 
 browser (Playwright) against the live 3-tier stack, `/topology` now renders both real hosts —
 `selecta-ansible-runner` and `duppy-docker-test` — connected by a dashed gold "relays" edge (instead
 of two disconnected dots), both nodes green (their real `OK` state rollup from `fleet_hosts`).
+
+## Bossman-UI — Block F6: deliberate Rastafari identity (implemented)
+
+The audit's honest verdict: "calling it a Rastafari theme is generous — it is default Material dark
+with a green primary and three status accent variables. No ThemeService, no red/gold/green surface
+styling ... the topology graph even hardcodes its own hex colours rather than using the vars." The
+underlying dark-surface-with-Rasta-accent *structure* (`--bm-green/gold/red/black/unknown`, the
+tricolor top stripe already on the sidebar, the login page's large logo) was already sound per the
+original Bossman design section above — what was missing was making it look *deliberate* rather than
+coincidental, and a full `ThemeService` was judged disproportionate scope: this project explicitly
+committed to a **single, non-switchable** look ("kein Scherz-Theme-Umschalter"), so a switching
+service with no second theme to switch to would be speculative infrastructure, not a real fix.
+
+**What actually changed:**
+- **`shared/bm-colors.ts`** (new): the single source of truth for the four accent hex values, in
+  literal form — needed because cytoscape and ngx-echarts render to canvas and don't resolve CSS
+  custom properties at style-application time, unlike every plain DOM element (which reads `--bm-*`
+  directly). `topology-graph.component.ts` and `metric-chart.component.ts` now import these
+  constants instead of each hardcoding its own copy of the same hex — the literal fix for the
+  audit's "topology hardcodes its own hex rather than using the vars" finding, in the only way
+  actually possible given canvas rendering (CSS variables genuinely cannot reach into a
+  cytoscape/echarts style object; a shared TS constant is the correct level of indirection, not a
+  workaround).
+- **`styles.scss`**: `--mat-sys-primary`/`--mat-sys-tertiary`/`--mat-sys-error` now pinned to the
+  exact same hex as `--bm-green`/`--bm-gold`/`--bm-red` (previously `mat.$green-palette` generated
+  its own independent green, visibly different from the status-dot green sitting right next to it —
+  looked accidental, not branded). Every other M3 token (surfaces, elevation, typography) is
+  untouched, still supplied by `mat.theme()`.
+- **The Bossman penguin logo now appears in the sidebar header** (`app.html`/`app.scss`, 40px,
+  rounded), not just on the login page — brand presence throughout the app instead of a single
+  first-impression moment that's immediately gone after signing in.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui`; in a real
+browser (Playwright) against the live stack: Fleet Overview's "Run a plan" button, active nav
+highlight, and every link now render in the exact same green as the status dots and the Perf-O-Meter
+bars (previously two subtly different greens); the sidebar shows the logo on every page, not just
+login. `/login`'s existing large-logo layout is unaffected.

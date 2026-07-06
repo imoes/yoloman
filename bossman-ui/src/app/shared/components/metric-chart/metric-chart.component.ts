@@ -2,6 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { MetricPoint } from '../../../core/models/agent.model';
+import { BM_GREEN } from '../../bm-colors';
 
 /** A single ngx-echarts wrapper reused everywhere a metric time series is
  * plotted (see docs/plan.md's Bossman plan, section C.3). */
@@ -52,7 +53,7 @@ export class MetricChartComponent {
           type: 'line',
           showSymbol: false,
           data: pts.map((p) => [p.time, p.value]),
-          color: '#1e9600',
+          color: BM_GREEN,
           areaStyle: { opacity: 0.08 },
         },
       ],
