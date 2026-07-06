@@ -1,0 +1,210 @@
+import { AfterViewInit, Component, ElementRef, Injector, OnDestroy, ViewChild, afterNextRender, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
+import { GridItemHTMLElement, GridStack } from 'gridstack';
+import { DashboardService } from '../../core/services/dashboard.service';
+import { DashboardWidget, WidgetData } from '../../core/models/dashboard.model';
+import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
+import { AddWidgetDialogComponent } from './add-widget-dialog.component';
+
+/** The GridStack-backed, server-persisted widget dashboard on Fleet
+ * Overview (see docs/plan.md's monitoring-cockpit ergänzung Block F5) —
+ * modeled directly on CentralStation's own dashboard.component.ts: grid
+ * init via afterNextRender (guarantees the @for-rendered grid-stack-item
+ * elements exist before GridStack measures them), drag/resize gated by an
+ * edit-mode signal, saveLayout() reads back GridStack's own node geometry
+ * and PATCHes it per widget. */
+@Component({
+  selector: 'app-dashboard-grid',
+  standalone: true,
+  imports: [MatButtonModule, MatIconModule, DashboardWidgetComponent],
+  template: `
+    <div class="bm-dashboard-toolbar">
+      <h2>Dashboard</h2>
+      <div class="bm-dashboard-actions">
+        @if (editMode()) {
+          <button mat-button (click)="addWidget()">
+            <mat-icon>add</mat-icon>
+            Add widget
+          </button>
+        }
+        <button mat-stroked-button [color]="editMode() ? 'primary' : undefined" (click)="toggleEditMode()">
+          <mat-icon>{{ editMode() ? 'done' : 'dashboard_customize' }}</mat-icon>
+          {{ editMode() ? 'Save layout' : 'Customize' }}
+        </button>
+      </div>
+    </div>
+
+    @if (!widgets().length && !editMode()) {
+      <div class="bm-dashboard-empty">
+        <p>No dashboard widgets yet.</p>
+        <button mat-flat-button color="primary" (click)="enterEditModeAndAdd()">
+          <mat-icon>add</mat-icon>
+          Add your first widget
+        </button>
+      </div>
+    } @else {
+      <div #grid class="grid-stack" [class.bm-edit-mode]="editMode()">
+        @for (widget of widgets(); track widget.id) {
+          <div class="grid-stack-item" [attr.gs-id]="widget.id" [attr.gs-x]="widget.gs_x" [attr.gs-y]="widget.gs_y" [attr.gs-w]="widget.gs_w" [attr.gs-h]="widget.gs_h">
+            <div class="grid-stack-item-content">
+              <app-dashboard-widget [widget]="widget" [data]="widgetData()[widget.id] ?? null" [editMode]="editMode()" (remove)="deleteWidget(widget.id)" />
+            </div>
+          </div>
+        }
+      </div>
+    }
+  `,
+  styles: [
+    `
+      .bm-dashboard-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .bm-dashboard-toolbar h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .bm-dashboard-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .bm-dashboard-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 40px 16px;
+        opacity: 0.75;
+      }
+      .grid-stack {
+        min-height: 120px;
+      }
+      .grid-stack.bm-edit-mode {
+        background-image: linear-gradient(var(--mat-sys-outline-variant) 1px, transparent 1px), linear-gradient(90deg, var(--mat-sys-outline-variant) 1px, transparent 1px);
+        background-size: 80px 80px;
+      }
+      .grid-stack-item-content {
+        inset: 4px !important;
+        overflow: hidden !important;
+      }
+    `,
+  ],
+})
+export class DashboardGridComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('grid') private gridEl!: ElementRef<HTMLElement>;
+
+  private dashboardService = inject(DashboardService);
+  private dialog = inject(MatDialog);
+  private injector = inject(Injector);
+
+  widgets = signal<DashboardWidget[]>([]);
+  widgetData = signal<Record<string, WidgetData | undefined>>({});
+  editMode = signal(false);
+  private grid?: GridStack;
+
+  ngAfterViewInit(): void {
+    this.loadWidgets();
+  }
+
+  ngOnDestroy(): void {
+    this.grid?.destroy(false);
+  }
+
+  private loadWidgets(): void {
+    this.dashboardService.list().subscribe((widgets) => {
+      this.widgets.set(widgets);
+      this.rebuildGrid(true);
+    });
+  }
+
+  private rebuildGrid(loadData = false): void {
+    afterNextRender(
+      () => {
+        this.grid?.destroy(false);
+        if (!this.widgets().length) return;
+        this.grid = GridStack.init(
+          {
+            cellHeight: 90,
+            minRow: 2,
+            margin: 8,
+            float: false,
+            disableDrag: !this.editMode(),
+            disableResize: !this.editMode(),
+          },
+          this.gridEl.nativeElement,
+        );
+        if (loadData) {
+          this.widgets().forEach((w) => this.loadWidgetData(w.id));
+        }
+      },
+      { injector: this.injector },
+    );
+  }
+
+  private loadWidgetData(widgetId: string): void {
+    this.dashboardService.data(widgetId).subscribe({
+      next: (data) => this.widgetData.update((m) => ({ ...m, [widgetId]: data })),
+      error: () => undefined,
+    });
+  }
+
+  toggleEditMode(): void {
+    const next = !this.editMode();
+    this.editMode.set(next);
+    if (next) {
+      this.grid?.enable();
+    } else {
+      this.grid?.disable();
+      this.saveLayout();
+    }
+  }
+
+  private saveLayout(): void {
+    const items = this.grid?.getGridItems() ?? [];
+    for (const el of items) {
+      const patch = this.layoutPatch(el);
+      if (!patch) continue;
+      this.dashboardService.update(patch.id, patch.body).subscribe();
+    }
+  }
+
+  private layoutPatch(el: GridItemHTMLElement): { id: string; body: { gs_x: number; gs_y: number; gs_w: number; gs_h: number } } | null {
+    const id = el.getAttribute('gs-id');
+    const n = el.gridstackNode;
+    if (!id || !n) return null;
+    return { id, body: { gs_x: n.x ?? 0, gs_y: n.y ?? 0, gs_w: n.w ?? 4, gs_h: n.h ?? 3 } };
+  }
+
+  enterEditModeAndAdd(): void {
+    this.editMode.set(true);
+    this.addWidget();
+  }
+
+  addWidget(): void {
+    const ref = this.dialog.open(AddWidgetDialogComponent, { width: '520px' });
+    ref.afterClosed().subscribe((payload) => {
+      if (!payload) return;
+      this.dashboardService.create(payload).subscribe((widget) => {
+        this.widgets.update((ws) => [...ws, widget]);
+        this.rebuildGrid();
+        this.loadWidgetData(widget.id);
+      });
+    });
+  }
+
+  deleteWidget(widgetId: string): void {
+    this.dashboardService.delete(widgetId).subscribe(() => {
+      this.widgets.update((ws) => ws.filter((w) => w.id !== widgetId));
+      this.widgetData.update((data) => {
+        const next = { ...data };
+        delete next[widgetId];
+        return next;
+      });
+      this.rebuildGrid();
+    });
+  }
+}

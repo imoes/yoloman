@@ -3195,3 +3195,65 @@ geometry back), a polymorphic `dashboard-widget` renderer (`@switch` on `widget_
 option builders for `donut`/`timeseries`/`gauge`, a table for `top_hosts`/`problems`, a plain number
 for `stat`), an add-widget catalog dialog, wiring Fleet Overview to use this dashboard, and live
 Playwright verification against the running docker-compose stack.
+
+## Bossman-UI — Block F5 (frontend): GridStack widget dashboard (implemented)
+
+Completes Block F5. Modeled directly on `~/Dev/code/CentralStation/frontend`'s own
+`dashboard.component.ts`/`dashboard-widget.component.ts` pattern (`gridstack` was already an unused
+dependency in `package.json`, v12.6.0, wired up here for the first time), trimmed to what
+CentralStation's version doesn't need for Bossman: no generative/AI mode, no multi-dashboard
+picker, no i18n — a single per-operator dashboard matching the six widget types the backend
+actually serves.
+
+**New files:**
+- `core/models/dashboard.model.ts` — `DashboardWidget`/`WidgetType`/`CreateDashboardWidget`/
+  `UpdateDashboardWidget` plus one payload interface per widget type (`TopHostsWidgetData`,
+  `ProblemsWidgetData`, `DonutWidgetData`, `StatWidgetData`, `GaugeWidgetData`,
+  `TimeseriesWidgetData`), matching `bossman/services/dashboard.py`'s `widget_data()` shapes
+  exactly. `WIDGET_CATALOG` mirrors the backend's `DEFAULT_SIZE` for the add-widget dialog's
+  preview only — the server's own copy is authoritative when `gs_w`/`gs_h` are omitted.
+- `core/services/dashboard.service.ts` — thin REST wrapper (`list`/`create`/`update`/`delete`/
+  `data`), same shape as `MonitoringService`.
+- `shared/components/dashboard-widget/dashboard-widget.component.ts` — the polymorphic renderer,
+  `@switch`-dispatched on `widget_type`: `top_hosts`/`problems` as dense tables (reusing
+  `PerfOMeterComponent`/`HostStatusBadgeComponent` for the host rows, so a dashboard widget looks
+  identical to the Block F3 host-overview table it's summarizing), `donut`/`gauge`/`timeseries` as
+  `ngx-echarts` options built from `bm-colors.ts`'s literal hex constants (same canvas-can't-read-
+  CSS-vars constraint documented in Block F6), `stat` as a plain number + label.
+- `features/fleet-overview/add-widget-dialog.component.ts` — a type-tile catalog (six tiles, not
+  CentralStation's larger type union) + per-type config fields: `limit` for `top_hosts`/`problems`,
+  a `stat_source` select for `stat`, an agent + metric-name field for `gauge`/`timeseries` (plus
+  optional warn/crit for `gauge`). Returns a `CreateDashboardWidget` on save.
+- `features/fleet-overview/dashboard-grid.component.ts` — the GridStack container itself, following
+  CentralStation's `rebuildGrid()`/`saveLayout()` pattern precisely: `GridStack.init()` runs inside
+  `afterNextRender` (guarantees the `@for`-rendered `grid-stack-item` elements exist before
+  GridStack measures them), `disableDrag`/`disableResize` toggle off an `editMode` signal, and
+  "Save layout" reads `grid.getGridItems()` back and issues one `PATCH` per widget with its actual
+  post-drag `gs_x/y/w/h`. An empty dashboard shows an explicit "Add your first widget" empty state
+  (consistent with Block E1's empty-state convention) rather than a blank grid.
+
+**Wiring:** `features/fleet-overview/fleet-overview.component.ts` gained `<app-dashboard-grid>` as
+a new section between the fixed "Unhandled problems" panel and the existing "Recent Plan
+Runs/Quick actions" grid. The top summary cards and problems panel stay fixed — they're
+always-relevant fleet-health KPIs an operator wouldn't want to rearrange — while the GridStack
+section is the actually-customizable part the ergänzung asked for.
+
+**Verification (real, not mocked):** `npx ng build` clean (one harmless NG8102 nullish-coalescing
+warning fixed by widening `widgetData`'s signal type). Rebuilt and redeployed `bossman`, `migrate`,
+and `bossman-ui` docker-compose images against the real running stack; `alembic upgrade head` ran
+the `dashboard_widgets` migration against the compose stack's own Postgres (previously only
+verified against the separate `bossman-dev-db`). In a real browser (Playwright) against the live
+3-tier stack (`duppy-docker-test` + `selecta-ansible-runner`, both still enrolled from the earlier
+runbook): logged in as `admin`; added a `top_hosts` widget — rendered a real table with both real
+hosts' actual CPU/mem/disk percentages via `PerfOMeterComponent`; added a `donut` widget — rendered
+a real ECharts donut (all-green, matching the fleet's real all-OK service state); dragged the donut
+widget with a raw `page.mouse` sequence, confirmed via direct `psql` against
+`agentic-mcp-db-1` that its new `gs_x/gs_y` were persisted (`2, 4`, not `0, 0`); reloaded the page
+and confirmed the dragged layout survived (widget still at `gs_x=2`, edit mode reset to
+"Customize", and both widgets re-fetched fresh live metric values on reload — `19.5%`/`27.9%` vs.
+the pre-reload `18.8%`/`27.7%`, proving `/data` is polled live, not cached client-side). Both demo
+widgets were left in place as the actual live dashboard content rather than cleaned up as test
+data, since this was a real acceptance pass against the product's own running instance.
+
+This completes Blocks F1 through F6 — the entire monitoring-cockpit rework approved in this
+ergänzung.

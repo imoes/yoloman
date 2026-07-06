@@ -14,22 +14,22 @@ import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { DashboardGridComponent } from './dashboard-grid.component';
 
 /**
  * The fleet-wide summary landing page (see docs/plan.md's Bossman plan,
  * section C.1, reworked in monitoring Block E4 to lead with CheckMK's own
  * "unbehandelte Probleme" landing principle instead of the earlier
- * host-enrollment-only tiles). The plan called for Gridstack-based
- * draggable widgets; this v1 deliberately ships a fixed CSS-grid layout
- * of the same information instead — Bossman's REST API has no per-user
- * layout-preference storage yet, so a drag-customizable grid would have
- * nothing to persist to, and static cards cover the actual goal ("see
- * fleet health at a glance") without that extra machinery.
+ * host-enrollment-only tiles). The top summary cards + problems panel stay
+ * fixed (always-relevant fleet-health KPIs, not something an operator
+ * would rearrange); Block F5 adds a real GridStack widget dashboard below
+ * them (`<app-dashboard-grid>`) for the part an operator actually wants to
+ * customize — see docs/plan.md's Block F5.
  */
 @Component({
   selector: 'app-fleet-overview',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent],
+  imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent, DashboardGridComponent],
   template: `
     <div class="bm-page">
       <h1>Fleet Overview</h1>
@@ -111,6 +111,8 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
           <button mat-button routerLink="/problems">View all problems</button>
         </mat-card-actions>
       </mat-card>
+
+      <app-dashboard-grid class="bm-dashboard-section" />
 
       <div class="bm-grid">
         <mat-card class="bm-panel">
@@ -210,6 +212,10 @@ import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shar
         color: var(--bm-unknown);
       }
       .bm-problems-panel {
+        margin-bottom: 16px;
+      }
+      .bm-dashboard-section {
+        display: block;
         margin-bottom: 16px;
       }
       .bm-grid {
