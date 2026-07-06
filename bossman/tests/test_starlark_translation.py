@@ -65,6 +65,17 @@ def test_translation_messages_truncate_huge_sources():
     assert len(msgs[1]["content"]) < starlark_translation.SOURCE_CHAR_BUDGET + 12_000
 
 
+def test_normalize_rewrites_is_operator():
+    assert starlark_translation.normalize_starlark("if x is None:") == "if x == None:"
+    assert starlark_translation.normalize_starlark("if x is not None:") == "if x != None:"
+    assert starlark_translation.normalize_starlark("if a is True and b is not False:") == "if a == True and b != False:"
+    # a variable merely containing "is" is untouched
+    assert starlark_translation.normalize_starlark("is_linux = True") == "is_linux = True"
+    # extract_star_code applies it end-to-end
+    got = starlark_translation.extract_star_code("def main(ctx, params):\n    return params.get('x') is not None\n")
+    assert "!= None" in got and " is not " not in got
+
+
 def test_extract_star_code_handles_fences_and_bare():
     bare = "def main(ctx, params):\n    return {}\n"
     assert starlark_translation.extract_star_code(bare) == bare

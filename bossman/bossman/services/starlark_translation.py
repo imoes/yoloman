@@ -9,9 +9,29 @@ like everything else; the MCP/LLM wiring lives in scripts/.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import yaml
+
+# Starlark has no `is` operator, and it is the single most common Python-ism
+# weaker models leak even when told not to (confirmed by diagnosis on
+# qwen35b). `is`/`is not` against None/True/False is an unambiguous,
+# mechanical dialect difference — normalize it deterministically (a linter
+# auto-fix, not guesswork) so it never even reaches the validator. Other
+# `x is y` forms are rare and still surface as a validator error + retry
+# hint. Applied per-line and only outside string literals is overkill for
+# `is None`; a word-boundary match on the None/True/False forms is safe.
+_IS_NOT_RHS = re.compile(r"\bis\s+not\s+(None|True|False)\b")
+_IS_RHS = re.compile(r"\bis\s+(None|True|False)\b")
+
+
+def normalize_starlark(code: str) -> str:
+    """Rewrite the unambiguous `is`/`is not None|True|False` comparisons to
+    `==`/`!=` — the #1 Python-ism, mechanically fixable."""
+    code = _IS_NOT_RHS.sub(r"!= \1", code)
+    code = _IS_RHS.sub(r"== \1", code)
+    return code
 
 # Both endpoints expose a 256K context, so the source is never the budget
 # constraint — the module code (the payload) is returned as raw text, not
@@ -40,7 +60,7 @@ def extract_star_code(text: str) -> str:
             if first_line.strip().lower() in ("python", "starlark", "star", "py", ""):
                 after = rest
         s = after.split("```", 1)[0]
-    return s.strip() + "\n"
+    return normalize_starlark(s.strip()) + "\n"
 
 
 def build_metadata_yaml(record: dict[str, Any]) -> str:
