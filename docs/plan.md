@@ -3509,6 +3509,18 @@ directory — drop your own module YAML = the system is extended, the literal us
   (usage statistics from `PlanRunStep.module`) become candidates for native Go implementation.
 - Avoiding MCP tool explosion: MCP does *not* register 738 individual tools — it keeps tools.d
   tasks + native modules + a generic `run_module` + `search_modules`; REST gets them all.
+- **Distribution model (user decisions, during Block G8):** *"der Bossman muss die Collection
+  halten und on demand an die Duppys verteilen können"* and *"am besten wäre es wenn der Duppy
+  bei einem Run checkt welche Module ihm fehlen und dann bei Bossman sucht und sich die
+  fehlenden Module zieht."* So: **Bossman is the single library master** (the `modules.d/`
+  library Block G8 fills), and agents **pull lazily** — when a plan step references a module
+  the agent doesn't have, it fetches the `.star` + metadata pair from Bossman (a
+  `GET /api/v1/modules/{fqcn}/content` endpoint over the existing mTLS channel), verifies and
+  caches it locally (`/var/lib/agentic-mcp/modules.d/`, content-hash-keyed so an updated
+  library entry re-fetches), then executes it in the Starlark runtime. Like Ansible pushing
+  module code per task — but cached, hash-verified, and without SSH. Agents never need the
+  full 738-module set shipped; a fresh agent starts empty and grows exactly the vocabulary its
+  plans actually use.
 
 ## Block G4 — Bossman-UI: module browser (planned)
 

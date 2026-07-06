@@ -127,6 +127,58 @@ class ChatClient:
         except ValueError as exc:
             raise ChatClientError(f"{self.base_url}: response content is not valid JSON: {exc}") from exc
 
+    async def complete_text(
+        self,
+        messages: list[dict[str, str]],
+        max_tokens: int = 8000,
+        extra_body: dict | None = None,
+    ) -> str:
+        """Plain chat completion returning the raw assistant text — used
+        when the payload is a single code blob (a Starlark module, see
+        docs/plan.md Block G8), where a JSON-schema envelope only forces
+        the model to escape every newline/quote of the code into a string
+        and buys nothing. `extra_body` is merged into the request body
+        (e.g. {"chat_template_kwargs": {"enable_thinking": False}} to turn
+        a Qwen reasoning model's thinking off so it emits the answer
+        directly instead of burning the budget in reasoning_content).
+        Raises ChatClientError on any failure or an empty completion."""
+        url = f"{self.base_url}/v1/chat/completions"
+        body: dict = {"model": self.model, "messages": messages, "max_tokens": max_tokens}
+        if extra_body:
+            body.update(extra_body)
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=body)
+        except httpx.HTTPError as exc:
+            raise ChatClientError(f"{self.base_url}: request failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise ChatClientError(f"{self.base_url}: unexpected status {resp.status_code}: {resp.text[:4096]}")
+        try:
+            response_body = resp.json()
+            choice = response_body["choices"][0]
+            content = choice["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise ChatClientError(f"{self.base_url}: unexpected response shape: {exc}") from exc
+
+        usage = response_body.get("usage") or {}
+        logger.info(
+            "chat completion (text): model=%s prompt_tokens=%s completion_tokens=%s finish=%s",
+            self.model,
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+            choice.get("finish_reason"),
+        )
+        if not content or not content.strip():
+            # An empty content with a non-stop finish reason is the
+            # signature of a reasoning model that spent its whole budget
+            # thinking — surface it explicitly rather than as "empty code".
+            raise ChatClientError(
+                f"{self.base_url}: empty completion (finish_reason={choice.get('finish_reason')}) — "
+                "if this is a reasoning model, disable thinking or raise max_tokens"
+            )
+        return content
+
 
 def chat_client_for(settings: Settings) -> ChatClient:
     """Builds the ChatClient from Settings — the one shared construction

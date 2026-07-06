@@ -13,20 +13,34 @@ from typing import Any
 
 import yaml
 
-# The JSON schema the chat endpoint is grammar-constrained to (see
-# chat_client.complete_json): exactly one field with the module code.
-STAR_CODE_SCHEMA = {
-    "type": "object",
-    "properties": {"star_code": {"type": "string"}},
-    "required": ["star_code"],
-    "additionalProperties": False,
-}
+# Both endpoints expose a 256K context, so the source is never the budget
+# constraint — the module code (the payload) is returned as raw text, not
+# wrapped in a JSON-schema envelope (which would only force the model to
+# escape every newline/quote of the code into a string, error-prone and
+# token-wasteful for a single code blob — see docs/plan.md Block G8).
 
 # Original module sources can exceed the useful context budget —
 # community.general has multi-thousand-line modules. The doc/argspec
 # carries the behavioral contract; the source is supporting evidence, so
 # it gets truncated, not the argspec.
-SOURCE_CHAR_BUDGET = 14_000
+SOURCE_CHAR_BUDGET = 40_000
+
+
+def extract_star_code(text: str) -> str:
+    """Pulls the Starlark module out of a raw completion: strips a
+    ```python/```starlark/``` fence if the model added one, otherwise
+    returns the text as-is. Idempotent and fence-optional."""
+    s = text.strip()
+    if "```" in s:
+        # Take the content of the first fenced block.
+        after = s.split("```", 1)[1]
+        # Drop an optional language tag on the fence's first line.
+        if "\n" in after:
+            first_line, rest = after.split("\n", 1)
+            if first_line.strip().lower() in ("python", "starlark", "star", "py", ""):
+                after = rest
+        s = after.split("```", 1)[0]
+    return s.strip() + "\n"
 
 
 def build_metadata_yaml(record: dict[str, Any]) -> str:
@@ -112,7 +126,8 @@ def build_translation_messages(contract: str, record: dict[str, Any]) -> list[di
         "Follow this contract EXACTLY:\n\n"
         f"{contract}\n\n"
         "Rules for your answer:\n"
-        "- Return JSON with a single field star_code containing ONLY the Starlark module code.\n"
+        "- Output ONLY the Starlark module code — no prose, no explanation, no JSON. "
+        "A single ```python fenced block is fine; nothing else.\n"
         "- Reproduce the original module's behavior for its common cases: same option names, "
         "same idempotency, same check_mode semantics. Prefer a faithful core over exotic corner cases; "
         "if an option cannot be supported, fail() with a clear message when it is passed.\n"
@@ -140,12 +155,12 @@ def build_retry_messages(
     so the model can repair its own output."""
     errors = json.dumps(validation.get("errors") or [], indent=1)
     return messages + [
-        {"role": "assistant", "content": json.dumps({"star_code": star_code})},
+        {"role": "assistant", "content": star_code},
         {
             "role": "user",
             "content": (
                 "The validator rejected this module. Fix every finding and return the FULL corrected "
-                f"module as star_code again.\n\nValidator findings:\n{errors}"
+                f"Starlark module again (code only).\n\nValidator findings:\n{errors}"
             ),
         },
     ]

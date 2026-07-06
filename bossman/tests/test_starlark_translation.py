@@ -58,10 +58,22 @@ def test_translation_messages_embed_contract_and_source():
 
 
 def test_translation_messages_truncate_huge_sources():
-    record = dict(RECORD, source_py="x" * 100_000)
+    record = dict(RECORD, source_py="x" * 200_000)
     msgs = starlark_translation.build_translation_messages("C", record)
     assert "(truncated)" in msgs[1]["content"]
-    assert len(msgs[1]["content"]) < 40_000
+    # bounded near SOURCE_CHAR_BUDGET (+ argspec/prose overhead), not the full 200k
+    assert len(msgs[1]["content"]) < starlark_translation.SOURCE_CHAR_BUDGET + 12_000
+
+
+def test_extract_star_code_handles_fences_and_bare():
+    bare = "def main(ctx, params):\n    return {}\n"
+    assert starlark_translation.extract_star_code(bare) == bare
+    fenced = "Here you go:\n```python\ndef main(ctx, params):\n    return {}\n```\nDone."
+    assert starlark_translation.extract_star_code(fenced) == "def main(ctx, params):\n    return {}\n"
+    starlark_fence = "```starlark\ndef main(ctx, params):\n    return {}\n```"
+    assert starlark_translation.extract_star_code(starlark_fence) == "def main(ctx, params):\n    return {}\n"
+    untagged = "```\ndef main(ctx, params):\n    return {}\n```"
+    assert starlark_translation.extract_star_code(untagged) == "def main(ctx, params):\n    return {}\n"
 
 
 def test_retry_messages_append_findings():
