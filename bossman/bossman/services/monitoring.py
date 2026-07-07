@@ -41,17 +41,17 @@ _SCOPE_PRECEDENCE = {"host": 0, "group": 1, "global": 2}
 
 
 def resolve_effective_rule(
-    rules: list[CheckRule], host_name: str, host_groups: list[str], metric: str
+    rules: list[CheckRule], host_name: str, host_groups: list[str], metric: str, label_value: str | None = None
 ) -> CheckRule | None:
-    """Picks the single rule that governs `metric` on this host, out of
-    every rule that could apply. Only enabled rules for this exact metric
-    are considered; among those, the most specific scope wins (host over
-    group over global); ties at the same specificity (e.g. two group
-    rules whose group both match) are broken by most-recently-created.
-    Returns None if nothing matches — the caller should leave that metric
-    unevaluated rather than inventing a default."""
+    """Picks the single rule that governs `metric` (for one label series,
+    e.g. a disk mount) on this host, out of every rule that could apply.
+    Only enabled rules for this exact metric are considered; among those,
+    the most specific label wins (a rule pinned to this label_value over a
+    label-agnostic one — Block H6), then the most specific scope (host >
+    group > global), then most-recently-created. A rule pinned to a
+    *different* label_value is excluded. Returns None if nothing matches."""
 
-    def _matches(rule: CheckRule) -> bool:
+    def _scope_matches(rule: CheckRule) -> bool:
         if rule.scope_type == "global":
             return True
         if rule.scope_type == "group":
@@ -60,15 +60,21 @@ def resolve_effective_rule(
             return rule.scope_value == host_name
         return False
 
-    matching = [r for r in rules if r.enabled and r.metric == metric and _matches(r)]
+    def _label_matches(rule: CheckRule) -> bool:
+        # A label-agnostic rule (label_value NULL) applies to every series;
+        # a pinned rule only to its own label_value.
+        return rule.label_value is None or rule.label_value == label_value
+
+    matching = [r for r in rules if r.enabled and r.metric == metric and _scope_matches(r) and _label_matches(r)]
     if not matching:
         return None
 
-    # Stable sort twice: newest-first, then by scope specificity — a
-    # stable sort preserves the newest-first order among equal-precedence
-    # rules, giving "most specific, and among ties, most recent" overall.
+    # Stable sorts, least-significant first: newest → scope → label. The
+    # last sort dominates, so overall: label-specific beats label-agnostic,
+    # then host beats group beats global, then newest breaks ties.
     matching.sort(key=lambda r: r.created_at, reverse=True)
     matching.sort(key=lambda r: _SCOPE_PRECEDENCE[r.scope_type])
+    matching.sort(key=lambda r: 0 if r.label_value == label_value else 1)
     return matching[0]
 
 
@@ -104,60 +110,72 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
     updated: list[Service] = []
 
     for metric in metrics_needed:
-        rule = resolve_effective_rule(list(rules), agent.name, agent.groups, metric)
-        if rule is None:
-            continue
-
-        latest = await session.scalar(
-            select(Metric)
-            .where(Metric.agent_id == agent.id, Metric.metric == metric)
-            .order_by(Metric.time.desc())
-            .limit(1)
-        )
-        value = latest.value if latest is not None else None
-        state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold)
-
-        existing = await session.scalar(
-            select(Service).where(Service.agent_id == agent.id, Service.name == rule.service_name)
-        )
-        state_changed = existing is None or existing.state != state
-
-        if existing is None:
-            existing = Service(
-                agent_id=agent.id,
-                name=rule.service_name,
-                metric=metric,
-                state=state,
-                value=value,
-                output=output,
-                rule_id=rule.id,
-                last_state_change=now,
-                last_checked=now,
+        # Latest value per distinct label series (DISTINCT ON labels): an
+        # unlabeled metric yields one row; disk_used_pct yields one per
+        # mount, so a single rule fans out to one service per mount
+        # (Block H6). No labeled series at all → one None-labeled entry so
+        # a rule still applies (e.g. a never-yet-sampled metric → UNKNOWN).
+        latest_rows = (
+            await session.scalars(
+                select(Metric)
+                .where(Metric.agent_id == agent.id, Metric.metric == metric)
+                .order_by(Metric.labels, Metric.time.desc())
+                .distinct(Metric.labels)
             )
-            session.add(existing)
-        else:
-            existing.metric = metric
-            existing.state = state
-            existing.value = value
-            existing.output = output
-            existing.rule_id = rule.id
-            existing.last_checked = now
+        ).all()
+        series: list[tuple[dict, float | None]] = [(row.labels or {}, row.value) for row in latest_rows] or [({}, None)]
+
+        for labels, value in series:
+            mount = labels.get("mount")
+            rule = resolve_effective_rule(list(rules), agent.name, agent.groups, metric, mount)
+            if rule is None:
+                continue
+
+            state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold)
+            # Fan-out naming: a labeled series gets "<service_name> <mount>"
+            # so a "Disk" rule reproduces the agent's own "Disk /var" names
+            # (and thus overrides them); unlabeled metrics keep the plain name.
+            svc_name = f"{rule.service_name} {mount}" if mount else rule.service_name
+
+            existing = await session.scalar(
+                select(Service).where(Service.agent_id == agent.id, Service.name == svc_name)
+            )
+            state_changed = existing is None or existing.state != state
+
+            if existing is None:
+                existing = Service(
+                    agent_id=agent.id,
+                    name=svc_name,
+                    metric=metric,
+                    state=state,
+                    value=value,
+                    output=output,
+                    rule_id=rule.id,
+                    last_state_change=now,
+                    last_checked=now,
+                )
+                session.add(existing)
+            else:
+                existing.metric = metric
+                existing.state = state
+                existing.value = value
+                existing.output = output
+                existing.rule_id = rule.id
+                existing.last_checked = now
+                if state_changed:
+                    existing.last_state_change = now
+                    # An acknowledgement is tied to the specific problem
+                    # occurrence it was made for (CheckMK's own model) — any
+                    # state change, in either direction, means this is a new
+                    # occurrence, so a stale ack must not silently suppress it.
+                    existing.acknowledged = False
+                    existing.ack_comment = None
+                    existing.ack_by = None
+                    existing.ack_expires_at = None
+
             if state_changed:
-                existing.last_state_change = now
-                # An acknowledgement is tied to the specific problem
-                # occurrence it was made for (CheckMK's own model) — any
-                # state change, in either direction, means this is a new
-                # occurrence, so a stale ack must not silently suppress it.
-                existing.acknowledged = False
-                existing.ack_comment = None
-                existing.ack_by = None
-                existing.ack_expires_at = None
-
-        if state_changed:
-            session.add(
-                ServiceStateHistory(time=now, agent_id=agent.id, service_name=rule.service_name, state=state, value=value)
-            )
-        updated.append(existing)
+                session.add(ServiceStateHistory(time=now, agent_id=agent.id, service_name=svc_name, state=state, value=value))
+            updated.append(existing)
 
     await session.flush()
     return updated
@@ -201,6 +219,13 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
                 continue
 
         existing = await session.scalar(select(Service).where(Service.agent_id == agent.id, Service.name == name))
+        # Rule authority (Block H6): once a Bossman check_rule owns a service
+        # of this name (rule_id set — e.g. the seeded "Memory"/"Disk /var"
+        # defaults), the rule grades it with its configurable, host-
+        # overridable thresholds. Ignore the agent's built-in reading so the
+        # two don't fight over the same row every poll.
+        if existing is not None and existing.rule_id is not None:
+            continue
         state_changed = existing is None or existing.state != state
 
         if existing is None:
@@ -346,6 +371,40 @@ async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[Se
     await expire_acknowledgements(session, now)
     services = (await session.scalars(select(Service).where(Service.agent_id == agent_id).order_by(Service.name))).all()
     return [await _to_view(session, s, agent.name, now) for s in services]
+
+
+# The former hardcoded agent thresholds (internal/collect/checks.go), now
+# seeded as editable, host-overridable global default rules (Block H6) so
+# Memory and Disk show up as rules and the Bossman evaluator — not the
+# agent's fixed consts — grades them. Disk is label-agnostic → fans out to
+# one "Disk <mount>" service per mount, each overridable by a mount-pinned
+# rule. CPU load stays agent-native for now (it grades a per-core-
+# normalised value that isn't stored as a metric — see docs/plan.md H6).
+_DEFAULT_CHECK_RULES = [
+    {"service_name": "Memory", "metric": "mem_used_pct", "comparison": "ge", "warn_threshold": 80.0, "crit_threshold": 90.0},
+    {"service_name": "Disk", "metric": "disk_used_pct", "comparison": "ge", "warn_threshold": 80.0, "crit_threshold": 90.0},
+]
+
+
+async def seed_default_check_rules(session: AsyncSession) -> int:
+    """Inserts the built-in-check default rules (idempotent): only adds a
+    default that isn't already present (matched by service_name+metric),
+    and never touches a user-edited or user-deleted rule beyond that. Runs
+    at startup. Returns how many were inserted."""
+    inserted = 0
+    for spec in _DEFAULT_CHECK_RULES:
+        exists = await session.scalar(
+            select(CheckRule).where(
+                CheckRule.service_name == spec["service_name"], CheckRule.metric == spec["metric"]
+            )
+        )
+        if exists is not None:
+            continue
+        session.add(CheckRule(scope_type="global", scope_value=None, enabled=True, is_default=True, **spec))
+        inserted += 1
+    if inserted:
+        await session.commit()
+    return inserted
 
 
 async def expire_acknowledgements(session: AsyncSession, now: datetime) -> int:

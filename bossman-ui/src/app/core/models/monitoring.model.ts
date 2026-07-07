@@ -49,11 +49,14 @@ export interface CheckRule {
   crit_threshold: number | null;
   scope_type: CheckRuleScope;
   scope_value: string | null;
+  /** Optional label pin (a disk mount) — see CheckRule.label_value (H6). */
+  label_value: string | null;
+  is_default: boolean;
   enabled: boolean;
   created_at: string;
 }
 
-export type CheckRuleInput = Omit<CheckRule, 'id' | 'created_at'>;
+export type CheckRuleInput = Omit<CheckRule, 'id' | 'created_at' | 'is_default'>;
 
 /** Matches bossman/api/monitoring.py's FleetSummaryOut. */
 export interface FleetSummary {

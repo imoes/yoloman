@@ -340,7 +340,18 @@ class CheckRule(Base):
     # NULL for scope_type=global; a group name for scope_type=group; an
     # agent name for scope_type=host.
     scope_value: Mapped[str | None] = mapped_column(String)
+    # An optional single label value the rule is pinned to — for labeled
+    # metrics like disk_used_pct (one series per mount): NULL applies to
+    # every series (the default, fanning out to one service per mount),
+    # a value like "/var" overrides just that mount (Block H6). The label
+    # key is implicit per metric (mount for disk); modelling one value is
+    # enough for the only labeled check dimension the built-ins use.
+    label_value: Mapped[str | None] = mapped_column(String)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # A default rule reproduces a former hardcoded agent threshold (Block
+    # H6 seeding) — surfaced so the UI can mark it and re-seeding can skip
+    # user-created rules.
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (

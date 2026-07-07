@@ -1,0 +1,58 @@
+name: ansible_galaxy_install
+fqcn: community.general.ansible_galaxy_install
+collection: community.general
+short_description: Install Ansible roles or collections using ansible-galaxy
+description: This module allows the installation of Ansible collections or roles using C(ansible-galaxy).
+options:
+  ack_ansible29:
+    type: bool
+    default: false
+    description: This option has no longer any effect and will be removed in community.general 9.0.0.
+  ack_min_ansiblecore211:
+    type: bool
+    default: false
+    description: This option has no longer any effect and will be removed in community.general 9.0.0.
+  dest:
+    type: path
+    description: 'The path to the directory containing your collections or roles, according to the value
+      of O(type). Please notice that C(ansible-galaxy) will not install collections with O(type=both),
+      when O(requirements_file) contains both roles and collections and O(dest) is specified.
+
+      '
+  force:
+    type: bool
+    default: false
+    description: Force overwriting an existing role or collection. Using O(force=true) is mandatory when
+      downgrading.
+  name:
+    type: str
+    description: "Name of the collection or role being installed. Versions can be specified with C(ansible-galaxy)\
+      \ usual formats. For example, the collection V(community.docker:1.6.1) or the role V(ansistrano.deploy,3.8.0).\n\
+      \ O(name) and O(requirements_file) are mutually exclusive."
+  no_deps:
+    type: bool
+    default: false
+    description: Refrain from installing dependencies.
+  requirements_file:
+    type: path
+    description: Path to a file containing a list of requirements to be installed. It works for O(type)
+      equals to V(collection) and V(role). O(name) and O(requirements_file) are mutually exclusive.
+  type:
+    type: str
+    required: true
+    choices:
+    - collection
+    - role
+    - both
+    description: 'The type of installation performed by C(ansible-galaxy). If O(type=both), then O(requirements_file)
+      must be passed and it may contain both roles and collections. Note however that the opposite is
+      not true: if using a O(requirements_file), then O(type) can be any of the three choices.'
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install collection community.network\n  community.general.ansible_galaxy_install:\n\
+  \    type: collection\n    name: community.network\n\n- name: Install role at specific path\n  community.general.ansible_galaxy_install:\n\
+  \    type: role\n    name: ansistrano.deploy\n    dest: /ansible/roles\n\n- name: Install collections\
+  \ and roles together\n  community.general.ansible_galaxy_install:\n    type: both\n    requirements_file:\
+  \ requirements.yml\n\n- name: Force-install collection community.network at specific version\n  community.general.ansible_galaxy_install:\n\
+  \    type: collection\n    name: community.network:3.0.2\n    force: true\n\n"

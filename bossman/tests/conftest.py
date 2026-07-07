@@ -1,8 +1,17 @@
-import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+import os
 
-from bossman.config import get_settings
+# Tests share one real database; the Block-H6 default-rule seeding runs in
+# create_app()'s lifespan (any TestClient triggers it) and would leave
+# global Memory/Disk rules behind, polluting count-based assertions in the
+# monitoring/poller tests. Disable it for the suite (set before Settings is
+# constructed). Production keeps the default (True).
+os.environ.setdefault("BOSSMAN_SEED_DEFAULT_CHECKS", "false")
+
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
+
+from bossman.config import get_settings  # noqa: E402
 
 
 @pytest_asyncio.fixture

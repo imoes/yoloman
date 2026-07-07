@@ -178,8 +178,10 @@ async def _make_rule(db_session, **overrides) -> CheckRule:
     return rule
 
 
-async def _write_metric(db_session, agent, metric, value, when=None):
-    db_session.add(Metric(time=when or datetime.now(timezone.utc), agent_id=agent.id, metric=metric, value=value, labels={}))
+async def _write_metric(db_session, agent, metric, value, when=None, labels=None):
+    db_session.add(
+        Metric(time=when or datetime.now(timezone.utc), agent_id=agent.id, metric=metric, value=value, labels=labels or {})
+    )
     await db_session.flush()
     await db_session.commit()
 
@@ -326,6 +328,84 @@ async def test_evaluate_host_no_rules_produces_no_services(db_session):
     assert services == []
 
     await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_disk_rule_fans_out_per_mount_with_override(db_session):
+    """A label-agnostic disk rule (Block H6) grades every mount as its own
+    'Disk <mount>' service; a mount-pinned rule overrides just that mount."""
+    agent = await _make_agent(db_session)
+    # 3 mounts, one dangerously full.
+    await _write_metric(db_session, agent, "disk_used_pct", 10.0, labels={"mount": "/"})
+    await _write_metric(db_session, agent, "disk_used_pct", 85.0, labels={"mount": "/var"})
+    await _write_metric(db_session, agent, "disk_used_pct", 40.0, labels={"mount": "/home"})
+    # Global default: warn 80 / crit 90 → /var is WARN.
+    default_rule = await _make_rule(
+        db_session, service_name="Disk", metric="disk_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
+    )
+    # Mount-pinned override for /var: warn 95 → /var back to OK.
+    override = await _make_rule(
+        db_session,
+        service_name="Disk",
+        metric="disk_used_pct",
+        comparison="ge",
+        warn_threshold=95.0,
+        crit_threshold=99.0,
+        label_value="/var",
+    )
+
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+
+    services = {s.name: s for s in (await db_session.scalars(select(Service).where(Service.agent_id == agent.id))).all()}
+    assert set(services) == {"Disk /", "Disk /var", "Disk /home"}, "one service per mount"
+    assert services["Disk /"].state == "OK"
+    assert services["Disk /home"].state == "OK"
+    assert services["Disk /var"].state == "OK", "the /var-pinned override (warn 95) beats the global default (warn 80)"
+
+    await _cleanup(db_session, agent, default_rule, override)
+
+
+async def test_ingest_agent_check_yields_to_owning_rule(db_session):
+    """Rule authority (Block H6): once a rule owns a service by name, the
+    agent's built-in reading for that name is ignored (no fight)."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(
+        db_session, service_name="Memory", metric="mem_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
+    )
+    await _write_metric(db_session, agent, "mem_used_pct", 50.0)  # OK per the rule
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+
+    # The agent now reports "Memory" as CRITICAL — but the rule owns it.
+    from bossman.services.monitoring import ingest_agent_checks
+
+    await ingest_agent_checks(db_session, agent, [{"name": "Memory", "status": "CRITICAL", "message": "agent says crit"}])
+    await db_session.commit()
+
+    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id, Service.name == "Memory"))
+    assert service.state == "OK", "the rule's grading wins; the agent's built-in reading is ignored"
+    assert service.rule_id == rule.id
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_seed_default_check_rules_is_idempotent(db_session):
+    from bossman.services.monitoring import seed_default_check_rules
+
+    # Clear any rules first so the count is deterministic in the shared DB.
+    for r in (await db_session.scalars(select(CheckRule))).all():
+        await db_session.delete(r)
+    await db_session.commit()
+
+    first = await seed_default_check_rules(db_session)
+    second = await seed_default_check_rules(db_session)
+    assert first == 2 and second == 0, "seeds Memory+Disk once, then no-ops"
+    rules = (await db_session.scalars(select(CheckRule).where(CheckRule.is_default == True))).all()  # noqa: E712
+    assert {r.service_name for r in rules} == {"Memory", "Disk"}
+
+    for r in rules:
+        await db_session.delete(r)
     await db_session.commit()
 
 

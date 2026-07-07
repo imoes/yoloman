@@ -122,7 +122,12 @@ import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/comp
               <tbody>
                 @for (rule of checkRules(); track rule.id) {
                   <tr>
-                    <td>{{ rule.service_name }}</td>
+                    <td>
+                      {{ rule.service_name }}{{ rule.label_value ? ' ' + rule.label_value : '' }}
+                      @if (rule.is_default) {
+                        <span class="bm-default-tag" title="seeded default (former built-in threshold) — editable">default</span>
+                      }
+                    </td>
                     <td>{{ rule.metric }}</td>
                     <td>
                       {{ rule.comparison }} warn {{ rule.warn_threshold ?? '—' }} / crit
@@ -187,6 +192,14 @@ import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/comp
   `,
   styles: [
     `
+      .bm-default-tag {
+        font-size: 10px;
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bm-green) 22%, transparent);
+        vertical-align: middle;
+      }
       .bm-page {
         padding: 24px;
         max-width: 900px;

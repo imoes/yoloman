@@ -23,6 +23,7 @@ from bossman.services import keys
 from bossman.services.catalog import CatalogCache
 from bossman.services.chat_client import chat_client_for
 from bossman.services.embedding_client import embedding_client_for
+from bossman.services.monitoring import seed_default_check_rules
 from bossman.services.poller import poller_loop
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,16 @@ async def lifespan(app: FastAPI):
 
     engine = make_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    # Seed the built-in-check default rules (Block H6) so Memory/Disk show
+    # up as editable, host-overridable rules and the Bossman evaluator
+    # grades them instead of the agent's fixed thresholds. Idempotent;
+    # skipped in the test suite (settings.seed_default_checks) so the
+    # seeded global rules don't pollute shared-DB count assertions.
+    if settings.seed_default_checks:
+        async with app.state.session_factory() as session:
+            await seed_default_check_rules(session)
+
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)
     app.state.chat_client = chat_client_for(settings)

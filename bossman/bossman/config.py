@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # validate_module/submit_module shell out to.
     starlark_check_path: str = "starlark-check"
 
+    # Seed the built-in-check default rules (Memory/Disk) at startup (Block
+    # H6). Disabled in the test suite so the seeded global rules don't
+    # pollute the shared test database's count-based assertions.
+    seed_default_checks: bool = True
+
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 
