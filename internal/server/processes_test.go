@@ -1,8 +1,14 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 )
@@ -70,5 +76,65 @@ func TestCollectProcessesWithoutEBPF(t *testing.T) {
 		if p.ContainerID != "" || p.Connections != nil {
 			t.Errorf("pid %d has enrichment without an eBPF collector", p.PID)
 		}
+	}
+}
+
+func TestRegisterProcessRoutes_ServesJSON(t *testing.T) {
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc on this platform")
+	}
+	mux := http.NewServeMux()
+	RegisterProcessRoutes(mux, RESTConfig{ProcRoot: "/proc", EBPF: &ebpf.Collector{}})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp := doJSON(t, "GET", srv.URL+"/api/v1/processes?limit=3", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var body ProcessesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	resp.Body.Close()
+	if body.Count < 1 {
+		t.Errorf("Count = %d, want >= 1", body.Count)
+	}
+	if len(body.Processes) > 3 {
+		t.Errorf("limit=3 returned %d", len(body.Processes))
+	}
+	if body.SampleWindowMS <= 0 {
+		t.Errorf("SampleWindowMS = %d, want > 0", body.SampleWindowMS)
+	}
+}
+
+func TestRegisterProcessList_ToolCallable(t *testing.T) {
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc on this platform")
+	}
+	s := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
+	RegisterProcessList(s, "/proc", &ebpf.Collector{})
+
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+	go func() { _ = s.Run(ctx, serverTransport) }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.0"}, nil)
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer cs.Close()
+
+	if names := toolNames(t, cs); !names["process_list"] {
+		t.Fatal("expected process_list tool to be registered")
+	}
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "process_list", Arguments: map[string]any{"limit": 2}})
+	if err != nil {
+		t.Fatalf("CallTool process_list: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected tool error: %+v", res.Content)
 	}
 }
