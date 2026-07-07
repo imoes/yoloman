@@ -1,0 +1,40 @@
+name: installp
+fqcn: community.general.installp
+collection: community.general
+short_description: Manage packages on AIX
+description: Manage packages using 'installp' on AIX
+options:
+  accept_license:
+    type: bool
+    default: false
+    description: Whether to accept the license for the package(s).
+  name:
+    type: list
+    required: true
+    aliases:
+    - pkg
+    description: One or more packages to install or remove. Use V(all) to install all packages available
+      on informed O(repository_path).
+  repository_path:
+    type: path
+    description: Path with AIX packages (required to install).
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether the package needs to be present on or absent from the system.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install package foo\n  community.general.installp:\n    name: foo\n    repository_path:\
+  \ /repository/AIX71/installp/base\n    accept_license: true\n    state: present\n\n- name: Install bos.sysmgt\
+  \ that includes bos.sysmgt.nim.master, bos.sysmgt.nim.spot\n  community.general.installp:\n    name:\
+  \ bos.sysmgt\n    repository_path: /repository/AIX71/installp/base\n    accept_license: true\n    state:\
+  \ present\n\n- name: Install bos.sysmgt.nim.master only\n  community.general.installp:\n    name: bos.sysmgt.nim.master\n\
+  \    repository_path: /repository/AIX71/installp/base\n    accept_license: true\n    state: present\n\
+  \n- name: Install bos.sysmgt.nim.master and bos.sysmgt.nim.spot\n  community.general.installp:\n   \
+  \ name: bos.sysmgt.nim.master, bos.sysmgt.nim.spot\n    repository_path: /repository/AIX71/installp/base\n\
+  \    accept_license: true\n    state: present\n\n- name: Remove packages bos.sysmgt.nim.master\n  community.general.installp:\n\
+  \    name: bos.sysmgt.nim.master\n    state: absent\n"

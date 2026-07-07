@@ -1,0 +1,153 @@
+name: ipa_otptoken
+fqcn: community.general.ipa_otptoken
+collection: community.general
+short_description: Manage FreeIPA OTPs
+description: Add, modify, and delete One Time Passwords in IPA.
+options:
+  algorithm:
+    type: str
+    choices:
+    - sha1
+    - sha256
+    - sha384
+    - sha512
+    description: Token hash algorithm. B(Note:) Cannot be modified after OTP is created.
+  counter:
+    type: int
+    description: Initial counter for the HOTP token. B(Note:) Cannot be modified after OTP is created.
+  description:
+    type: str
+    description: Description of the token (informational only).
+  digits:
+    type: int
+    choices:
+    - 6
+    - 8
+    description: Number of digits each token code will have. B(Note:) Cannot be modified after OTP is
+      created.
+  enabled:
+    type: bool
+    default: true
+    description: Mark the token as enabled (default V(true)).
+  interval:
+    type: int
+    description: Length of TOTP token code validity in seconds. B(Note:) Cannot be modified after OTP
+      is created.
+  ipa_host:
+    type: str
+    default: ipa.example.com
+    description: IP or hostname of IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST)
+      and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA
+      server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor
+      the environment E(IPA_HOST), nor the value are available in the task, then the default value will
+      be used.
+  ipa_pass:
+    type: str
+    description: Password of administrative user. If the value is not specified in the task, the value
+      of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library
+      is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable
+      E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate
+      to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME)
+      is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the
+      usage of O(ipa_pass) is required.
+  ipa_port:
+    type: int
+    default: 443
+    description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT)
+      and the value are not specified in the task, then default value is set.
+  ipa_prot:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: Protocol used by IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT)
+      and the value are not specified in the task, then default value is set.
+  ipa_timeout:
+    type: int
+    default: 10
+    description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may
+      want to increase this in order to avoid timeout from IPA server. If the value is not specified in
+      the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment
+      variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+  ipa_user:
+    type: str
+    default: admin
+    description: Administrative account used on IPA server. If the value is not specified in the task,
+      the value of environment variable E(IPA_USER) will be used instead. If both the environment variable
+      E(IPA_USER) and the value are not specified in the task, then default value is set.
+  model:
+    type: str
+    description: Token model (informational only).
+  newuniqueid:
+    type: str
+    description: If specified, the unique id specified will be changed to this.
+  notafter:
+    type: str
+    description: Last date/time the token can be used. In the format C(YYYYMMddHHmmss). For example, C(20200121182022)
+      will allow the token to be used until 21 January 2020 at 18:20:22.
+  notbefore:
+    type: str
+    description: First date/time the token can be used. In the format C(YYYYMMddHHmmss). For example,
+      C(20180121182022) will allow the token to be used starting on 21 January 2018 at 18:20:22.
+  offset:
+    type: int
+    description: TOTP token / IPA server time difference. B(Note:) Cannot be modified after OTP is created.
+  otptype:
+    type: str
+    choices:
+    - totp
+    - hotp
+    description: Type of OTP. B(Note:) Cannot be modified after OTP is created.
+  owner:
+    type: str
+    description: Assigned user of the token.
+  secretkey:
+    type: str
+    description: Token secret (Base64). If OTP is created and this is not specified, a random secret will
+      be generated by IPA. B(Note:) Cannot be modified after OTP is created.
+  serial:
+    type: str
+    description: Token serial (informational only).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: State to ensure.
+  uniqueid:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: Unique ID of the token in IPA.
+  validate_certs:
+    type: bool
+    default: true
+    description: This only applies if O(ipa_prot) is V(https). If set to V(false), the SSL certificates
+      will not be validated. This should only set to V(false) used on personally controlled sites using
+      self-signed certificates.
+  vendor:
+    type: str
+    description: Token vendor name (informational only).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a totp for pinky, allowing the IPA server to generate using defaults\n  community.general.ipa_otptoken:\n\
+  \    uniqueid: Token123\n    otptype: totp\n    owner: pinky\n    ipa_host: ipa.example.com\n    ipa_user:\
+  \ admin\n    ipa_pass: topsecret\n\n- name: Create a 8 digit hotp for pinky with sha256 with specified\
+  \ validity times\n  community.general.ipa_otptoken:\n    uniqueid: Token123\n    enabled: true\n   \
+  \ otptype: hotp\n    digits: 8\n    secretkey: UMKSIER00zT2T2tWMUlTRmNlekRCbFQvWFBVZUh2dElHWGR6T3VUR3IzK2xjaFk9\n\
+  \    algorithm: sha256\n    notbefore: 20180121182123\n    notafter: 20220121182123\n    owner: pinky\n\
+  \    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n\n- name: Update Token123\
+  \ to indicate a vendor, model, serial number (info only), and description\n  community.general.ipa_otptoken:\n\
+  \    uniqueid: Token123\n    vendor: Acme\n    model: acme101\n    serial: SerialNumber1\n    description:\
+  \ Acme OTP device\n    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n\n-\
+  \ name: Disable Token123\n  community.general.ipa_otptoken:\n    uniqueid: Token123\n    enabled: false\n\
+  \    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n\n- name: Rename Token123\
+  \ to TokenABC and enable it\n  community.general.ipa_otptoken:\n    uniqueid: Token123\n    newuniqueid:\
+  \ TokenABC\n    enabled: true\n    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n"

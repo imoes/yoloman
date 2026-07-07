@@ -3663,3 +3663,59 @@ faithful translation — state present/absent, `check_mode`, dedup file rewrite,
 reload, value normalization, nested `def` helpers, all via `ctx.*` with `== None`/`fail()`. The
 full 667-module run (crypto → docker → general) proceeds as the resumable background job driven by
 `list_module_status`'s `missing` queue.
+
+## Blocks H1–H4 — full HW/SW inventory, module management, CheckMK-parity host page + dashboard (implemented)
+
+Prompted by the user's audit against real CheckMK screenshots (the problems dashboard and a host's
+services view): *"Die Facts sind unvollständig, es fehlt CPU-Typ, Mainboard und Seriennummer ...
+Ausserdem fehlt noch eine Modul-Verwaltung. Und was soll der Unterschied zwischen Metrics und
+Services sein ... Behalte/überarbeite das bestehende Design um ein Rastafari-Style zu erhalten."*
+Web research confirmed the inventory sources (no dmidecode needed: `/sys/class/dmi/id/*` for
+board/product/BIOS/serials, `/proc/cpuinfo` "model name", `/sys/block`, `/sys/class/net`) and the
+CheckMK HW/SW-inventory model (near-static data, tree view, separate from 1-minute checks; Zabbix:
+inventory auto-populated from items).
+
+**H1 — Agent (`internal/inventory`, new):** one `Inventory` JSON document — System (manufacturer,
+product name/serial/UUID, SMBIOS chassis type, virtualization heuristic), Board, BIOS, CPU (model/
+vendor/sockets/cores/threads/MHz/cache — `ParseCPUInfo` always carried "model name", nothing ever
+consumed it), memory, OS (full os-release + kernel + hostname), Disks (size/model/serial/
+rotational, loop/ram/dm/md filtered), NICs (MAC/state/MTU/speed, lo + veth filtered). Missing or
+root-only sources are omitted, never errors. Attached to `GET /api/v1/hosts/overview` per host:
+typed + 1h-cached for the agent itself, raw-JSON pass-through for satellites. 3 tests against a
+fake /proc+/sys tree.
+
+**H2 — Bossman:** migration `a3c1e9f04711` adds `agents.facts` JSONB + `facts_updated_at`; the
+poller persists the document for self + satellites, skipping writes when only `collected_at`
+changed (near-static data must not churn per poll tick); `AgentOut` serves it. Real-Postgres test
+incl. the no-churn rule (suite: 310).
+
+**H3 — UI:** (1) the 5-scalar Facts tab became a real **Inventory** tab
+(`host-inventory.component`): System / Processor / Mainboard & BIOS / OS cards + Disks/NICs tables
+— CPU-Typ, Mainboard, Seriennummer, the exact gaps named. (2) **Metrics + Services merged**: the
+two tabs genuinely overlapped (the metric list's state column was computed *from* the services),
+so the host page now has ONE CheckMK-style Services view — `State | Service | Summary | Age |
+Checked | Perf-O-Meter` + Ack/Downtime, row-expand into history chart — with the former metrics
+list as a collapsed "Show latest data (N metrics)" section beneath (Zabbix's split: services
+grade, latest data is telemetry). (3) The dashboard's six flat KPI cards became CheckMK's
+statistics layout: **Host statistics** (Up/Unreachable/Down/Pending via the shared
+`agentHealthStatus`) and **Service statistics** (OK/Warning/Critical/Unknown) as colored-count
+panels + an Open-problems card ("everything irie" at zero) — Rastafari kept as the accent system
+(tricolor top borders, green/gold/red squares).
+
+**H4 — Modul-Verwaltung:** `GET /api/v1/modules` (+ `/{fqcn}`) — read-only by design, writes go
+exclusively through the validated `submit_module` MCP pipeline — and a new `/modules` page +
+"Modules" nav item: per-collection progress cards (ansible.builtin = 52 native Go at 100%, the
+four Starlark collections with live translated/total Perf-O-Meters), search, All/Translated/
+Pending filter, row-expand detail with the full argspec table and the stored Starlark source.
+
+**Verification (real, not mocked):** `go test ./...`, bossman suite 310, `ruff`, `ng build` all
+clean. Live in a real browser against the running stack: the fleet dashboard renders the
+CheckMK-style statistic panels with real counts (2 hosts Up, 24 services OK, "0 — everything
+irie"); `/modules` shows the real library live-growing under the still-running translation job
+(251/690 translated at screenshot time, ansible.posix 13/14 = 92.9%), with `authorized_key`
+expanding to its real 10-option argspec + stored Starlark source; the merged Services view shows
+the real selecta host exactly like the CheckMK reference (disk rows with Perf-O-Meters, CPU load
+as plain value, real summaries/ages). Inventory tab correctly shows its empty state — the new
+agent binary was built and copied to both real test hosts, but the restart (a deploy to shared
+hosts) awaits explicit user approval; once restarted, the next poll fills `agents.facts` and the
+tab renders the full document.

@@ -1,0 +1,122 @@
+name: ipa_vault
+fqcn: community.general.ipa_vault
+collection: community.general
+short_description: Manage FreeIPA vaults
+description: Add, modify and delete vaults and secret vaults. KRA service should be enabled to use this
+  module.
+options:
+  cn:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: Vault name. Can not be changed as it is the unique identifier.
+  description:
+    type: str
+    description: Description.
+  ipa_host:
+    type: str
+    default: ipa.example.com
+    description: IP or hostname of IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST)
+      and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA
+      server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor
+      the environment E(IPA_HOST), nor the value are available in the task, then the default value will
+      be used.
+  ipa_pass:
+    type: str
+    description: Password of administrative user. If the value is not specified in the task, the value
+      of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library
+      is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable
+      E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate
+      to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME)
+      is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the
+      usage of O(ipa_pass) is required.
+  ipa_port:
+    type: int
+    default: 443
+    description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT)
+      and the value are not specified in the task, then default value is set.
+  ipa_prot:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: Protocol used by IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT)
+      and the value are not specified in the task, then default value is set.
+  ipa_timeout:
+    type: int
+    default: 10
+    description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may
+      want to increase this in order to avoid timeout from IPA server. If the value is not specified in
+      the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment
+      variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+  ipa_user:
+    type: str
+    default: admin
+    description: Administrative account used on IPA server. If the value is not specified in the task,
+      the value of environment variable E(IPA_USER) will be used instead. If both the environment variable
+      E(IPA_USER) and the value are not specified in the task, then default value is set.
+  ipavaultpublickey:
+    type: str
+    aliases:
+    - vault_public_key
+    description: Public key.
+  ipavaultsalt:
+    type: str
+    aliases:
+    - vault_salt
+    description: Vault Salt.
+  ipavaulttype:
+    type: str
+    default: symmetric
+    choices:
+    - asymmetric
+    - standard
+    - symmetric
+    aliases:
+    - vault_type
+    description: Vault types are based on security level.
+  replace:
+    type: bool
+    default: false
+    choices:
+    - 'True'
+    - 'False'
+    description: Force replace the existent vault on IPA server.
+  service:
+    type: str
+    description: Any service can own one or more service vaults. Mutually exclusive with user.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: State to ensure.
+  username:
+    type: list
+    aliases:
+    - user
+    description: Any user can own one or more user vaults. Mutually exclusive with service.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate IPA server certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Ensure vault is present\n  community.general.ipa_vault:\n    name: vault01\n    vault_type:\
+  \ standard\n    user: user01\n    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n\
+  \n- name: Ensure vault is present for Admin user\n  community.general.ipa_vault:\n    name: vault01\n\
+  \    vault_type: standard\n    ipa_host: ipa.example.com\n    ipa_user: admin\n    ipa_pass: topsecret\n\
+  \n- name: Ensure vault is absent\n  community.general.ipa_vault:\n    name: vault01\n    vault_type:\
+  \ standard\n    user: user01\n    state: absent\n    ipa_host: ipa.example.com\n    ipa_user: admin\n\
+  \    ipa_pass: topsecret\n\n- name: Modify vault if already exists\n  community.general.ipa_vault:\n\
+  \    name: vault01\n    vault_type: standard\n    description: \"Vault for test\"\n    ipa_host: ipa.example.com\n\
+  \    ipa_user: admin\n    ipa_pass: topsecret\n    replace: true\n\n- name: Get vault info if already\
+  \ exists\n  community.general.ipa_vault:\n    name: vault01\n    ipa_host: ipa.example.com\n    ipa_user:\
+  \ admin\n    ipa_pass: topsecret\n"

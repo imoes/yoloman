@@ -1,0 +1,222 @@
+name: jenkins_plugin
+fqcn: community.general.jenkins_plugin
+collection: community.general
+short_description: Add or remove Jenkins plugin
+description: Ansible module which helps to manage Jenkins plugins.
+options:
+  attributes:
+    type: str
+    aliases:
+    - attr
+    description: The attributes the resulting filesystem object should have. To get supported flags look
+      at the man page for I(chattr) on the target system. This string should contain the attributes in
+      the same order as the one displayed by I(lsattr). The C(=) operator is assumed as default, otherwise
+      C(+) or C(-) operators need to be included in the string.
+  client_cert:
+    type: path
+    description: PEM formatted certificate chain file to be used for SSL client authentication. This file
+      can also include the key as well, and if the key is included, O(client_key) is not required.
+  client_key:
+    type: path
+    description: PEM formatted file that contains your private key to be used for SSL client authentication.
+      If O(client_cert) contains both the certificate and key, this option is not required.
+  force:
+    type: bool
+    default: false
+    description: If V(yes) do not get a cached copy.
+  force_basic_auth:
+    type: bool
+    default: false
+    description: Credentials specified with O(url_username) and O(url_password) should be passed in HTTP
+      Header.
+  group:
+    type: str
+    default: jenkins
+    description: GID or name of the Jenkins group on the OS.
+  http_agent:
+    type: str
+    default: ansible-httpget
+    description: Header to identify as, generally appears in web server logs.
+  jenkins_home:
+    type: path
+    default: /var/lib/jenkins
+    description: Home directory of the Jenkins user.
+  latest_plugins_url_segments:
+    type: list
+    default:
+    - latest
+    description: Path inside the O(updates_url) to get latest plugins from.
+  mode:
+    type: raw
+    default: '0644'
+    description: File mode applied on versioned plugins.
+  name:
+    type: str
+    required: true
+    description: Plugin name.
+  owner:
+    type: str
+    default: jenkins
+    description: UID or name of the Jenkins user on the OS.
+  selevel:
+    type: str
+    description: The level part of the SELinux filesystem object context. This is the MLS/MCS attribute,
+      sometimes known as the C(range). When set to V(_default), it will use the C(level) portion of the
+      policy if available.
+  serole:
+    type: str
+    description: The role part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(role) portion of the policy if available.
+  setype:
+    type: str
+    description: The type part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(type) portion of the policy if available.
+  seuser:
+    type: str
+    description: The user part of the SELinux filesystem object context. By default it uses the V(system)
+      policy, where applicable. When set to V(_default), it will use the C(user) portion of the policy
+      if available.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    - pinned
+    - unpinned
+    - enabled
+    - disabled
+    - latest
+    description: Desired plugin state. If set to V(latest), the check for new version will be performed
+      every time. This is suitable to keep the plugin up-to-date.
+  timeout:
+    type: int
+    default: 30
+    description: Server connection timeout in secs.
+  unsafe_writes:
+    type: bool
+    default: false
+    description: Influence when to use atomic operation to prevent data corruption or inconsistent reads
+      from the target filesystem object. By default this module uses atomic operations to prevent data
+      corruption or inconsistent reads from the target filesystem objects, but sometimes systems are configured
+      or just broken in ways that prevent this. One example is docker mounted filesystem objects, which
+      cannot be updated atomically from inside the container and can only be written in an unsafe manner.
+      This option allows Ansible to fall back to unsafe methods of updating filesystem objects when atomic
+      operations fail (however, it doesn't force Ansible to perform unsafe writes). IMPORTANT! Unsafe
+      writes are subject to race conditions and can lead to data corruption.
+  update_json_url_segment:
+    type: list
+    default:
+    - update-center.json
+    - updates/update-center.json
+    description: A list of URL segment(s) to retrieve the update center json file from.
+  updates_expiration:
+    type: int
+    default: 86400
+    description: Number of seconds after which a new copy of the C(update-center.json) file is downloaded.
+      This is used to avoid the need to download the plugin to calculate its checksum when O(state=latest)
+      is specified. Set it to V(0) if no cache file should be used. In that case, the plugin file will
+      always be downloaded to calculate its checksum when O(state=latest) is specified.
+  updates_url:
+    type: list
+    default:
+    - https://updates.jenkins.io
+    - http://mirrors.jenkins.io
+    description: A list of base URL(s) to retrieve C(update-center.json), and direct plugin files from.
+      This can be a list since community.general 3.3.0.
+  url:
+    type: str
+    default: http://localhost:8080
+    description: URL of the Jenkins server.
+  url_password:
+    type: str
+    description: The password for use in HTTP basic authentication. If the O(url_username) parameter is
+      not specified, the O(url_password) parameter will not be used.
+  url_username:
+    type: str
+    description: The username for use in HTTP basic authentication. This parameter can be used without
+      O(url_password) for sites that allow empty passwords
+  use_gssapi:
+    type: bool
+    default: false
+    description: Use GSSAPI to perform the authentication, typically this is for Kerberos or Kerberos
+      through Negotiate authentication. Requires the Python library L(gssapi,https://github.com/pythongssapi/python-gssapi)
+      to be installed. Credentials for GSSAPI can be specified with O(url_username)/O(url_password) or
+      with the GSSAPI env var C(KRB5CCNAME) that specified a custom Kerberos credential cache. NTLM authentication
+      is B(not) supported even if the GSSAPI mech for NTLM has been installed.
+  use_proxy:
+    type: bool
+    default: true
+    description: If V(no), it will not use a proxy, even if one is defined in an environment variable
+      on the target hosts.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(no), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+  version:
+    type: str
+    description: Plugin version number. If this option is specified, all plugin dependencies must be installed
+      manually. It might take longer to verify that the correct version is installed. This is especially
+      true if a specific version number is specified. Quote the version to prevent the value to be interpreted
+      as float. For example if V(1.20) would be unquoted, it would become V(1.2).
+  versioned_plugins_url_segments:
+    type: list
+    default:
+    - download/plugins
+    - plugins
+    description: Path inside the O(updates_url) to get specific version of plugins from.
+  with_dependencies:
+    type: bool
+    default: true
+    description: Defines whether to install plugin dependencies. This option takes effect only if the
+      O(version) is not defined.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install plugin\n  community.general.jenkins_plugin:\n    name: build-pipeline-plugin\n\
+  \n- name: Install plugin without its dependencies\n  community.general.jenkins_plugin:\n    name: build-pipeline-plugin\n\
+  \    with_dependencies: false\n\n- name: Make sure the plugin is always up-to-date\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    state: latest\n\n- name: Install specific version of the plugin\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    version: \"1.15\"\n\n- name: Pin the plugin\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    state: pinned\n\n- name: Unpin the plugin\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    state: unpinned\n\n- name: Enable the plugin\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    state: enabled\n\n- name: Disable the plugin\n  community.general.jenkins_plugin:\n\
+  \    name: token-macro\n    state: disabled\n\n- name: Uninstall plugin\n  community.general.jenkins_plugin:\n\
+  \    name: build-pipeline-plugin\n    state: absent\n\n#\n# Example of how to authenticate\n#\n- name:\
+  \ Install plugin\n  community.general.jenkins_plugin:\n    name: build-pipeline-plugin\n    url_username:\
+  \ admin\n    url_password: p4ssw0rd\n    url: http://localhost:8888\n\n#\n# Example of how to authenticate\
+  \ with serverless deployment\n#\n- name: Update plugins on ECS Fargate Jenkins instance\n  community.general.jenkins_plugin:\n\
+  \    # plugin name and version\n    name: ws-cleanup\n    version: '0.45'\n    # Jenkins home path mounted\
+  \ on ec2-helper VM (example)\n    jenkins_home: \"/mnt/{{ jenkins_instance }}\"\n    # matching the\
+  \ UID/GID to one in official Jenkins image\n    owner: 1000\n    group: 1000\n    # Jenkins instance\
+  \ URL and admin credentials\n    url: \"https://{{ jenkins_instance }}.com/\"\n    url_username: admin\n\
+  \    url_password: p4ssw0rd\n  # make module work from EC2 which has local access\n  # to EFS mount\
+  \ as well as Jenkins URL\n  delegate_to: ec2-helper\n  vars:\n    jenkins_instance: foobar\n\n#\n# Example\
+  \ of a Play which handles Jenkins restarts during the state changes\n#\n- name: Jenkins Master play\n\
+  \  hosts: jenkins-master\n  vars:\n    my_jenkins_plugins:\n      token-macro:\n        enabled: true\n\
+  \      build-pipeline-plugin:\n        version: \"1.4.9\"\n        pinned: false\n        enabled: true\n\
+  \  tasks:\n    - name: Install plugins without a specific version\n      community.general.jenkins_plugin:\n\
+  \        name: \"{{ item.key }}\"\n      register: my_jenkins_plugin_unversioned\n      when: >\n  \
+  \      'version' not in item.value\n      with_dict: \"{{ my_jenkins_plugins }}\"\n\n    - name: Install\
+  \ plugins with a specific version\n      community.general.jenkins_plugin:\n        name: \"{{ item.key\
+  \ }}\"\n        version: \"{{ item.value['version'] }}\"\n      register: my_jenkins_plugin_versioned\n\
+  \      when: >\n        'version' in item.value\n      with_dict: \"{{ my_jenkins_plugins }}\"\n\n \
+  \   - name: Initiate the fact\n      ansible.builtin.set_fact:\n        jenkins_restart_required: false\n\
+  \n    - name: Check if restart is required by any of the versioned plugins\n      ansible.builtin.set_fact:\n\
+  \        jenkins_restart_required: true\n      when: item.changed\n      with_items: \"{{ my_jenkins_plugin_versioned.results\
+  \ }}\"\n\n    - name: Check if restart is required by any of the unversioned plugins\n      ansible.builtin.set_fact:\n\
+  \        jenkins_restart_required: true\n      when: item.changed\n      with_items: \"{{ my_jenkins_plugin_unversioned.results\
+  \ }}\"\n\n    - name: Restart Jenkins if required\n      ansible.builtin.service:\n        name: jenkins\n\
+  \        state: restarted\n      when: jenkins_restart_required\n\n    - name: Wait for Jenkins to start\
+  \ up\n      ansible.builtin.uri:\n        url: http://localhost:8080\n        status_code: 200\n   \
+  \     timeout: 5\n      register: jenkins_service_status\n      # Keep trying for 5 mins in 5 sec intervals\n\
+  \      retries: 60\n      delay: 5\n      until: >\n         'status' in jenkins_service_status and\n\
+  \         jenkins_service_status['status'] == 200\n      when: jenkins_restart_required\n\n    - name:\
+  \ Reset the fact\n      ansible.builtin.set_fact:\n        jenkins_restart_required: false\n      when:\
+  \ jenkins_restart_required\n\n    - name: Plugin pinning\n      community.general.jenkins_plugin:\n\
+  \        name: \"{{ item.key }}\"\n        state: \"{{ 'pinned' if item.value['pinned'] else 'unpinned'}}\"\
+  \n      when: >\n        'pinned' in item.value\n      with_dict: \"{{ my_jenkins_plugins }}\"\n\n \
+  \   - name: Plugin enabling\n      community.general.jenkins_plugin:\n        name: \"{{ item.key }}\"\
+  \n        state: \"{{ 'enabled' if item.value['enabled'] else 'disabled'}}\"\n      when: >\n      \
+  \  'enabled' in item.value\n      with_dict: \"{{ my_jenkins_plugins }}\"\n"

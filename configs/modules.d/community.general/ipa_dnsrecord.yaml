@@ -1,0 +1,144 @@
+name: ipa_dnsrecord
+fqcn: community.general.ipa_dnsrecord
+collection: community.general
+short_description: Manage FreeIPA DNS records
+description: Add, modify and delete an IPA DNS Record using IPA API.
+options:
+  ipa_host:
+    type: str
+    default: ipa.example.com
+    description: IP or hostname of IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST)
+      and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA
+      server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor
+      the environment E(IPA_HOST), nor the value are available in the task, then the default value will
+      be used.
+  ipa_pass:
+    type: str
+    description: Password of administrative user. If the value is not specified in the task, the value
+      of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library
+      is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable
+      E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate
+      to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME)
+      is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the
+      usage of O(ipa_pass) is required.
+  ipa_port:
+    type: int
+    default: 443
+    description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT)
+      and the value are not specified in the task, then default value is set.
+  ipa_prot:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: Protocol used by IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT)
+      and the value are not specified in the task, then default value is set.
+  ipa_timeout:
+    type: int
+    default: 10
+    description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may
+      want to increase this in order to avoid timeout from IPA server. If the value is not specified in
+      the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment
+      variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+  ipa_user:
+    type: str
+    default: admin
+    description: Administrative account used on IPA server. If the value is not specified in the task,
+      the value of environment variable E(IPA_USER) will be used instead. If both the environment variable
+      E(IPA_USER) and the value are not specified in the task, then default value is set.
+  record_name:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: The DNS record name to manage.
+  record_ttl:
+    type: int
+    description: Set the TTL for the record. Applies only when adding a new or changing the value of O(record_value)
+      or O(record_values).
+  record_type:
+    type: str
+    default: A
+    choices:
+    - A
+    - AAAA
+    - A6
+    - CNAME
+    - DNAME
+    - MX
+    - NS
+    - PTR
+    - SRV
+    - TXT
+    description: The type of DNS record name. Currently, 'A', 'AAAA', 'A6', 'CNAME', 'DNAME', 'NS', 'PTR',
+      'TXT', 'SRV' and 'MX' are supported. 'A6', 'CNAME', 'DNAME' and 'TXT' are added in version 2.5.
+      'SRV' and 'MX' are added in version 2.8. 'NS' are added in comunity.general 8.2.0.
+  record_value:
+    type: str
+    description: Manage DNS record name with this value. Mutually exclusive with O(record_values), and
+      exactly one of O(record_value) and O(record_values) has to be specified. Use O(record_values) if
+      you need to specify multiple values. In the case of 'A' or 'AAAA' record types, this will be the
+      IP address. In the case of 'A6' record type, this will be the A6 Record data. In the case of 'CNAME'
+      record type, this will be the hostname. In the case of 'DNAME' record type, this will be the DNAME
+      target. In the case of 'NS' record type, this will be the name server hostname. Hostname must already
+      have a valid A or AAAA record. In the case of 'PTR' record type, this will be the hostname. In the
+      case of 'TXT' record type, this will be a text. In the case of 'SRV' record type, this will be a
+      service record. In the case of 'MX' record type, this will be a mail exchanger record.
+  record_values:
+    type: list
+    description: Manage DNS record name with this value. Mutually exclusive with O(record_value), and
+      exactly one of O(record_value) and O(record_values) has to be specified. In the case of 'A' or 'AAAA'
+      record types, this will be the IP address. In the case of 'A6' record type, this will be the A6
+      Record data. In the case of 'CNAME' record type, this will be the hostname. In the case of 'DNAME'
+      record type, this will be the DNAME target. In the case of 'NS' record type, this will be the name
+      server hostname. Hostname must already have a valid A or AAAA record. In the case of 'PTR' record
+      type, this will be the hostname. In the case of 'TXT' record type, this will be a text. In the case
+      of 'SRV' record type, this will be a service record. In the case of 'MX' record type, this will
+      be a mail exchanger record.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: State to ensure
+  validate_certs:
+    type: bool
+    default: true
+    description: This only applies if O(ipa_prot) is V(https). If set to V(false), the SSL certificates
+      will not be validated. This should only set to V(false) used on personally controlled sites using
+      self-signed certificates.
+  zone_name:
+    type: str
+    required: true
+    description: The DNS zone name to which DNS record needs to be managed.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Ensure dns record is present\n  community.general.ipa_dnsrecord:\n    ipa_host: spider.example.com\n\
+  \    ipa_pass: Passw0rd!\n    state: present\n    zone_name: example.com\n    record_name: vm-001\n\
+  \    record_type: 'AAAA'\n    record_value: '::1'\n\n- name: Ensure that dns records exists with a TTL\n\
+  \  community.general.ipa_dnsrecord:\n    name: host02\n    zone_name: example.com\n    record_type:\
+  \ 'AAAA'\n    record_values: '::1,fe80::1'\n    record_ttl: 300\n    ipa_host: ipa.example.com\n   \
+  \ ipa_pass: topsecret\n    state: present\n\n- name: Ensure a PTR record is present\n  community.general.ipa_dnsrecord:\n\
+  \    ipa_host: spider.example.com\n    ipa_pass: Passw0rd!\n    state: present\n    zone_name: 2.168.192.in-addr.arpa\n\
+  \    record_name: 5\n    record_type: 'PTR'\n    record_value: 'internal.ipa.example.com'\n\n- name:\
+  \ Ensure a TXT record is present\n  community.general.ipa_dnsrecord:\n    ipa_host: spider.example.com\n\
+  \    ipa_pass: Passw0rd!\n    state: present\n    zone_name: example.com\n    record_name: _kerberos\n\
+  \    record_type: 'TXT'\n    record_value: 'EXAMPLE.COM'\n\n- name: Ensure an SRV record is present\n\
+  \  community.general.ipa_dnsrecord:\n    ipa_host: spider.example.com\n    ipa_pass: Passw0rd!\n   \
+  \ state: present\n    zone_name: example.com\n    record_name: _kerberos._udp.example.com\n    record_type:\
+  \ 'SRV'\n    record_value: '10 50 88 ipa.example.com'\n\n- name: Ensure an MX records are present\n\
+  \  community.general.ipa_dnsrecord:\n    ipa_host: spider.example.com\n    ipa_pass: Passw0rd!\n   \
+  \ state: present\n    zone_name: example.com\n    record_name: '@'\n    record_type: 'MX'\n    record_values:\n\
+  \      - '1 mailserver-01.example.com'\n      - '2 mailserver-02.example.com'\n\n- name: Ensure that\
+  \ dns record is removed\n  community.general.ipa_dnsrecord:\n    name: host01\n    zone_name: example.com\n\
+  \    record_type: 'AAAA'\n    record_value: '::1'\n    ipa_host: ipa.example.com\n    ipa_user: admin\n\
+  \    ipa_pass: topsecret\n    state: absent\n\n- name: Ensure an NS record for a subdomain is present\n\
+  \  community,general.ipa_dnsrecord:\n    name: subdomain\n    zone_name: example.com\n    record_type:\
+  \ 'NS'\n    record_value: 'ns1.subdomain.exmaple.com'\n    ipa_host: ipa.example.com\n    ipa_user:\
+  \ admin\n    ipa_pass: ChangeMe!\n"

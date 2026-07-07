@@ -1,0 +1,34 @@
+name: jboss
+fqcn: community.general.jboss
+collection: community.general
+short_description: Deploy applications to JBoss
+description: Deploy applications to JBoss standalone using the filesystem.
+options:
+  deploy_path:
+    type: path
+    default: /var/lib/jbossas/standalone/deployments
+    description: The location in the filesystem where the deployment scanner listens.
+  deployment:
+    type: str
+    required: true
+    description: The name of the deployment.
+  src:
+    type: path
+    description: The remote path of the application ear or war to deploy. Required when O(state=present).
+      Ignored when O(state=absent).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the application should be deployed or undeployed.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Deploy a hello world application to the default deploy_path\n  community.general.jboss:\n\
+  \    src: /tmp/hello-1.0-SNAPSHOT.war\n    deployment: hello.war\n    state: present\n\n- name: Update\
+  \ the hello world application to the non-default deploy_path\n  community.general.jboss:\n    src: /tmp/hello-1.1-SNAPSHOT.war\n\
+  \    deploy_path: /opt/wildfly/deployment\n    deployment: hello.war\n    state: present\n\n- name:\
+  \ Undeploy the hello world application from the default deploy_path\n  community.general.jboss:\n  \
+  \  deployment: hello.war\n    state: absent\n"

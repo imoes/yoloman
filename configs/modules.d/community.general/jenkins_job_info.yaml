@@ -1,0 +1,54 @@
+name: jenkins_job_info
+fqcn: community.general.jenkins_job_info
+collection: community.general
+short_description: Get information about Jenkins jobs
+description: This module can be used to query information about which Jenkins jobs which already exists.
+options:
+  color:
+    type: str
+    description: Only fetch jobs with the given status color.
+  glob:
+    type: str
+    description: A shell glob of Jenkins job names to fetch information about.
+  name:
+    type: str
+    description: Exact name of the Jenkins job to fetch information about.
+  password:
+    type: str
+    description: Password to authenticate with the Jenkins server. This is mutually exclusive with O(token).
+  token:
+    type: str
+    description: API token used to authenticate with the Jenkins server. This is mutually exclusive with
+      O(password).
+  url:
+    type: str
+    default: http://localhost:8080
+    description: URL where the Jenkins server is accessible.
+  user:
+    type: str
+    description: User to authenticate with the Jenkins server.
+  validate_certs:
+    type: bool
+    default: true
+    description: If set to V(false), the SSL certificates will not be validated. This should only set
+      to V(false) used on personally controlled sites using self-signed certificates.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n# Get all Jenkins jobs anonymously\n- community.general.jenkins_job_info:\n    user: admin\n\
+  \  register: my_jenkins_job_info\n\n# Get all Jenkins jobs using basic auth\n- community.general.jenkins_job_info:\n\
+  \    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\n# Get all Jenkins jobs using\
+  \ the token\n- community.general.jenkins_job_info:\n    user: admin\n    token: abcdefghijklmnop\n \
+  \ register: my_jenkins_job_info\n\n# Get info about a single job using basic auth\n- community.general.jenkins_job_info:\n\
+  \    name: some-job-name\n    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\n\
+  # Get info about a single job in a folder using basic auth\n- community.general.jenkins_job_info:\n\
+  \    name: some-folder-name/some-job-name\n    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\
+  \n# Get info about jobs matching a shell glob using basic auth\n- community.general.jenkins_job_info:\n\
+  \    glob: some-job-*\n    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\n#\
+  \ Get info about all failing jobs using basic auth\n- community.general.jenkins_job_info:\n    color:\
+  \ red\n    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\n# Get info about passing\
+  \ jobs matching a shell glob using basic auth\n- community.general.jenkins_job_info:\n    name: some-job-*\n\
+  \    color: blue\n    user: admin\n    password: hunter2\n  register: my_jenkins_job_info\n\n- name:\
+  \ Get the info from custom URL with token and validate_certs=False\n  community.general.jenkins_job_info:\n\
+  \    user: admin\n    token: 126df5c60d66c66e3b75b11104a16a8a\n    url: https://jenkins.example.com\n\
+  \  register: my_jenkins_job_info\n"
