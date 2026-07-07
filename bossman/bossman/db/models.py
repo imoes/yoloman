@@ -375,6 +375,11 @@ class CheckRule(Base):
     # shown alongside a materialized Service's raw value. SET NULL on
     # delete — removing a value map shouldn't take the rule down with it.
     value_map_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("value_maps.id", ondelete="SET NULL"))
+    # Block K6: an optional stricter threshold a problem must cross before
+    # recovering to OK — a deadband/hysteresis, Zabbix's "recovery
+    # expression". NULL = recover as soon as the value clears warn_threshold
+    # (today's behavior).
+    recovery_threshold: Mapped[float | None] = mapped_column(Float)
 
     __table_args__ = (
         CheckConstraint(

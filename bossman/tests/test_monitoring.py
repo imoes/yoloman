@@ -15,6 +15,7 @@ from bossman.services.monitoring import (
     compute_state,
     evaluate_host,
     expire_acknowledgements,
+    hysteresis_blocks_recovery,
     query_agent_services,
     query_problems,
     resolve_effective_rule,
@@ -178,6 +179,20 @@ def test_compute_state_lt_comparison():
 def test_compute_state_none_threshold_never_trips():
     state, _ = compute_state("gt", 1_000_000.0, warn=None, crit=None)
     assert state == "OK"
+
+
+def test_hysteresis_blocks_recovery_gt_style():
+    # warn=80, recovery=70: a value of 75 is under warn but still above the
+    # stricter recovery threshold — hysteresis says "not recovered yet".
+    assert hysteresis_blocks_recovery("gt", 75.0, 70.0) is True
+    assert hysteresis_blocks_recovery("gt", 65.0, 70.0) is False
+
+
+def test_hysteresis_blocks_recovery_lt_style():
+    # A "disk free < 10 is bad" rule with recovery=15: 12 is above the
+    # problem threshold but still below the stricter recovery threshold.
+    assert hysteresis_blocks_recovery("lt", 12.0, 15.0) is True
+    assert hysteresis_blocks_recovery("lt", 18.0, 15.0) is False
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +404,34 @@ async def test_soft_then_hard_debounce_and_problems_filter(db_session):
     # Exactly one history row — the single hard onset, no soft churn.
     history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
     assert [h.state for h in history] == ["CRIT"]
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_hysteresis_holds_state_until_recovery_threshold_cleared(db_session):
+    """Block K6: with recovery_threshold set, a value that dips back under
+    warn_threshold but hasn't cleared the stricter recovery threshold holds
+    at the previous problem state instead of flipping to OK."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session, max_attempts=1, warn_threshold=80.0, crit_threshold=95.0, recovery_threshold=70.0)
+
+    await _write_metric(db_session, agent, "cpu_pct", 90.0)  # WARN (immediately hard, max_attempts=1)
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+    svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    assert svc.state == "WARN"
+
+    await _write_metric(db_session, agent, "cpu_pct", 75.0)  # under warn(80) but still above recovery(70)
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+    await db_session.refresh(svc)
+    assert svc.state == "WARN"  # held, not recovered yet
+
+    await _write_metric(db_session, agent, "cpu_pct", 65.0)  # now clears recovery(70)
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+    await db_session.refresh(svc)
+    assert svc.state == "OK"
 
     await _cleanup(db_session, agent, rule)
 

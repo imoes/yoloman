@@ -173,6 +173,18 @@ async def update_flapping(session: AsyncSession, agent_id: UUID, service_name: s
     return (changes or 0) >= _FLAP_MIN_CHANGES
 
 
+def hysteresis_blocks_recovery(comparison: str, value: float, recovery_threshold: float) -> bool:
+    """Block K6: True if `value` hasn't yet crossed the rule's stricter
+    recovery threshold, so a service that just dipped back under the warn
+    threshold should hold its current problem state one more poll instead
+    of flipping straight to OK — Zabbix's separate "recovery expression"
+    (a deadband against a value oscillating right at the boundary). Reuses
+    the same comparison direction as the problem condition itself: for a
+    "gt"-style rule (problem when value > threshold), recovery requires
+    value <= recovery_threshold; for "lt"-style, value >= recovery_threshold."""
+    return _COMPARISONS[comparison](value, recovery_threshold)
+
+
 def compute_state(comparison: str, value: float | None, warn: float | None, crit: float | None) -> tuple[str, str]:
     """Nagios-style threshold evaluation: CRIT is checked before WARN (a
     value that would trip both is CRIT, not WARN); UNKNOWN when there's no
@@ -249,6 +261,7 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             svc = await _upsert_service_state(
                 session, agent.id, svc_name, state, value, output, now, max_attempts,
                 metric=metric, rule_id=rule.id, agent_name=agent.name,
+                comparison=rule.comparison, recovery_threshold=rule.recovery_threshold,
             )
             updated.append(svc)
 
@@ -269,6 +282,8 @@ async def _upsert_service_state(
     metric: str,
     rule_id: UUID | None,
     agent_name: str = "",
+    comparison: str | None = None,
+    recovery_threshold: float | None = None,
 ) -> Service:
     """The one place a Service row is created/updated from a fresh check
     result — shared by the rule evaluator and the agent-check ingester so
@@ -279,6 +294,22 @@ async def _upsert_service_state(
     timeline."""
     existing = await session.scalar(select(Service).where(Service.agent_id == agent_id, Service.name == name))
     prev_state = existing.state if existing else None
+
+    # Block K6 (hysteresis): a rule with recovery_threshold set holds a
+    # currently non-OK service at its previous state until the value
+    # clears that stricter threshold, instead of recovering the moment it
+    # dips back under warn_threshold.
+    if (
+        existing is not None
+        and prev_state not in (None, "OK")
+        and new_state == "OK"
+        and comparison is not None
+        and recovery_threshold is not None
+        and value is not None
+        and hysteresis_blocks_recovery(comparison, value, recovery_threshold)
+    ):
+        new_state = prev_state
+        output = f"{output} (holding at {prev_state}: within recovery deadband, not yet below {recovery_threshold!r})"
     # "" (not "hard") for a brand-new service, so a first-ever immediately-
     # hard non-OK result still counts as a hard change (prev_type != "hard").
     prev_type = existing.state_type if existing else ""

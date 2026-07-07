@@ -322,6 +322,8 @@ class CheckRuleIn(BaseModel):
     # Block K4: an optional attached ValueMap, shown on the materialized
     # Service alongside its raw value.
     value_map_id: UUID | None = None
+    # Block K6: hysteresis — see CheckRule.recovery_threshold.
+    recovery_threshold: float | None = None
 
 
 class CheckRuleOut(BaseModel):
@@ -339,6 +341,7 @@ class CheckRuleOut(BaseModel):
     enabled: bool
     created_at: datetime
     value_map_id: UUID | None
+    recovery_threshold: float | None
 
     @classmethod
     def from_model(cls, r: CheckRule) -> "CheckRuleOut":
@@ -357,6 +360,7 @@ class CheckRuleOut(BaseModel):
             enabled=r.enabled,
             created_at=r.created_at,
             value_map_id=r.value_map_id,
+            recovery_threshold=r.recovery_threshold,
         )
 
 
@@ -400,6 +404,7 @@ async def create_check_rule(
         max_attempts=body.max_attempts,
         enabled=body.enabled,
         value_map_id=body.value_map_id,
+        recovery_threshold=body.recovery_threshold,
     )
     session.add(rule)
     await session.commit()
@@ -431,6 +436,7 @@ async def update_check_rule(
     rule.max_attempts = body.max_attempts
     rule.enabled = body.enabled
     rule.value_map_id = body.value_map_id
+    rule.recovery_threshold = body.recovery_threshold
     await session.commit()
     return CheckRuleOut.from_model(rule)
 
