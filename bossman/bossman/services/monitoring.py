@@ -55,7 +55,15 @@ def resolve_effective_rule(
         if rule.scope_type == "global":
             return True
         if rule.scope_type == "group":
-            return rule.scope_value in host_groups
+            # Zabbix gap-analysis Block K2b ("nested host groups"): a rule
+            # scoped to "Europe" also governs a host tagged "Europe/Latvia"
+            # — the child inherits the parent group's rule, exactly like
+            # Zabbix's slash-notation subgroup permission inheritance.
+            # Groups are still a flat list on Agent (no separate group
+            # object/hierarchy of their own); this is purely a naming
+            # convention interpreted at match time.
+            prefix = rule.scope_value + "/"
+            return any(g == rule.scope_value or g.startswith(prefix) for g in host_groups)
         if rule.scope_type == "host":
             return rule.scope_value == host_name
         return False
@@ -69,10 +77,14 @@ def resolve_effective_rule(
     if not matching:
         return None
 
-    # Stable sorts, least-significant first: newest → scope → label. The
-    # last sort dominates, so overall: label-specific beats label-agnostic,
-    # then host beats group beats global, then newest breaks ties.
+    # Stable sorts, least-significant first: newest → group nesting depth →
+    # scope → label. The last sort dominates, so overall: label-specific
+    # beats label-agnostic, then host beats group beats global, then (for
+    # two group rules) the deeper/more specific subgroup wins — a rule
+    # scoped to "Europe/Latvia" outranks one scoped to "Europe" for a host
+    # tagged "Europe/Latvia" (Block K2b) — then newest breaks remaining ties.
     matching.sort(key=lambda r: r.created_at, reverse=True)
+    matching.sort(key=lambda r: r.scope_value.count("/") if r.scope_type == "group" else 0, reverse=True)
     matching.sort(key=lambda r: _SCOPE_PRECEDENCE[r.scope_type])
     matching.sort(key=lambda r: 0 if r.label_value == label_value else 1)
     return matching[0]

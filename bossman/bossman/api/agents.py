@@ -7,21 +7,28 @@ itself, which is exactly the point of polling ahead of time.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.api.auth import get_current_identity
+from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
 from bossman.db.session import get_session
 from bossman.services.metrics_query import query_series
+from bossman.services.poller import PollResult, poll_agent
 
 router = APIRouter()
+
+
+def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
+    return request.app.state.session_factory
 
 
 class AgentOut(BaseModel):
@@ -123,6 +130,74 @@ async def update_agent_groups(
     agent.groups = body.groups
     await session.commit()
     return AgentOut.from_model(agent)
+
+
+class MassUpdateGroupsRequest(BaseModel):
+    agent_ids: list[UUID]
+    op: str  # add | replace | remove
+    groups: list[str]
+
+
+@router.post("/api/v1/agents/mass-update/groups", response_model=list[AgentOut])
+async def mass_update_agent_groups(
+    body: MassUpdateGroupsRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[AgentOut]:
+    """Zabbix gap-analysis Block K2c ("Mass update"): bulk-edit host-group
+    membership across many selected agents in one call, instead of one
+    PATCH per host. Scoped to the one field Bossman's Agent model actually
+    has a bulk-editable equivalent for today (groups) — templates/macros/
+    inventory/encryption mass-editing has no Bossman counterpart yet (see
+    docs/zabbix-gap-analysis.md's Batch 2)."""
+    if body.op not in ("add", "replace", "remove"):
+        raise HTTPException(status_code=422, detail="op must be one of: add, replace, remove")
+    if not body.agent_ids:
+        raise HTTPException(status_code=422, detail="agent_ids must not be empty")
+
+    agents = (await session.scalars(select(Agent).where(Agent.id.in_(body.agent_ids)))).all()
+    found_ids = {a.id for a in agents}
+    missing = set(body.agent_ids) - found_ids
+    if missing:
+        raise HTTPException(status_code=404, detail=f"no such agent(s): {sorted(str(m) for m in missing)}")
+
+    for agent in agents:
+        if body.op == "replace":
+            agent.groups = list(body.groups)
+        elif body.op == "add":
+            agent.groups = list(dict.fromkeys([*agent.groups, *body.groups]))  # dedupe, preserve order
+        else:  # remove
+            agent.groups = [g for g in agent.groups if g not in body.groups]
+
+    await session.commit()
+    return [AgentOut.from_model(a) for a in agents]
+
+
+@router.post("/api/v1/agents/{agent_id}/poll-now")
+async def poll_agent_now(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Zabbix gap-analysis Block K5 ("Execute now"): force one agent to be
+    polled immediately instead of waiting for the next
+    settings.poll_interval_seconds tick — the same poll_agent the
+    background loop uses (metrics/edges/hosts-overview pull, state
+    evaluation, notification dispatch), just triggered on demand."""
+    await _get_agent_or_404(session, agent_id)
+    semaphore = asyncio.Semaphore(1)
+    result: PollResult = await poll_agent(session_factory, agent_id, settings, semaphore, client_factory)
+    return {
+        "agent_id": result.agent_id,
+        "agent_name": result.agent_name,
+        "metrics_written": result.metrics_written,
+        "satellites_discovered": result.satellites_discovered,
+        "edges_written": result.edges_written,
+        "errors": result.errors,
+    }
 
 
 @router.get("/api/v1/agents/{agent_id}/metrics")

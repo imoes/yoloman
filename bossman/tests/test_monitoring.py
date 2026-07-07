@@ -68,6 +68,40 @@ def test_resolve_effective_rule_falls_back_to_global_when_no_host_or_group_rule_
     assert result is global_rule
 
 
+def test_resolve_effective_rule_nested_group_child_matches_parent_rule():
+    """Block K2b ("nested host groups"): a rule scoped to "Europe" also
+    governs a host tagged "Europe/Latvia" — slash-notation subgroup
+    inheritance, matched at CheckRule-evaluation time (groups are still a
+    flat tag list on Agent, no separate hierarchy object)."""
+    parent_rule = _rule("group", "Europe")
+
+    result = resolve_effective_rule([parent_rule], "riga01", ["Europe/Latvia"], "cpu_pct")
+
+    assert result is parent_rule
+
+
+def test_resolve_effective_rule_nested_group_does_not_match_unrelated_sibling():
+    # "Europe" must not match a host tagged "Europe2" or "EuropeWest" —
+    # only an exact segment boundary ("Europe" itself or "Europe/...").
+    parent_rule = _rule("group", "Europe")
+
+    result = resolve_effective_rule([parent_rule], "us01", ["Europe2", "EuropeWest"], "cpu_pct")
+
+    assert result is None
+
+
+def test_resolve_effective_rule_nested_group_more_specific_subgroup_wins():
+    # Both rules match a host tagged "Europe/Latvia"; the deeper/more
+    # specific one wins regardless of creation order.
+    now = datetime.now(timezone.utc)
+    parent_rule = _rule("group", "Europe", created_at=now)  # newer, but less specific
+    child_rule = _rule("group", "Europe/Latvia", created_at=now - timedelta(hours=1))
+
+    result = resolve_effective_rule([parent_rule, child_rule], "riga01", ["Europe/Latvia"], "cpu_pct")
+
+    assert result is child_rule
+
+
 def test_resolve_effective_rule_ties_broken_by_most_recently_created():
     now = datetime.now(timezone.utc)
     older_group_rule = _rule("group", "webservers", created_at=now - timedelta(hours=1))

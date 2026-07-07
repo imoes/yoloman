@@ -10,9 +10,25 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
+from bossman.api.plans import get_client_factory
 from bossman.db.models import Agent, Metric
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
+
+
+class FakeAgentClient:
+    def __init__(self):
+        self.metrics_calls: list = []
+
+    async def metrics_dump(self, from_):
+        self.metrics_calls.append(from_)
+        return {}
+
+    async def connections_dump(self, since):
+        return []
+
+    async def hosts_overview(self):
+        return []
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
@@ -185,3 +201,105 @@ async def test_agent_metrics_latest_returns_newest_per_metric(db_session):
     assert metrics["mem_pct"]["value"] == 63.0
 
     await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[older, newer, other])
+
+
+async def test_mass_update_groups_add_replace_remove(db_session):
+    """Block K2c ("Mass update"): bulk-edit host-group membership across
+    many agents in one call."""
+    a1 = await _make_agent(db_session, groups=["Europe"])
+    a2 = await _make_agent(db_session, groups=["Europe", "web"])
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        add_resp = client.post(
+            "/api/v1/agents/mass-update/groups",
+            json={"agent_ids": [str(a1.id), str(a2.id)], "op": "add", "groups": ["prod"]},
+            headers=_headers(raw),
+        )
+    assert add_resp.status_code == 200
+    by_id = {a["id"]: a for a in add_resp.json()}
+    assert sorted(by_id[str(a1.id)]["groups"]) == ["Europe", "prod"]
+    assert sorted(by_id[str(a2.id)]["groups"]) == ["Europe", "prod", "web"]
+
+    with TestClient(create_app()) as client:
+        remove_resp = client.post(
+            "/api/v1/agents/mass-update/groups",
+            json={"agent_ids": [str(a1.id), str(a2.id)], "op": "remove", "groups": ["Europe"]},
+            headers=_headers(raw),
+        )
+    by_id = {a["id"]: a for a in remove_resp.json()}
+    assert sorted(by_id[str(a1.id)]["groups"]) == ["prod"]
+    assert sorted(by_id[str(a2.id)]["groups"]) == ["prod", "web"]
+
+    with TestClient(create_app()) as client:
+        replace_resp = client.post(
+            "/api/v1/agents/mass-update/groups",
+            json={"agent_ids": [str(a1.id)], "op": "replace", "groups": ["staging"]},
+            headers=_headers(raw),
+        )
+    assert replace_resp.json()[0]["groups"] == ["staging"]
+
+    await _cleanup(db_session, agent=a1, api_token=api_token)
+    await _cleanup(db_session, agent=a2)
+
+
+async def test_mass_update_groups_unknown_agent_404(db_session):
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            "/api/v1/agents/mass-update/groups",
+            json={"agent_ids": [str(uuid.uuid4())], "op": "add", "groups": ["x"]},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 404
+    await _cleanup(db_session, api_token=api_token)
+
+
+async def test_mass_update_groups_invalid_op_422(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            "/api/v1/agents/mass-update/groups",
+            json={"agent_ids": [str(agent.id)], "op": "frobnicate", "groups": ["x"]},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 422
+    await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
+async def test_poll_agent_now_triggers_immediate_poll(db_session):
+    """Block K5 ("Execute now"): forces poll_agent to run immediately via
+    a FakeAgentClient injected through the same get_client_factory seam
+    the plan-run route uses — no real network call."""
+    agent = await _make_agent(db_session, address="10.0.0.9:8010")
+    api_token, raw = await _make_api_token(db_session)
+
+    app = create_app()
+    fake = FakeAgentClient()
+    app.dependency_overrides[get_client_factory] = lambda: (lambda agent, settings: fake)
+
+    with TestClient(app) as client:
+        resp = client.post(f"/api/v1/agents/{agent.id}/poll-now", headers=_headers(raw))
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["agent_id"] == str(agent.id)
+    assert body["errors"] == []
+    assert fake.metrics_calls == [None]  # first poll ever for this agent -> no cursor yet
+
+    await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
+async def test_poll_agent_now_unknown_agent_404(db_session):
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.post(f"/api/v1/agents/{uuid.uuid4()}/poll-now", headers=_headers(raw))
+
+    assert resp.status_code == 404
+    await _cleanup(db_session, api_token=api_token)
