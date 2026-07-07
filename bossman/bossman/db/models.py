@@ -325,6 +325,22 @@ class PlanEmbedding(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 
+class SeverityLabel(Base):
+    """Display-only label/color override per state (Zabbix gap-analysis
+    Block K10) — cosmetic: `state` stays yolo-man's real 4-value state
+    machine (OK/WARN/CRIT/UNKNOWN), `label`/`color` are just how the UI
+    shows it. One seeded row per state (see the migration's defaults),
+    never created/deleted via the API, only updated."""
+
+    __tablename__ = "severity_labels"
+
+    state: Mapped[str] = mapped_column(String, primary_key=True)
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    color: Mapped[str] = mapped_column(String, nullable=False)
+
+    __table_args__ = (CheckConstraint("state IN ('OK', 'WARN', 'CRIT', 'UNKNOWN')", name="ck_severity_labels_state"),)
+
+
 class ValueMap(Base):
     """A reusable named numeric/string -> human-label mapping (Zabbix gap-
     analysis Block K4), e.g. {"0": "Down", "1": "Up"}. Attached to a
