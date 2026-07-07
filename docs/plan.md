@@ -3792,11 +3792,23 @@ already exists as write-gated modules (`systemd`, `systemd_service`, `service_fa
 `shell`); eBPF already yields `exec_events` + `top_talkers`; no app-specific metric collectors, but
 `check:` tools.d tasks + the freshly translated community.docker Starlark modules exist. Decisions:
 
-- **J1 — Prozessliste, eBPF-angereichert.** New agent capability: enumerate `/proc/<pid>/{stat,
-  status,cmdline}` → pid, user, command, CPU% (delta of utime+stime over a short on-demand window),
-  RSS, state; a new `GET /api/v1/proc/processes` (top-N + full). Enrich each process with the eBPF
-  view (which process talks to whom, from `top_talkers`/`exec_events`). UI: a sortable/filterable
-  process table in host detail. The "Ressourcenfresser identifizieren" ask.
+- **J1 — Prozessliste, eBPF-angereichert (done, 2026-07-07).** `internal/proc/proc_pid.go` parses
+  `/proc/<pid>/{stat,status,cmdline}` (the "(Web Content)"-style comm edge case handled by first-'('/
+  last-')' splitting) plus the `/proc/stat` aggregate; `internal/proc/processes.go`'s
+  `SampleProcesses()` takes a two-sample CPU-tick delta over a 200ms window → CPU% (100% == one core,
+  top-style), RSS, owner, threads, state, command, sorted hungriest-first. `GET /api/v1/processes` +
+  the `process_list` MCP tool (`internal/server/processes.go`) enrich each process by PID/comm join
+  against the eBPF collector — container id (from exec events) and deduped outbound ESTABLISHED
+  connections (from the same tracking as `net_connections`) — gracefully omitted when eBPF is
+  unavailable. Bossman proxies on demand (`GET /agents/{id}/processes`, never stored — a live
+  snapshot, not polled data); UI: a new host-detail "Processes" tab (filter by command/user/pid,
+  CPU/Memory/PID sort, a green/gold/red Perf-O-Meter bar per row, container/connection badges,
+  expandable eBPF "talks to" detail). Deployed + live-verified on both real test hosts (`selecta-
+  ansible-runner`: 195 real processes rendering in the UI incl. dockerd/containerd/sssd/receptor;
+  `duppy-docker-test`: new binary confirmed listening, reachable only via SSH since Bossman doesn't
+  proxy on-demand endpoints through a satellite's parent — a pre-existing architecture gap, not a J1
+  bug). Full Go suite green (parsers, enumerator, HTTP+MCP wiring via httptest) + Bossman proxy tests
+  (404/422/502 paths) green.
 
 - **J2 — Dienst-Steuerung (sicher zuerst).** A UI "restart/stop" button on a service, executed
   through the existing `systemd` module — idempotent, PID-reuse-safe, write-gated + ACL + audit.
