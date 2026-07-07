@@ -16,7 +16,7 @@ comparable user-facing features.
 
 - [x] Batch 1 — Ch.3 Zabbix Processes (light) — 3 gaps found; HA deferred, Housekeeping (K1) + Runtime control (K2) implemented
 - [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found; K1-fix+K1b+K2b+K2c+K4+K5 implemented, K3 planned (deferred)
-- [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found, decisions below
+- [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found; K6+K7+K8+K9+K10 implemented, event correlation deferred
 - [ ] Batch 4 — Ch.7c Configuration: Visualization, Templates
 - [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
 - [ ] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
@@ -191,3 +191,40 @@ Read: [config/hosts](https://www.zabbix.com/documentation/7.0/en/manual/config/h
 - **Host groups: nested + Mass update → both implemented now** (K2b/K2c, see below).
 - **Value mapping + "Execute now" → both implemented now** (K4/K5, see below — small, high
   day-to-day value as the user judged).
+
+---
+
+## Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging
+
+Read: [config/triggers/expression](https://www.zabbix.com/documentation/7.0/en/manual/config/triggers/expression),
+[config/event_correlation](https://www.zabbix.com/documentation/7.0/en/manual/config/event_correlation) +
+[config/event_correlation/global](https://www.zabbix.com/documentation/7.0/en/manual/config/event_correlation/global),
+[config/tagging](https://www.zabbix.com/documentation/7.0/en/manual/config/tagging).
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition |
+|---|---|---|---|
+| Multi-item/multi-host boolean trigger expressions | `function(/host1/key1,param) or function(/host2/key2,param)` — AND/OR/NOT across different hosts/items in one trigger | ❌ sharpens #3 (`CheckRule` is single-metric, single-comparison only) | **implement now** → K9 (scoped to same-host; cross-host correlation still out of scope) |
+| Trigger dependencies (one trigger suppresses another's notifications — root-cause vs symptom) | Prevents alert fatigue: a "disk full" problem suppresses a dependent "backup job failed" symptom alert | ❌ sharpens #3/#4 | **implement now** → K8 |
+| Recovery expression (a separate condition for when a problem resolves, distinct from the problem condition — hysteresis) | Without one: resolves when the problem expression goes false. With one: resolves only when problem=false AND recovery=true | 🟡 partial equivalent — `next_transition`'s hard/soft state machine (Block H7) already prevents flapping via `max_attempts`, but there's no separate, independently-configurable recovery threshold (e.g. warn at 80%, only recover below 70% — a deadband) | **implement now** → K6 |
+| Custom trigger severity names/colors | Rename/recolor the 6 built-in severities per-installation | ❌ new, small | **implement now** → K10 (display-only rename/recolor; the real state machine stays yolo-man's 4 values, narrower than Zabbix's free-text severities) |
+| Event correlation (trigger-based + global rules: match on old/new event tags or tag-value pairs, operations = close old event / close new event) | Worked example: correlate by matching `host`+`port` tag pairs between old and new events, close the new (duplicate) one | ❌ missing entirely (sharpens #4) | **defer** (depends on tagging existing first — see next row) |
+| Tagging (host/trigger/item/service tags, `name` or `name:value`, inherited down the whole entity chain into problems, used for filtering/routing/permission-scoping/correlation) | A foundational primitive several other gaps (event correlation, notification routing, RBAC scoping) build on | ❌ missing entirely (sharpens #5) | **implement now** → K7 (foundational — unblocks event correlation and finer notification routing later) |
+
+**Decisions (user, 2026-07-07) — all five "implement now":**
+
+- **Recovery expression / hysteresis → K6, done.** `CheckRule.recovery_threshold`; a problem holds at its
+  current state until the value clears this stricter threshold instead of recovering the moment it dips
+  under warn_threshold.
+- **Tagging → K7, done.** `Agent.tags`, `GET /problems?tag=`, `NotificationRule.tag_filter` — host-level only
+  for v1 (event correlation, which needs old/new-event tag matching, stays deferred).
+- **Trigger dependencies → K8, done.** `CheckRule.depends_on_service_name`; a symptom's notification is
+  suppressed while its named root-cause service (same agent) is a confirmed hard problem.
+- **Multi-item boolean trigger expressions → K9, done (scoped).** `CheckRule.extra_conditions` +
+  `condition_logic` (AND/OR) combine the primary metric with other same-host metrics —
+  e.g. "CPU > 80 AND load1 > 4". Cross-host correlation (Zabbix's fuller multi-host expressions) is a
+  materially bigger step, still out of scope.
+- **Custom severity names/colors → K10, done (display-only).** New `severity_labels` table,
+  `GET`/`PUT /api/v1/severity-labels/{state}` — cosmetic rename/recolor; the real state machine stays
+  yolo-man's 4 values (OK/WARN/CRIT/UNKNOWN), narrower than Zabbix's fully free-text severities.
+- **Event correlation → deferred**, pending a concrete need (it builds directly on K7's tagging, which is
+  now available if this is revisited).
