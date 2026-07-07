@@ -107,6 +107,17 @@ class AgentClient:
         body = await self._get_json("/api/v1/hosts/overview", {})
         return body.get("hosts", [])
 
+    async def processes(self, limit: int = 0) -> dict[str, Any]:
+        """GET /api/v1/processes — the agent's live process table (Block J1):
+        per-PID CPU%/RSS/owner/command plus eBPF enrichment (container id,
+        outbound connections). Sampled on demand by the agent, so this is a
+        pass-through, never stored. `limit` (>0) keeps only the top-N
+        hungriest; 0 = all."""
+        params: dict[str, str] = {}
+        if limit > 0:
+            params["limit"] = str(limit)
+        return await self._get_json("/api/v1/processes", params)
+
     async def call_tool(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/tools/{name} — invoke one module/task/pipeline
         tool (see docs/plan.md's Bossman plan, section B.5's plan engine).

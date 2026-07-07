@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import agents, auth, chunks, dashboard, enroll, enroll_info, health, modules, monitoring, notifications, plans, relationships, runs, translate
+from bossman.api import agents, auth, chunks, dashboard, enroll, enroll_info, health, modules, monitoring, notifications, plans, processes, relationships, runs, translate
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -135,6 +135,7 @@ def create_app() -> FastAPI:
     # in these routers is individually gated behind get_current_identity,
     # so there's no conditional mounting here the way enroll needs.
     app.include_router(agents.router, tags=["agents"])
+    app.include_router(processes.router, tags=["processes"])
     app.include_router(relationships.router, tags=["relationships"])
     app.include_router(plans.router, tags=["plans"])
     app.include_router(runs.router, tags=["runs"])
