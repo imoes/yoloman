@@ -15,6 +15,7 @@ from bossman.services.monitoring import (
     evaluate_host,
     expire_acknowledgements,
     query_agent_services,
+    query_problems,
     resolve_effective_rule,
 )
 
@@ -225,7 +226,7 @@ async def test_evaluate_host_creates_service_with_ok_state(db_session):
 
 async def test_evaluate_host_records_history_on_state_change(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 50.0)
 
     await evaluate_host(db_session, agent)
@@ -250,7 +251,7 @@ async def test_evaluate_host_records_history_on_state_change(db_session):
 
 async def test_evaluate_host_does_not_record_history_when_state_unchanged(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 50.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -267,7 +268,7 @@ async def test_evaluate_host_does_not_record_history_when_state_unchanged(db_ses
 
 async def test_evaluate_host_clears_acknowledgement_on_state_change(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 99.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -329,6 +330,49 @@ async def test_evaluate_host_no_rules_produces_no_services(db_session):
 
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def test_soft_then_hard_debounce_and_problems_filter(db_session):
+    """Block H7: a fresh non-OK result is soft (not a problem) until it has
+    recurred max_attempts times, then hard (a real problem). query_problems
+    only surfaces hard states."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session, max_attempts=3)  # 3 consecutive CRITs → hard
+
+    for expected_type, expected_attempt in [("soft", 1), ("soft", 2), ("hard", 3), ("hard", 3)]:
+        await _write_metric(db_session, agent, "cpu_pct", 99.0)
+        await evaluate_host(db_session, agent)
+        await db_session.commit()
+        svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+        assert svc.state == "CRIT"
+        assert (svc.state_type, svc.attempt) == (expected_type, expected_attempt)
+        problems = await query_problems(db_session)
+        mine = [p for p in problems if p.service.agent_id == agent.id]
+        # A soft problem is NOT surfaced; a hard one is.
+        assert (len(mine) == 1) == (expected_type == "hard")
+
+    # Exactly one history row — the single hard onset, no soft churn.
+    history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
+    assert [h.state for h in history] == ["CRIT"]
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_flapping_flag_set_on_frequent_changes(db_session):
+    """Block H7: a service that changes hard state many times in the window
+    gets is_flapping set."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session, max_attempts=1)  # every change is immediately hard
+
+    for value in [99.0, 10.0, 99.0, 10.0, 99.0, 10.0]:
+        await _write_metric(db_session, agent, "cpu_pct", value)
+        await evaluate_host(db_session, agent)
+        await db_session.commit()
+
+    svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    assert svc.is_flapping is True
+
+    await _cleanup(db_session, agent, rule)
 
 
 async def test_disk_rule_fans_out_per_mount_with_override(db_session):

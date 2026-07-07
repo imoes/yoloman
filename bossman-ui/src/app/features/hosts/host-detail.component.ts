@@ -185,6 +185,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       >
                         <td class="bm-col-state">
                           <app-status-badge [status]="serviceBadge(svc)" [label]="svc.state" />
+                          @if (svc.state !== 'OK' && svc.state_type === 'soft') {
+                            <span class="bm-flag bm-flag--soft" title="soft state — not yet confirmed as a problem">
+                              soft {{ svc.attempt }}/{{ svc.max_attempts }}
+                            </span>
+                          }
+                          @if (svc.is_flapping) {
+                            <span class="bm-flag bm-flag--flap" title="flapping — changing state too often">flapping</span>
+                          }
                           @if (svc.acknowledged) {
                             <span class="bm-flag" title="acknowledged">✔</span>
                           }
@@ -511,6 +519,20 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         margin-left: 6px;
         font-size: 12px;
         opacity: 0.75;
+      }
+      .bm-flag--soft {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bm-gold) 22%, transparent);
+        opacity: 1;
+      }
+      .bm-flag--flap {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bm-red) 22%, transparent);
+        opacity: 1;
       }
       .bm-raw-toggle {
         margin-top: 18px;

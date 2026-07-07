@@ -83,6 +83,10 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
         <mat-label>Label pin (optional)</mat-label>
         <input matInput formControlName="label_value" placeholder="e.g. /var — a disk mount; blank = all mounts" />
       </mat-form-field>
+      <mat-form-field appearance="outline" class="bm-full-width">
+        <mat-label>Max attempts before hard (optional)</mat-label>
+        <input matInput type="number" formControlName="max_attempts" placeholder="blank = default 3; 1 = alert immediately" />
+      </mat-form-field>
       <mat-slide-toggle formControlName="enabled">Enabled</mat-slide-toggle>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -118,6 +122,7 @@ export class CheckRuleDialogComponent {
     scope_type: new FormControl<CheckRuleScope>('global', { nonNullable: true, validators: [Validators.required] }),
     scope_value: new FormControl<string | null>(null),
     label_value: new FormControl<string | null>(null),
+    max_attempts: new FormControl<number | null>(null),
     enabled: new FormControl(true, { nonNullable: true }),
   });
 

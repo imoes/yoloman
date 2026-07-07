@@ -17,10 +17,10 @@ the REST API, MCP tools, and tests without duplicating logic.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory
@@ -76,6 +76,89 @@ def resolve_effective_rule(
     matching.sort(key=lambda r: _SCOPE_PRECEDENCE[r.scope_type])
     matching.sort(key=lambda r: 0 if r.label_value == label_value else 1)
     return matching[0]
+
+
+# Consecutive non-OK checks before a state is promoted to hard (Block H7),
+# when no per-rule max_attempts is set. CheckMK's own default is 3.
+DEFAULT_MAX_ATTEMPTS = 3
+# Flapping (Block H7): if a service changed state at least this many times
+# within the look-back window, it's oscillating — flag it (and, later,
+# suppress its notifications). A windowed transition count, not CheckMK's
+# exact 21-result ratio, but the same intent and easy to reason about.
+_FLAP_WINDOW = timedelta(minutes=30)
+_FLAP_MIN_CHANGES = 5
+
+
+class Transition:
+    """The outcome of feeding one fresh raw state into a service's soft/hard
+    state machine (Block H7): the resulting state_type/attempt, whether the
+    raw state changed at all, and whether this is a *hard* change — the
+    moment a problem becomes real (hard non-OK) or recovers (OK). Only hard
+    changes append history / clear acks / (later) notify."""
+
+    __slots__ = ("state", "state_type", "attempt", "raw_changed", "hard_changed")
+
+    def __init__(self, state, state_type, attempt, raw_changed, hard_changed):
+        self.state = state
+        self.state_type = state_type
+        self.attempt = attempt
+        self.raw_changed = raw_changed
+        self.hard_changed = hard_changed
+
+
+def next_transition(
+    prev_state: str | None, prev_type: str, prev_attempt: int, new_state: str, max_attempts: int
+) -> Transition:
+    """Pure soft/hard state-machine step. Recovery to OK is always an
+    immediate hard state. A non-OK result starts soft at attempt 1 and only
+    goes hard once it has recurred `max_attempts` times unchanged; any
+    change to a *different* state restarts the soft count. With
+    max_attempts <= 1 every result is immediately hard (debouncing off)."""
+    raw_changed = prev_state is None or prev_state != new_state
+
+    if new_state == "OK":
+        state_type = "hard"
+        attempt = 1
+        # Record on first-ever observation (a baseline OK for availability),
+        # or on recovery from a *hard* non-OK state. A soft problem that
+        # never notified shouldn't emit a hard "recovered".
+        hard_changed = prev_state is None or (prev_state != "OK" and prev_type == "hard")
+        return Transition("OK", state_type, attempt, raw_changed, hard_changed)
+
+    # non-OK
+    if not raw_changed and prev_type == "soft" and prev_attempt < max_attempts:
+        attempt = prev_attempt + 1
+    elif not raw_changed:
+        attempt = prev_attempt  # already hard, or max reached
+    else:
+        attempt = 1  # changed to a different (non-OK) state → restart soft
+
+    state_type = "hard" if attempt >= max_attempts else "soft"
+    # A hard change = the effective (hard) state now differs from the
+    # previously effective hard state. The previous effective hard state is
+    # prev_state only if it was itself hard (a soft blip never became
+    # "effective"). This fires on problem onset (soft→hard or first-ever),
+    # on escalation (hard WARN → hard CRIT), but not while a hard state
+    # simply persists.
+    prev_hard_state = prev_state if prev_type == "hard" else None
+    hard_changed = state_type == "hard" and prev_hard_state != new_state
+    return Transition(new_state, state_type, attempt, raw_changed, hard_changed)
+
+
+async def update_flapping(session: AsyncSession, agent_id: UUID, service_name: str, now: datetime) -> bool:
+    """Recomputes whether a service is flapping from its recent state-change
+    history (Block H7). Returns the flag; caller stores it on the Service."""
+    since = now - _FLAP_WINDOW
+    changes = await session.scalar(
+        select(func.count())
+        .select_from(ServiceStateHistory)
+        .where(
+            ServiceStateHistory.agent_id == agent_id,
+            ServiceStateHistory.service_name == service_name,
+            ServiceStateHistory.time >= since,
+        )
+    )
+    return (changes or 0) >= _FLAP_MIN_CHANGES
 
 
 def compute_state(comparison: str, value: float | None, warn: float | None, crit: float | None) -> tuple[str, str]:
@@ -137,48 +220,88 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             # (and thus overrides them); unlabeled metrics keep the plain name.
             svc_name = f"{rule.service_name} {mount}" if mount else rule.service_name
 
-            existing = await session.scalar(
-                select(Service).where(Service.agent_id == agent.id, Service.name == svc_name)
+            max_attempts = rule.max_attempts or DEFAULT_MAX_ATTEMPTS
+            svc = await _upsert_service_state(
+                session, agent.id, svc_name, state, value, output, now, max_attempts, metric=metric, rule_id=rule.id
             )
-            state_changed = existing is None or existing.state != state
-
-            if existing is None:
-                existing = Service(
-                    agent_id=agent.id,
-                    name=svc_name,
-                    metric=metric,
-                    state=state,
-                    value=value,
-                    output=output,
-                    rule_id=rule.id,
-                    last_state_change=now,
-                    last_checked=now,
-                )
-                session.add(existing)
-            else:
-                existing.metric = metric
-                existing.state = state
-                existing.value = value
-                existing.output = output
-                existing.rule_id = rule.id
-                existing.last_checked = now
-                if state_changed:
-                    existing.last_state_change = now
-                    # An acknowledgement is tied to the specific problem
-                    # occurrence it was made for (CheckMK's own model) — any
-                    # state change, in either direction, means this is a new
-                    # occurrence, so a stale ack must not silently suppress it.
-                    existing.acknowledged = False
-                    existing.ack_comment = None
-                    existing.ack_by = None
-                    existing.ack_expires_at = None
-
-            if state_changed:
-                session.add(ServiceStateHistory(time=now, agent_id=agent.id, service_name=svc_name, state=state, value=value))
-            updated.append(existing)
+            updated.append(svc)
 
     await session.flush()
     return updated
+
+
+async def _upsert_service_state(
+    session: AsyncSession,
+    agent_id: UUID,
+    name: str,
+    new_state: str,
+    value: float | None,
+    output: str,
+    now: datetime,
+    max_attempts: int,
+    *,
+    metric: str,
+    rule_id: UUID | None,
+) -> Service:
+    """The one place a Service row is created/updated from a fresh check
+    result — shared by the rule evaluator and the agent-check ingester so
+    soft/hard debouncing (Block H7), flapping, history and ack-clearing
+    behave identically on both paths. History is appended and the ack is
+    cleared only on a *hard* change (a real problem onset/recovery), not on
+    every soft flicker, so a debounced blip neither pages nor churns the
+    timeline."""
+    existing = await session.scalar(select(Service).where(Service.agent_id == agent_id, Service.name == name))
+    prev_state = existing.state if existing else None
+    # "" (not "hard") for a brand-new service, so a first-ever immediately-
+    # hard non-OK result still counts as a hard change (prev_type != "hard").
+    prev_type = existing.state_type if existing else ""
+    prev_attempt = existing.attempt if existing else 0
+    t = next_transition(prev_state, prev_type, prev_attempt, new_state, max_attempts)
+
+    if existing is None:
+        existing = Service(
+            agent_id=agent_id,
+            name=name,
+            metric=metric,
+            state=t.state,
+            value=value,
+            output=output,
+            rule_id=rule_id,
+            state_type=t.state_type,
+            attempt=t.attempt,
+            max_attempts=max_attempts,
+            last_state_change=now,
+            last_checked=now,
+        )
+        session.add(existing)
+    else:
+        existing.metric = metric
+        existing.value = value
+        existing.output = output
+        existing.rule_id = rule_id
+        existing.state = t.state
+        existing.state_type = t.state_type
+        existing.attempt = t.attempt
+        existing.max_attempts = max_attempts
+        existing.last_checked = now
+        if t.raw_changed:
+            existing.last_state_change = now
+        if t.hard_changed:
+            # A confirmed (hard) problem onset or recovery is a new
+            # occurrence — a stale ack must not carry over (CheckMK's model).
+            existing.acknowledged = False
+            existing.ack_comment = None
+            existing.ack_by = None
+            existing.ack_expires_at = None
+
+    # History records confirmed (hard) changes — the timeline availability
+    # (H9) and flapping both read, so soft flickers stay out of both.
+    if t.hard_changed:
+        session.add(ServiceStateHistory(time=now, agent_id=agent_id, service_name=name, state=t.state, value=value))
+        await session.flush()  # so update_flapping counts this change too
+
+    existing.is_flapping = await update_flapping(session, agent_id, name, now)
+    return existing
 
 
 # Maps the Go agent's Nagios-style checks.Status strings (see
@@ -226,36 +349,11 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
         # two don't fight over the same row every poll.
         if existing is not None and existing.rule_id is not None:
             continue
-        state_changed = existing is None or existing.state != state
 
-        if existing is None:
-            existing = Service(
-                agent_id=agent.id,
-                name=name,
-                metric="",
-                state=state,
-                value=value,
-                output=output,
-                rule_id=None,
-                last_state_change=now,
-                last_checked=now,
-            )
-            session.add(existing)
-        else:
-            existing.state = state
-            existing.value = value
-            existing.output = output
-            existing.last_checked = now
-            if state_changed:
-                existing.last_state_change = now
-                existing.acknowledged = False
-                existing.ack_comment = None
-                existing.ack_by = None
-                existing.ack_expires_at = None
-
-        if state_changed:
-            session.add(ServiceStateHistory(time=now, agent_id=agent.id, service_name=name, state=state, value=value))
-        updated.append(existing)
+        svc = await _upsert_service_state(
+            session, agent.id, name, state, value, output, now, DEFAULT_MAX_ATTEMPTS, metric="", rule_id=None
+        )
+        updated.append(svc)
 
     await session.flush()
     return updated
@@ -317,13 +415,19 @@ async def query_problems(
     acknowledged: bool | None = None,
     include_downtime: bool = False,
 ) -> list[ServiceView]:
-    """Every non-OK service, most recently changed first — the "unbehandelte
-    Probleme" view every real monitoring system leads with. Excludes
-    services currently under an active Downtime unless include_downtime is
-    set, since a downtime means "we already know, don't page anyone"."""
+    """Every non-OK service in a *hard* state, most recently changed first —
+    the "unbehandelte Probleme" view every real monitoring system leads
+    with. Soft states (Block H7: a non-OK blip not yet confirmed over
+    max_attempts checks) are deliberately excluded — they aren't real
+    problems yet. Excludes services under an active Downtime unless
+    include_downtime is set, since a downtime means "we already know"."""
     now = datetime.now(timezone.utc)
     await expire_acknowledgements(session, now)
-    stmt = select(Service, Agent.name).join(Agent, Agent.id == Service.agent_id).where(Service.state != "OK")
+    stmt = (
+        select(Service, Agent.name)
+        .join(Agent, Agent.id == Service.agent_id)
+        .where(Service.state != "OK", Service.state_type == "hard")
+    )
     if state is not None:
         stmt = stmt.where(Service.state == state)
     if host is not None:

@@ -10,6 +10,12 @@ export interface ServiceState {
   output: string;
   last_state_change: string;
   last_checked: string;
+  /** Soft/hard debouncing (Block H7): 'soft' = an unconfirmed non-OK blip
+   * (not yet a problem), 'hard' = confirmed over max_attempts checks. */
+  state_type: 'soft' | 'hard';
+  attempt: number;
+  max_attempts: number;
+  is_flapping: boolean;
   acknowledged: boolean;
   ack_comment: string | null;
   ack_by: string | null;
@@ -51,6 +57,8 @@ export interface CheckRule {
   scope_value: string | null;
   /** Optional label pin (a disk mount) — see CheckRule.label_value (H6). */
   label_value: string | null;
+  /** Consecutive non-OK checks before hard (Block H7); null = global default. */
+  max_attempts: number | null;
   is_default: boolean;
   enabled: boolean;
   created_at: string;

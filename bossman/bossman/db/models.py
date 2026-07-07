@@ -347,6 +347,9 @@ class CheckRule(Base):
     # key is implicit per metric (mount for disk); modelling one value is
     # enough for the only labeled check dimension the built-ins use.
     label_value: Mapped[str | None] = mapped_column(String)
+    # Consecutive non-OK checks before the state goes hard (Block H7);
+    # NULL = the global default (DEFAULT_MAX_ATTEMPTS in services/monitoring).
+    max_attempts: Mapped[int | None] = mapped_column(Integer)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # A default rule reproduces a former hardcoded agent threshold (Block
     # H6 seeding) — surfaced so the UI can mark it and re-seeding can skip
@@ -387,6 +390,14 @@ class Service(Base):
     rule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("check_rules.id"))
     last_state_change: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     last_checked: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # CheckMK-style state debouncing (Block H7): a non-OK result is `soft`
+    # until it recurs `max_attempts` times, then `hard`; only hard non-OK
+    # states are real problems. `attempt` is the current consecutive count.
+    # `is_flapping` marks a service that changes state too often.
+    state_type: Mapped[str] = mapped_column(String, nullable=False, default="hard")
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    is_flapping: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ack_comment: Mapped[str | None] = mapped_column(Text)
     ack_by: Mapped[str | None] = mapped_column(String)
@@ -398,6 +409,7 @@ class Service(Base):
     __table_args__ = (
         UniqueConstraint("agent_id", "name", name="uq_services_agent_name"),
         CheckConstraint("state IN ('OK', 'WARN', 'CRIT', 'UNKNOWN')", name="ck_services_state"),
+        CheckConstraint("state_type IN ('soft', 'hard')", name="ck_services_state_type"),
         Index("idx_services_agent", "agent_id"),
     )
 

@@ -50,6 +50,10 @@ class ServiceOut(BaseModel):
     output: str
     last_state_change: datetime
     last_checked: datetime
+    state_type: str
+    attempt: int
+    max_attempts: int
+    is_flapping: bool
     acknowledged: bool
     ack_comment: str | None
     ack_by: str | None
@@ -70,6 +74,10 @@ class ServiceOut(BaseModel):
             output=s.output,
             last_state_change=s.last_state_change,
             last_checked=s.last_checked,
+            state_type=s.state_type,
+            attempt=s.attempt,
+            max_attempts=s.max_attempts,
+            is_flapping=s.is_flapping,
             acknowledged=s.acknowledged,
             ack_comment=s.ack_comment,
             ack_by=s.ack_by,
@@ -255,6 +263,8 @@ class CheckRuleIn(BaseModel):
     scope_value: str | None = None
     # Optional label pin (a disk mount) — see CheckRule.label_value (H6).
     label_value: str | None = None
+    # Consecutive non-OK checks before hard (Block H7); null = global default.
+    max_attempts: int | None = None
     enabled: bool = True
 
 
@@ -268,6 +278,7 @@ class CheckRuleOut(BaseModel):
     scope_type: str
     scope_value: str | None
     label_value: str | None
+    max_attempts: int | None
     is_default: bool
     enabled: bool
     created_at: datetime
@@ -284,6 +295,7 @@ class CheckRuleOut(BaseModel):
             scope_type=r.scope_type,
             scope_value=r.scope_value,
             label_value=r.label_value,
+            max_attempts=r.max_attempts,
             is_default=r.is_default,
             enabled=r.enabled,
             created_at=r.created_at,
@@ -327,6 +339,7 @@ async def create_check_rule(
         scope_type=body.scope_type,
         scope_value=body.scope_value,
         label_value=body.label_value,
+        max_attempts=body.max_attempts,
         enabled=body.enabled,
     )
     session.add(rule)
@@ -356,6 +369,7 @@ async def update_check_rule(
     rule.scope_type = body.scope_type
     rule.scope_value = body.scope_value
     rule.label_value = body.label_value
+    rule.max_attempts = body.max_attempts
     rule.enabled = body.enabled
     await session.commit()
     return CheckRuleOut.from_model(rule)
