@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,7 +11,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, LatestMetric, MetricPoint } from '../../core/models/agent.model';
+import { Agent, LatestMetric, MetricPoint, Process } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -110,7 +110,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <app-status-badge [status]="healthStatus()" [label]="agent.enrollment_state" />
         </div>
 
-        <mat-tab-group>
+        <mat-tab-group (selectedTabChange)="onTabChange($event)">
           <mat-tab label="Overview">
             <div class="bm-tab-content">
               @if (overview(); as ov) {
@@ -454,6 +454,114 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </mat-tab>
 
+          <mat-tab label="Processes">
+            <div class="bm-tab-content">
+              <div class="bm-proc-toolbar">
+                <input
+                  class="bm-proc-filter"
+                  type="text"
+                  placeholder="Filter by command, user or pid…"
+                  [value]="processFilter()"
+                  (input)="processFilter.set($any($event.target).value)"
+                />
+                <mat-button-toggle-group
+                  [value]="processSort()"
+                  (change)="processSort.set($event.value)"
+                  aria-label="Sort processes"
+                >
+                  <mat-button-toggle value="cpu">CPU</mat-button-toggle>
+                  <mat-button-toggle value="rss">Memory</mat-button-toggle>
+                  <mat-button-toggle value="pid">PID</mat-button-toggle>
+                </mat-button-toggle-group>
+                <button mat-button (click)="loadProcesses()" [disabled]="processesLoading()">↻ Refresh</button>
+                @if (processesLoaded()) {
+                  <span class="bm-proc-meta">{{ processCount() }} processes · {{ sampleWindowMs() }}ms sample</span>
+                }
+              </div>
+
+              @if (processesLoading()) {
+                <p class="bm-empty">Sampling the process table…</p>
+              } @else if (visibleProcesses().length) {
+                <table class="bm-table bm-proc">
+                  <thead>
+                    <tr>
+                      <th class="bm-num">PID</th>
+                      <th>User</th>
+                      <th class="bm-num">CPU %</th>
+                      <th class="bm-num">Memory</th>
+                      <th class="bm-num">Thr</th>
+                      <th>S</th>
+                      <th>Command</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of visibleProcesses(); track p.pid) {
+                      <tr class="bm-row" [class.bm-row-selected]="expandedPid() === p.pid" (click)="toggleProcess(p)">
+                        <td class="bm-num">{{ p.pid }}</td>
+                        <td>{{ p.user || p.uid }}</td>
+                        <td class="bm-num">
+                          <span class="bm-proc-cpu">
+                            <span class="bm-proc-cpu-bar" [style.width.%]="cpuBarWidth(p)" [style.background]="cpuColor(p)"></span>
+                            <span class="bm-proc-cpu-val">{{ p.cpu_percent | number: '1.1-1' }}</span>
+                          </span>
+                        </td>
+                        <td class="bm-num">{{ formatKiB(p.rss_kib) }}</td>
+                        <td class="bm-num">{{ p.num_threads }}</td>
+                        <td>{{ p.state }}</td>
+                        <td class="bm-proc-cmd">
+                          @if (p.container_id) {
+                            <span class="bm-proc-container" title="{{ p.container_id }}">🐳 {{ shortContainer(p.container_id) }}</span>
+                          }
+                          @if (p.connections?.length) {
+                            <span class="bm-proc-connbadge" title="outbound connections">⇄ {{ p.connections?.length }}</span>
+                          }
+                          {{ p.command }}
+                        </td>
+                      </tr>
+                      @if (expandedPid() === p.pid) {
+                        <tr class="bm-expand-row">
+                          <td colspan="7">
+                            <div class="bm-proc-detail">
+                              <dl class="bm-facts">
+                                <dt>PPID</dt>
+                                <dd>{{ p.ppid }}</dd>
+                                <dt>Comm</dt>
+                                <dd>{{ p.comm }}</dd>
+                                @if (p.container_id) {
+                                  <dt>Container</dt>
+                                  <dd>{{ p.container_id }}</dd>
+                                }
+                              </dl>
+                              @if (p.connections?.length) {
+                                <div class="bm-proc-conns">
+                                  <strong>Talks to (eBPF)</strong>
+                                  <ul>
+                                    @for (c of p.connections; track c.dst_addr + c.dst_port) {
+                                      <li>
+                                        {{ c.dst_addr }}:{{ c.dst_port }}
+                                        <span class="bm-proc-connstate">{{ c.state }}</span>
+                                      </li>
+                                    }
+                                  </ul>
+                                </div>
+                              } @else {
+                                <p class="bm-empty">No eBPF-observed connections (eBPF may be off on this host).</p>
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              } @else if (processesLoaded()) {
+                <p class="bm-empty">No processes match the filter.</p>
+              } @else {
+                <p class="bm-empty">Open this tab to sample the live process list.</p>
+              }
+            </div>
+          </mat-tab>
+
           <mat-tab label="Runs">
             <div class="bm-tab-content">
               @if (runs().length) {
@@ -520,6 +628,92 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-service-detail {
         margin-top: 20px;
+      }
+      .bm-proc-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .bm-proc-filter {
+        flex: 1 1 240px;
+        min-width: 180px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid color-mix(in srgb, var(--mat-sys-on-surface) 20%, transparent);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+      .bm-proc-meta {
+        margin-left: auto;
+        opacity: 0.6;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .bm-proc .bm-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .bm-proc-cpu {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        min-width: 84px;
+      }
+      .bm-proc-cpu-bar {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 14px;
+        border-radius: 3px;
+        opacity: 0.35;
+      }
+      .bm-proc-cpu-val {
+        position: relative;
+      }
+      .bm-proc-cmd {
+        font-family: var(--bm-mono, monospace);
+        font-size: 12.5px;
+        max-width: 520px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .bm-proc-container,
+      .bm-proc-connbadge {
+        display: inline-block;
+        margin-right: 6px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+      }
+      .bm-proc-detail {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        padding: 4px 0;
+      }
+      .bm-proc-conns ul {
+        list-style: none;
+        padding: 0;
+        margin: 6px 0 0;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .bm-proc-conns li {
+        padding: 2px 0;
+      }
+      .bm-proc-connstate {
+        opacity: 0.6;
+        margin-left: 8px;
+        font-size: 11px;
       }
       .bm-avail {
         margin-top: 16px;
@@ -900,6 +1094,39 @@ export class HostDetailComponent implements OnInit {
   selectedService = signal<ServiceState | null>(null);
   serviceChartSeries = signal<ChartSeries[]>([]);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
+  /** Block J1 process list (lazy-loaded when the Processes tab opens). */
+  processes = signal<Process[]>([]);
+  processFilter = signal('');
+  processSort = signal<'cpu' | 'rss' | 'pid'>('cpu');
+  processesLoading = signal(false);
+  processesLoaded = signal(false);
+  processCount = signal(0);
+  sampleWindowMs = signal(0);
+  expandedPid = signal<number | null>(null);
+
+  /** Filter (command/user/pid) + client-side sort by the selected column. The
+   * backend already returns CPU-desc; re-sorting lets the user flip to memory
+   * or pid without a round-trip. */
+  visibleProcesses = computed(() => {
+    const f = this.processFilter().trim().toLowerCase();
+    let list = this.processes();
+    if (f) {
+      list = list.filter(
+        (p) =>
+          p.command.toLowerCase().includes(f) ||
+          p.comm.toLowerCase().includes(f) ||
+          (p.user ?? '').toLowerCase().includes(f) ||
+          String(p.pid).includes(f),
+      );
+    }
+    const sort = this.processSort();
+    return [...list].sort((a, b) => {
+      if (sort === 'pid') return a.pid - b.pid;
+      if (sort === 'rss') return b.rss_kib - a.rss_kib;
+      return b.cpu_percent - a.cpu_percent;
+    });
+  });
+
   /** Block H9 availability/SLA report for the expanded service. */
   availability = signal<Availability | null>(null);
   availabilityHours = signal(24);
@@ -995,6 +1222,60 @@ export class HostDetailComponent implements OnInit {
   /** A CheckMK-style state colour for the availability bar segments. */
   availabilityColor(state: string): string {
     return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
+  }
+
+  /** Lazy-load the process list the first time the Processes tab is opened. */
+  onTabChange(event: MatTabChangeEvent): void {
+    if (event.tab.textLabel === 'Processes' && !this.processesLoaded() && !this.processesLoading()) {
+      this.loadProcesses();
+    }
+  }
+
+  loadProcesses(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.processesLoading.set(true);
+    this.expandedPid.set(null);
+    this.agentService.processes(agent.id).subscribe({
+      next: (res) => {
+        this.processes.set(res.processes);
+        this.processCount.set(res.count);
+        this.sampleWindowMs.set(res.sample_window_ms);
+        this.processesLoading.set(false);
+        this.processesLoaded.set(true);
+      },
+      error: () => {
+        this.processes.set([]);
+        this.processesLoading.set(false);
+        this.processesLoaded.set(true);
+      },
+    });
+  }
+
+  toggleProcess(p: Process): void {
+    this.expandedPid.set(this.expandedPid() === p.pid ? null : p.pid);
+  }
+
+  /** CPU bar width, clamped to 100% of the cell even when a multi-threaded
+   * process reports >100% (100% == one core). */
+  cpuBarWidth(p: Process): number {
+    return Math.min(p.cpu_percent, 100);
+  }
+
+  cpuColor(p: Process): string {
+    if (p.cpu_percent >= 80) return BM_RED;
+    if (p.cpu_percent >= 40) return BM_GOLD;
+    return BM_GREEN;
+  }
+
+  formatKiB(kib: number): string {
+    if (kib >= 1048576) return (kib / 1048576).toFixed(1) + ' GiB';
+    if (kib >= 1024) return (kib / 1024).toFixed(1) + ' MiB';
+    return kib + ' KiB';
+  }
+
+  shortContainer(id: string): string {
+    return id.slice(0, 12);
   }
 
   serviceBadge(svc: ServiceState) {

@@ -83,3 +83,34 @@ export interface LatestMetric {
 export interface LatestMetricsResponse {
   metrics: LatestMetric[];
 }
+
+/** One eBPF-observed outbound endpoint a process talks to (Block J1). */
+export interface ProcessConn {
+  dst_addr: string;
+  dst_port: number;
+  state: string;
+}
+
+/** One process row from GET /api/v1/agents/{id}/processes — the /proc view
+ * plus optional eBPF enrichment (container id, connections). CPU% is scaled
+ * so 100% == one core (top style). Matches the agent's ProcessView. */
+export interface Process {
+  pid: number;
+  ppid: number;
+  user: string;
+  uid: number;
+  comm: string;
+  command: string;
+  state: string;
+  cpu_percent: number;
+  rss_kib: number;
+  num_threads: number;
+  container_id?: string;
+  connections?: ProcessConn[];
+}
+
+export interface ProcessesResponse {
+  processes: Process[];
+  count: number;
+  sample_window_ms: number;
+}
