@@ -23,7 +23,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory
+from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory, ValueMap
 
 _COMPARISONS = {
     "gt": lambda value, threshold: value > threshold,
@@ -404,13 +404,16 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
 
 @dataclass
 class ServiceView:
-    """One Service plus the two things that don't live on the row itself:
-    its host's name (a join) and whether it's currently covered by an
-    active Downtime (a point-in-time computation, not stored state)."""
+    """One Service plus the things that don't live on the row itself: its
+    host's name (a join), whether it's currently covered by an active
+    Downtime (a point-in-time computation, not stored state), and — Block
+    K4 — the value-mapped label for its raw value, if its owning CheckRule
+    has a ValueMap attached."""
 
     service: Service
     agent_name: str
     in_downtime: bool
+    mapped_value: str | None = None
 
 
 async def is_in_downtime(session: AsyncSession, agent_id: UUID, service_name: str, now: datetime) -> bool:
@@ -430,9 +433,30 @@ async def is_in_downtime(session: AsyncSession, agent_id: UUID, service_name: st
     return bool(await session.scalar(select(exists_clause)))
 
 
+async def _lookup_mapped_value(session: AsyncSession, service: Service) -> str | None:
+    """Block K4: the human label for service.value, via its owning
+    CheckRule's attached ValueMap, if any. Tries the whole-number form of
+    the key first ("0") since that's how an operator naturally authors a
+    mapping, falling back to the raw float's string form."""
+    if service.value is None or service.rule_id is None:
+        return None
+    rule = await session.get(CheckRule, service.rule_id)
+    if rule is None or rule.value_map_id is None:
+        return None
+    value_map = await session.get(ValueMap, rule.value_map_id)
+    if value_map is None:
+        return None
+    if service.value == int(service.value):
+        key = str(int(service.value))
+        if key in value_map.mappings:
+            return value_map.mappings[key]
+    return value_map.mappings.get(str(service.value))
+
+
 async def _to_view(session: AsyncSession, service: Service, agent_name: str, now: datetime) -> ServiceView:
     in_downtime = await is_in_downtime(session, service.agent_id, service.name, now)
-    return ServiceView(service=service, agent_name=agent_name, in_downtime=in_downtime)
+    mapped_value = await _lookup_mapped_value(session, service)
+    return ServiceView(service=service, agent_name=agent_name, in_downtime=in_downtime, mapped_value=mapped_value)
 
 
 async def to_view(session: AsyncSession, service: Service) -> ServiceView:

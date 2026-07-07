@@ -60,6 +60,10 @@ class ServiceOut(BaseModel):
     ack_by: str | None
     ack_expires_at: datetime | None
     in_downtime: bool
+    # Block K4: the value-mapped label for `value`, via the owning
+    # CheckRule's attached ValueMap (e.g. 0 -> "Down"); null if no map is
+    # attached or the rule isn't materializing this service.
+    mapped_value: str | None
 
     @classmethod
     def from_view(cls, view: ServiceView) -> "ServiceOut":
@@ -84,6 +88,7 @@ class ServiceOut(BaseModel):
             ack_by=s.ack_by,
             ack_expires_at=s.ack_expires_at,
             in_downtime=view.in_downtime,
+            mapped_value=view.mapped_value,
         )
 
 
@@ -314,6 +319,9 @@ class CheckRuleIn(BaseModel):
     # Consecutive non-OK checks before hard (Block H7); null = global default.
     max_attempts: int | None = None
     enabled: bool = True
+    # Block K4: an optional attached ValueMap, shown on the materialized
+    # Service alongside its raw value.
+    value_map_id: UUID | None = None
 
 
 class CheckRuleOut(BaseModel):
@@ -330,6 +338,7 @@ class CheckRuleOut(BaseModel):
     is_default: bool
     enabled: bool
     created_at: datetime
+    value_map_id: UUID | None
 
     @classmethod
     def from_model(cls, r: CheckRule) -> "CheckRuleOut":
@@ -347,6 +356,7 @@ class CheckRuleOut(BaseModel):
             is_default=r.is_default,
             enabled=r.enabled,
             created_at=r.created_at,
+            value_map_id=r.value_map_id,
         )
 
 
@@ -389,6 +399,7 @@ async def create_check_rule(
         label_value=body.label_value,
         max_attempts=body.max_attempts,
         enabled=body.enabled,
+        value_map_id=body.value_map_id,
     )
     session.add(rule)
     await session.commit()
@@ -419,6 +430,7 @@ async def update_check_rule(
     rule.label_value = body.label_value
     rule.max_attempts = body.max_attempts
     rule.enabled = body.enabled
+    rule.value_map_id = body.value_map_id
     await session.commit()
     return CheckRuleOut.from_model(rule)
 

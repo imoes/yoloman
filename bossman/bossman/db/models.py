@@ -317,6 +317,21 @@ class PlanEmbedding(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 
+class ValueMap(Base):
+    """A reusable named numeric/string -> human-label mapping (Zabbix gap-
+    analysis Block K4), e.g. {"0": "Down", "1": "Up"}. Attached to a
+    CheckRule via CheckRule.value_map_id; a Service materialized from that
+    rule shows the mapped label alongside its raw value (see
+    services/monitoring.py's ServiceView.mapped_value)."""
+
+    __tablename__ = "value_maps"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    mappings: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
 class CheckRule(Base):
     """A CheckMK-style monitoring rule: "if <metric> <comparison> <warn/
     crit threshold>, that's a WARN/CRIT service named <service_name>" (see
@@ -356,6 +371,10 @@ class CheckRule(Base):
     # user-created rules.
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # Block K4: an optional reusable numeric/string -> label mapping,
+    # shown alongside a materialized Service's raw value. SET NULL on
+    # delete — removing a value map shouldn't take the rule down with it.
+    value_map_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("value_maps.id", ondelete="SET NULL"))
 
     __table_args__ = (
         CheckConstraint(
