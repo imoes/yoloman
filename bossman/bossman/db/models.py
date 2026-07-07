@@ -388,6 +388,11 @@ class CheckRule(Base):
     # expression". NULL = recover as soon as the value clears warn_threshold
     # (today's behavior).
     recovery_threshold: Mapped[float | None] = mapped_column(Float)
+    # Block K8: name of another service (same agent) this one depends on —
+    # a symptom whose notification is suppressed while its root-cause
+    # service is already a confirmed (hard) problem. Name-based, same-host
+    # only (not a full cross-host dependency graph).
+    depends_on_service_name: Mapped[str | None] = mapped_column(String)
 
     __table_args__ = (
         CheckConstraint(

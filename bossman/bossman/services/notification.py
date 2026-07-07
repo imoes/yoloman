@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings
-from bossman.db.models import Notification, NotificationRule, Service
+from bossman.db.models import CheckRule, Notification, NotificationRule, Service
 
 # Severity ordering for the min_state floor.
 _SEVERITY = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
@@ -177,6 +177,22 @@ async def dispatch(
     return logs
 
 
+async def _depends_on_active_problem(session: AsyncSession, svc: Service) -> bool:
+    """Block K8: True if svc's CheckRule declares a dependency
+    (depends_on_service_name) on another service, same agent, that is
+    itself currently a confirmed (hard) non-OK problem — the root-cause
+    already covers this symptom, so it shouldn't page separately."""
+    if svc.rule_id is None:
+        return False
+    rule = await session.get(CheckRule, svc.rule_id)
+    if rule is None or not rule.depends_on_service_name:
+        return False
+    dep = await session.scalar(
+        select(Service).where(Service.agent_id == svc.agent_id, Service.name == rule.depends_on_service_name)
+    )
+    return dep is not None and dep.state != "OK" and dep.state_type == "hard"
+
+
 async def collect_and_dispatch(session: AsyncSession, settings: Settings, services: list[Service], **senders) -> int:
     """Given the services an evaluation cycle just touched, dispatch a
     notification for each that had a confirmed hard change AND isn't
@@ -199,6 +215,11 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
         if event == "problem" and svc.acknowledged:
             continue
         if await is_in_downtime(session, svc.agent_id, svc.name, now):
+            continue
+        # Block K8 (trigger dependencies): a symptom problem doesn't page
+        # anyone while its declared root-cause service is already a
+        # confirmed (hard) problem on the same host.
+        if event == "problem" and await _depends_on_active_problem(session, svc):
             continue
         # agent_name/tags aren't on the Service row; the state machine stamps them too.
         agent_name = getattr(svc, "_notify_agent_name", "")

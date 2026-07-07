@@ -325,6 +325,8 @@ class CheckRuleIn(BaseModel):
     value_map_id: UUID | None = None
     # Block K6: hysteresis — see CheckRule.recovery_threshold.
     recovery_threshold: float | None = None
+    # Block K8: trigger dependency — see CheckRule.depends_on_service_name.
+    depends_on_service_name: str | None = None
 
 
 class CheckRuleOut(BaseModel):
@@ -343,6 +345,7 @@ class CheckRuleOut(BaseModel):
     created_at: datetime
     value_map_id: UUID | None
     recovery_threshold: float | None
+    depends_on_service_name: str | None
 
     @classmethod
     def from_model(cls, r: CheckRule) -> "CheckRuleOut":
@@ -362,6 +365,7 @@ class CheckRuleOut(BaseModel):
             created_at=r.created_at,
             value_map_id=r.value_map_id,
             recovery_threshold=r.recovery_threshold,
+            depends_on_service_name=r.depends_on_service_name,
         )
 
 
@@ -406,6 +410,7 @@ async def create_check_rule(
         enabled=body.enabled,
         value_map_id=body.value_map_id,
         recovery_threshold=body.recovery_threshold,
+        depends_on_service_name=body.depends_on_service_name,
     )
     session.add(rule)
     await session.commit()
@@ -438,6 +443,7 @@ async def update_check_rule(
     rule.enabled = body.enabled
     rule.value_map_id = body.value_map_id
     rule.recovery_threshold = body.recovery_threshold
+    rule.depends_on_service_name = body.depends_on_service_name
     await session.commit()
     return CheckRuleOut.from_model(rule)
 

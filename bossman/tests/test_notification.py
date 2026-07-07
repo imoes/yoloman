@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from bossman.config import Settings
-from bossman.db.models import Agent, Downtime, Notification, NotificationRule, Service
+from bossman.db.models import Agent, CheckRule, Downtime, Notification, NotificationRule, Service
 from bossman.services import notification
 from bossman.services.notification import NotifyEvent, rule_matches, tags_match
 
@@ -159,4 +159,67 @@ async def test_collect_and_dispatch_suppression(db_session):
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.delete(rule)
+    await db_session.commit()
+
+
+async def test_collect_and_dispatch_suppresses_dependent_service(db_session):
+    """Block K8 (trigger dependencies): a symptom service whose CheckRule
+    depends_on_service_name points at a root-cause service that is ALSO a
+    confirmed hard problem doesn't notify; it does notify once the
+    root-cause has recovered."""
+    settings = Settings(database_url="x", smtp_host="localhost")
+    dependent_rule = CheckRule(
+        service_name="Backup job", metric="backup_ok", comparison="lt",
+        warn_threshold=1.0, crit_threshold=1.0, scope_type="global",
+        enabled=True, depends_on_service_name="Disk /",
+    )
+    db_session.add(dependent_rule)
+    notify_rule = _rule(channel="email")  # matches any service — proves the fake sender actually fires
+    db_session.add(notify_rule)
+    agent = Agent(name=f"notif-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    now = datetime.now(timezone.utc)
+    root_cause = Service(
+        agent_id=agent.id, name="Disk /", metric="", state="CRIT", value=1.0, output="disk full",
+        last_state_change=now, last_checked=now, state_type="hard", attempt=3, max_attempts=3,
+    )
+    db_session.add(root_cause)
+    await db_session.flush()
+
+    symptom = Service(
+        agent_id=agent.id, name="Backup job", metric="", state="CRIT", value=1.0, output="backup failed",
+        last_state_change=now, last_checked=now, state_type="hard", attempt=3, max_attempts=3,
+        rule_id=dependent_rule.id,
+    )
+    db_session.add(symptom)
+    await db_session.flush()
+    symptom._notify_event = "problem"
+    symptom._notify_agent_name = agent.name
+
+    sent = []
+    n = await notification.collect_and_dispatch(
+        db_session, settings, [symptom], email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert n == 0, "suppressed: root-cause (Disk /) is still an active hard problem"
+    assert sent == []
+
+    # Root cause recovers — the symptom's next confirmed change now notifies.
+    root_cause.state = "OK"
+    await db_session.flush()
+    n2 = await notification.collect_and_dispatch(
+        db_session, settings, [symptom], email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert n2 == 1
+    assert len(sent) == 1 and "Backup job" in sent[0]
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.delete(symptom)
+    await db_session.delete(root_cause)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(dependent_rule)
+    await db_session.delete(notify_rule)
     await db_session.commit()
