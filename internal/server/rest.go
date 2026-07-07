@@ -263,6 +263,7 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)
+	RegisterProcessRoutes(mux, cfg)
 
 	return withIdentity(cfg, mux)
 }

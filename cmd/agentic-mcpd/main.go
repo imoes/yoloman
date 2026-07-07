@@ -239,6 +239,7 @@ func newServer(cfg config.Config, st store.Store, c *components, acl *authz.ACL,
 	if collector != nil {
 		server.RegisterEBPF(s, collector)
 	}
+	server.RegisterProcessList(s, "/proc", collector)
 	return s, nil
 }
 
