@@ -341,6 +341,44 @@ def load_source(module_sources_dir: str | Path, fqcn: str) -> dict[str, Any]:
         raise ModuleLibraryError(f"cannot read dumped source for {fqcn!r}: {exc}") from exc
 
 
+def list_modules(modules_dir: str | Path, module_sources_dir: str | Path) -> list[dict[str, Any]]:
+    """The catalog listing for the module-management UI (Block H4): one
+    entry per known module (the source dump defines the universe), cheap
+    by design — translated modules are enriched from their small metadata
+    YAML; untranslated ones stay name-only (their details load on demand
+    via load_source, never by bulk-reading the 15MB dump)."""
+    out: list[dict[str, Any]] = []
+    for path in sorted(Path(module_sources_dir).glob("*.json")):
+        fqcn = path.stem
+        collection, _, name = fqcn.rpartition(".")
+        entry: dict[str, Any] = {"fqcn": fqcn, "collection": collection, "name": name, "translated": False}
+        yaml_path, star_path = module_paths(modules_dir, fqcn)
+        if yaml_path.exists() and star_path.exists():
+            entry["translated"] = True
+            try:
+                meta = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+                entry["short_description"] = meta.get("short_description", "")
+                entry["writes"] = bool(meta.get("writes", True))
+            except (OSError, yaml.YAMLError):
+                pass
+        out.append(entry)
+    return out
+
+
+def load_module(modules_dir: str | Path, fqcn: str) -> dict[str, Any]:
+    """One translated module's stored pair: parsed metadata + the Starlark
+    source. Raises for a module not (yet) in the library."""
+    yaml_path, star_path = module_paths(modules_dir, fqcn)
+    if not yaml_path.exists() or not star_path.exists():
+        raise ModuleLibraryError(f"module {fqcn!r} is not in the library")
+    try:
+        metadata = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+        star_code = star_path.read_text(encoding="utf-8")
+    except (OSError, yaml.YAMLError) as exc:
+        raise ModuleLibraryError(f"cannot read module {fqcn!r}: {exc}") from exc
+    return {"fqcn": fqcn, "metadata": metadata, "star_code": star_code}
+
+
 def status(modules_dir: str | Path, module_sources_dir: str | Path) -> dict[str, Any]:
     """Translation progress, derived purely from the filesystem: the dump
     defines the universe, a stored .star+.yaml pair means translated."""

@@ -124,6 +124,36 @@ def test_submit_rejects_fqcn_mismatch(starlark_check, tmp_path):
         module_library.submit(tmp_path, starlark_check, "community.general.wrong", VALID_METADATA, VALID_STAR)
 
 
+def test_list_and_load_modules(tmp_path):
+    sources = tmp_path / "module_sources"
+    sources.mkdir()
+    for fqcn, desc in [("ansible.posix.sysctl", "Manage sysctl"), ("community.general.timezone", "Set timezone")]:
+        (sources / f"{fqcn}.json").write_text(
+            json.dumps({"fqcn": fqcn, "short_description": desc, "doc": {"options": {"name": {"type": "str"}}}})
+        )
+    modules_dir = tmp_path / "modules.d"
+    (modules_dir / "ansible.posix").mkdir(parents=True)
+    (modules_dir / "ansible.posix" / "sysctl.yaml").write_text(
+        "name: sysctl\nfqcn: ansible.posix.sysctl\ncollection: ansible.posix\n"
+        "short_description: Manage sysctl\noptions: {}\nwrites: true\nruntime: starlark\n"
+    )
+    (modules_dir / "ansible.posix" / "sysctl.star").write_text("def main(ctx, params):\n    return {}\n")
+
+    listing = module_library.list_modules(modules_dir, sources)
+    assert len(listing) == 2
+    by_fqcn = {m["fqcn"]: m for m in listing}
+    assert by_fqcn["ansible.posix.sysctl"]["translated"] is True
+    assert by_fqcn["ansible.posix.sysctl"]["writes"] is True
+    assert by_fqcn["ansible.posix.sysctl"]["short_description"] == "Manage sysctl"
+    assert by_fqcn["community.general.timezone"]["translated"] is False
+
+    detail = module_library.load_module(modules_dir, "ansible.posix.sysctl")
+    assert detail["metadata"]["fqcn"] == "ansible.posix.sysctl"
+    assert "def main" in detail["star_code"]
+    with pytest.raises(module_library.ModuleLibraryError, match="not in the library"):
+        module_library.load_module(modules_dir, "community.general.timezone")
+
+
 def test_load_source_and_status(tmp_path):
     sources = tmp_path / "module_sources"
     sources.mkdir()
