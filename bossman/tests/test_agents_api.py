@@ -132,8 +132,33 @@ async def test_agent_metrics_with_metric_filter_returns_points(db_session):
     assert len(body["points"]) == 1
     assert body["points"][0]["value"] == 42.5
     assert body["points"][0]["labels"] == {"core": "0"}
+    assert body["resolution"] == "raw"
 
     await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[metric])
+
+
+async def test_agent_metrics_since_beyond_raw_retention_reports_downsampled_resolution(db_session):
+    """Block K1b: a `since` older than settings.metrics_retention_days
+    reports resolution="hourly" (or "daily") even if the continuous
+    aggregate has nothing materialized yet for this brand-new agent — the
+    route must not silently fall back to raw and pretend nothing changed."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    since = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat()
+
+    with TestClient(create_app()) as client:
+        resp = client.get(
+            f"/api/v1/agents/{agent.id}/metrics",
+            params={"metric": "cpu_pct", "since": since},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["resolution"] == "hourly"
+    assert body["points"] == []  # nothing materialized for this fresh agent, but the tier choice is still correct
+
+    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[])
 
 
 async def test_agent_metrics_latest_returns_newest_per_metric(db_session):

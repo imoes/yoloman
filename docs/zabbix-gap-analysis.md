@@ -14,8 +14,8 @@ comparable user-facing features.
 
 ## Progress
 
-- [ ] Batch 1 — Ch.3 Zabbix Processes (light)
-- [ ] Batch 2 — Ch.7a Configuration: Hosts/groups, Items
+- [x] Batch 1 — Ch.3 Zabbix Processes (light) — 3 gaps found; HA deferred, Housekeeping (K1) + Runtime control (K2) implemented
+- [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found, decisions below
 - [ ] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging
 - [ ] Batch 4 — Ch.7c Configuration: Visualization, Templates
 - [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
@@ -92,6 +92,98 @@ here as the starting reference.
 
 ---
 
-## Batch 1 — Ch.3 Zabbix Processes
+## Batch 2 — Ch.7a Configuration: Hosts/host groups, Items
 
-*(pending — not yet read)*
+Read: [config/hosts](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts),
+[config/hosts/host](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts/host) (full host form),
+[config/hosts/host_groups](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts/host_groups),
+[config/hosts/hostupdate](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts/hostupdate) (mass update),
+[config/hosts/inventory](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts/inventory),
+[config/items/itemtypes](https://www.zabbix.com/documentation/7.0/en/manual/config/items/itemtypes) (all 20 item types),
+[config/items/preprocessing](https://www.zabbix.com/documentation/7.0/en/manual/config/items/preprocessing) (all ~30 preprocessing steps).
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition |
+|---|---|---|---|
+| Host groups: nested/hierarchical | `Europe/Latvia/Riga` slash-notation subgroups; permissions inherit to children; tag filters apply recursively | ❌ sharpens #1 (flat `groups: list[str]` only) | **implement now** |
+| Host groups: permission scoping | "All permissions are based on groups: user groups, host groups, template groups" — a user group's access is granted per host group | ❌ sharpens #1/#9 (no RBAC enforced at all) | **defer** (bundled with real RBAC, a bigger future block) |
+| Host inventory: manual fields + auto-population routing | 3 modes (disabled/manual/automatic); in automatic mode, *any* item can be flagged "populates host inventory field X" | 🟡 sharpens #1/#30 (facts are auto-collected but fixed/hardcoded, no manual entry, no per-item routing) | **defer** |
+| Multiple interfaces per host (agent/SNMP/JMX/IPMI, distinct ports, one marked default) | e.g. a host can be polled via Zabbix agent on 10050 *and* SNMP on 161 simultaneously | ❌ sharpens #36 (one address per Agent row) | **defer** (low value until a non-agent item type exists) |
+| Encryption: per-direction config + cert issuer/subject restriction + PSK | Separate "connections to host" vs "connections from host"; PSK mode (hex key, no cert infra needed) | 🟡 sharpens #19/#41 (mTLS only, no PSK, no direction split) | **defer** (mTLS already meets the actual security goal) |
+| Mass update (bulk-edit groups/templates/macros/tags/inventory/encryption across many selected hosts at once) | One form, checkbox-per-attribute, applies to a multi-select | ❌ new, not in baseline | **implement now** |
+| Item types: SNMP/IPMI/JMX/Database-monitor/SSH/Telnet/Prometheus-check | Protocol-specific pollers on the server side | ❌ sharpens #36 | **reject for now** — no host in this fleet needs SNMP/IPMI/JMX/DB-monitor/SSH-as-a-check today; revisit if a concrete host requires one (e.g. a network switch) |
+| HTTP-agent item type (scheduled URL poll as a first-class recurring item, response parsed/stored) | Distinct from Ch.9's multi-step web *scenarios* — this is a single recurring check | 🟡 sharpens #36 (`uri.go` is one-shot, not a scheduled item) | **defer** |
+| Calculated items + Aggregate calculations (derive a value from other items' data via a formula, e.g. avg of a host group's CPU) | No separate poll — computed from already-collected data | ❌ sharpens #2 | **defer** (valuable — "smarter thresholds" — but a real design effort) |
+| Dependent items (a "sub-item" that's just preprocessing applied to a master item's raw value, no separate poll) | E.g. one big JSON poll → many dependent items each extracting one field | ❌ sharpens #2/#38 | **defer** (depends on preprocessing existing first) |
+| Item preprocessing pipeline — ~30 chainable, testable-before-save transform steps (regex/JSONPath/JS/unit-conversion/validation/etc.) | Chained in order, each step testable independently before saving | ❌ missing entirely (baseline #38) | **defer**, replaced by a narrower, concrete need surfaced in discussion — see "K3 (planned)" below |
+| Value mapping (numeric/string → human label, e.g. 0→"Down") | Reusable named value-map objects, attached to any item | ❌ (baseline #39) | **implement now** → K4 |
+| History + Trends (two-tier storage: raw history for N days, then hourly min/avg/max "trends" retained far longer/indefinitely) | Trends survive after raw history is housekept away — long-term graphs stay meaningful | ❌ **corrected finding** (see below) | **implement now** → **K1b, done** |
+| "Execute now" (force one item to be checked immediately from the UI, bypassing its interval) | One-click on-demand recheck | ❌ new, small | **implement now** → K5 |
+| User parameters (admin-defined custom check keys on the agent, no recompiling) | `UserParameter=mykey,command` in agent config | 🟡 already covered differently — tools.d YAML tasks + Nagios-style checks serve the same "add a custom check without recompiling" need | no action |
+| Windows performance counters | Windows-specific | ⏭ out of scope | **reject** — yolo-man is Linux-fleet-focused (per CLAUDE.md's Proxmox/Linux context) |
+| Queue (which items are overdue/late, per-item) + Value cache (in-memory history-read cache, tunable) | Frontend diagnostic views | 🟡 sharpens #22; K2's diagnostics (Block K2, this session) already gives a coarse poller-lag view | **defer** — deeper per-item queue view is low priority at current fleet size |
+| Restricting agent checks (agent-side allow-list of which item keys the server may invoke) | Security hardening on the agent side | 🟡 roughly covered — internal/authz's write-gate/ACL already restricts what a caller can invoke | no action |
+
+**Decisions (user, 2026-07-07) + a correction found while implementing:**
+
+- **Item preprocessing pipeline → deferred**, but not for lack of interest — a real discussion
+  surfaced a narrower, concrete need instead: yolo-man's check-output model is deliberately
+  Nagios/CheckMK-plugin compatible today (exit code + stdout → OK/WARN/CRIT/UNKNOWN, see
+  `internal/checks/checks.go`), which is exactly why the full ~30-step Zabbix transform pipeline
+  has nothing to act on yet — none of yolo-man's item types return the kind of messy raw
+  SNMP/HTTP/script output Zabbix's preprocessing exists to clean up (and the item types that
+  would, were rejected/deferred above). What's wanted instead: **(a)** a parser for check-output
+  formats *beyond* Nagios/CheckMK's, **(b)** less strict state evaluation (not force everything
+  through a rigid exit-code mapping), **(c)** exposing the full structured check output as JSON
+  over the API instead of flattening it to a single value+state. Logged as **K3 (planned)** — a
+  properly scoped design task, not started this batch.
+- **History + Trends → implemented (K1b), with a correction to the question itself.** The initial
+  framing ("build a trends system from scratch") was wrong: a real check of the codebase (prompted
+  by the user's own skepticism) found the Go agent's local SQLite store **already** does
+  raw→hourly→daily downsampling (`internal/store/sqlite.go`'s `Downsample`/`consolidate`), and
+  Bossman's own initial schema **already** has a `metrics_hourly` TimescaleDB continuous aggregate
+  (`alembic/versions/f17d664762b0`) — but it was never queried by any code path, and had no
+  retention policy of its own. The actual, much smaller gap: raw `metrics` are deleted after 14
+  days (TimescaleDB-native `add_retention_policy`, confirmed as a real registered background job)
+  with the hourly rollup sitting unused. Implemented: `metrics_daily` continuous aggregate (new
+  migration `cd09bed433e7`) + explicit retention (hourly 90d, daily 365d, matching the "365 days,
+  CheckMK-RRD-style" spec already in docs/plan.md's original Node Agent design) + a tiered
+  read-path (`services/metrics_query.py`) that transparently serves raw/hourly/daily depending on
+  how far back a query reaches. Verified against real, registered TimescaleDB jobs (not just that
+  the migration ran) — see the K1b commit for the `psql` output.
+- **This also caught a real bug in K1 (this session's own earlier work):** the original
+  housekeeping implementation redundantly re-deleted rows from `metrics`/`connection_events`/
+  `service_state_history` in Python — tables that **already** had native TimescaleDB retention
+  policies since the initial schema. Changing `settings.metrics_retention_days` would have had
+  **no actual effect** (the DB-native policy would still win), a latent correctness bug. Fixed:
+  `run_housekeeping` is now scoped to `notifications`/`plan_runs` only (the two tables that
+  genuinely had no retention at all); the three hypertable settings remain as informational
+  mirrors of the real DB-level policy, now given a real second purpose as the tier-selection
+  thresholds for K1b's read path.
+- **Host groups: nested + Mass update → both implemented now** (K2b/K2c, see below).
+- **Value mapping + "Execute now" → both implemented now** (K4/K5, see below — small, high
+  day-to-day value as the user judged).
+
+Read: [manual/concepts](https://www.zabbix.com/documentation/7.0/en/manual/concepts) (overview) +
+[manual/concepts/server](https://www.zabbix.com/documentation/7.0/en/manual/concepts/server) (full detail incl. High Availability + runtime control).
+
+Server = "the central process that performs polling and trapping of data, calculates triggers, and
+sends notifications to users." Its internal process-thread breakdown (agent/SNMP/HTTP/ICMP/IPMI/
+Java/ODBC pollers, history syncer, preprocessing manager/worker, trapper, alert manager/alerter/
+escalator, task manager, configuration syncer, discovery/LLD manager+worker, housekeeper, self-
+monitoring, connector manager/worker, report manager/writer, proxy group manager, timer, web
+monitoring) is Zabbix's own internal architecture, not a checklist of separate user-facing
+features — most of it maps to concepts already tracked in the baseline (item types #36, discovery
+#17/#40, data export #12, scheduled reports #11, web monitoring #37) and will get full treatment
+when those chapters are read (Ch.7, Ch.9, Ch.15). Three items are new or meaningfully sharpen an
+existing baseline entry:
+
+| Feature (Zabbix) | Detail | yolo-man status | Note |
+|---|---|---|---|
+| High Availability (server) | Multiple server nodes, active/standby, database-coordinated failover, configurable failover delay (min. 10s, `ha_set_failover_delay`), node registration/removal (`ha_status`, `ha_remove_node`) | ❌ missing (sharpens baseline #43) | Bossman is single-instance; no multi-node coordination, no failover of any kind. A Bossman crash/restart is a monitoring outage until it comes back. |
+| Housekeeping (as a live, configurable, triggerable process) | Per-data-type retention, `housekeeper_execute`/`trigger_housekeeper_execute` runtime-triggerable without restart | 🟡 sharpens baseline #21 | yolo-man's retention (14/30/30 days) is hardcoded in Alembic migrations — not configurable, not manually triggerable, no per-table breakdown of what's being cleaned. |
+| Runtime operational control plane | Live cache reload, log-level increase/decrease, diagnostics dump (`diaginfo`), profiling toggle, secrets reload — all without restarting the process | ❌ missing (new) | Bossman has no equivalent: no live log-level control, no diagnostics/queue-depth dump endpoint, no way to force a reload of anything short of a full redeploy (which is exactly the friction we've hit this session restarting the module-translation background job after every Bossman deploy). |
+
+**Decisions (user, 2026-07-07):**
+- High Availability → **defer** (roadmap; genuine multi-node HA is a large, standalone block, sensible after the rest of this analysis lands)
+- Configurable/triggerable housekeeping → **implement now** → new Block K1
+- Runtime operational control plane (diagnostics + live log-level) → **implement now** → new Block K2

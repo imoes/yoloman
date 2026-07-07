@@ -84,13 +84,7 @@ async def test_run_housekeeping_now_returns_deleted_counts(db_session):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body["deleted"].keys()) == {
-        "metrics",
-        "connection_events",
-        "service_state_history",
-        "notifications",
-        "plan_runs",
-    }
+    assert set(body["deleted"].keys()) == {"notifications", "plan_runs"}
 
     await db_session.delete(api_token)
     await db_session.commit()

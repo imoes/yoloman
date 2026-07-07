@@ -1,12 +1,22 @@
 """Configurable, on-demand data retention (Zabbix gap-analysis Block K1):
 Zabbix's housekeeper is a dedicated, configurable, runtime-triggerable
-server process (`housekeeper_execute`) — yolo-man's previous equivalent
-was three retention windows hardcoded straight into Alembic migrations
-(14/30/30 days), with no admin visibility or on-demand trigger, and two
-tables (notifications, plan_runs) with no retention at all. This service
-makes retention a Settings value per data type and exposes both a timer
-(housekeeping_loop, mirroring poller_loop's shape) and an on-demand run
-(run_housekeeping) for `POST /api/v1/admin/housekeeping/run`.
+server process (`housekeeper_execute`).
+
+**Correction (same session, Batch 2 decision round):** the initial version
+of this module also deleted rows from `metrics`, `connection_events`, and
+`service_state_history` — but those three are TimescaleDB hypertables that
+*already* have native `add_retention_policy(...)` background jobs
+registered at migration time (14/30/30 days respectively — see
+alembic/versions/f17d664762b0_initial_schema.py and
+50e78cc78c2a_monitoring_core.py). Re-deleting them here in Python was
+redundant at best and misleading at worst: changing
+`settings.metrics_retention_days` would have had **no actual effect**,
+since TimescaleDB's own policy — configured independently at the DB level
+— would still win. This module is now scoped to the two tables that
+genuinely had no retention at all: `notifications` and `plan_runs`. The
+three hypertables' retention is TimescaleDB-native and out of Python's
+control; `metrics`'s longer-term story is the `metrics_hourly`/
+`metrics_daily` continuous aggregates (Block K1b), not this module.
 
 Framework-free (no FastAPI import), like services/poller.py, so it's
 reachable from the app's background task, the admin route, and tests
@@ -24,7 +34,7 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import ConnectionEvent, Metric, Notification, PlanRun, ServiceStateHistory
+from bossman.db.models import Notification, PlanRun
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +54,12 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     """Deletes rows older than each table's configured retention. Returns
     a dict of table name -> rows deleted, for logging/diagnostics. One
     DELETE per table, each committed independently so a failure on one
-    table doesn't roll back cleanup already done on the others."""
+    table doesn't roll back cleanup already done on the others.
+
+    Scoped to `notifications`/`plan_runs` only — metrics/connection_events/
+    service_state_history are TimescaleDB hypertables with their own
+    native retention policies (see module docstring)."""
     plans = [
-        ("metrics", Metric, Metric.time, settings.metrics_retention_days),
-        ("connection_events", ConnectionEvent, ConnectionEvent.time, settings.connection_events_retention_days),
-        (
-            "service_state_history",
-            ServiceStateHistory,
-            ServiceStateHistory.time,
-            settings.service_state_history_retention_days,
-        ),
         ("notifications", Notification, Notification.created_at, settings.notifications_retention_days),
         ("plan_runs", PlanRun, PlanRun.started_at, settings.plan_runs_retention_days),
     ]

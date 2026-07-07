@@ -127,21 +127,30 @@ class Settings(BaseSettings):
     # Per-send network timeout for SMTP + webhook (seconds).
     notify_timeout_seconds: float = 10.0
 
-    # Housekeeping (Zabbix gap-analysis Block K1): per-data-type retention,
-    # configurable instead of hardcoded in the Alembic migrations that
-    # originally set them (metrics=14d, connection_events/
-    # service_state_history=30d — matched here as defaults). notifications
-    # and plan_runs previously had no retention at all (unbounded growth);
-    # they now default to 90 days. Enforced by services/housekeeping.py,
-    # run on a timer and triggerable on demand via POST
-    # /api/v1/admin/housekeeping/run.
+    # Housekeeping (Zabbix gap-analysis Block K1): notifications and
+    # plan_runs previously had no retention at all (unbounded growth); they
+    # now default to 90 days, actively enforced by services/housekeeping.py
+    # (run on a timer and triggerable on demand via POST
+    # /api/v1/admin/housekeeping/run).
     housekeeping_enabled: bool = True
     housekeeping_interval_seconds: int = 3600
-    metrics_retention_days: int = 14
-    connection_events_retention_days: int = 30
-    service_state_history_retention_days: int = 30
     notifications_retention_days: int = 90
     plan_runs_retention_days: int = 90
+
+    # metrics/connection_events/service_state_history are TimescaleDB
+    # hypertables with their OWN native add_retention_policy(...) background
+    # jobs, registered at migration time — these three values are NOT
+    # enforced by Python (an earlier version of this file claimed they were,
+    # which was wrong: changing them here would have had no actual effect).
+    # They exist purely as informational mirrors of the real DB-level
+    # policy, read by the metrics tiered-resolution logic (Block K1b,
+    # services/metrics_query.py) to decide when a requested time range needs
+    # metrics_hourly/metrics_daily instead of raw metrics.
+    metrics_retention_days: int = 14
+    metrics_hourly_retention_days: int = 90
+    metrics_daily_retention_days: int = 365
+    connection_events_retention_days: int = 30
+    service_state_history_retention_days: int = 30
 
 
 def get_settings() -> Settings:

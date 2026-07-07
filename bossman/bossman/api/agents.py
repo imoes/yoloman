@@ -16,8 +16,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
 from bossman.db.session import get_session
+from bossman.services.metrics_query import query_series
 
 router = APIRouter()
 
@@ -57,6 +59,10 @@ class MetricPointOut(BaseModel):
     time: datetime
     value: float
     labels: dict
+    # Populated only for the hourly/daily tiers (Block K1b) — the
+    # consolidated bucket's spread; None for a true raw sample.
+    min_value: float | None = None
+    max_value: float | None = None
 
 
 class LatestMetricOut(BaseModel):
@@ -125,6 +131,7 @@ async def get_agent_metrics(
     metric: str | None = Query(None, description="Metric name to fetch points for; omit for catalog discovery"),
     since: datetime | None = Query(None, description="Only points at or after this time"),
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict:
     await _get_agent_or_404(session, agent_id)
@@ -140,14 +147,19 @@ async def get_agent_metrics(
         ).all()
         return {"metrics": list(names)}
 
-    stmt = select(Metric).where(Metric.agent_id == agent_id, Metric.metric == metric)
-    if since is not None:
-        stmt = stmt.where(Metric.time >= since)
-    stmt = stmt.order_by(Metric.time)
-    points = (await session.scalars(stmt)).all()
+    # Block K1b: a `since` reaching further back than raw metrics' 14-day
+    # TimescaleDB retention transparently reads the metrics_hourly/
+    # metrics_daily continuous aggregates instead of coming back empty.
+    tier, points = await query_series(session, settings, agent_id, metric, since)
     return {
         "metric": metric,
-        "points": [MetricPointOut(time=p.time, value=p.value, labels=p.labels).model_dump() for p in points],
+        "resolution": tier,
+        "points": [
+            MetricPointOut(
+                time=p.time, value=p.value, labels=p.labels, min_value=p.min_value, max_value=p.max_value
+            ).model_dump()
+            for p in points
+        ],
     }
 
 
