@@ -1,0 +1,67 @@
+name: x509_certificate_info
+fqcn: community.crypto.x509_certificate_info
+collection: community.crypto
+short_description: Provide information of OpenSSL X.509 certificates
+description: This module allows one to query information on OpenSSL certificates. It uses the cryptography
+  python library to interact with OpenSSL. Note that this module was called C(openssl_certificate_info)
+  when included directly in Ansible up to version 2.9.  When moved to the collection C(community.crypto),
+  it was renamed to M(community.crypto.x509_certificate_info). From Ansible 2.10 on, it can still be used
+  by the old short name (or by C(ansible.builtin.openssl_certificate_info)), which redirects to M(community.crypto.x509_certificate_info).
+  When using FQCNs or when using the L(collections,https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#using-collections-in-a-playbook)
+  keyword, the new name M(community.crypto.x509_certificate_info) should be used to avoid a deprecation
+  warning.
+options:
+  content:
+    type: str
+    description: Content of the X.509 certificate in PEM format. Either O(path) or O(content) must be
+      specified, but not both.
+  name_encoding:
+    type: str
+    default: ignore
+    choices:
+    - ignore
+    - idna
+    - unicode
+    description: How to encode names (DNS names, URIs, email addresses) in return values. V(ignore) will
+      use the encoding returned by the backend. V(idna) will convert all labels of domain names to IDNA
+      encoding. IDNA2008 will be preferred, and IDNA2003 will be used if IDNA2008 encoding fails. V(unicode)
+      will convert all labels of domain names to Unicode. IDNA2008 will be preferred, and IDNA2003 will
+      be used if IDNA2008 decoding fails. B(Note) that V(idna) and V(unicode) require the L(idna Python
+      library,https://pypi.org/project/idna/) to be installed.
+  path:
+    type: path
+    description: Remote absolute path where the certificate file is loaded from. Either O(path) or O(content)
+      must be specified, but not both. PEM and DER formats are supported.
+  select_crypto_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - cryptography
+    description: Determines which crypto backend to use. The default choice is V(auto), which tries to
+      use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/)
+      library.
+  valid_at:
+    type: dict
+    description: A dict of names mapping to time specifications. Every time specified here will be checked
+      whether the certificate is valid at this point. See the RV(valid_at) return value for information
+      on the result. Time can be specified either as relative time or as absolute timestamp. Time will
+      always be interpreted as UTC. Valid format is C([+-]timespec | ASN.1 TIME) where timespec can be
+      an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)), and ASN.1 TIME (in other words, pattern
+      C(YYYYMMDDHHMMSSZ)). Note that all timestamps will be treated as being in UTC.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Generate a Self Signed OpenSSL certificate\n  community.crypto.x509_certificate:\n\
+  \    path: /etc/ssl/crt/ansible.com.crt\n    privatekey_path: /etc/ssl/private/ansible.com.pem\n   \
+  \ csr_path: /etc/ssl/csr/ansible.com.csr\n    provider: selfsigned\n\n\n# Get information on the certificate\n\
+  \n- name: Get information on generated certificate\n  community.crypto.x509_certificate_info:\n    path:\
+  \ /etc/ssl/crt/ansible.com.crt\n  register: result\n\n- name: Dump information\n  ansible.builtin.debug:\n\
+  \    var: result\n\n\n# Check whether the certificate is valid or not valid at certain times, fail\n\
+  # if this is not the case. The first task (x509_certificate_info) collects\n# the information, and the\
+  \ second task (assert) validates the result and\n# makes the playbook fail in case something is not\
+  \ as expected.\n\n- name: Test whether that certificate is valid tomorrow and/or in three weeks\n  community.crypto.x509_certificate_info:\n\
+  \    path: /etc/ssl/crt/ansible.com.crt\n    valid_at:\n      point_1: \"+1d\"\n      point_2: \"+3w\"\
+  \n  register: result\n\n- name: Validate that certificate is valid tomorrow, but not in three weeks\n\
+  \  ansible.builtin.assert:\n    that:\n      - result.valid_at.point_1      # valid in one day\n   \
+  \   - not result.valid_at.point_2  # not valid in three weeks\n"
