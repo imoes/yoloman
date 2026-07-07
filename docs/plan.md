@@ -3745,9 +3745,34 @@ built-in checks** (today the built-in Memory/Disk/CPU thresholds are hardcoded i
 `internal/collect/checks.go` and can't be reconfigured per host). Event Console is of interest and
 is planned as its own large block (below), not now. BI deferred.
 
-Block plan (each block tested + committed like the rest): **H5 timed acknowledgement (done)** ·
-**H6 configurable thresholds with host override (incl. built-in checks)** · **H7 soft/hard states +
-flapping** · **H8 notifications + rule engine (SMTP + webhook)** · **H9 availability/SLA report**.
+Block plan (each block tested + committed like the rest) — **the H-series alerting core is now
+complete and live-verified against the running agentic-mcp stack + real duppy/selecta agents:**
+
+- **H5 timed acknowledgement (done).** `acknowledge_service(expires_at=)` + lazy `expire_acknowledgements()`
+  applied on read paths; `POST /services/{id}/acknowledge` takes `expire_after_minutes`. CheckMK's
+  "acknowledge for a limited time" — the problem resurfaces when the ack lapses.
+- **H6 configurable thresholds with host override (done).** `CheckRule` gained `label_value`,
+  `is_default`, and the host>group>global precedence in `resolve_effective_rule()`; disk rules fan out
+  per mount with a default rule plus per-mount override; the agent's own built-in checks yield to an
+  owning rule. Full CRUD at `/check-rules`, seeded defaults (`seed_default_check_rules`, gated by
+  `seed_default_checks`). Deleting a rule now removes its materialized services first (FK-safe).
+- **H7 soft/hard states + flapping (done).** `next_transition()` state machine (soft→hard after
+  `max_attempts`, per-rule configurable), `update_flapping()` (30-min window, ≥5 changes),
+  `service_state_history` records **only hard transitions**; `query_problems()` filters to hard state.
+- **H8 notifications + rule engine (done, SMTP + webhook).** `services/notification.py`:
+  `NotifyEvent`, `rule_matches()`, `render()`, `send_email()`/`send_webhook()`, `dispatch()` +
+  `collect_and_dispatch()` (suppresses flapping/acknowledged/in-downtime). Wired into the poller
+  (auto-fires on hard problem/recovery, live-verified webhook "sent"). CRUD `/notification-rules` +
+  `GET /notifications` log; `NotificationRule`/`Notification` models; SMTP config in `config.py`.
+- **H9 availability/SLA report (done).** `compute_availability()` reconstructs time-in-state from the
+  hard-state timeline (soft blips never count against an SLA — matching CheckMK); carry-in from the
+  last hard state before the window; percentages over *monitored* time. `GET /agents/{id}/services/
+  {name}/availability?hours=`. UI: the expanded service row shows a 24h/7d/30d SLA bar (Rastafari
+  OK/WARN/CRIT/UNKNOWN), per-state percentages and a state-change count.
+
+Alembic migrations for the series: `a3c1e9f04711` (agent facts) · `b7d2f4a19c33` (ack_expires_at) ·
+`c4e8a1d5f6b2` (check_rule label_value+is_default) · `d5f9b2c7a801` (soft/hard/flapping +
+check_rules.max_attempts) · `e6a3c9d02f14` (notifications tables).
 
 ## Block I (future) — Event Console: syslog / SNMP-trap processing (planned, own block)
 
@@ -3784,5 +3809,5 @@ already exists as write-gated modules (`systemd`, `systemd_service`, `service_fa
   fitting the community.docker work. nginx / MariaDB / PostgreSQL follow later (likely a mix of
   collectors for depth + `check:` plugins for breadth).
 
-Sequenced after the alerting core (H7 soft/hard+flapping · H8 notifications · H9 availability) unless
-reprioritised.
+Sequenced after the alerting core (H7 soft/hard+flapping · H8 notifications · H9 availability) —
+**the H-series is now done (2026-07-07), so J1–J3 are the next work** unless reprioritised.
