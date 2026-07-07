@@ -16,7 +16,7 @@ comparable user-facing features.
 
 - [x] Batch 1 — Ch.3 Zabbix Processes (light) — 3 gaps found; HA deferred, Housekeeping (K1) + Runtime control (K2) implemented
 - [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found; K1-fix+K1b+K2b+K2c+K4+K5 implemented, K3 planned (deferred)
-- [ ] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging
+- [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found, decisions below
 - [ ] Batch 4 — Ch.7c Configuration: Visualization, Templates
 - [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
 - [ ] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
@@ -92,6 +92,35 @@ here as the starting reference.
 
 ---
 
+## Batch 1 — Ch.3 Zabbix Processes
+
+Read: [manual/concepts](https://www.zabbix.com/documentation/7.0/en/manual/concepts) (overview) +
+[manual/concepts/server](https://www.zabbix.com/documentation/7.0/en/manual/concepts/server) (full detail incl. High Availability + runtime control).
+
+Server = "the central process that performs polling and trapping of data, calculates triggers, and
+sends notifications to users." Its internal process-thread breakdown (agent/SNMP/HTTP/ICMP/IPMI/
+Java/ODBC pollers, history syncer, preprocessing manager/worker, trapper, alert manager/alerter/
+escalator, task manager, configuration syncer, discovery/LLD manager+worker, housekeeper, self-
+monitoring, connector manager/worker, report manager/writer, proxy group manager, timer, web
+monitoring) is Zabbix's own internal architecture, not a checklist of separate user-facing
+features — most of it maps to concepts already tracked in the baseline (item types #36, discovery
+#17/#40, data export #12, scheduled reports #11, web monitoring #37) and got full treatment when
+those chapters were read (Ch.7, Ch.9, Ch.15). Three items were new or meaningfully sharpened an
+existing baseline entry:
+
+| Feature (Zabbix) | Detail | yolo-man status | Note |
+|---|---|---|---|
+| High Availability (server) | Multiple server nodes, active/standby, database-coordinated failover, configurable failover delay (min. 10s, `ha_set_failover_delay`), node registration/removal (`ha_status`, `ha_remove_node`) | ❌ missing (sharpens baseline #43) | Bossman is single-instance; no multi-node coordination, no failover of any kind. A Bossman crash/restart is a monitoring outage until it comes back. |
+| Housekeeping (as a live, configurable, triggerable process) | Per-data-type retention, `housekeeper_execute`/`trigger_housekeeper_execute` runtime-triggerable without restart | 🟡 sharpens baseline #21 | yolo-man's retention (14/30/30 days) was hardcoded in Alembic migrations — not configurable, not manually triggerable, no per-table breakdown of what's being cleaned. |
+| Runtime operational control plane | Live cache reload, log-level increase/decrease, diagnostics dump (`diaginfo`), profiling toggle, secrets reload — all without restarting the process | ❌ missing (new) | Bossman had no equivalent: no live log-level control, no diagnostics/queue-depth dump endpoint, no way to force a reload of anything short of a full redeploy. |
+
+**Decisions (user, 2026-07-07):**
+- High Availability → **defer** (roadmap; genuine multi-node HA is a large, standalone block, sensible after the rest of this analysis lands)
+- Configurable/triggerable housekeeping → **implement now** → **K1, done**
+- Runtime operational control plane (diagnostics + live log-level) → **implement now** → **K2, done**
+
+---
+
 ## Batch 2 — Ch.7a Configuration: Hosts/host groups, Items
 
 Read: [config/hosts](https://www.zabbix.com/documentation/7.0/en/manual/config/hosts),
@@ -162,28 +191,3 @@ Read: [config/hosts](https://www.zabbix.com/documentation/7.0/en/manual/config/h
 - **Host groups: nested + Mass update → both implemented now** (K2b/K2c, see below).
 - **Value mapping + "Execute now" → both implemented now** (K4/K5, see below — small, high
   day-to-day value as the user judged).
-
-Read: [manual/concepts](https://www.zabbix.com/documentation/7.0/en/manual/concepts) (overview) +
-[manual/concepts/server](https://www.zabbix.com/documentation/7.0/en/manual/concepts/server) (full detail incl. High Availability + runtime control).
-
-Server = "the central process that performs polling and trapping of data, calculates triggers, and
-sends notifications to users." Its internal process-thread breakdown (agent/SNMP/HTTP/ICMP/IPMI/
-Java/ODBC pollers, history syncer, preprocessing manager/worker, trapper, alert manager/alerter/
-escalator, task manager, configuration syncer, discovery/LLD manager+worker, housekeeper, self-
-monitoring, connector manager/worker, report manager/writer, proxy group manager, timer, web
-monitoring) is Zabbix's own internal architecture, not a checklist of separate user-facing
-features — most of it maps to concepts already tracked in the baseline (item types #36, discovery
-#17/#40, data export #12, scheduled reports #11, web monitoring #37) and will get full treatment
-when those chapters are read (Ch.7, Ch.9, Ch.15). Three items are new or meaningfully sharpen an
-existing baseline entry:
-
-| Feature (Zabbix) | Detail | yolo-man status | Note |
-|---|---|---|---|
-| High Availability (server) | Multiple server nodes, active/standby, database-coordinated failover, configurable failover delay (min. 10s, `ha_set_failover_delay`), node registration/removal (`ha_status`, `ha_remove_node`) | ❌ missing (sharpens baseline #43) | Bossman is single-instance; no multi-node coordination, no failover of any kind. A Bossman crash/restart is a monitoring outage until it comes back. |
-| Housekeeping (as a live, configurable, triggerable process) | Per-data-type retention, `housekeeper_execute`/`trigger_housekeeper_execute` runtime-triggerable without restart | 🟡 sharpens baseline #21 | yolo-man's retention (14/30/30 days) is hardcoded in Alembic migrations — not configurable, not manually triggerable, no per-table breakdown of what's being cleaned. |
-| Runtime operational control plane | Live cache reload, log-level increase/decrease, diagnostics dump (`diaginfo`), profiling toggle, secrets reload — all without restarting the process | ❌ missing (new) | Bossman has no equivalent: no live log-level control, no diagnostics/queue-depth dump endpoint, no way to force a reload of anything short of a full redeploy (which is exactly the friction we've hit this session restarting the module-translation background job after every Bossman deploy). |
-
-**Decisions (user, 2026-07-07):**
-- High Availability → **defer** (roadmap; genuine multi-node HA is a large, standalone block, sensible after the rest of this analysis lands)
-- Configurable/triggerable housekeeping → **implement now** → new Block K1
-- Runtime operational control plane (diagnostics + live log-level) → **implement now** → new Block K2
