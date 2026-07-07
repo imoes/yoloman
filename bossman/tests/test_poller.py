@@ -331,6 +331,46 @@ async def test_poll_agent_ingests_self_checks_from_hosts_overview(db_session, se
     await _cleanup_hosts_overview(db_session, agent)
 
 
+async def test_poll_agent_stores_inventory_facts(db_session, session_factory):
+    """The hosts/overview inventory document lands in agents.facts (Block
+    H2), for the self host and satellites alike — and a re-poll whose only
+    difference is the agent's re-stamped collected_at must NOT bump
+    facts_updated_at (the inventory is near-static)."""
+    proxy = await _make_agent(db_session, mode="proxy")
+    inv = {
+        "collected_at": "2026-07-07T10:00:00Z",
+        "system": {"manufacturer": "QEMU", "serial_number": "SN-1"},
+        "cpu": {"model": "Intel Xeon Gold 6338", "threads": 8},
+    }
+    sat_inv = {"collected_at": "2026-07-07T10:00:00Z", "system": {"manufacturer": "VMware"}}
+    fake = FakeAgentClient(
+        hosts_overview=[
+            {"host": proxy.name, "mode": "proxy", "metrics": [], "checks": [], "inventory": inv},
+            {"host": "duppy-inv-sat", "parent": proxy.name, "mode": "satellite", "metrics": [], "checks": [], "inventory": sat_inv},
+        ]
+    )
+
+    result = await poll_agent(session_factory, proxy.id, _settings(), asyncio.Semaphore(1), lambda a, s: fake)
+    assert result.errors == []
+
+    await db_session.refresh(proxy)
+    assert proxy.facts["system"]["serial_number"] == "SN-1"
+    assert proxy.facts["cpu"]["model"] == "Intel Xeon Gold 6338"
+    first_updated = proxy.facts_updated_at
+    assert first_updated is not None
+
+    satellite = await db_session.scalar(select(Agent).where(Agent.name == "duppy-inv-sat"))
+    assert satellite.facts["system"]["manufacturer"] == "VMware"
+
+    # Re-poll: same document, only collected_at re-stamped → no churn.
+    fake._hosts_overview[0]["inventory"] = dict(inv, collected_at="2026-07-07T11:00:00Z")
+    await poll_agent(session_factory, proxy.id, _settings(), asyncio.Semaphore(1), lambda a, s: fake)
+    await db_session.refresh(proxy)
+    assert proxy.facts_updated_at == first_updated, "collected_at alone must not count as a facts change"
+
+    await _cleanup_hosts_overview(db_session, satellite, proxy)
+
+
 async def test_poll_agent_self_entry_identified_by_missing_parent_not_by_name(db_session, session_factory):
     """Real bug, caught against the actual running stack: the Go agent
     reports its own OS hostname as `host` (os.Hostname()), which need not

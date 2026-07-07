@@ -68,6 +68,12 @@ class Agent(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     agent_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
+    # The host's HW/SW inventory document (CPU model, mainboard, serials,
+    # BIOS, disks, NICs, OS — see the Go agent's internal/inventory and
+    # docs/plan.md Block H2), refreshed from every hosts/overview poll.
+    facts: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    facts_updated_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
     # Per-resource poll cursors (see services/poller.py, Block B4): NULL
     # means "never successfully pulled yet" — the poller then omits the
     # from/since query parameter entirely and lets the agent apply its own

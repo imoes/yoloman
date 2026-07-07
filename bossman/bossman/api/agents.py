@@ -32,6 +32,9 @@ class AgentOut(BaseModel):
     metadata: dict
     groups: list[str]
     parent_agent_id: UUID | None
+    # The host's HW/SW inventory document (Block H2) + when it last changed.
+    facts: dict
+    facts_updated_at: datetime | None
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -45,6 +48,8 @@ class AgentOut(BaseModel):
             metadata=agent.agent_metadata,
             groups=agent.groups,
             parent_agent_id=agent.parent_agent_id,
+            facts=agent.facts or {},
+            facts_updated_at=agent.facts_updated_at,
         )
 
 

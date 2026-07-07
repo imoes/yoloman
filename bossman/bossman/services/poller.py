@@ -235,6 +235,7 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
 
         if not host.get("parent"):
             await ingest_agent_checks(session, agent, host.get("checks") or [])
+            _store_facts(agent, host, now)
             continue
 
         satellite_count += 1
@@ -247,10 +248,28 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
                 pass
         await _write_snapshot_metrics(session, satellite.id, sample_time, host.get("metrics") or [])
         await ingest_agent_checks(session, satellite, host.get("checks") or [])
+        _store_facts(satellite, host, now)
         satellite.last_seen_at = now
         await evaluate_host(session, satellite)
 
     return satellite_count
+
+
+def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
+    """Persists the host's HW/SW inventory document from a hosts/overview
+    entry (see the Go agent's internal/inventory, Block H1/H2). Only
+    touches the row when the document actually changed — the inventory is
+    near-static, and a no-op write per poll tick would just churn the
+    table. `collected_at` is excluded from the comparison (the agent
+    re-stamps it on every cache refresh even when nothing else moved)."""
+    inv = host.get("inventory")
+    if not isinstance(inv, dict) or not inv:
+        return
+    stripped = {k: v for k, v in inv.items() if k != "collected_at"}
+    current = {k: v for k, v in (agent.facts or {}).items() if k != "collected_at"}
+    if stripped != current:
+        agent.facts = inv
+        agent.facts_updated_at = now
 
 
 async def poll_agent(
