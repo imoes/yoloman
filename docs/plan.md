@@ -3758,3 +3758,31 @@ rewriting, host binding), event lifecycle (open→ack→closed, counting/dedup, 
 OK, expected-message heartbeat), events surfaced as normal services + a dedicated events view, with
 actions (notify/script). A large standalone subsystem — deliberately deferred to its own block after
 the H-series alerting core lands.
+
+## Blocks J1–J3 (planned) — process & service monitoring (discussed + decided 2026-07-07)
+
+The user raised process/service monitoring and we discussed it before coding. Current building
+blocks: `/proc` parses system-wide files but has NO per-PID enumeration; process/service *control*
+already exists as write-gated modules (`systemd`, `systemd_service`, `service_facts`, `command`,
+`shell`); eBPF already yields `exec_events` + `top_talkers`; no app-specific metric collectors, but
+`check:` tools.d tasks + the freshly translated community.docker Starlark modules exist. Decisions:
+
+- **J1 — Prozessliste, eBPF-angereichert.** New agent capability: enumerate `/proc/<pid>/{stat,
+  status,cmdline}` → pid, user, command, CPU% (delta of utime+stime over a short on-demand window),
+  RSS, state; a new `GET /api/v1/proc/processes` (top-N + full). Enrich each process with the eBPF
+  view (which process talks to whom, from `top_talkers`/`exec_events`). UI: a sortable/filterable
+  process table in host detail. The "Ressourcenfresser identifizieren" ask.
+
+- **J2 — Dienst-Steuerung (sicher zuerst).** A UI "restart/stop" button on a service, executed
+  through the existing `systemd` module — idempotent, PID-reuse-safe, write-gated + ACL + audit.
+  **No raw PID-kill for now** (user decision); SIGTERM/SIGKILL-per-PID and any AI/MCP exposure are
+  deliberately deferred.
+
+- **J3 — App-Monitoring: Docker zuerst, via Metrik-Kollektor.** The agent collects Docker container
+  stats (running/CPU/RAM/health) as real metrics that flow into the existing services/graphs/check-
+  rules pipeline (so Docker health becomes threshold-ruleable + graphable like everything else),
+  fitting the community.docker work. nginx / MariaDB / PostgreSQL follow later (likely a mix of
+  collectors for depth + `check:` plugins for breadth).
+
+Sequenced after the alerting core (H7 soft/hard+flapping · H8 notifications · H9 availability) unless
+reprioritised.
