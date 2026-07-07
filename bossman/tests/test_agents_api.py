@@ -272,6 +272,25 @@ async def test_mass_update_groups_invalid_op_422(db_session):
     await _cleanup(db_session, agent=agent, api_token=api_token)
 
 
+async def test_update_agent_tags(db_session):
+    """Block K7 (tagging): PATCH /api/v1/agents/{id}/tags replaces the
+    whole dict, matching update_agent_groups's replace-not-diff shape."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.patch(
+            f"/api/v1/agents/{agent.id}/tags",
+            json={"tags": {"env": "prod", "critical": ""}},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["tags"] == {"env": "prod", "critical": ""}
+
+    await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
 async def test_poll_agent_now_triggers_immediate_poll(db_session):
     """Block K5 ("Execute now"): forces poll_agent to run immediately via
     a FakeAgentClient injected through the same get_client_factory seam

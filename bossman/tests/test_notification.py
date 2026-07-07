@@ -10,20 +10,20 @@ from sqlalchemy import select
 from bossman.config import Settings
 from bossman.db.models import Agent, Downtime, Notification, NotificationRule, Service
 from bossman.services import notification
-from bossman.services.notification import NotifyEvent, rule_matches
+from bossman.services.notification import NotifyEvent, rule_matches, tags_match
 
 
 def _rule(**kw):
     fields = dict(
         name="r", enabled=True, on_problem=True, on_recovery=True, min_state="WARN",
-        host_filter=None, service_filter=None, channel="email", target="ops@example.com",
+        host_filter=None, service_filter=None, channel="email", target="ops@example.com", tag_filter=None,
     )
     fields.update(kw)
     return NotificationRule(**fields)
 
 
-def _ev(state="CRIT", event="problem", host="web01", service="Memory"):
-    return NotifyEvent(agent_name=host, service_name=service, state=state, event=event, output="x")
+def _ev(state="CRIT", event="problem", host="web01", service="Memory", tags=None):
+    return NotifyEvent(agent_name=host, service_name=service, state=state, event=event, output="x", agent_tags=tags or {})
 
 
 def test_rule_matches_severity_and_events():
@@ -40,6 +40,32 @@ def test_rule_matches_filters():
     assert rule_matches(_rule(host_filter="web"), _ev(host="web01")) is True
     assert rule_matches(_rule(host_filter="db"), _ev(host="web01")) is False
     assert rule_matches(_rule(service_filter="Disk"), _ev(service="Memory")) is False
+
+
+def test_tags_match_name_only_matches_any_value():
+    assert tags_match({"prod": ""}, {"prod": "yes"}) is True
+    assert tags_match({"prod": ""}, {"other": "x"}) is False
+
+
+def test_tags_match_name_value_requires_exact_match():
+    assert tags_match({"env": "prod"}, {"env": "prod"}) is True
+    assert tags_match({"env": "prod"}, {"env": "staging"}) is False
+
+
+def test_tags_match_requires_every_filter_key():
+    assert tags_match({"env": "prod", "critical": ""}, {"env": "prod"}) is False
+    assert tags_match({"env": "prod", "critical": ""}, {"env": "prod", "critical": "yes"}) is True
+
+
+def test_tags_match_none_or_empty_filter_always_matches():
+    assert tags_match(None, {}) is True
+    assert tags_match({}, {"env": "prod"}) is True
+
+
+def test_rule_matches_tag_filter():
+    assert rule_matches(_rule(tag_filter={"env": "prod"}), _ev(tags={"env": "prod"})) is True
+    assert rule_matches(_rule(tag_filter={"env": "prod"}), _ev(tags={"env": "staging"})) is False
+    assert rule_matches(_rule(tag_filter={"env": "prod"}), _ev(tags={})) is False
 
 
 def test_render_subject_and_body():

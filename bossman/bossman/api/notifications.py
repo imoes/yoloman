@@ -33,6 +33,10 @@ class NotificationRuleIn(BaseModel):
     service_filter: str | None = None
     channel: str
     target: str
+    # Block K7: subset match against the problem host's Agent.tags — every
+    # key:value pair here must be present (empty-string value = name-only,
+    # matches any value for that key). None = no tag condition.
+    tag_filter: dict[str, str] | None = None
 
 
 class NotificationRuleOut(NotificationRuleIn):
@@ -53,6 +57,7 @@ class NotificationRuleOut(NotificationRuleIn):
             channel=r.channel,
             target=r.target,
             created_at=r.created_at,
+            tag_filter=r.tag_filter,
         )
 
 

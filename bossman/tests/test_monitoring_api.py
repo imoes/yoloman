@@ -127,6 +127,30 @@ async def test_list_problems_filters_by_state_and_host(db_session):
     await _cleanup(db_session, agent, warn_service, crit_service)
 
 
+async def test_list_problems_filters_by_tag(db_session):
+    """Block K7: GET /api/v1/problems?tag= filters by the problem host's
+    Agent.tags — 'name' matches any value, 'name:value' requires an exact
+    match."""
+    prod_agent = await _make_agent(db_session, tags={"env": "prod"})
+    staging_agent = await _make_agent(db_session, tags={"env": "staging"})
+    api_token, raw = await _make_api_token(db_session)
+    prod_service = await _make_service(db_session, prod_agent, name="CPU load", state="CRIT")
+    staging_service = await _make_service(db_session, staging_agent, name="CPU load", state="CRIT")
+
+    with TestClient(create_app()) as client:
+        exact_resp = client.get("/api/v1/problems", params={"tag": "env:prod"}, headers=_headers(raw))
+        any_value_resp = client.get("/api/v1/problems", params={"tag": "env"}, headers=_headers(raw))
+        no_match_resp = client.get("/api/v1/problems", params={"tag": "env:qa"}, headers=_headers(raw))
+
+    assert [p["id"] for p in exact_resp.json()] == [str(prod_service.id)]
+    assert {p["id"] for p in any_value_resp.json()} == {str(prod_service.id), str(staging_service.id)}
+    assert no_match_resp.json() == []
+
+    await db_session.delete(api_token)
+    await _cleanup(db_session, prod_agent, prod_service)
+    await _cleanup(db_session, staging_agent, staging_service)
+
+
 async def test_list_problems_excludes_services_in_active_downtime(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)

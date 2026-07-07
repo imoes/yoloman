@@ -260,7 +260,7 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             max_attempts = rule.max_attempts or DEFAULT_MAX_ATTEMPTS
             svc = await _upsert_service_state(
                 session, agent.id, svc_name, state, value, output, now, max_attempts,
-                metric=metric, rule_id=rule.id, agent_name=agent.name,
+                metric=metric, rule_id=rule.id, agent_name=agent.name, agent_tags=agent.tags,
                 comparison=rule.comparison, recovery_threshold=rule.recovery_threshold,
             )
             updated.append(svc)
@@ -282,6 +282,7 @@ async def _upsert_service_state(
     metric: str,
     rule_id: UUID | None,
     agent_name: str = "",
+    agent_tags: dict | None = None,
     comparison: str | None = None,
     recovery_threshold: float | None = None,
 ) -> Service:
@@ -367,6 +368,7 @@ async def _upsert_service_state(
     else:
         existing._notify_event = None
     existing._notify_agent_name = agent_name
+    existing._notify_agent_tags = agent_tags or {}
     return existing
 
 
@@ -418,7 +420,7 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
 
         svc = await _upsert_service_state(
             session, agent.id, name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
-            metric="", rule_id=None, agent_name=agent.name,
+            metric="", rule_id=None, agent_name=agent.name, agent_tags=agent.tags,
         )
         updated.append(svc)
 
@@ -505,13 +507,16 @@ async def query_problems(
     host: str | None = None,
     acknowledged: bool | None = None,
     include_downtime: bool = False,
+    tag: str | None = None,
 ) -> list[ServiceView]:
     """Every non-OK service in a *hard* state, most recently changed first —
     the "unbehandelte Probleme" view every real monitoring system leads
     with. Soft states (Block H7: a non-OK blip not yet confirmed over
     max_attempts checks) are deliberately excluded — they aren't real
     problems yet. Excludes services under an active Downtime unless
-    include_downtime is set, since a downtime means "we already know"."""
+    include_downtime is set, since a downtime means "we already know".
+    `tag` (Block K7) is "name" (any value) or "name:value" (exact), matched
+    against the problem's host's Agent.tags."""
     now = datetime.now(timezone.utc)
     await expire_acknowledgements(session, now)
     stmt = (
@@ -525,6 +530,11 @@ async def query_problems(
         stmt = stmt.where(Agent.name == host)
     if acknowledged is not None:
         stmt = stmt.where(Service.acknowledged == acknowledged)
+    if tag is not None:
+        tag_name, _, tag_value = tag.partition(":")
+        stmt = stmt.where(Agent.tags.has_key(tag_name))
+        if tag_value:
+            stmt = stmt.where(Agent.tags[tag_name].astext == tag_value)
     stmt = stmt.order_by(Service.last_state_change.desc())
 
     rows = (await session.execute(stmt)).all()

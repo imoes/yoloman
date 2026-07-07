@@ -98,11 +98,12 @@ async def list_problems(
     host: str | None = Query(None, description="Filter to one host name"),
     acknowledged: bool | None = Query(None, description="Filter by acknowledged flag"),
     include_downtime: bool = Query(False, description="Include services currently covered by a downtime"),
+    tag: str | None = Query(None, description="Filter by host tag: 'name' (any value) or 'name:value' (exact)"),
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ServiceOut]:
     views = await query_problems(
-        session, state=state, host=host, acknowledged=acknowledged, include_downtime=include_downtime
+        session, state=state, host=host, acknowledged=acknowledged, include_downtime=include_downtime, tag=tag
     )
     return [ServiceOut.from_view(v) for v in views]
 

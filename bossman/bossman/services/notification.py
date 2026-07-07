@@ -11,7 +11,7 @@ additionally suppresses acknowledged / in-downtime / flapping services —
 from __future__ import annotations
 
 import smtplib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import EmailMessage
 
 import httpx
@@ -36,6 +36,25 @@ class NotifyEvent:
     state: str
     event: str
     output: str
+    # Block K7: the host's tags at the moment of this event, for
+    # NotificationRule.tag_filter matching.
+    agent_tags: dict = field(default_factory=dict)
+
+
+def tags_match(tag_filter: dict | None, agent_tags: dict) -> bool:
+    """Block K7: does agent_tags satisfy tag_filter? Every key in
+    tag_filter must exist on the host; a name-only entry (empty string
+    value) matches any value for that key, a name:value entry requires an
+    exact match. NULL/empty filter always matches (no tag condition)."""
+    if not tag_filter:
+        return True
+    for key, value in tag_filter.items():
+        agent_value = agent_tags.get(key)
+        if agent_value is None:
+            return False
+        if value and agent_value != value:
+            return False
+    return True
 
 
 def rule_matches(rule: NotificationRule, ev: NotifyEvent) -> bool:
@@ -53,6 +72,8 @@ def rule_matches(rule: NotificationRule, ev: NotifyEvent) -> bool:
     if rule.host_filter and rule.host_filter not in ev.agent_name:
         return False
     if rule.service_filter and rule.service_filter not in ev.service_name:
+        return False
+    if not tags_match(rule.tag_filter, ev.agent_tags):
         return False
     return True
 
@@ -179,14 +200,16 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
             continue
         if await is_in_downtime(session, svc.agent_id, svc.name, now):
             continue
-        # agent_name isn't on the Service row; the state machine stamps it too.
+        # agent_name/tags aren't on the Service row; the state machine stamps them too.
         agent_name = getattr(svc, "_notify_agent_name", "")
+        agent_tags = getattr(svc, "_notify_agent_tags", {})
         ev = NotifyEvent(
             agent_name=agent_name,
             service_name=svc.name,
             state=svc.state,
             event=event,
             output=svc.output or "",
+            agent_tags=agent_tags,
         )
         await dispatch(session, settings, ev, **senders)
         dispatched += 1

@@ -93,6 +93,14 @@ class Agent(Base):
     # by most-recently-created.
     groups: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
 
+    # Block K7 (Zabbix gap-analysis, tagging): name or name:value pairs,
+    # e.g. {"env": "prod", "critical": ""} — inherited onto every problem
+    # this host raises (see GET /api/v1/problems's `tag` filter) and
+    # matchable by NotificationRule.tag_filter. Deliberately host-level
+    # only for v1 (not also on individual triggers/items) — see
+    # docs/zabbix-gap-analysis.md's Batch 3 for the narrower scope.
+    tags: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
     # Set when this agent was discovered as a satellite relayed through a
     # proxy's own GET /api/v1/hosts/overview (see services/poller.py and
     # docs/plan.md's monitoring-cockpit ergänzung Block F2) — NULL for a
@@ -475,6 +483,11 @@ class NotificationRule(Base):
     channel: Mapped[str] = mapped_column(String, nullable=False)  # email | webhook
     target: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # Block K7: optional subset match against the problem's host's
+    # Agent.tags — every key:value pair here must be present on the host
+    # (name-only tags stored as "" match a same-name tag of any value).
+    # NULL = no tag condition (matches regardless of the host's tags).
+    tag_filter: Mapped[dict | None] = mapped_column(JSONB)
 
     __table_args__ = (
         CheckConstraint("channel IN ('email', 'webhook')", name="ck_notification_rules_channel"),

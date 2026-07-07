@@ -44,6 +44,9 @@ class AgentOut(BaseModel):
     # The host's HW/SW inventory document (Block H2) + when it last changed.
     facts: dict
     facts_updated_at: datetime | None
+    # Block K7 (tagging): name or name:value pairs, inherited onto every
+    # problem this host raises.
+    tags: dict
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -59,6 +62,7 @@ class AgentOut(BaseModel):
             parent_agent_id=agent.parent_agent_id,
             facts=agent.facts or {},
             facts_updated_at=agent.facts_updated_at,
+            tags=agent.tags or {},
         )
 
 
@@ -128,6 +132,28 @@ async def update_agent_groups(
     host-groups editor naturally works (a multi-select, not a diff)."""
     agent = await _get_agent_or_404(session, agent_id)
     agent.groups = body.groups
+    await session.commit()
+    return AgentOut.from_model(agent)
+
+
+class UpdateTagsRequest(BaseModel):
+    tags: dict[str, str]
+
+
+@router.patch("/api/v1/agents/{agent_id}/tags", response_model=AgentOut)
+async def update_agent_tags(
+    agent_id: UUID,
+    body: UpdateTagsRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> AgentOut:
+    """Block K7 (Zabbix gap-analysis, tagging): name or name:value host
+    tags (empty-string value = name-only), inherited onto every problem
+    this host raises (GET /api/v1/problems?tag=) and matchable by
+    NotificationRule.tag_filter. Replaces the whole dict, matching
+    update_agent_groups's replace-not-diff shape."""
+    agent = await _get_agent_or_404(session, agent_id)
+    agent.tags = body.tags
     await session.commit()
     return AgentOut.from_model(agent)
 

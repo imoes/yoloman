@@ -436,6 +436,24 @@ async def test_hysteresis_holds_state_until_recovery_threshold_cleared(db_sessio
     await _cleanup(db_session, agent, rule)
 
 
+async def test_evaluate_host_stamps_agent_tags_for_notification_routing(db_session):
+    """Block K7: evaluate_host stamps the host's tags onto the transient
+    _notify_agent_tags attribute, the same way it already stamps
+    _notify_agent_name — collect_and_dispatch reads both to build a
+    NotifyEvent for NotificationRule.tag_filter matching."""
+    agent = await _make_agent(db_session, tags={"env": "prod"})
+    rule = await _make_rule(db_session, max_attempts=1)
+    await _write_metric(db_session, agent, "cpu_pct", 99.0)
+
+    updated = await evaluate_host(db_session, agent)
+    await db_session.commit()
+
+    assert len(updated) == 1
+    assert getattr(updated[0], "_notify_agent_tags", None) == {"env": "prod"}
+
+    await _cleanup(db_session, agent, rule)
+
+
 async def test_multi_label_series_collapse_to_one_service_and_keep_notify(db_session):
     """Regression (Block H8): a mount-less metric with several label-sets
     must upsert its single service exactly once per pass and keep the
