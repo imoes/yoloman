@@ -127,6 +127,22 @@ class Settings(BaseSettings):
     # Per-send network timeout for SMTP + webhook (seconds).
     notify_timeout_seconds: float = 10.0
 
+    # Housekeeping (Zabbix gap-analysis Block K1): per-data-type retention,
+    # configurable instead of hardcoded in the Alembic migrations that
+    # originally set them (metrics=14d, connection_events/
+    # service_state_history=30d — matched here as defaults). notifications
+    # and plan_runs previously had no retention at all (unbounded growth);
+    # they now default to 90 days. Enforced by services/housekeeping.py,
+    # run on a timer and triggerable on demand via POST
+    # /api/v1/admin/housekeeping/run.
+    housekeeping_enabled: bool = True
+    housekeeping_interval_seconds: int = 3600
+    metrics_retention_days: int = 14
+    connection_events_retention_days: int = 30
+    service_state_history_retention_days: int = 30
+    notifications_retention_days: int = 90
+    plan_runs_retention_days: int = 90
+
 
 def get_settings() -> Settings:
     return Settings()

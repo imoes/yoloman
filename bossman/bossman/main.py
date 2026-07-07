@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import agents, auth, chunks, dashboard, enroll, enroll_info, health, modules, monitoring, notifications, plans, processes, relationships, runs, translate
+from bossman.api import admin, agents, auth, chunks, dashboard, enroll, enroll_info, health, modules, monitoring, notifications, plans, processes, relationships, runs, translate
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -23,8 +23,9 @@ from bossman.services import keys
 from bossman.services.catalog import CatalogCache
 from bossman.services.chat_client import chat_client_for
 from bossman.services.embedding_client import embedding_client_for
+from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import seed_default_check_rules
-from bossman.services.poller import poller_loop
+from bossman.services.poller import PollerStats, poller_loop
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI):
         )
 
     engine = make_engine(settings.database_url)
+    app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     # Seed the built-in-check default rules (Block H6) so Memory/Disk show
@@ -91,8 +93,18 @@ async def lifespan(app: FastAPI):
     mcp_app = mcp_server.streamable_http_app()  # must run before .session_manager is accessed below
     app.mount("/mcp", McpBearerAuthMiddleware(mcp_app, app.state.session_factory))
 
+    # Block K2 (Zabbix gap-analysis, "runtime operational control plane"):
+    # both background loops report their last-run outcome here so
+    # GET /api/v1/admin/diagnostics has something real to show, without
+    # Bossman needing a persistent queue of its own.
+    app.state.poller_stats = PollerStats()
+    app.state.housekeeping_stats = HousekeepingStats()
+
     stop_event = asyncio.Event()
-    poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event))
+    poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event, app.state.poller_stats))
+    housekeeping_task = asyncio.create_task(
+        housekeeping_loop(app.state.session_factory, settings, stop_event, app.state.housekeeping_stats)
+    )
     try:
         async with mcp_server.session_manager.run():
             yield
@@ -104,8 +116,11 @@ async def lifespan(app: FastAPI):
         # exercises the lifespan) for up to 30 seconds.
         stop_event.set()
         poller_task.cancel()
+        housekeeping_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await housekeeping_task
         await engine.dispose()
 
 
@@ -145,6 +160,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, tags=["dashboard"])
     app.include_router(modules.router, tags=["modules"])
     app.include_router(notifications.router, tags=["notifications"])
+    app.include_router(admin.router, tags=["admin"])
     # Always mounted (unlike POST /api/v1/enroll below) — the Settings
     # page needs a real "not configured yet" answer, not a 404.
     app.include_router(enroll_info.router, tags=["enroll"])

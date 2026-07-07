@@ -371,18 +371,40 @@ async def poll_once(
     )
 
 
+@dataclass
+class PollerStats:
+    """Last-cycle outcome, surfaced by GET /api/v1/admin/diagnostics
+    (Block K2) — the closest yolo-man equivalent to Zabbix's queue/value-
+    cache diagnostics, since Bossman has no persistent queue of its own
+    (each cycle just walks every enrolled agent)."""
+
+    last_run_at: datetime | None = None
+    last_run_duration_ms: float | None = None
+    agents_polled: int = 0
+    agents_with_errors: int = 0
+
+
 async def poller_loop(
-    session_factory: async_sessionmaker[AsyncSession], settings: Settings, stop_event: asyncio.Event
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    stop_event: asyncio.Event,
+    stats: PollerStats | None = None,
 ) -> None:
     """Runs poll_once on settings.poll_interval_seconds until stop_event is
     set — the long-lived background task started from bossman.main's
     lifespan."""
     while not stop_event.is_set():
+        started = datetime.now(timezone.utc)
         try:
             results = await poll_once(session_factory, settings)
             failed = [r for r in results if r.errors]
             if failed:
                 logger.warning("poll cycle: %d/%d agents had errors: %s", len(failed), len(results), failed)
+            if stats is not None:
+                stats.last_run_at = started
+                stats.last_run_duration_ms = (datetime.now(timezone.utc) - started).total_seconds() * 1000
+                stats.agents_polled = len(results)
+                stats.agents_with_errors = len(failed)
         except Exception:
             logger.exception("poll cycle failed unexpectedly")
 
