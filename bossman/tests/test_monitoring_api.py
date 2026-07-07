@@ -402,6 +402,73 @@ async def test_check_rule_rejects_invalid_comparison(db_session):
     await db_session.commit()
 
 
+async def test_check_rule_composite_condition_create_and_roundtrip(db_session):
+    """Block K9: a composite CheckRule's extra_conditions/condition_logic
+    round-trip through create + list."""
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        create_resp = client.post(
+            "/api/v1/check-rules",
+            json={
+                "service_name": "Overloaded",
+                "metric": "cpu_pct",
+                "comparison": "gt",
+                "warn_threshold": 80.0,
+                "crit_threshold": 95.0,
+                "scope_type": "global",
+                "extra_conditions": [{"metric": "load1", "comparison": "gt", "crit_threshold": 8.0}],
+                "condition_logic": "OR",
+            },
+            headers=_headers(raw),
+        )
+        assert create_resp.status_code == 200
+        body = create_resp.json()
+        assert body["condition_logic"] == "OR"
+        assert body["extra_conditions"] == [{"metric": "load1", "comparison": "gt", "crit_threshold": 8.0}]
+
+        client.delete(f"/api/v1/check-rules/{body['id']}", headers=_headers(raw))
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_check_rule_rejects_invalid_condition_logic(db_session):
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            "/api/v1/check-rules",
+            json={
+                "service_name": "x", "metric": "cpu_pct", "comparison": "gt", "scope_type": "global",
+                "condition_logic": "XOR",
+            },
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 422
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_check_rule_rejects_malformed_extra_condition(db_session):
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            "/api/v1/check-rules",
+            json={
+                "service_name": "x", "metric": "cpu_pct", "comparison": "gt", "scope_type": "global",
+                "extra_conditions": [{"metric": "load1"}],  # missing "comparison"
+            },
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 422
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
 async def test_get_service_history_returns_newest_first(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)

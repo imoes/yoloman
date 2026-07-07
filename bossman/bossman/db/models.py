@@ -409,11 +409,19 @@ class CheckRule(Base):
     # service is already a confirmed (hard) problem. Name-based, same-host
     # only (not a full cross-host dependency graph).
     depends_on_service_name: Mapped[str | None] = mapped_column(String)
+    # Block K9: a scoped v1 of Zabbix's multi-item boolean trigger
+    # expressions — other metrics (same host, unlabeled/whole-host only),
+    # each {"metric", "comparison", "warn_threshold", "crit_threshold"},
+    # combined with the primary condition via condition_logic. NULL/empty
+    # = today's single-metric behavior.
+    extra_conditions: Mapped[list | None] = mapped_column(JSONB)
+    condition_logic: Mapped[str] = mapped_column(String, nullable=False, default="AND")
 
     __table_args__ = (
         CheckConstraint(
             "comparison IN ('gt', 'lt', 'ge', 'le', 'eq', 'ne')", name="ck_check_rules_comparison"
         ),
+        CheckConstraint("condition_logic IN ('AND', 'OR')", name="ck_check_rules_condition_logic"),
         CheckConstraint("scope_type IN ('global', 'group', 'host')", name="ck_check_rules_scope_type"),
         CheckConstraint(
             "(scope_type = 'global' AND scope_value IS NULL) OR "

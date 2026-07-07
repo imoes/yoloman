@@ -327,6 +327,9 @@ class CheckRuleIn(BaseModel):
     recovery_threshold: float | None = None
     # Block K8: trigger dependency — see CheckRule.depends_on_service_name.
     depends_on_service_name: str | None = None
+    # Block K9: composite/multi-metric conditions — see CheckRule.extra_conditions.
+    extra_conditions: list[dict] | None = None
+    condition_logic: str = "AND"
 
 
 class CheckRuleOut(BaseModel):
@@ -346,6 +349,8 @@ class CheckRuleOut(BaseModel):
     value_map_id: UUID | None
     recovery_threshold: float | None
     depends_on_service_name: str | None
+    extra_conditions: list[dict] | None
+    condition_logic: str
 
     @classmethod
     def from_model(cls, r: CheckRule) -> "CheckRuleOut":
@@ -366,6 +371,8 @@ class CheckRuleOut(BaseModel):
             value_map_id=r.value_map_id,
             recovery_threshold=r.recovery_threshold,
             depends_on_service_name=r.depends_on_service_name,
+            extra_conditions=r.extra_conditions,
+            condition_logic=r.condition_logic,
         )
 
 
@@ -376,6 +383,16 @@ def _validate_scope(scope_type: str, scope_value: str | None) -> None:
         raise HTTPException(status_code=422, detail="scope_value must be null when scope_type is global")
     if scope_type in ("group", "host") and not scope_value:
         raise HTTPException(status_code=422, detail=f"scope_value is required when scope_type is {scope_type!r}")
+
+
+def _validate_composite(body: CheckRuleIn) -> None:
+    if body.condition_logic not in ("AND", "OR"):
+        raise HTTPException(status_code=422, detail="condition_logic must be one of AND|OR")
+    for cond in body.extra_conditions or []:
+        if "metric" not in cond or "comparison" not in cond:
+            raise HTTPException(status_code=422, detail="each extra_conditions entry needs metric and comparison")
+        if cond["comparison"] not in ("gt", "lt", "ge", "le", "eq", "ne"):
+            raise HTTPException(status_code=422, detail=f"invalid comparison in extra_conditions: {cond['comparison']!r}")
 
 
 @router.get("/api/v1/check-rules", response_model=list[CheckRuleOut])
@@ -396,6 +413,7 @@ async def create_check_rule(
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
     _validate_scope(body.scope_type, body.scope_value)
+    _validate_composite(body)
 
     rule = CheckRule(
         service_name=body.service_name,
@@ -411,6 +429,8 @@ async def create_check_rule(
         value_map_id=body.value_map_id,
         recovery_threshold=body.recovery_threshold,
         depends_on_service_name=body.depends_on_service_name,
+        extra_conditions=body.extra_conditions,
+        condition_logic=body.condition_logic,
     )
     session.add(rule)
     await session.commit()
@@ -430,6 +450,7 @@ async def update_check_rule(
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
     _validate_scope(body.scope_type, body.scope_value)
+    _validate_composite(body)
 
     rule.service_name = body.service_name
     rule.metric = body.metric
@@ -444,6 +465,8 @@ async def update_check_rule(
     rule.value_map_id = body.value_map_id
     rule.recovery_threshold = body.recovery_threshold
     rule.depends_on_service_name = body.depends_on_service_name
+    rule.extra_conditions = body.extra_conditions
+    rule.condition_logic = body.condition_logic
     await session.commit()
     return CheckRuleOut.from_model(rule)
 

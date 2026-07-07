@@ -454,6 +454,83 @@ async def test_evaluate_host_stamps_agent_tags_for_notification_routing(db_sessi
     await _cleanup(db_session, agent, rule)
 
 
+async def test_composite_condition_and_logic_requires_both_metrics_to_trip(db_session):
+    """Block K9: condition_logic="AND" (the default) only fires CRIT when
+    BOTH the primary metric and every extra condition trip their crit
+    threshold — one alone (e.g. CPU high but load1 normal) stays OK."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(
+        db_session,
+        metric="cpu_pct",
+        max_attempts=1,
+        warn_threshold=80.0,
+        crit_threshold=95.0,
+        extra_conditions=[{"metric": "load1", "comparison": "gt", "warn_threshold": 4.0, "crit_threshold": 8.0}],
+        condition_logic="AND",
+    )
+
+    # CPU is CRIT-high but load1 is normal — AND requires both.
+    await _write_metric(db_session, agent, "cpu_pct", 99.0)
+    await _write_metric(db_session, agent, "load1", 1.0)
+    updated = await evaluate_host(db_session, agent)
+    await db_session.commit()
+    assert updated[0].state == "OK"
+
+    # Now load1 also trips — both conditions true, AND -> CRIT.
+    await _write_metric(db_session, agent, "load1", 9.0)
+    updated = await evaluate_host(db_session, agent)
+    await db_session.commit()
+    assert updated[0].state == "CRIT"
+    assert "composite (AND) CRIT" in updated[0].output
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_composite_condition_or_logic_fires_on_either_metric(db_session):
+    """Block K9: condition_logic="OR" fires CRIT if EITHER the primary or
+    an extra condition trips, even when the other is completely normal."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(
+        db_session,
+        metric="cpu_pct",
+        max_attempts=1,
+        warn_threshold=80.0,
+        crit_threshold=95.0,
+        extra_conditions=[{"metric": "load1", "comparison": "gt", "warn_threshold": 4.0, "crit_threshold": 8.0}],
+        condition_logic="OR",
+    )
+
+    await _write_metric(db_session, agent, "cpu_pct", 10.0)  # nowhere near CPU thresholds
+    await _write_metric(db_session, agent, "load1", 9.0)  # but load1 alone trips CRIT
+    updated = await evaluate_host(db_session, agent)
+    await db_session.commit()
+    assert updated[0].state == "CRIT"
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_composite_condition_skipped_when_primary_metric_unknown(db_session):
+    """Block K9: a composite rule stays UNKNOWN (not silently evaluated
+    against just the extra conditions) when its own primary metric has
+    never been sampled."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(
+        db_session,
+        metric="cpu_pct",
+        max_attempts=1,
+        extra_conditions=[{"metric": "load1", "comparison": "gt", "crit_threshold": 8.0}],
+        condition_logic="OR",
+    )
+    await _write_metric(db_session, agent, "load1", 9.0)  # primary (cpu_pct) never written
+
+    updated = await evaluate_host(db_session, agent)
+    await db_session.commit()
+
+    assert updated[0].state == "UNKNOWN"
+
+    await _cleanup(db_session, agent, rule)
+
+
 async def test_multi_label_series_collapse_to_one_service_and_keep_notify(db_session):
     """Regression (Block H8): a mount-less metric with several label-sets
     must upsert its single service exactly once per pass and keep the

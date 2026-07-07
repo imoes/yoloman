@@ -200,6 +200,55 @@ def compute_state(comparison: str, value: float | None, warn: float | None, crit
     return "OK", f"value {value!r} within thresholds"
 
 
+def _condition_trips(comparison: str, value: float | None, threshold: float | None) -> bool:
+    if value is None or threshold is None:
+        return False
+    return _COMPARISONS[comparison](value, threshold)
+
+
+async def _latest_unlabeled_value(session: AsyncSession, agent_id: UUID, metric: str) -> float | None:
+    """The newest sample of a whole-host (unlabeled) metric — the lookup
+    Block K9's extra_conditions use to pull in another metric's current
+    value alongside the rule's primary one. Deliberately ignores labels
+    (mount/iface fan-out): a composite condition combines whole-host
+    signals like cpu_pct/load1/mem_pct, not per-mount series."""
+    row = await session.scalar(
+        select(Metric)
+        .where(Metric.agent_id == agent_id, Metric.metric == metric)
+        .order_by(Metric.time.desc())
+        .limit(1)
+    )
+    return row.value if row else None
+
+
+async def evaluate_composite_condition(
+    session: AsyncSession, agent_id: UUID, rule: CheckRule, primary_value: float | None
+) -> tuple[str, str]:
+    """Block K9: combines the rule's primary condition with its
+    extra_conditions (other same-host metrics) via condition_logic (AND/OR)
+    — a scoped v1 of Zabbix's multi-item boolean trigger expressions.
+    Caller only calls this when rule.extra_conditions is truthy and the
+    primary compute_state result wasn't already UNKNOWN."""
+    combine = all if rule.condition_logic == "AND" else any
+
+    crit_flags = [_condition_trips(rule.comparison, primary_value, rule.crit_threshold)]
+    warn_flags = [_condition_trips(rule.comparison, primary_value, rule.warn_threshold)]
+    parts = [f"{rule.metric}={primary_value!r}"]
+
+    for cond in rule.extra_conditions:
+        value = await _latest_unlabeled_value(session, agent_id, cond["metric"])
+        crit_flags.append(_condition_trips(cond["comparison"], value, cond.get("crit_threshold")))
+        warn_flags.append(_condition_trips(cond["comparison"], value, cond.get("warn_threshold")))
+        parts.append(f"{cond['metric']}={value!r}")
+
+    joined = f" {rule.condition_logic} ".join(parts)
+    if combine(crit_flags):
+        return "CRIT", f"composite ({rule.condition_logic}) CRIT: {joined}"
+    if combine(warn_flags):
+        return "WARN", f"composite ({rule.condition_logic}) WARN: {joined}"
+    return "OK", f"composite ({rule.condition_logic}) OK: {joined}"
+
+
 async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
     """Re-evaluates every check_rules-derived service for one agent
     against its most recently polled metric values, upserting `services`
@@ -252,6 +301,12 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
                 continue
 
             state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold)
+            # Block K9: a rule with extra_conditions combines its primary
+            # metric with other same-host metrics via AND/OR — only once
+            # the primary itself has real data (an UNKNOWN host shouldn't
+            # be laundered into OK/WARN/CRIT by a composite evaluation).
+            if rule.extra_conditions and state != "UNKNOWN":
+                state, output = await evaluate_composite_condition(session, agent.id, rule, value)
             # Fan-out naming: a labeled series gets "<service_name> <mount>"
             # so a "Disk" rule reproduces the agent's own "Disk /var" names
             # (and thus overrides them); unlabeled metrics keep the plain name.
