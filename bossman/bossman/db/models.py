@@ -433,6 +433,54 @@ class ServiceStateHistory(Base):
     __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
 
 
+class NotificationRule(Base):
+    """Who gets told, on which channel, when a service has a confirmed
+    (hard) problem or recovery (Block H8). `min_state` is the severity
+    floor; host_filter/service_filter are optional substring matches."""
+
+    __tablename__ = "notification_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    on_problem: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    on_recovery: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    min_state: Mapped[str] = mapped_column(String, nullable=False, default="WARN")
+    host_filter: Mapped[str | None] = mapped_column(String)
+    service_filter: Mapped[str | None] = mapped_column(String)
+    channel: Mapped[str] = mapped_column(String, nullable=False)  # email | webhook
+    target: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("channel IN ('email', 'webhook')", name="ck_notification_rules_channel"),
+        CheckConstraint("min_state IN ('WARN', 'CRIT', 'UNKNOWN')", name="ck_notification_rules_min_state"),
+    )
+
+
+class Notification(Base):
+    """One notification send attempt — the audit log behind Monitor →
+    Notifications (Block H8)."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("notification_rules.id", ondelete="SET NULL")
+    )
+    agent_name: Mapped[str] = mapped_column(String, nullable=False)
+    service_name: Mapped[str] = mapped_column(String, nullable=False)
+    event: Mapped[str] = mapped_column(String, nullable=False)  # problem | recovery
+    state: Mapped[str] = mapped_column(String, nullable=False)
+    channel: Mapped[str] = mapped_column(String, nullable=False)
+    target: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)  # sent | failed
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("idx_notifications_created", "created_at"),)
+
+
 class Downtime(Base):
     """A scheduled maintenance window (see docs/plan.md's monitoring Block
     E2) — `service_name=NULL` means the whole host, matching CheckMK's own

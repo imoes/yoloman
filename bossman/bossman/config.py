@@ -113,6 +113,20 @@ class Settings(BaseSettings):
     chat_model: str = "qwen3next-79b"
     chat_token: str = ""
 
+    # Notifications (Block H8): master switch + SMTP transport. Webhook
+    # targets carry their own URL per rule, so need no global config. The
+    # notifier fires on a confirmed (hard) problem onset/recovery, skipping
+    # acknowledged / in-downtime / flapping services.
+    notifications_enabled: bool = True
+    smtp_host: str = ""
+    smtp_port: int = 25
+    smtp_from: str = "bossman@localhost"
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = False
+    # Per-send network timeout for SMTP + webhook (seconds).
+    notify_timeout_seconds: float = 10.0
+
 
 def get_settings() -> Settings:
     return Settings()

@@ -222,7 +222,8 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
 
             max_attempts = rule.max_attempts or DEFAULT_MAX_ATTEMPTS
             svc = await _upsert_service_state(
-                session, agent.id, svc_name, state, value, output, now, max_attempts, metric=metric, rule_id=rule.id
+                session, agent.id, svc_name, state, value, output, now, max_attempts,
+                metric=metric, rule_id=rule.id, agent_name=agent.name,
             )
             updated.append(svc)
 
@@ -242,6 +243,7 @@ async def _upsert_service_state(
     *,
     metric: str,
     rule_id: UUID | None,
+    agent_name: str = "",
 ) -> Service:
     """The one place a Service row is created/updated from a fresh check
     result — shared by the rule evaluator and the agent-check ingester so
@@ -301,6 +303,14 @@ async def _upsert_service_state(
         await session.flush()  # so update_flapping counts this change too
 
     existing.is_flapping = await update_flapping(session, agent_id, name, now)
+
+    # Stamp a transient notification intent for the poller to dispatch after
+    # commit (Block H8): only confirmed hard changes notify. Not persisted.
+    if t.hard_changed:
+        existing._notify_event = "recovery" if t.state == "OK" else "problem"
+    else:
+        existing._notify_event = None
+    existing._notify_agent_name = agent_name
     return existing
 
 
@@ -351,7 +361,8 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
             continue
 
         svc = await _upsert_service_state(
-            session, agent.id, name, state, value, output, now, DEFAULT_MAX_ATTEMPTS, metric="", rule_id=None
+            session, agent.id, name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
+            metric="", rule_id=None, agent_name=agent.name,
         )
         updated.append(svc)
 

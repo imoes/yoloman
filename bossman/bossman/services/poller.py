@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
+from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.monitoring import evaluate_host, expire_acknowledgements, ingest_agent_checks
 
@@ -227,6 +228,7 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
     running stack before this fix."""
     now = datetime.now(timezone.utc)
     satellite_count = 0
+    touched: list = []  # services touched this cycle, for post-commit notification dispatch
 
     for host in hosts:
         host_name = host.get("host")
@@ -234,7 +236,7 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
             continue
 
         if not host.get("parent"):
-            await ingest_agent_checks(session, agent, host.get("checks") or [])
+            touched += await ingest_agent_checks(session, agent, host.get("checks") or [])
             _store_facts(agent, host, now)
             continue
 
@@ -247,12 +249,12 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
             except ValueError:
                 pass
         await _write_snapshot_metrics(session, satellite.id, sample_time, host.get("metrics") or [])
-        await ingest_agent_checks(session, satellite, host.get("checks") or [])
+        touched += await ingest_agent_checks(session, satellite, host.get("checks") or [])
         _store_facts(satellite, host, now)
         satellite.last_seen_at = now
-        await evaluate_host(session, satellite)
+        touched += await evaluate_host(session, satellite)
 
-    return satellite_count
+    return satellite_count, touched
 
 
 def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
@@ -305,9 +307,11 @@ async def poll_agent(
         except AgentClientError as exc:
             result.errors.append(f"edges: {exc}")
 
+        touched: list = []  # services touched this cycle → post-commit notification dispatch
         try:
             hosts = await client.hosts_overview()
-            result.satellites_discovered = await _ingest_hosts_overview(session, agent, hosts)
+            result.satellites_discovered, ingest_touched = await _ingest_hosts_overview(session, agent, hosts)
+            touched += ingest_touched
             reached_agent = True
         except AgentClientError as exc:
             result.errors.append(f"hosts_overview: {exc}")
@@ -321,7 +325,7 @@ async def poll_agent(
         # its own try/except so one host's evaluation bug can't crash the
         # whole poll cycle (mirrors the metrics/edges try/except above).
         try:
-            await evaluate_host(session, agent)
+            touched += await evaluate_host(session, agent)
             # Lapse any timed acknowledgements that have expired (Block H5),
             # so a problem resurfaces on the next poll even with no UI open.
             await expire_acknowledgements(session, now)
@@ -329,6 +333,19 @@ async def poll_agent(
             logger.exception("evaluate_host failed for agent %s", agent.name)
 
         await session.commit()
+
+        # Notifications (Block H8): dispatch AFTER the state commit so the
+        # network I/O (SMTP/webhook) never holds the DB transaction, and a
+        # send failure can't roll back monitoring state. Best-effort;
+        # collect_and_dispatch applies its own ack/downtime/flapping
+        # suppression and logs every send. The `_notify_event` markers live
+        # on the in-memory Service objects (expire_on_commit=False).
+        try:
+            sent = await notification.collect_and_dispatch(session, settings, touched)
+            if sent:
+                await session.commit()
+        except Exception:
+            logger.exception("notification dispatch failed for agent %s", agent.name)
         return result
 
 
