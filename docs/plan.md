@@ -3719,3 +3719,42 @@ as plain value, real summaries/ages). Inventory tab correctly shows its empty st
 agent binary was built and copied to both real test hosts, but the restart (a deploy to shared
 hosts) awaits explicit user approval; once restarted, the next poll fills `agents.facts` and the
 tab renders the full document.
+
+## Monitoring parity — CheckMK gap analysis (research, 2026-07-07) + Blocks H5–H9 roadmap
+
+After the H1–H4 rework the user asked for a full read of the CheckMK documentation (monitoring core,
+UI/views/BI, config/automation, Event Console, REST — read via three research agents) and a gap
+analysis of what yolo-man still lacks versus CheckMK, deciding together what to build.
+
+**Already at parity:** services + states (OK/WARN/CRIT/UNKNOWN), check rules with host>group>global
+precedence, problems view, acknowledge, downtimes (fixed, host/service), latest-data + combined
+graphs + gauges + Perf-O-Meters, HW/SW inventory, host/service statistics dashboard, topology,
+module library + plan engine.
+
+**Gaps identified (value-ranked):** (1) notifications + rule engine — the biggest functional gap,
+yolo-man can alert nobody; (2) soft/hard states + max-check-attempts + flapping — we flip on one
+sample, so alert noise; (3) time periods; (4) availability/SLA reporting (state-history already
+exists); (5) recurring/flexible downtimes + child propagation; (6) host tags/labels for rule
+targeting; (7) service-discovery lifecycle (different model, low fit); (8) Event Console (syslog/
+SNMP); (9) BI aggregations.
+
+**User decisions:** implement **notifications (SMTP + webhook, channel per rule)**, **soft/hard
+states + flapping**, **availability/SLA report**, and — explicitly flagged — **configurable
+warn/crit thresholds as rules with per-host override for individual services, including the agent's
+built-in checks** (today the built-in Memory/Disk/CPU thresholds are hardcoded in
+`internal/collect/checks.go` and can't be reconfigured per host). Event Console is of interest and
+is planned as its own large block (below), not now. BI deferred.
+
+Block plan (each block tested + committed like the rest): **H5 timed acknowledgement (done)** ·
+**H6 configurable thresholds with host override (incl. built-in checks)** · **H7 soft/hard states +
+flapping** · **H8 notifications + rule engine (SMTP + webhook)** · **H9 availability/SLA report**.
+
+## Block I (future) — Event Console: syslog / SNMP-trap processing (planned, own block)
+
+The user is interested in an Event Console (CheckMK's `ec.html`): turn asynchronous message streams
+into monitorable events. Scope when taken up: a syslog listener (UDP/TCP 514) + SNMP-trap receiver
+(UDP 162) feeding a rule-pack engine (first-match, regex on message/host/facility/priority,
+rewriting, host binding), event lifecycle (open→ack→closed, counting/dedup, cancelling on a matching
+OK, expected-message heartbeat), events surfaced as normal services + a dedicated events view, with
+actions (notify/script). A large standalone subsystem — deliberately deferred to its own block after
+the H-series alerting core lands.
