@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from bossman.db.models import Agent, Downtime, Metric, Service, ServiceStateHistory
 from bossman.main import create_app
@@ -300,6 +301,43 @@ async def test_check_rule_crud(db_session):
 
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+async def test_delete_check_rule_with_owned_services(db_session):
+    """Deleting a rule that already materialized services must not 500 on
+    the services.rule_id FK (Block H6/H7 fix): its owned services are
+    removed with it."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/check-rules",
+            json={"service_name": "Mem", "metric": "mem_used_pct", "comparison": "ge",
+                  "warn_threshold": 80.0, "crit_threshold": 90.0, "scope_type": "global"},
+            headers=_headers(raw),
+        )
+        rule_id = created.json()["id"]
+
+    # A service materialized by that rule (as evaluate_host would create).
+    svc = await _make_service(db_session, agent, name="Mem", metric="mem_used_pct")
+    svc.rule_id = uuid.UUID(rule_id)
+    await db_session.commit()
+
+    with TestClient(app) as client:
+        resp = client.delete(f"/api/v1/check-rules/{rule_id}", headers=_headers(raw))
+        assert resp.status_code == 204, resp.text
+
+    # The route deleted the service in its own session; drop db_session's
+    # cached copies so this reads the real current rows (a fresh query).
+    svc_id = svc.id
+    db_session.expunge_all()
+    gone = await db_session.scalar(select(Service).where(Service.id == svc_id))
+    assert gone is None, "the rule's owned service is removed with it"
+
+    await db_session.delete(api_token)
+    await db_session.flush()
+    await _cleanup(db_session, agent)
 
 
 async def test_check_rule_rejects_invalid_scope(db_session):

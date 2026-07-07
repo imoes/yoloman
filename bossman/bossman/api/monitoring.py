@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import CheckRule, Downtime
+from bossman.db.models import CheckRule, Downtime, Service
 from bossman.db.session import get_session
 from bossman.services.monitoring import (
     ServiceView,
@@ -384,6 +384,17 @@ async def delete_check_rule(
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    # Delete the services this rule materialized first (services.rule_id
+    # FKs check_rules.id, so a bare rule delete 500s once it owns any
+    # service — Block H6/H7). The agent's built-in check, if any, simply
+    # re-creates its own reading on the next poll now that no rule owns it.
+    owned = (await session.scalars(select(Service).where(Service.rule_id == rule_id))).all()
+    for svc in owned:
+        await session.delete(svc)
+    # Flush the child deletes before the parent: there's no ORM relationship
+    # declared between Service.rule_id and CheckRule, so the unit of work
+    # won't order these on its own and would otherwise hit the FK.
+    await session.flush()
     await session.delete(rule)
     await session.commit()
 
