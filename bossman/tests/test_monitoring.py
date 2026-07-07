@@ -358,6 +358,32 @@ async def test_soft_then_hard_debounce_and_problems_filter(db_session):
     await _cleanup(db_session, agent, rule)
 
 
+async def test_multi_label_series_collapse_to_one_service_and_keep_notify(db_session):
+    """Regression (Block H8): a mount-less metric with several label-sets
+    must upsert its single service exactly once per pass and keep the
+    hard-onset notify intent — not process it twice, the second pass
+    clobbering _notify_event to None."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session, service_name="Memory", metric="mem_used_pct", comparison="ge",
+                            warn_threshold=10.0, crit_threshold=20.0, max_attempts=1)
+    # Two distinct label-sets, neither a mount — both map to service "Memory".
+    await _write_metric(db_session, agent, "mem_used_pct", 95.0, labels={"src": "pull"})
+    await _write_metric(db_session, agent, "mem_used_pct", 96.0, labels={"src": "snapshot"})
+
+    touched = await evaluate_host(db_session, agent)
+    await db_session.commit()
+
+    mem = [s for s in touched if s.name == "Memory"]
+    assert len(mem) == 1, "one service, not one-per-label"
+    assert mem[0].state == "CRIT"
+    assert getattr(mem[0], "_notify_event", None) == "problem", "hard onset notify intent survives"
+
+    services = (await db_session.scalars(select(Service).where(Service.agent_id == agent.id))).all()
+    assert len(services) == 1
+
+    await _cleanup(db_session, agent, rule)
+
+
 async def test_flapping_flag_set_on_frequent_changes(db_session):
     """Block H7: a service that changes hard state many times in the window
     gets is_flapping set."""

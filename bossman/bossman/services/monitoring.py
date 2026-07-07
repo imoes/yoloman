@@ -206,10 +206,23 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
                 .distinct(Metric.labels)
             )
         ).all()
-        series: list[tuple[dict, float | None]] = [(row.labels or {}, row.value) for row in latest_rows] or [({}, None)]
+        # Collapse to one series per `mount` (the only label that fans out
+        # to distinct services): a metric like mem_used_pct can legitimately
+        # have several label-sets (e.g. an extra label from a snapshot
+        # write) that all map to the SAME mount-less service name — without
+        # this, that service would be upserted twice in one pass and the
+        # second (unchanged) upsert would clobber the first's notification
+        # intent. Newest sample per mount wins.
+        by_mount: dict[str | None, Metric] = {}
+        for row in latest_rows:
+            mount = (row.labels or {}).get("mount")
+            if mount not in by_mount or row.time > by_mount[mount].time:
+                by_mount[mount] = row
+        series: list[tuple[str | None, float | None]] = (
+            [(m, r.value) for m, r in by_mount.items()] if by_mount else [(None, None)]
+        )
 
-        for labels, value in series:
-            mount = labels.get("mount")
+        for mount, value in series:
             rule = resolve_effective_rule(list(rules), agent.name, agent.groups, metric, mount)
             if rule is None:
                 continue
