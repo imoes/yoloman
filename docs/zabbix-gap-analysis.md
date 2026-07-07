@@ -15,7 +15,7 @@ comparable user-facing features.
 ## Progress
 
 - [x] Batch 1 — Ch.3 Zabbix Processes (light) — 3 gaps found; HA deferred, Housekeeping (K1) + Runtime control (K2) implemented
-- [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found, decisions below
+- [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found; K1-fix+K1b+K2b+K2c+K4+K5 implemented, K3 planned (deferred)
 - [ ] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging
 - [ ] Batch 4 — Ch.7c Configuration: Visualization, Templates
 - [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
