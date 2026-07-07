@@ -1,0 +1,68 @@
+name: gitlab_deploy_key
+fqcn: community.general.gitlab_deploy_key
+collection: community.general
+short_description: Manages GitLab project deploy keys
+description: Adds, updates and removes project deploy keys
+options:
+  api_job_token:
+    type: str
+    description: GitLab CI job token for logging in.
+  api_oauth_token:
+    type: str
+    description: GitLab OAuth token for logging in.
+  api_password:
+    type: str
+    description: The password to use for authentication against the API.
+  api_token:
+    type: str
+    description: GitLab access token with API permissions.
+  api_url:
+    type: str
+    description: The resolvable endpoint for the API.
+  api_username:
+    type: str
+    description: The username to use for authentication against the API.
+  ca_path:
+    type: str
+    description: The CA certificates bundle to use to verify GitLab server certificate.
+  can_push:
+    type: bool
+    default: false
+    description: Whether this key can push to the project.
+  key:
+    type: str
+    required: true
+    description: Deploy key
+  project:
+    type: str
+    required: true
+    description: Id or Full path of project in the form of group/name.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: When V(present) the deploy key added to the project if it doesn't exist. When V(absent)
+      it will be removed from the project if it exists.
+  title:
+    type: str
+    required: true
+    description: Deploy key's title.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: \"Adding a project deploy key\"\n  community.general.gitlab_deploy_key:\n    api_url:\
+  \ https://gitlab.example.com/\n    api_token: \"{{ api_token }}\"\n    project: \"my_group/my_project\"\
+  \n    title: \"Jenkins CI\"\n    state: present\n    key: \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAIEAiPWx6WM4lhHNedGfBpPJNPpZ7yKu+dnn1SJejgt4596k6YjzGGphH2TUxwKzxcKDKKezwkpfnxPkSMkuEspGRt/aZZ9w...\"\
+  \n\n- name: \"Update the above deploy key to add push access\"\n  community.general.gitlab_deploy_key:\n\
+  \    api_url: https://gitlab.example.com/\n    api_token: \"{{ api_token }}\"\n    project: \"my_group/my_project\"\
+  \n    title: \"Jenkins CI\"\n    state: present\n    can_push: true\n\n- name: \"Remove the previous\
+  \ deploy key from the project\"\n  community.general.gitlab_deploy_key:\n    api_url: https://gitlab.example.com/\n\
+  \    api_token: \"{{ api_token }}\"\n    project: \"my_group/my_project\"\n    state: absent\n    key:\
+  \ \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAIEAiPWx6WM4lhHNedGfBpPJNPpZ7yKu+dnn1SJejgt4596k6YjzGGphH2TUxwKzxcKDKKezwkpfnxPkSMkuEspGRt/aZZ9w...\"\
+  \n\n"

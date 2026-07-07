@@ -1,0 +1,68 @@
+name: hwc_vpc_route
+fqcn: community.general.hwc_vpc_route
+collection: community.general
+short_description: Creates a resource of Vpc/Route in Huawei Cloud
+description: vpc route management.
+options:
+  destination:
+    type: str
+    required: true
+    description: Specifies the destination IP address or CIDR block.
+  domain:
+    type: str
+    required: true
+    description: The name of the Domain to scope to (Identity v3). Currently only domain names are supported,
+      and not domain IDs.
+  id:
+    type: str
+    description: The ID of resource to be managed.
+  identity_endpoint:
+    type: str
+    required: true
+    description: The Identity authentication URL.
+  next_hop:
+    type: str
+    required: true
+    description: Specifies the next hop. The value is VPC peering connection ID.
+  password:
+    type: str
+    required: true
+    description: The password to login with.
+  project:
+    type: str
+    required: true
+    description: The name of the Tenant (Identity v2) or Project (Identity v3). Currently only project
+      names are supported, and not project IDs.
+  region:
+    type: str
+    description: The region to which the project belongs.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the given object should exist in Huawei Cloud.
+  type:
+    type: str
+    default: peering
+    description: Specifies the type of route.
+  user:
+    type: str
+    required: true
+    description: The user name to login with. Currently only user names are supported, and not user IDs.
+  vpc_id:
+    type: str
+    required: true
+    description: Specifies the VPC ID to which route is added.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# create a peering connect\n- name: Create a local vpc\n  hwc_network_vpc:\n    cidr: \"\
+  192.168.0.0/16\"\n    name: \"ansible_network_vpc_test_local\"\n  register: vpc1\n- name: Create a peering\
+  \ vpc\n  hwc_network_vpc:\n    cidr: \"192.168.0.0/16\"\n    name: \"ansible_network_vpc_test_peering\"\
+  \n  register: vpc2\n- name: Create a peering connect\n  hwc_vpc_peering_connect:\n    local_vpc_id:\
+  \ \"{{ vpc1.id }}\"\n    name: \"ansible_network_peering_test\"\n    filters:\n      - \"name\"\n  \
+  \  peering_vpc:\n      vpc_id: \"{{ vpc2.id }}\"\n  register: connect\n- name: Create a route\n  community.general.hwc_vpc_route:\n\
+  \    vpc_id: \"{{ vpc1.id }}\"\n    destination: \"192.168.0.0/16\"\n    next_hop: \"{{ connect.id }}\"\
+  \n"

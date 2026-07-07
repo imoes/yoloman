@@ -1,0 +1,38 @@
+name: git_config_info
+fqcn: community.general.git_config_info
+collection: community.general
+short_description: Read git configuration
+description: The M(community.general.git_config_info) module reads the git configuration by invoking C(git
+  config).
+options:
+  name:
+    type: str
+    description: The name of the setting to read. If not provided, all settings will be returned as RV(config_values).
+  path:
+    type: path
+    description: Path to a git repository or file for reading values from a specific repo. If O(scope)
+      is V(local), this must point to a repository to read from. If O(scope) is V(file), this must point
+      to specific git config file to read from. Otherwise O(path) is ignored if set.
+  scope:
+    type: str
+    default: system
+    choices:
+    - global
+    - system
+    - local
+    - file
+    description: Specify which scope to read values from. If set to V(global), the global git config is
+      used. O(path) is ignored. If set to V(system), the system git config is used. O(path) is ignored.
+      If set to V(local), O(path) must be set to the repo to read from. If set to V(file), O(path) must
+      be set to the config file to read from.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Read a system wide config\n  community.general.git_config_info:\n    name: core.editor\n\
+  \  register: result\n\n- name: Show value of core.editor\n  ansible.builtin.debug:\n    msg: \"{{ result.config_value\
+  \ | default('(not set)', true) }}\"\n\n- name: Read a global config from ~/.gitconfig\n  community.general.git_config_info:\n\
+  \    name: alias.remotev\n    scope: global\n\n- name: Read a project specific config\n  community.general.git_config_info:\n\
+  \    name: color.ui\n    scope: local\n    path: /etc\n\n- name: Read all global values\n  community.general.git_config_info:\n\
+  \    scope: global\n\n- name: Read all system wide values\n  community.general.git_config_info:\n\n\
+  - name: Read all values of a specific file\n  community.general.git_config_info:\n    scope: file\n\
+  \    path: /etc/gitconfig\n"

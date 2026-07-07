@@ -1,0 +1,127 @@
+name: gitlab_runner
+fqcn: community.general.gitlab_runner
+collection: community.general
+short_description: Create, modify and delete GitLab Runners
+description: Register, update and delete runners with the GitLab API. All operations are performed using
+  the GitLab API v4. For details, consult the full API documentation at U(https://docs.gitlab.com/ee/api/runners.html).
+  A valid private API token is required for all operations. You can create as many tokens as you like
+  using the GitLab web interface at U(https://$GITLAB_URL/profile/personal_access_tokens). A valid registration
+  token is required for registering a new runner. To create shared runners, you need to ask your administrator
+  to give you this token. It can be found at U(https://$GITLAB_URL/admin/runners/).
+options:
+  access_level:
+    type: str
+    choices:
+    - not_protected
+    - ref_protected
+    description: Determines if a runner can pick up jobs only from protected branches. If O(access_level_on_creation)
+      is not explicitly set to V(true), this option is ignored on registration and is only applied on
+      updates. If set to V(not_protected), runner can pick up jobs from both protected and unprotected
+      branches. If set to V(ref_protected), runner can pick up jobs only from protected branches. Before
+      community.general 8.0.0 the default was V(ref_protected). This was changed to no default in community.general
+      8.0.0. If this option is not specified explicitly, GitLab will use V(not_protected) on creation,
+      and the value set will not be changed on any updates.
+  access_level_on_creation:
+    type: bool
+    default: true
+    description: Whether the runner should be registered with an access level or not. If set to V(true),
+      the value of O(access_level) is used for runner registration. If set to V(false), GitLab registers
+      the runner with the default access level. The default of this option changed to V(true) in community.general
+      7.0.0. Before, it was V(false).
+  active:
+    type: bool
+    default: true
+    description: Define if the runners is immediately active after creation. Mutually exclusive with O(paused).
+  api_job_token:
+    type: str
+    description: GitLab CI job token for logging in.
+  api_oauth_token:
+    type: str
+    description: GitLab OAuth token for logging in.
+  api_password:
+    type: str
+    description: The password to use for authentication against the API.
+  api_token:
+    type: str
+    description: GitLab access token with API permissions.
+  api_url:
+    type: str
+    description: The resolvable endpoint for the API.
+  api_username:
+    type: str
+    description: The username to use for authentication against the API.
+  ca_path:
+    type: str
+    description: The CA certificates bundle to use to verify GitLab server certificate.
+  description:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: The unique name of the runner.
+  group:
+    type: str
+    description: ID or full path of the group in the form group/subgroup. Mutually exclusive with O(owned)
+      and O(project). Must be group's numeric ID if O(registration_token) is not set and O(state=present).
+  locked:
+    type: bool
+    default: false
+    description: Determines if the runner is locked or not.
+  maximum_timeout:
+    type: int
+    default: 3600
+    description: The maximum time that a runner has to complete a specific job.
+  owned:
+    type: bool
+    default: false
+    description: Searches only runners available to the user when searching for existing, when false admin
+      token required. Mutually exclusive with O(project) since community.general 4.5.0. Mutually exclusive
+      with O(group).
+  paused:
+    type: bool
+    default: false
+    description: Define if the runners is active or paused after creation. Mutually exclusive with O(active).
+  project:
+    type: str
+    description: ID or full path of the project in the form of group/name. Mutually exclusive with O(owned)
+      since community.general 4.5.0. Mutually exclusive with O(group). Must be project's numeric ID if
+      O(registration_token) is not set and O(state=present).
+  registration_token:
+    type: str
+    description: The registration token is used to register new runners before GitLab 16.0. Required if
+      O(state=present) for GitLab < 16.0. If set, the runner will be created using the old runner creation
+      workflow. If not set, the runner will be created using the new runner creation workflow, introduced
+      in GitLab 16.0. If not set, requires python-gitlab >= 4.0.0.
+  run_untagged:
+    type: bool
+    default: true
+    description: Run untagged jobs or not.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Make sure that the runner with the same name exists with the same configuration or delete
+      the runner with the same name.
+  tag_list:
+    type: list
+    default: []
+    description: The tags that apply to the runner.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: \"Register runner\"\n  community.general.gitlab_runner:\n    api_url: https://gitlab.example.com/\n\
+  \    api_token: \"{{ access_token }}\"\n    registration_token: 4gfdsg345\n    description: Docker Machine\
+  \ t1\n    state: present\n    active: true\n    tag_list: ['docker']\n    run_untagged: false\n    locked:\
+  \ false\n\n- name: \"Delete runner\"\n  community.general.gitlab_runner:\n    api_url: https://gitlab.example.com/\n\
+  \    api_token: \"{{ access_token }}\"\n    description: Docker Machine t1\n    state: absent\n\n- name:\
+  \ Delete an owned runner as a non-admin\n  community.general.gitlab_runner:\n    api_url: https://gitlab.example.com/\n\
+  \    api_token: \"{{ access_token }}\"\n    description: Docker Machine t1\n    owned: true\n    state:\
+  \ absent\n\n- name: Register runner for a specific project\n  community.general.gitlab_runner:\n   \
+  \ api_url: https://gitlab.example.com/\n    api_token: \"{{ access_token }}\"\n    registration_token:\
+  \ 4gfdsg345\n    description: MyProject runner\n    state: present\n    project: mygroup/mysubgroup/myproject\n"

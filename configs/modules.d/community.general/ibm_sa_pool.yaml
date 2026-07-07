@@ -1,0 +1,49 @@
+name: ibm_sa_pool
+fqcn: community.general.ibm_sa_pool
+collection: community.general
+short_description: Handles pools on IBM Spectrum Accelerate Family storage systems
+description: This module creates or deletes pools to be used on IBM Spectrum Accelerate Family storage
+  systems
+options:
+  domain:
+    type: str
+    description: Adds the pool to the specified domain.
+  endpoints:
+    type: str
+    required: true
+    description: The hostname or management IP of Spectrum Accelerate storage system.
+  password:
+    type: str
+    required: true
+    description: Password for username on the spectrum accelerate storage system.
+  perf_class:
+    type: str
+    description: Assigns a perf_class to the pool.
+  pool:
+    type: str
+    required: true
+    description: Pool name.
+  size:
+    type: str
+    description: Pool size in GB
+  snapshot_size:
+    type: str
+    description: Pool snapshot size in GB
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Pool state.
+  username:
+    type: str
+    required: true
+    description: Management user on the spectrum accelerate storage system.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create new pool.\n  community.general.ibm_sa_pool:\n    name: pool_name\n    size:\
+  \ 300\n    state: present\n    username: admin\n    password: secret\n    endpoints: hostdev-system\n\
+  \n- name: Delete pool.\n  community.general.ibm_sa_pool:\n    name: pool_name\n    state: absent\n \
+  \   username: admin\n    password: secret\n    endpoints: hostdev-system\n"

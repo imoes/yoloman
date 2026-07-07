@@ -1,0 +1,40 @@
+name: openssl_signature_info
+fqcn: community.crypto.openssl_signature_info
+collection: community.crypto
+short_description: Verify signatures with openssl
+description: This module allows one to verify a signature for a file by a certificate. The module uses
+  the cryptography Python library.
+options:
+  certificate_content:
+    type: str
+    description: The content of the certificate used to verify the signature. Either O(certificate_path)
+      or O(certificate_content) must be specified, but not both.
+  certificate_path:
+    type: path
+    description: The path to the certificate used to verify the signature. Either O(certificate_path)
+      or O(certificate_content) must be specified, but not both.
+  path:
+    type: path
+    required: true
+    description: The signed file to verify. This file will only be read and not modified.
+  select_crypto_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - cryptography
+    description: Determines which crypto backend to use. The default choice is V(auto), which tries to
+      use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/)
+      library.
+  signature:
+    type: str
+    required: true
+    description: Base64 encoded signature.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Sign example file\n  community.crypto.openssl_signature:\n    privatekey_path: private.key\n\
+  \    path: /tmp/example_file\n  register: sig\n\n- name: Verify signature of example file\n  community.crypto.openssl_signature_info:\n\
+  \    certificate_path: cert.pem\n    path: /tmp/example_file\n    signature: \"{{ sig.signature }}\"\
+  \n  register: verify\n\n- name: Make sure the signature is valid\n  ansible.builtin.assert:\n    that:\n\
+  \      - verify.valid\n"

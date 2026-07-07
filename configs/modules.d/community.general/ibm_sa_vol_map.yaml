@@ -1,0 +1,53 @@
+name: ibm_sa_vol_map
+fqcn: community.general.ibm_sa_vol_map
+collection: community.general
+short_description: Handles volume mapping on IBM Spectrum Accelerate Family storage systems
+description: This module maps volumes to or unmaps them from the hosts on IBM Spectrum Accelerate Family
+  storage systems.
+options:
+  cluster:
+    type: str
+    description: Maps the volume to a cluster.
+  endpoints:
+    type: str
+    required: true
+    description: The hostname or management IP of Spectrum Accelerate storage system.
+  host:
+    type: str
+    description: Maps the volume to a host.
+  lun:
+    type: str
+    description: The LUN identifier.
+  override:
+    type: str
+    description: Overrides the existing volume mapping.
+  password:
+    type: str
+    required: true
+    description: Password for username on the spectrum accelerate storage system.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: When the state is present the volume is mapped. When the state is absent, the volume
+      is meant to be unmapped.
+  username:
+    type: str
+    required: true
+    description: Management user on the spectrum accelerate storage system.
+  vol:
+    type: str
+    required: true
+    description: Volume name.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Map volume to host.\n  community.general.ibm_sa_vol_map:\n    vol: volume_name\n\
+  \    lun: 1\n    host: host_name\n    username: admin\n    password: secret\n    endpoints: hostdev-system\n\
+  \    state: present\n\n- name: Map volume to cluster.\n  community.general.ibm_sa_vol_map:\n    vol:\
+  \ volume_name\n    lun: 1\n    cluster: cluster_name\n    username: admin\n    password: secret\n  \
+  \  endpoints: hostdev-system\n    state: present\n\n- name: Unmap volume.\n  community.general.ibm_sa_vol_map:\n\
+  \    host: host_name\n    username: admin\n    password: secret\n    endpoints: hostdev-system\n   \
+  \ state: absent\n"

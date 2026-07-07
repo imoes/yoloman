@@ -1,0 +1,35 @@
+name: github_webhook_info
+fqcn: community.general.github_webhook_info
+collection: community.general
+short_description: Query information about GitHub webhooks
+description: Query information about GitHub webhooks
+options:
+  github_url:
+    type: str
+    default: https://api.github.com
+    description: Base URL of the github api
+  password:
+    type: str
+    description: Password to authenticate to GitHub with
+  repository:
+    type: str
+    required: true
+    aliases:
+    - repo
+    description: Full name of the repository to configure a hook for
+  token:
+    type: str
+    description: Token to authenticate to GitHub with
+  user:
+    type: str
+    required: true
+    description: User to authenticate to GitHub as
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: List hooks for a repository (password auth)\n  community.general.github_webhook_info:\n\
+  \    repository: ansible/ansible\n    user: \"{{ github_user }}\"\n    password: \"{{ github_password\
+  \ }}\"\n  register: ansible_webhooks\n\n- name: List hooks for a repository on GitHub Enterprise (token\
+  \ auth)\n  community.general.github_webhook_info:\n    repository: myorg/myrepo\n    user: \"{{ github_user\
+  \ }}\"\n    token: \"{{ github_user_api_token }}\"\n    github_url: https://github.example.com/api/v3/\n\
+  \  register: myrepo_webhooks\n"

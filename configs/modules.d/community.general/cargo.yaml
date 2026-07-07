@@ -1,0 +1,45 @@
+name: cargo
+fqcn: community.general.cargo
+collection: community.general
+short_description: Manage Rust packages with cargo
+description: Manage Rust packages with cargo.
+options:
+  executable:
+    type: path
+    description: Path to the C(cargo) installed in the system. If not specified, the module will look
+      C(cargo) in E(PATH).
+  locked:
+    type: bool
+    default: false
+    description: Install with locked dependencies. This is only used when installing packages.
+  name:
+    type: list
+    required: true
+    description: The name of a Rust package to install.
+  path:
+    type: path
+    description: -> The base path where to install the Rust packages. Cargo automatically appends V(/bin).
+      In other words, V(/usr/local) will become V(/usr/local/bin).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - latest
+    description: The state of the Rust package.
+  version:
+    type: str
+    description: -> The version to install. If O(name) contains multiple values, the module will try to
+      install all of them in this version.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install \"ludusavi\" Rust package\n  community.general.cargo:\n    name: ludusavi\n\
+  \n- name: Install \"ludusavi\" Rust package with locked dependencies\n  community.general.cargo:\n \
+  \   name: ludusavi\n    locked: true\n\n- name: Install \"ludusavi\" Rust package in version 0.10.0\n\
+  \  community.general.cargo:\n    name: ludusavi\n    version: '0.10.0'\n\n- name: Install \"ludusavi\"\
+  \ Rust package to global location\n  community.general.cargo:\n    name: ludusavi\n    path: /usr/local\n\
+  \n- name: Remove \"ludusavi\" Rust package\n  community.general.cargo:\n    name: ludusavi\n    state:\
+  \ absent\n\n- name: Update \"ludusavi\" Rust package its latest version\n  community.general.cargo:\n\
+  \    name: ludusavi\n    state: latest\n"

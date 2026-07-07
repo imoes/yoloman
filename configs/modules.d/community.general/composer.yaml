@@ -1,0 +1,84 @@
+name: composer
+fqcn: community.general.composer
+collection: community.general
+short_description: Dependency Manager for PHP
+description: 'Composer is a tool for dependency management in PHP. It allows you to declare the dependent
+  libraries your project needs and it will install them in your project for you.
+
+  '
+options:
+  apcu_autoloader:
+    type: bool
+    default: false
+    description: Uses APCu to cache found/not-found classes
+  arguments:
+    type: str
+    default: ''
+    description: Composer arguments like required package, version and so on.
+  classmap_authoritative:
+    type: bool
+    default: false
+    description: Autoload classes from classmap only. Implicitly enable optimize_autoloader. Recommended
+      especially for production, but can take a bit of time to run.
+  command:
+    type: str
+    default: install
+    description: Composer command like "install", "update" and so on.
+  composer_executable:
+    type: path
+    description: Path to composer executable on the remote host, if composer is not in E(PATH) or a custom
+      composer is needed.
+  executable:
+    type: path
+    aliases:
+    - php_path
+    description: Path to PHP Executable on the remote host, if PHP is not in PATH.
+  global_command:
+    type: bool
+    default: false
+    description: Runs the specified command globally.
+  ignore_platform_reqs:
+    type: bool
+    default: false
+    description: Ignore php, hhvm, lib-* and ext-* requirements and force the installation even if the
+      local machine does not fulfill these.
+  no_dev:
+    type: bool
+    default: true
+    description: Disables installation of require-dev packages (see --no-dev).
+  no_plugins:
+    type: bool
+    default: false
+    description: Disables all plugins (see --no-plugins).
+  no_scripts:
+    type: bool
+    default: false
+    description: Skips the execution of all scripts defined in composer.json (see --no-scripts).
+  optimize_autoloader:
+    type: bool
+    default: true
+    description: Optimize autoloader during autoloader dump (see --optimize-autoloader). Convert PSR-0/4
+      autoloading to classmap to get a faster autoloader. Recommended especially for production, but can
+      take a bit of time to run.
+  prefer_dist:
+    type: bool
+    default: false
+    description: Forces installation from package dist even for dev versions (see --prefer-dist).
+  prefer_source:
+    type: bool
+    default: false
+    description: Forces installation from package sources when possible (see --prefer-source).
+  working_dir:
+    type: path
+    description: Directory of your project (see --working-dir). This is required when the command is not
+      run globally. Will be ignored if O(global_command=true).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Download and installs all libs and dependencies outlined in the /path/to/project/composer.lock\n\
+  \  community.general.composer:\n    command: install\n    working_dir: /path/to/project\n\n- name: Install\
+  \ a new package\n  community.general.composer:\n    command: require\n    arguments: my/package\n  \
+  \  working_dir: /path/to/project\n\n- name: Clone and install a project with all dependencies\n  community.general.composer:\n\
+  \    command: create-project\n    arguments: package/package /path/to/project ~1.0\n    working_dir:\
+  \ /path/to/project\n    prefer_dist: true\n\n- name: Install a package globally\n  community.general.composer:\n\
+  \    command: require\n    global_command: true\n    arguments: my/package\n"

@@ -1,0 +1,93 @@
+name: dimensiondata_vlan
+fqcn: community.general.dimensiondata_vlan
+collection: community.general
+short_description: Manage a VLAN in a Cloud Control network domain
+description: Manage VLANs in Cloud Control network domains.
+options:
+  allow_expand:
+    type: bool
+    default: false
+    description: Permit expansion of the target VLAN's network if the module parameters specify a larger
+      network than the VLAN currently possesses. If V(false), the module will fail under these conditions.
+      This is intended to prevent accidental expansion of a VLAN's network (since this operation is not
+      reversible).
+  description:
+    type: str
+    default: ''
+    description: A description of the VLAN.
+  location:
+    type: str
+    required: true
+    description: The target datacenter.
+  mcp_password:
+    type: str
+    description: The password used to authenticate to the CloudControl API. If not specified, will fall
+      back to E(MCP_PASSWORD) from environment variable or C(~/.dimensiondata). Required if O(mcp_user)
+      is specified.
+  mcp_user:
+    type: str
+    description: The username used to authenticate to the CloudControl API. If not specified, will fall
+      back to E(MCP_USER) from environment variable or C(~/.dimensiondata).
+  name:
+    type: str
+    required: true
+    description: The name of the target VLAN.
+  network_domain:
+    type: str
+    required: true
+    description: The Id or name of the target network domain.
+  private_ipv4_base_address:
+    type: str
+    default: ''
+    description: The base address for the VLAN's IPv4 network (e.g. 192.168.1.0).
+  private_ipv4_prefix_size:
+    type: int
+    default: 0
+    description: The size of the IPv4 address space, e.g 24. Required, if O(private_ipv4_base_address)
+      is specified.
+  region:
+    type: str
+    default: na
+    description: The target region. Regions are defined in Apache libcloud project [libcloud/common/dimensiondata.py].
+      They are also listed in U(https://libcloud.readthedocs.io/en/latest/compute/drivers/dimensiondata.html).
+      Note that the default value C(na) stands for "North America". The module prepends C(dd-) to the
+      region choice.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - readonly
+    description: The desired state for the target VLAN. V(readonly) ensures that the state is only ever
+      read, not modified (the module will fail if the resource does not exist).
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on private
+      instances of the CloudControl API that use self-signed certificates.
+  wait:
+    type: bool
+    default: false
+    description: Should we wait for the task to complete before moving onto the next.
+  wait_poll_interval:
+    type: int
+    default: 2
+    description: The amount of time (in seconds) to wait between checks for task completion. Only applicable
+      if O(wait=true).
+  wait_time:
+    type: int
+    default: 600
+    description: The maximum amount of time (in seconds) to wait for the task to complete. Only applicable
+      if O(wait=true).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add or update VLAN\n  community.general.dimensiondata_vlan:\n    region: na\n   \
+  \ location: NA5\n    network_domain: test_network\n    name: my_vlan1\n    description: A test VLAN\n\
+  \    private_ipv4_base_address: 192.168.23.0\n    private_ipv4_prefix_size: 24\n    state: present\n\
+  \    wait: true\n\n- name: Read / get VLAN details\n  community.general.dimensiondata_vlan:\n    region:\
+  \ na\n    location: NA5\n    network_domain: test_network\n    name: my_vlan1\n    state: readonly\n\
+  \    wait: true\n\n- name: Delete a VLAN\n  community.general.dimensiondata_vlan:\n    region: na\n\
+  \    location: NA5\n    network_domain: test_network\n    name: my_vlan_1\n    state: absent\n    wait:\
+  \ true\n"

@@ -1,0 +1,44 @@
+name: gconftool2
+fqcn: community.general.gconftool2
+collection: community.general
+short_description: Edit GNOME Configurations
+description: This module allows for the manipulation of GNOME 2 Configuration via gconftool-2.  Please
+  see the gconftool-2(1) man pages for more details.
+options:
+  config_source:
+    type: str
+    description: Specify a configuration source to use rather than the default path. See man gconftool-2(1).
+  direct:
+    type: bool
+    default: false
+    description: Access the config database directly, bypassing server.  If O(direct) is specified then
+      the O(config_source) must be specified as well. See man gconftool-2(1).
+  key:
+    type: str
+    required: true
+    description: A GConf preference key is an element in the GConf repository that corresponds to an application
+      preference. See man gconftool-2(1).
+  state:
+    type: str
+    required: true
+    choices:
+    - absent
+    - present
+    description: The action to take upon the key/value.
+  value:
+    type: str
+    description: Preference keys typically have simple values such as strings, integers, or lists of strings
+      and integers. This is ignored unless O(state=present). See man gconftool-2(1).
+  value_type:
+    type: str
+    choices:
+    - bool
+    - float
+    - int
+    - string
+    description: The type of value being set. This is ignored unless O(state=present). See man gconftool-2(1).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Change the widget font to \"Serif 12\"\n  community.general.gconftool2:\n    key:\
+  \ \"/desktop/gnome/interface/font_name\"\n    value_type: \"string\"\n    value: \"Serif 12\"\n"

@@ -1,0 +1,60 @@
+name: github_repo
+fqcn: community.general.github_repo
+collection: community.general
+short_description: Manage your repositories on Github
+description: Manages Github repositories using PyGithub library. Authentication can be done with O(access_token)
+  or with O(username) and O(password).
+options:
+  access_token:
+    type: str
+    description: Token parameter for authentication. This is only needed when not using O(username) and
+      O(password).
+  api_url:
+    type: str
+    default: https://api.github.com
+    description: URL to the GitHub API if not using github.com but you own instance.
+  description:
+    type: str
+    description: Description for the repository. Defaults to empty if O(force_defaults=true), which is
+      the default in this module. Defaults to empty if O(force_defaults=false) when creating a new repository.
+      This is only used when O(state) is V(present).
+  force_defaults:
+    type: bool
+    default: true
+    description: Overwrite current O(description) and O(private) attributes with defaults if set to V(true),
+      which currently is the default. The default for this option will be deprecated in a future version
+      of this collection, and eventually change to V(false).
+  name:
+    type: str
+    required: true
+    description: Repository name.
+  organization:
+    type: str
+    description: Organization for the repository. When O(state=present), the repository will be created
+      in the current user profile.
+  password:
+    type: str
+    description: Password used for authentication. This is only needed when not using O(access_token).
+  private:
+    type: bool
+    description: Whether the repository should be private or not. Defaults to V(false) if O(force_defaults=true),
+      which is the default in this module. Defaults to V(false) if O(force_defaults=false) when creating
+      a new repository. This is only used when O(state=present).
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether the repository should exist or not.
+  username:
+    type: str
+    description: Username used for authentication. This is only needed when not using O(access_token).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a Github repository\n  community.general.github_repo:\n    access_token: mytoken\n\
+  \    organization: MyOrganization\n    name: myrepo\n    description: \"Just for fun\"\n    private:\
+  \ true\n    state: present\n    force_defaults: false\n  register: result\n\n- name: Delete the repository\n\
+  \  community.general.github_repo:\n    username: octocat\n    password: password\n    organization:\
+  \ MyOrganization\n    name: myrepo\n    state: absent\n  register: result\n"

@@ -1,0 +1,148 @@
+name: docker_image_build
+fqcn: community.docker.docker_image_build
+collection: community.docker
+short_description: Build Docker images using Docker buildx
+description: This module allos to build Docker images using Docker's buildx plugin (BuildKit).
+options:
+  api_version:
+    type: str
+    default: auto
+    aliases:
+    - docker_api_version
+    description: The version of the Docker API running on the Docker Host. Defaults to the latest version
+      of the API supported by this collection and the docker daemon. If the value is not specified in
+      the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the environment
+      variable is not set, the default value will be used.
+  args:
+    type: dict
+    description: Provide a dictionary of C(key:value) build arguments that map to Dockerfile ARG directive.
+      Docker expects the value to be a string. For convenience any non-string values will be converted
+      to strings.
+  ca_path:
+    type: path
+    aliases:
+    - ca_cert
+    - tls_ca_cert
+    - cacert_path
+    description: Use a CA certificate when performing server verification by providing the path to a CA
+      certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH)
+      is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH)
+      will be used.
+  cache_from:
+    type: list
+    description: List of image names to consider as cache source.
+  cli_context:
+    type: str
+    description: The Docker CLI context to use.
+  client_cert:
+    type: path
+    aliases:
+    - tls_client_cert
+    - cert_path
+    description: Path to the client's TLS certificate file. If the value is not specified in the task
+      and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory
+      specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+  client_key:
+    type: path
+    aliases:
+    - tls_client_key
+    - key_path
+    description: Path to the client's TLS key file. If the value is not specified in the task and the
+      environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified
+      in the environment variable E(DOCKER_CERT_PATH) will be used.
+  docker_cli:
+    type: path
+    description: Path to the Docker CLI. If not provided, will search for Docker CLI on the E(PATH).
+  docker_host:
+    type: str
+    default: unix:///var/run/docker.sock
+    aliases:
+    - docker_url
+    description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote
+      host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to
+      encrypt the connection, the module will automatically replace C(tcp) in the connection URL with
+      C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  dockerfile:
+    type: str
+    description: Provide an alternate name for the Dockerfile to use when building an image. This can
+      also include a relative path (relative to O(path)).
+  etc_hosts:
+    type: dict
+    description: Extra hosts to add to C(/etc/hosts) in building containers, as a mapping of hostname
+      to IP address.
+  labels:
+    type: dict
+    description: Dictionary of key value pairs.
+  name:
+    type: str
+    required: true
+    description: 'Image name. Name format will be one of: C(name), C(repository/name), C(registry_server:port/name).
+      When pushing or pulling an image the name can optionally include the tag by appending C(:tag_name).
+      Note that image IDs (hashes) and names with digest cannot be used.'
+  network:
+    type: str
+    description: The network to use for C(RUN) build instructions.
+  nocache:
+    type: bool
+    default: false
+    description: Do not use cache when building an image.
+  path:
+    type: path
+    required: true
+    description: The path for the build environment.
+  platform:
+    type: str
+    description: Platform in the format C(os[/arch[/variant]]).
+  pull:
+    type: bool
+    default: false
+    description: When building an image downloads any updates to the FROM image in Dockerfile.
+  rebuild:
+    type: str
+    default: never
+    choices:
+    - never
+    - always
+    description: Defines the behavior of the module if the image to build (as specified in O(name) and
+      O(tag)) already exists.
+  shm_size:
+    type: str
+    description: Size of C(/dev/shm) in format C(<number>[<unit>]). Number is positive integer. Unit can
+      be V(B) (byte), V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or V(P)
+      (pebibyte). Omitting the unit defaults to bytes. If you omit the size entirely, Docker daemon uses
+      V(64M).
+  tag:
+    type: str
+    default: latest
+    description: Tag for the image name O(name) that is to be tagged. If O(name)'s format is C(name:tag),
+      then the tag value from O(name) will take precedence.
+  target:
+    type: str
+    description: When building an image specifies an intermediate build stage by name as a final stage
+      for the resulting image.
+  tls:
+    type: bool
+    default: false
+    description: Secure the connection to the API by using TLS without verifying the authenticity of the
+      Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence.
+      If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will
+      be used instead. If the environment variable is not set, the default value will be used.
+  tls_hostname:
+    type: str
+    description: When verifying the authenticity of the Docker Host server, provide the expected name
+      of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  validate_certs:
+    type: bool
+    default: false
+    aliases:
+    - tls_verify
+    description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker
+      host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY)
+      will be used instead. If the environment variable is not set, the default value will be used.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Build Python 3.12 image\n  community.docker.docker_image_build:\n    name: localhost/python/3.12:latest\n\
+  \    path: /home/user/images/python\n    dockerfile: Dockerfile-3.12\n"

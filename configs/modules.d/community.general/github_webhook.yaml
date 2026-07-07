@@ -1,0 +1,76 @@
+name: github_webhook
+fqcn: community.general.github_webhook
+collection: community.general
+short_description: Manage GitHub webhooks
+description: Create and delete GitHub webhooks
+options:
+  active:
+    type: bool
+    default: true
+    description: Whether or not the hook is active
+  content_type:
+    type: str
+    default: form
+    choices:
+    - form
+    - json
+    description: The media type used to serialize the payloads
+  events:
+    type: list
+    description: 'A list of GitHub events the hook is triggered for. Events are listed at U(https://developer.github.com/v3/activity/events/types/).
+      Required unless O(state=absent)
+
+      '
+  github_url:
+    type: str
+    default: https://api.github.com
+    description: Base URL of the GitHub API
+  insecure_ssl:
+    type: bool
+    default: false
+    description: 'Flag to indicate that GitHub should skip SSL verification when calling the hook.
+
+      '
+  password:
+    type: str
+    description: Password to authenticate to GitHub with
+  repository:
+    type: str
+    required: true
+    aliases:
+    - repo
+    description: Full name of the repository to configure a hook for
+  secret:
+    type: str
+    description: The shared secret between GitHub and the payload URL.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether the hook should be present or absent
+  token:
+    type: str
+    description: Token to authenticate to GitHub with
+  url:
+    type: str
+    required: true
+    description: URL to which payloads will be delivered
+  user:
+    type: str
+    required: true
+    description: User to authenticate to GitHub as
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a new webhook that triggers on push (password auth)\n  community.general.github_webhook:\n\
+  \    repository: ansible/ansible\n    url: https://www.example.com/hooks/\n    events:\n      - push\n\
+  \    user: \"{{ github_user }}\"\n    password: \"{{ github_password }}\"\n\n- name: Create a new webhook\
+  \ in a github enterprise installation with multiple event triggers (token auth)\n  community.general.github_webhook:\n\
+  \    repository: myorg/myrepo\n    url: https://jenkins.example.com/ghprbhook/\n    content_type: json\n\
+  \    secret: \"{{ github_shared_secret }}\"\n    insecure_ssl: true\n    events:\n      - issue_comment\n\
+  \      - pull_request\n    user: \"{{ github_user }}\"\n    token: \"{{ github_user_api_token }}\"\n\
+  \    github_url: https://github.example.com\n\n- name: Delete a webhook (password auth)\n  community.general.github_webhook:\n\
+  \    repository: ansible/ansible\n    url: https://www.example.com/hooks/\n    state: absent\n    user:\
+  \ \"{{ github_user }}\"\n    password: \"{{ github_password }}\"\n"

@@ -1,0 +1,91 @@
+name: consul_session
+fqcn: community.general.consul_session
+collection: community.general
+short_description: Manipulate consul sessions
+description: Allows the addition, modification and deletion of sessions in a consul cluster. These sessions
+  can then be used in conjunction with key value pairs to implement distributed locks. In depth documentation
+  for working with sessions can be found at http://www.consul.io/docs/internals/sessions.html
+options:
+  behavior:
+    type: str
+    default: release
+    choices:
+    - delete
+    - release
+    description: The optional behavior that can be attached to the session when it is created. This controls
+      the behavior when a session is invalidated.
+  ca_path:
+    type: str
+    description: The CA bundle to use for https connections
+  checks:
+    type: list
+    description: Checks that will be used to verify the session health. If all the checks fail, the session
+      will be invalidated and any locks associated with the session will be release and can be acquired
+      once the associated lock delay has expired.
+  datacenter:
+    type: str
+    description: The name of the datacenter in which the session exists or should be created.
+  delay:
+    type: int
+    default: 15
+    description: The optional lock delay that can be attached to the session when it is created. Locks
+      for invalidated sessions ar blocked from being acquired until this delay has expired. Durations
+      are in seconds.
+  host:
+    type: str
+    default: localhost
+    description: Host of the consul agent, defaults to V(localhost).
+  id:
+    type: str
+    description: ID of the session, required when O(state) is either V(info) or V(remove).
+  name:
+    type: str
+    description: The name that should be associated with the session. Required when O(state=node) is used.
+  node:
+    type: str
+    description: The name of the node that with which the session will be associated. by default this
+      is the name of the agent.
+  port:
+    type: int
+    default: 8500
+    description: The port on which the consul agent is running.
+  scheme:
+    type: str
+    default: http
+    description: The protocol scheme on which the consul agent is running. Defaults to V(http) and can
+      be set to V(https) for secure connections.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - info
+    - list
+    - node
+    - present
+    description: Whether the session should be present i.e. created if it doesn't exist, or absent, removed
+      if present. If created, the O(id) for the session is returned in the output. If V(absent), O(id)
+      is required to remove the session. Info for a single session, all the sessions for a node or all
+      available sessions can be retrieved by specifying V(info), V(node) or V(list) for the O(state);
+      for V(node) or V(info), the node O(name) or session O(id) is required as parameter.
+  token:
+    type: str
+    description: The token to use for authorization.
+  ttl:
+    type: int
+    description: Specifies the duration of a session in seconds (between 10 and 86400).
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether to verify the TLS certificate of the consul agent.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Register basic session with consul\n  community.general.consul_session:\n    name:\
+  \ session1\n\n- name: Register a session with an existing check\n  community.general.consul_session:\n\
+  \    name: session_with_check\n    checks:\n      - existing_check_name\n\n- name: Register a session\
+  \ with lock_delay\n  community.general.consul_session:\n    name: session_with_delay\n    delay: 20s\n\
+  \n- name: Retrieve info about session by id\n  community.general.consul_session:\n    id: session_id\n\
+  \    state: info\n\n- name: Retrieve active sessions\n  community.general.consul_session:\n    state:\
+  \ list\n\n- name: Register session with a ttl\n  community.general.consul_session:\n    name: session-with-ttl\n\
+  \    ttl: 600  # sec\n"

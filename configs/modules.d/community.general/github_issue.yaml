@@ -1,0 +1,31 @@
+name: github_issue
+fqcn: community.general.github_issue
+collection: community.general
+short_description: View GitHub issue
+description: View GitHub issue for a given repository and organization.
+options:
+  action:
+    type: str
+    default: get_status
+    choices:
+    - get_status
+    description: Get various details about issue depending upon action specified.
+  issue:
+    type: int
+    required: true
+    description: Issue number for which information is required.
+  organization:
+    type: str
+    required: true
+    description: Name of the GitHub organization in which the repository is hosted.
+  repo:
+    type: str
+    required: true
+    description: Name of repository from which issue needs to be retrieved.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Check if GitHub issue is closed or not\n  community.general.github_issue:\n    organization:\
+  \ ansible\n    repo: ansible\n    issue: 23642\n    action: get_status\n  register: r\n\n- name: Take\
+  \ action depending upon issue status\n  ansible.builtin.debug:\n    msg: Do something when issue 23642\
+  \ is open\n  when: r.issue_status == 'open'\n"

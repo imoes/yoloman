@@ -1,0 +1,50 @@
+name: imgadm
+fqcn: community.general.imgadm
+collection: community.general
+short_description: Manage SmartOS images
+description: Manage SmartOS virtual machine images through imgadm(1M)
+options:
+  force:
+    type: bool
+    description: Force a given operation (where supported by imgadm(1M)).
+  pool:
+    type: str
+    default: zones
+    description: zpool to import to or delete images from.
+  source:
+    type: str
+    description: URI for the image source.
+  state:
+    type: str
+    required: true
+    choices:
+    - present
+    - absent
+    - deleted
+    - imported
+    - updated
+    - vacuumed
+    description: State the object operated on should be in. V(imported) is an alias for for V(present)
+      and V(deleted) for V(absent). When set to V(vacuumed) and O(uuid=*), it will remove all unused images.
+  type:
+    type: str
+    default: imgapi
+    choices:
+    - imgapi
+    - docker
+    - dsapi
+    description: Type for image sources.
+  uuid:
+    type: str
+    description: Image UUID. Can either be a full UUID or V(*) for all images.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Import an image\n  community.general.imgadm:\n    uuid: '70e3ae72-96b6-11e6-9056-9737fd4d0764'\n\
+  \    state: imported\n\n- name: Delete an image\n  community.general.imgadm:\n    uuid: '70e3ae72-96b6-11e6-9056-9737fd4d0764'\n\
+  \    state: deleted\n\n- name: Update all images\n  community.general.imgadm:\n    uuid: '*'\n    state:\
+  \ updated\n\n- name: Update a single image\n  community.general.imgadm:\n    uuid: '70e3ae72-96b6-11e6-9056-9737fd4d0764'\n\
+  \    state: updated\n\n- name: Add a source\n  community.general.imgadm:\n    source: 'https://datasets.project-fifo.net'\n\
+  \    state: present\n\n- name: Add a Docker source\n  community.general.imgadm:\n    source: 'https://docker.io'\n\
+  \    type: docker\n    state: present\n\n- name: Remove a source\n  community.general.imgadm:\n    source:\
+  \ 'https://docker.io'\n    state: absent\n"

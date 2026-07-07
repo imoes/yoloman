@@ -1,0 +1,173 @@
+name: docker_config
+fqcn: community.docker.docker_config
+collection: community.docker
+short_description: Manage docker configs.
+description: Create and remove Docker configs in a Swarm environment. Similar to C(docker config create)
+  and C(docker config rm). Adds to the metadata of new configs 'ansible_key', an encrypted hash representation
+  of the data, which is then used in future runs to test if a config has changed. If 'ansible_key' is
+  not present, then a config will not be updated unless the O(force) option is set. Updates to configs
+  are performed by removing the config and creating it again.
+options:
+  api_version:
+    type: str
+    default: auto
+    aliases:
+    - docker_api_version
+    description: The version of the Docker API running on the Docker Host. Defaults to the latest version
+      of the API supported by Docker SDK for Python and the docker daemon. If the value is not specified
+      in the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the
+      environment variable is not set, the default value will be used.
+  ca_path:
+    type: path
+    aliases:
+    - ca_cert
+    - tls_ca_cert
+    - cacert_path
+    description: Use a CA certificate when performing server verification by providing the path to a CA
+      certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH)
+      is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH)
+      will be used. This option was called O(ca_cert) and got renamed to O(ca_path) in community.docker
+      3.6.0. The old name has been added as an alias and can still be used.
+  client_cert:
+    type: path
+    aliases:
+    - tls_client_cert
+    - cert_path
+    description: Path to the client's TLS certificate file. If the value is not specified in the task
+      and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory
+      specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+  client_key:
+    type: path
+    aliases:
+    - tls_client_key
+    - key_path
+    description: Path to the client's TLS key file. If the value is not specified in the task and the
+      environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified
+      in the environment variable E(DOCKER_CERT_PATH) will be used.
+  data:
+    type: str
+    description: The value of the config. Mutually exclusive with O(data_src). One of O(data) and O(data_src)
+      is required if O(state=present).
+  data_is_b64:
+    type: bool
+    default: false
+    description: If set to V(true), the data is assumed to be Base64 encoded and will be decoded before
+      being used. To use binary O(data), it is better to keep it Base64 encoded and let it be decoded
+      by this option.
+  data_src:
+    type: path
+    description: The file on the target from which to read the config. Mutually exclusive with O(data).
+      One of O(data) and O(data_src) is required if O(state=present).
+  debug:
+    type: bool
+    default: false
+    description: Debug mode
+  docker_host:
+    type: str
+    default: unix:///var/run/docker.sock
+    aliases:
+    - docker_url
+    description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote
+      host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to
+      encrypt the connection, the module will automatically replace C(tcp) in the connection URL with
+      C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  force:
+    type: bool
+    default: false
+    description: Use with O(state=present) to always remove and recreate an existing config. If V(true),
+      an existing config will be replaced, even if it has not been changed.
+  labels:
+    type: dict
+    description: A map of key:value meta data, where both the C(key) and C(value) are expected to be a
+      string. If new meta data is provided, or existing meta data is modified, the config will be updated
+      by removing it and creating it again.
+  name:
+    type: str
+    required: true
+    description: The name of the config.
+  rolling_versions:
+    type: bool
+    default: false
+    description: If set to V(true), configs are created with an increasing version number appended to
+      their name. Adds a label containing the version number to the managed configs with the name C(ansible_version).
+  ssl_version:
+    type: str
+    description: Provide a valid SSL version number. Default value determined by L(SSL Python module,
+      https://docs.python.org/3/library/ssl.html). If the value is not specified in the task, the value
+      of environment variable E(DOCKER_SSL_VERSION) will be used instead. B(Note:) this option is no longer
+      supported for Docker SDK for Python 7.0.0+. Specifying it with Docker SDK for Python 7.0.0 or newer
+      will lead to an error.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Set to V(present), if the config should exist, and V(absent), if it should not.
+  template_driver:
+    type: str
+    choices:
+    - golang
+    description: Set to V(golang) to use a Go template in O(data) or a Go template file in O(data_src).
+  timeout:
+    type: int
+    default: 60
+    description: The maximum amount of time in seconds to wait on a response from the API. If the value
+      is not specified in the task, the value of environment variable E(DOCKER_TIMEOUT) will be used instead.
+      If the environment variable is not set, the default value will be used.
+  tls:
+    type: bool
+    default: false
+    description: Secure the connection to the API by using TLS without verifying the authenticity of the
+      Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence.
+      If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will
+      be used instead. If the environment variable is not set, the default value will be used.
+  tls_hostname:
+    type: str
+    description: When verifying the authenticity of the Docker Host server, provide the expected name
+      of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME)
+      will be used instead. If the environment variable is not set, the default value will be used. Note
+      that this option had a default value V(localhost) in older versions. It was removed in community.docker
+      3.0.0. B(Note:) this option is no longer supported for Docker SDK for Python 7.0.0+. Specifying
+      it with Docker SDK for Python 7.0.0 or newer will lead to an error.
+  use_ssh_client:
+    type: bool
+    default: false
+    description: For SSH transports, use the C(ssh) CLI tool instead of paramiko. Requires Docker SDK
+      for Python 4.4.0 or newer.
+  validate_certs:
+    type: bool
+    default: false
+    aliases:
+    - tls_verify
+    description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker
+      host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  versions_to_keep:
+    type: int
+    default: 5
+    description: When using O(rolling_versions), the number of old versions of the config to keep. Extraneous
+      old configs are deleted after the new one is created. Set to V(-1) to keep everything or V(0) or
+      V(1) to keep only the current one.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n\n- name: Create config foo (from a file on the control machine)\n  community.docker.docker_config:\n\
+  \    name: foo\n    # If the file is JSON or binary, Ansible might modify it (because\n    # it is first\
+  \ decoded and later re-encoded). Base64-encoding the\n    # file directly after reading it prevents\
+  \ this to happen.\n    data: \"{{ lookup('file', '/path/to/config/file') | b64encode }}\"\n    data_is_b64:\
+  \ true\n    state: present\n\n- name: Create config foo (from a file on the target machine)\n  community.docker.docker_config:\n\
+  \    name: foo\n    data_src: /path/to/config/file\n    state: present\n\n- name: Change the config\
+  \ data\n  community.docker.docker_config:\n    name: foo\n    data: Goodnight everyone!\n    labels:\n\
+  \      bar: baz\n      one: '1'\n    state: present\n\n- name: Add a new label\n  community.docker.docker_config:\n\
+  \    name: foo\n    data: Goodnight everyone!\n    labels:\n      bar: baz\n      one: '1'\n      #\
+  \ Adding a new label will cause a remove/create of the config\n      two: '2'\n    state: present\n\n\
+  - name: No change\n  community.docker.docker_config:\n    name: foo\n    data: Goodnight everyone!\n\
+  \    labels:\n      bar: baz\n      one: '1'\n      # Even though 'two' is missing, there is no change\
+  \ to the existing config\n    state: present\n\n- name: Update an existing label\n  community.docker.docker_config:\n\
+  \    name: foo\n    data: Goodnight everyone!\n    labels:\n      bar: monkey   # Changing a label will\
+  \ cause a remove/create of the config\n      one: '1'\n    state: present\n\n- name: Force the (re-)creation\
+  \ of the config\n  community.docker.docker_config:\n    name: foo\n    data: Goodnight everyone!\n \
+  \   force: true\n    state: present\n\n- name: Remove config foo\n  community.docker.docker_config:\n\
+  \    name: foo\n    state: absent\n"

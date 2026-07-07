@@ -1,0 +1,155 @@
+name: openssl_privatekey_pipe
+fqcn: community.crypto.openssl_privatekey_pipe
+collection: community.crypto
+short_description: Generate OpenSSL private keys without disk access
+description: Keys are generated in PEM format. Make sure to not write the result of this module into logs
+  or to the console, as it contains private key data! Use the C(no_log) task option to be sure. Note that
+  this module is implemented as an L(action plugin,https://docs.ansible.com/ansible/latest/plugins/action.html)
+  and will always be executed on the controller. One can generate L(RSA,https://en.wikipedia.org/wiki/RSA_%28cryptosystem%29),
+  L(DSA,https://en.wikipedia.org/wiki/Digital_Signature_Algorithm), L(ECC,https://en.wikipedia.org/wiki/Elliptic-curve_cryptography)
+  or L(EdDSA,https://en.wikipedia.org/wiki/EdDSA) private keys. This allows to read and write keys to
+  vaults without having to write intermediate versions to disk. This module allows one to (re)generate
+  OpenSSL private keys without disk access.
+options:
+  cipher:
+    type: str
+    description: The cipher to encrypt the private key. Must be V(auto).
+  content:
+    type: str
+    description: The current private key data. Needed for idempotency. If not provided, the module will
+      always return a change, and all idempotence-related options are ignored.
+  content_base64:
+    type: bool
+    default: false
+    description: Set to V(true) if the content is base64 encoded.
+  curve:
+    type: str
+    choices:
+    - secp224r1
+    - secp256k1
+    - secp256r1
+    - secp384r1
+    - secp521r1
+    - secp192r1
+    - brainpoolP256r1
+    - brainpoolP384r1
+    - brainpoolP512r1
+    - sect163k1
+    - sect163r2
+    - sect233k1
+    - sect233r1
+    - sect283k1
+    - sect283r1
+    - sect409k1
+    - sect409r1
+    - sect571k1
+    - sect571r1
+    description: Note that not all curves are supported by all versions of C(cryptography). For maximal
+      interoperability, V(secp384r1) or V(secp256r1) should be used. We use the curve names as defined
+      in the L(IANA registry for TLS,https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8).
+      Please note that all curves except V(secp224r1), V(secp256k1), V(secp256r1), V(secp384r1), and V(secp521r1)
+      are discouraged for new private keys.
+  format:
+    type: str
+    default: auto_ignore
+    choices:
+    - pkcs1
+    - pkcs8
+    - raw
+    - auto
+    - auto_ignore
+    description: Determines which format the private key is written in. By default, PKCS1 (traditional
+      OpenSSL format) is used for all keys which support it. Please note that not every key can be exported
+      in any format. The value V(auto) selects a format based on the key format. The value V(auto_ignore)
+      does the same, but for existing private key files, it will not force a regenerate when its format
+      is not the automatically selected one for generation. Note that if the format for an existing private
+      key mismatches, the key is B(regenerated) by default. To change this behavior, use the O(format_mismatch)
+      option.
+  format_mismatch:
+    type: str
+    default: regenerate
+    choices:
+    - regenerate
+    - convert
+    description: Determines behavior of the module if the format of a private key does not match the expected
+      format, but all other parameters are as expected. If set to V(regenerate) (default), generates a
+      new private key. If set to V(convert), the key will be converted to the new format instead. Only
+      supported by the C(cryptography) backend.
+  passphrase:
+    type: str
+    description: The passphrase for the private key.
+  regenerate:
+    type: str
+    default: full_idempotence
+    choices:
+    - never
+    - fail
+    - partial_idempotence
+    - full_idempotence
+    - always
+    description: Allows to configure in which situations the module is allowed to regenerate private keys.
+      The module will always generate a new key if the destination file does not exist. By default, the
+      key will be regenerated when it does not match the module's options, except when the key cannot
+      be read or the passphrase does not match. Please note that this B(changed) for Ansible 2.10. For
+      Ansible 2.9, the behavior was as if V(full_idempotence) is specified. If set to V(never), the module
+      will fail if the key cannot be read or the passphrase is not matching, and will never regenerate
+      an existing key. If set to V(fail), the module will fail if the key does not correspond to the module's
+      options. If set to V(partial_idempotence), the key will be regenerated if it does not conform to
+      the module's options. The key is B(not) regenerated if it cannot be read (broken file), the key
+      is protected by an unknown passphrase, or when they key is not protected by a passphrase, but a
+      passphrase is specified. If set to V(full_idempotence), the key will be regenerated if it does not
+      conform to the module's options. This is also the case if the key cannot be read (broken file),
+      the key is protected by an unknown passphrase, or when they key is not protected by a passphrase,
+      but a passphrase is specified. Make sure you have a B(backup) when using this option! If set to
+      V(always), the module will always regenerate the key. Note that if O(format_mismatch) is set to
+      V(convert) and everything matches except the format, the key will always be converted, except if
+      O(regenerate) is set to V(always).
+  return_current_key:
+    type: bool
+    default: false
+    description: Set to V(true) to return the current private key when the module did not generate a new
+      one. Note that in case of check mode, when this option is not set to V(true), the module always
+      returns the current key (if it was provided) and Ansible will replace it by C(VALUE_SPECIFIED_IN_NO_LOG_PARAMETER).
+  select_crypto_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - cryptography
+    description: Determines which crypto backend to use. The default choice is V(auto), which tries to
+      use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/)
+      library.
+  size:
+    type: int
+    default: 4096
+    description: Size (in bits) of the TLS/SSL key to generate.
+  type:
+    type: str
+    default: RSA
+    choices:
+    - DSA
+    - ECC
+    - Ed25519
+    - Ed448
+    - RSA
+    - X25519
+    - X448
+    description: The algorithm used to generate the TLS/SSL private key. Note that V(ECC), V(X25519),
+      V(X448), V(Ed25519), and V(Ed448) require the C(cryptography) backend. V(X25519) needs cryptography
+      2.5 or newer, while V(X448), V(Ed25519), and V(Ed448) require cryptography 2.6 or newer. For V(ECC),
+      the minimal cryptography version required depends on the O(curve) option.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)\n  community.crypto.openssl_privatekey_pipe:\n\
+  \  register: output\n  no_log: true  # make sure that private key data is not accidentally revealed\
+  \ in logs!\n- name: Show generated key\n  ansible.builtin.debug:\n    msg: \"{{ output.privatekey }}\"\
+  \n  # DO NOT OUTPUT KEY MATERIAL TO CONSOLE OR LOGS IN PRODUCTION!\n\n\n- name: Generate or update a\
+  \ Mozilla sops encrypted key\n  block:\n    - name: Update sops-encrypted key with the community.sops\
+  \ collection\n      community.crypto.openssl_privatekey_pipe:\n        content: \"{{ lookup('community.sops.sops',\
+  \ 'private_key.pem.sops') }}\"\n        size: 2048\n      register: output\n      no_log: true  # make\
+  \ sure that private key data is not accidentally revealed in logs!\n\n    - name: Update encrypted key\
+  \ when openssl_privatekey_pipe reported a change\n      community.sops.sops_encrypt:\n        path:\
+  \ private_key.pem.sops\n        content_text: \"{{ output.privatekey }}\"\n      when: output is changed\n\
+  \  always:\n    - name: Make sure that output (which contains the private key) is overwritten\n    \
+  \  ansible.builtin.set_fact:\n        output: ''\n"

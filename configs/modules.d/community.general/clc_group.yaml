@@ -1,0 +1,44 @@
+name: clc_group
+fqcn: community.general.clc_group
+collection: community.general
+short_description: Create/delete Server Groups at Centurylink Cloud
+description: Create or delete Server Groups at Centurylink Centurylink Cloud
+options:
+  description:
+    type: str
+    description: A description of the Server Group
+  location:
+    type: str
+    description: Datacenter to create the group in. If location is not provided, the group gets created
+      in the default datacenter associated with the account
+  name:
+    type: str
+    required: true
+    description: The name of the Server Group
+  parent:
+    type: str
+    description: The parent group of the server group. If parent is not provided, it creates the group
+      at top level.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether to create or delete the group
+  wait:
+    type: bool
+    default: true
+    description: Whether to wait for the tasks to finish before returning.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n\n# Create a Server Group\n\n---\n- name: Create Server Group\n  hosts: localhost\n  gather_facts:\
+  \ false\n  connection: local\n  tasks:\n    - name: Create / Verify a Server Group at CenturyLink Cloud\n\
+  \      community.general.clc_group:\n        name: My Cool Server Group\n        parent: Default Group\n\
+  \        state: present\n      register: clc\n\n    - name: Debug\n      ansible.builtin.debug:\n  \
+  \      var: clc\n\n# Delete a Server Group\n- name: Delete Server Group\n  hosts: localhost\n  gather_facts:\
+  \ false\n  connection: local\n  tasks:\n    - name: Delete / Verify Absent a Server Group at CenturyLink\
+  \ Cloud\n      community.general.clc_group:\n        name: My Cool Server Group\n        parent: Default\
+  \ Group\n        state: absent\n      register: clc\n\n    - name: Debug\n      ansible.builtin.debug:\n\
+  \        var: clc\n"

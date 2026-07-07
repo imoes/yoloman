@@ -1,0 +1,64 @@
+name: flowdock
+fqcn: community.general.flowdock
+collection: community.general
+short_description: Send a message to a flowdock
+description: Send a message to a flowdock team inbox or chat using the push API (see https://www.flowdock.com/api/team-inbox
+  and https://www.flowdock.com/api/chat)
+options:
+  external_user_name:
+    type: str
+    description: (chat only - required) Name of the "user" sending the message
+  from_address:
+    type: str
+    description: (inbox only - required) Email address of the message sender
+  from_name:
+    type: str
+    description: (inbox only) Name of the message sender
+  link:
+    type: str
+    description: (inbox only) Link associated with the message. This will be used to link the message
+      subject in Team Inbox.
+  msg:
+    type: str
+    required: true
+    description: Content of the message
+  project:
+    type: str
+    description: (inbox only) Human readable identifier for more detailed message categorization
+  reply_to:
+    type: str
+    description: (inbox only) Email address for replies
+  source:
+    type: str
+    description: (inbox only - required) Human readable identifier of the application that uses the Flowdock
+      API
+  subject:
+    type: str
+    description: (inbox only - required) Subject line of the message
+  tags:
+    type: str
+    description: tags of the message, separated by commas
+  token:
+    type: str
+    required: true
+    description: API token.
+  type:
+    type: str
+    required: true
+    choices:
+    - inbox
+    - chat
+    description: Whether to post to 'inbox' or 'chat'
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Send a message to a flowdock\n  community.general.flowdock:\n    type: inbox\n  \
+  \  token: AAAAAA\n    from_address: user@example.com\n    source: my cool app\n    msg: test from ansible\n\
+  \    subject: test subject\n\n- name: Send a message to a flowdock\n  community.general.flowdock:\n\
+  \    type: chat\n    token: AAAAAA\n    external_user_name: testuser\n    msg: test from ansible\n \
+  \   tags: tag1,tag2,tag3\n"

@@ -1,0 +1,40 @@
+name: heroku_collaborator
+fqcn: community.general.heroku_collaborator
+collection: community.general
+short_description: Add or delete app collaborators on Heroku
+description: Manages collaborators for Heroku apps. If set to V(present) and heroku user is already collaborator,
+  then do nothing. If set to V(present) and heroku user is not collaborator, then add user to app. If
+  set to V(absent) and heroku user is collaborator, then delete user from app.
+options:
+  api_key:
+    type: str
+    description: Heroku API key
+  apps:
+    type: list
+    required: true
+    description: List of Heroku App names
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Create or remove the heroku collaborator
+  suppress_invitation:
+    type: bool
+    default: false
+    description: Suppress email invitation when creating collaborator
+  user:
+    type: str
+    required: true
+    description: User ID or e-mail
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a heroku collaborator\n  community.general.heroku_collaborator:\n    api_key:\
+  \ YOUR_API_KEY\n    user: max.mustermann@example.com\n    apps: heroku-example-app\n    state: present\n\
+  \n- name: An example of using the module in loop\n  community.general.heroku_collaborator:\n    api_key:\
+  \ YOUR_API_KEY\n    user: '{{ item.user }}'\n    apps: '{{ item.apps | default(apps) }}'\n    suppress_invitation:\
+  \ '{{ item.suppress_invitation | default(suppress_invitation) }}'\n    state: '{{ item.state | default(\"\
+  present\") }}'\n  with_items:\n    - { user: 'a.b@example.com' }\n    - { state: 'absent', user: 'b.c@example.com',\
+  \ suppress_invitation: false }\n    - { user: 'x.y@example.com', apps: [\"heroku-example-app\"] }\n"

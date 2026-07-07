@@ -1,0 +1,34 @@
+name: apt_repo
+fqcn: community.general.apt_repo
+collection: community.general
+short_description: Manage APT repositories via apt-repo
+description: Manages APT repositories using apt-repo tool. See U(https://www.altlinux.org/Apt-repo) for
+  details about apt-repo
+options:
+  remove_others:
+    type: bool
+    default: false
+    description: Remove other then added repositories Used if O(state=present)
+  repo:
+    type: str
+    required: true
+    description: Name of the repository to add or remove.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Indicates the desired repository state.
+  update:
+    type: bool
+    default: false
+    description: Update the package database after changing repositories.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Remove all repositories\n  community.general.apt_repo:\n    repo: all\n    state:\
+  \ absent\n\n- name: Add repository `Sisysphus` and remove other repositories\n  community.general.apt_repo:\n\
+  \    repo: Sisysphus\n    state: present\n    remove_others: true\n\n- name: Add local repository `/space/ALT/Sisyphus`\
+  \ and update package cache\n  community.general.apt_repo:\n    repo: copy:///space/ALT/Sisyphus\n  \
+  \  state: present\n    update: true\n"

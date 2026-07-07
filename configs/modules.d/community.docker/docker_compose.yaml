@@ -1,0 +1,254 @@
+name: docker_compose
+fqcn: community.docker.docker_compose
+collection: community.docker
+short_description: Manage multi-container Docker applications with Docker Compose V1
+description: Uses Docker Compose to start, shutdown and scale services. B(This module requires docker-compose
+  < 2.0.0.) Use the M(community.docker.docker_compose_v2) module for using the modern Docker compose CLI
+  plugin. Configuration can be read from a C(docker-compose.yml) or C(docker-compose.yaml) file or inline
+  using the O(definition) option. See the examples for more details. Supports check mode. This module
+  was called C(docker_service) before Ansible 2.8. The usage did not change.
+options:
+  api_version:
+    type: str
+    default: auto
+    aliases:
+    - docker_api_version
+    description: The version of the Docker API running on the Docker Host. Defaults to the latest version
+      of the API supported by Docker SDK for Python and the docker daemon. If the value is not specified
+      in the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the
+      environment variable is not set, the default value will be used.
+  build:
+    type: bool
+    default: false
+    description: Use with O(state=present) to always build images prior to starting the application. Same
+      as running C(docker-compose build) with the pull option. Images will only be rebuilt if Docker detects
+      a change in the Dockerfile or build directory contents. Use the O(nocache) option to ignore the
+      image cache when performing the build. If an existing image is replaced, services using the image
+      will be recreated unless O(recreate=never).
+  ca_path:
+    type: path
+    aliases:
+    - ca_cert
+    - tls_ca_cert
+    - cacert_path
+    description: Use a CA certificate when performing server verification by providing the path to a CA
+      certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH)
+      is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH)
+      will be used. This option was called O(ca_cert) and got renamed to O(ca_path) in community.docker
+      3.6.0. The old name has been added as an alias and can still be used.
+  client_cert:
+    type: path
+    aliases:
+    - tls_client_cert
+    - cert_path
+    description: Path to the client's TLS certificate file. If the value is not specified in the task
+      and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory
+      specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+  client_key:
+    type: path
+    aliases:
+    - tls_client_key
+    - key_path
+    description: Path to the client's TLS key file. If the value is not specified in the task and the
+      environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified
+      in the environment variable E(DOCKER_CERT_PATH) will be used.
+  debug:
+    type: bool
+    default: false
+    description: Debug mode
+  definition:
+    type: dict
+    description: Compose file describing one or more services, networks and volumes. Mutually exclusive
+      with O(project_src) and O(files).
+  dependencies:
+    type: bool
+    default: true
+    description: When O(state) is V(present) specify whether or not to include linked services.
+  docker_host:
+    type: str
+    default: unix:///var/run/docker.sock
+    aliases:
+    - docker_url
+    description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote
+      host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to
+      encrypt the connection, the module will automatically replace C(tcp) in the connection URL with
+      C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  env_file:
+    type: path
+    description: 'By default environment files are loaded from a C(.env) file located directly under the
+      O(project_src) directory. O(env_file) can be used to specify the path of a custom environment file
+      instead. The path is relative to the O(project_src) directory. Requires C(docker-compose) version
+      1.25.0 or greater. Note: C(docker-compose) versions C(<=1.28) load the env file from the current
+      working directory of the C(docker-compose) command rather than O(project_src).'
+  files:
+    type: list
+    description: List of Compose file names relative to O(project_src). Overrides C(docker-compose.yml)
+      or C(docker-compose.yaml). Files are loaded and merged in the order given.
+  hostname_check:
+    type: bool
+    default: false
+    description: Whether or not to check the Docker daemon's hostname against the name provided in the
+      client certificate.
+  nocache:
+    type: bool
+    default: false
+    description: Use with the O(build) option to ignore the cache during the image build process.
+  profiles:
+    type: list
+    description: List of profiles to enable when starting services. Equivalent to C(docker-compose --profile).
+      Requires C(docker-compose) version 1.28.0 or greater.
+  project_name:
+    type: str
+    description: Provide a project name. If not provided, the project name is taken from the basename
+      of O(project_src). Required when O(definition) is provided.
+  project_src:
+    type: path
+    description: Path to a directory containing a C(docker-compose.yml) or C(docker-compose.yaml) file.
+      Mutually exclusive with O(definition). Required when no O(definition) is provided.
+  pull:
+    type: bool
+    default: false
+    description: Use with O(state=present) to always pull images prior to starting the application. Same
+      as running C(docker-compose pull). When a new image is pulled, services using the image will be
+      recreated unless O(recreate=never).
+  recreate:
+    type: str
+    default: smart
+    choices:
+    - always
+    - never
+    - smart
+    description: By default containers will be recreated when their configuration differs from the service
+      definition. Setting to V(never) ignores configuration differences and leaves existing containers
+      unchanged. Setting to V(always) forces recreation of all existing containers.
+  remove_images:
+    type: str
+    choices:
+    - all
+    - local
+    description: Use with O(state=absent) to remove all images or only local images.
+  remove_orphans:
+    type: bool
+    default: false
+    description: Remove containers for services not defined in the Compose file.
+  remove_volumes:
+    type: bool
+    default: false
+    description: Use with O(state=absent) to remove data volumes.
+  restarted:
+    type: bool
+    default: false
+    description: Use with O(state=present) to restart all containers defined in the Compose file. If O(services)
+      is defined, only the containers listed there will be restarted.
+  scale:
+    type: dict
+    description: When O(state) is V(present) scale services. Provide a dictionary of key/value pairs where
+      the key is the name of the service and the value is an integer count for the number of containers.
+  services:
+    type: list
+    description: When O(state) is V(present) run C(docker-compose up) resp. C(docker-compose stop) (with
+      O(stopped=true)) resp. C(docker-compose restart) (with O(restarted=true)) on a subset of services.
+      If empty, which is the default, the operation will be performed on all services defined in the Compose
+      file (or inline O(definition)).
+  ssl_version:
+    type: str
+    description: Provide a valid SSL version number. Default value determined by L(SSL Python module,
+      https://docs.python.org/3/library/ssl.html). If the value is not specified in the task, the value
+      of environment variable E(DOCKER_SSL_VERSION) will be used instead. B(Note:) this option is no longer
+      supported for Docker SDK for Python 7.0.0+. Specifying it with Docker SDK for Python 7.0.0 or newer
+      will lead to an error.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Desired state of the project. Specifying V(present) is the same as running C(docker-compose
+      up) resp. C(docker-compose stop) (with O(stopped=true)) resp. C(docker-compose restart) (with O(restarted=true)).
+      Specifying V(absent) is the same as running C(docker-compose down).
+  stopped:
+    type: bool
+    default: false
+    description: Use with O(state=present) to stop all containers defined in the Compose file. If O(services)
+      is defined, only the containers listed there will be stopped. Requires C(docker-compose) version
+      1.17.0 or greater for full support. For older versions, the services will first be started and then
+      stopped when the service is supposed to be created as stopped.
+  timeout:
+    type: int
+    description: Timeout in seconds for container shutdown when attached or when containers are already
+      running. By default C(docker-compose) will use a V(10) seconds timeout unless C(default_grace_period)
+      is defined for a particular service in the O(project_src).
+  tls:
+    type: bool
+    default: false
+    description: Secure the connection to the API by using TLS without verifying the authenticity of the
+      Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence.
+      If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will
+      be used instead. If the environment variable is not set, the default value will be used.
+  tls_hostname:
+    type: str
+    description: When verifying the authenticity of the Docker Host server, provide the expected name
+      of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME)
+      will be used instead. If the environment variable is not set, the default value will be used. Note
+      that this option had a default value V(localhost) in older versions. It was removed in community.docker
+      3.0.0. B(Note:) this option is no longer supported for Docker SDK for Python 7.0.0+. Specifying
+      it with Docker SDK for Python 7.0.0 or newer will lead to an error.
+  use_ssh_client:
+    type: bool
+    default: false
+    description: Currently ignored for this module, but might suddenly be supported later on.
+  validate_certs:
+    type: bool
+    default: false
+    aliases:
+    - tls_verify
+    description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker
+      host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY)
+      will be used instead. If the environment variable is not set, the default value will be used.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Examples use the django example at https://docs.docker.com/compose/django. Follow it to\
+  \ create the\n# flask directory\n\n- name: Run using a project directory\n  hosts: localhost\n  gather_facts:\
+  \ false\n  tasks:\n    - name: Tear down existing services\n      community.docker.docker_compose:\n\
+  \        project_src: flask\n        state: absent\n\n    - name: Create and start services\n      community.docker.docker_compose:\n\
+  \        project_src: flask\n      register: output\n\n    - name: Show results\n      ansible.builtin.debug:\n\
+  \        var: output\n\n    - name: Run `docker-compose up` again\n      community.docker.docker_compose:\n\
+  \        project_src: flask\n        build: false\n      register: output\n\n    - name: Show results\n\
+  \      ansible.builtin.debug:\n        var: output\n\n    - ansible.builtin.assert:\n        that: not\
+  \ output.changed\n\n    - name: Stop all services\n      community.docker.docker_compose:\n        project_src:\
+  \ flask\n        build: false\n        stopped: true\n      register: output\n\n    - name: Show results\n\
+  \      ansible.builtin.debug:\n        var: output\n\n    - name: Verify that web and db services are\
+  \ not running\n      ansible.builtin.assert:\n        that:\n          - \"not output.services.web.flask_web_1.state.running\"\
+  \n          - \"not output.services.db.flask_db_1.state.running\"\n\n    - name: Restart services\n\
+  \      community.docker.docker_compose:\n        project_src: flask\n        build: false\n        restarted:\
+  \ true\n      register: output\n\n    - name: Show results\n      ansible.builtin.debug:\n        var:\
+  \ output\n\n    - name: Verify that web and db services are running\n      ansible.builtin.assert:\n\
+  \        that:\n          - \"output.services.web.flask_web_1.state.running\"\n          - \"output.services.db.flask_db_1.state.running\"\
+  \n\n- name: Scale the web service to 2\n  hosts: localhost\n  gather_facts: false\n  tasks:\n    - name:\
+  \ Scale the web service to two instances\n      community.docker.docker_compose:\n        project_src:\
+  \ flask\n        scale:\n          web: 2\n      register: output\n\n    - name: Show results\n    \
+  \  ansible.builtin.debug:\n        var: output\n\n- name: Run with inline Compose file version 2\n \
+  \ # https://docs.docker.com/compose/compose-file/compose-file-v2/\n  hosts: localhost\n  gather_facts:\
+  \ false\n  tasks:\n    - name: Remove flask project\n      community.docker.docker_compose:\n      \
+  \  project_src: flask\n        state: absent\n\n    - name: Start flask project with inline definition\n\
+  \      community.docker.docker_compose:\n        project_name: flask\n        definition:\n        \
+  \  version: '2'\n          services:\n            db:\n              image: postgres\n            web:\n\
+  \              build: \"{{ playbook_dir }}/flask\"\n              command: \"python manage.py runserver\
+  \ 0.0.0.0:8000\"\n              volumes:\n                - \"{{ playbook_dir }}/flask:/code\"\n   \
+  \           ports:\n                - \"8000:8000\"\n              depends_on:\n                - db\n\
+  \      register: output\n\n    - name: Show results\n      ansible.builtin.debug:\n        var: output\n\
+  \n    - name: Verify that the db and web services are running\n      ansible.builtin.assert:\n     \
+  \   that:\n          - \"output.services.web.flask_web_1.state.running\"\n          - \"output.services.db.flask_db_1.state.running\"\
+  \n\n- name: Run with inline Compose file version 1\n  # https://docs.docker.com/compose/compose-file/compose-file-v1/\n\
+  \  hosts: localhost\n  gather_facts: false\n  tasks:\n    - name: Remove flask project\n      community.docker.docker_compose:\n\
+  \        project_src: flask\n        state: absent\n\n    - name: Start flask project with inline definition\n\
+  \      community.docker.docker_compose:\n        project_name: flask\n        definition:\n        \
+  \    db:\n              image: postgres\n            web:\n              build: \"{{ playbook_dir }}/flask\"\
+  \n              command: \"python manage.py runserver 0.0.0.0:8000\"\n              volumes:\n     \
+  \           - \"{{ playbook_dir }}/flask:/code\"\n              ports:\n                - \"8000:8000\"\
+  \n              links:\n                - db\n      register: output\n\n    - name: Show results\n \
+  \     ansible.builtin.debug:\n        var: output\n\n    - name: Verify that web and db services are\
+  \ running\n      ansible.builtin.assert:\n        that:\n          - \"output.services.web.flask_web_1.state.running\"\
+  \n          - \"output.services.db.flask_db_1.state.running\"\n"
