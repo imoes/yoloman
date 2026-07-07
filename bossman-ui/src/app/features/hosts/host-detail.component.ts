@@ -20,7 +20,7 @@ import { ChartSeries, MetricChartComponent } from '../../shared/components/metri
 import { MetricGaugeComponent } from '../../shared/components/metric-gauge/metric-gauge.component';
 import { TimeRangePickerComponent } from '../../shared/components/time-range-picker/time-range-picker.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
-import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
+import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -845,9 +845,11 @@ export class HostDetailComponent implements OnInit {
       width: '420px',
       data: { serviceName: svc.name, hostName: svc.agent_name },
     });
-    ref.afterClosed().subscribe((comment: string | undefined) => {
-      if (comment === undefined) return;
-      this.monitoringService.acknowledge(svc.id, comment).subscribe(() => this.reloadServices(svc.agent_id));
+    ref.afterClosed().subscribe((result: AcknowledgeDialogResult | undefined) => {
+      if (!result) return;
+      this.monitoringService
+        .acknowledge(svc.id, result.comment, result.expireAfterMinutes)
+        .subscribe(() => this.reloadServices(svc.agent_id));
     });
   }
 

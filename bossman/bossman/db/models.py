@@ -379,6 +379,10 @@ class Service(Base):
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ack_comment: Mapped[str | None] = mapped_column(Text)
     ack_by: Mapped[str | None] = mapped_column(String)
+    # CheckMK's "acknowledge for a limited time" (Block H5): NULL = the
+    # existing indefinite ack; once passed, the ack lapses and the problem
+    # resurfaces (enforced lazily by expire_acknowledgements()).
+    ack_expires_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
 
     __table_args__ = (
         UniqueConstraint("agent_id", "name", name="uq_services_agent_name"),

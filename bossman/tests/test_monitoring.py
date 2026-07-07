@@ -9,7 +9,14 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from bossman.db.models import Agent, CheckRule, Metric, Service, ServiceStateHistory
-from bossman.services.monitoring import compute_state, evaluate_host, resolve_effective_rule
+from bossman.services.monitoring import (
+    acknowledge_service,
+    compute_state,
+    evaluate_host,
+    expire_acknowledgements,
+    query_agent_services,
+    resolve_effective_rule,
+)
 
 # ---------------------------------------------------------------------------
 # resolve_effective_rule — pure, no DB
@@ -320,3 +327,36 @@ async def test_evaluate_host_no_rules_produces_no_services(db_session):
 
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def test_timed_acknowledgement_expires(db_session):
+    """A timed ack (Block H5): still handled before expiry, lapses after —
+    and query_agent_services (a read path) applies the expiry lazily."""
+    from datetime import timedelta
+
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session)
+    await _write_metric(db_session, agent, "cpu_pct", 99.0)
+    await evaluate_host(db_session, agent)
+    await db_session.commit()
+    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+
+    now = datetime.now(timezone.utc)
+    # Ack that already expired a minute ago.
+    await acknowledge_service(db_session, service.id, "short ack", "admin", expires_at=now - timedelta(minutes=1))
+    await db_session.refresh(service)
+    assert service.acknowledged is True and service.ack_expires_at is not None
+
+    # A read path lazily expires it: the service comes back unacknowledged.
+    views = await query_agent_services(db_session, agent.id)
+    assert views[0].service.acknowledged is False
+    assert views[0].service.ack_expires_at is None
+
+    # A future expiry stays acknowledged.
+    await acknowledge_service(db_session, service.id, "longer ack", "admin", expires_at=now + timedelta(hours=1))
+    n = await expire_acknowledgements(db_session, now)
+    assert n == 0
+    await db_session.refresh(service)
+    assert service.acknowledged is True
+
+    await _cleanup(db_session, agent, rule)

@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
-from bossman.services.monitoring import evaluate_host, ingest_agent_checks
+from bossman.services.monitoring import evaluate_host, expire_acknowledgements, ingest_agent_checks
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +322,9 @@ async def poll_agent(
         # whole poll cycle (mirrors the metrics/edges try/except above).
         try:
             await evaluate_host(session, agent)
+            # Lapse any timed acknowledgements that have expired (Block H5),
+            # so a problem resurfaces on the next poll even with no UI open.
+            await expire_acknowledgements(session, now)
         except Exception:
             logger.exception("evaluate_host failed for agent %s", agent.name)
 

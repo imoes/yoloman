@@ -12,7 +12,7 @@ import { Agent } from '../../core/models/agent.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
+import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { DashboardGridComponent } from './dashboard-grid.component';
 
@@ -408,9 +408,11 @@ export class FleetOverviewComponent implements OnInit {
       width: '420px',
       data: { serviceName: p.name, hostName: p.agent_name },
     });
-    ref.afterClosed().subscribe((comment: string | undefined) => {
-      if (comment === undefined) return;
-      this.monitoringService.acknowledge(p.id, comment).subscribe(() => this.reloadProblems());
+    ref.afterClosed().subscribe((result: AcknowledgeDialogResult | undefined) => {
+      if (!result) return;
+      this.monitoringService
+        .acknowledge(p.id, result.comment, result.expireAfterMinutes)
+        .subscribe(() => this.reloadProblems());
     });
   }
 }

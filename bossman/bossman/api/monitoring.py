@@ -12,7 +12,7 @@ point this project is built around), so the two facades never diverge.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -53,6 +53,7 @@ class ServiceOut(BaseModel):
     acknowledged: bool
     ack_comment: str | None
     ack_by: str | None
+    ack_expires_at: datetime | None
     in_downtime: bool
 
     @classmethod
@@ -72,6 +73,7 @@ class ServiceOut(BaseModel):
             acknowledged=s.acknowledged,
             ack_comment=s.ack_comment,
             ack_by=s.ack_by,
+            ack_expires_at=s.ack_expires_at,
             in_downtime=view.in_downtime,
         )
 
@@ -123,6 +125,10 @@ async def get_service_history(
 
 class AcknowledgeRequest(BaseModel):
     comment: str = ""
+    # CheckMK's "acknowledge for a limited time" (Block H5): after this many
+    # minutes the ack lapses and the problem resurfaces. None/0 = indefinite
+    # (the previous behavior — valid until the next state change).
+    expire_after_minutes: int | None = None
 
 
 @router.post("/api/v1/services/{service_id}/acknowledge", response_model=ServiceOut)
@@ -132,7 +138,10 @@ async def acknowledge_service_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> ServiceOut:
-    service = await acknowledge_service(session, service_id, body.comment, identity.name)
+    expires_at = None
+    if body.expire_after_minutes and body.expire_after_minutes > 0:
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=body.expire_after_minutes)
+    service = await acknowledge_service(session, service_id, body.comment, identity.name, expires_at)
     if service is None:
         raise HTTPException(status_code=404, detail=f"no such service {service_id}")
     return ServiceOut.from_view(await to_view(session, service))

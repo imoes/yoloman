@@ -13,6 +13,7 @@ export interface ServiceState {
   acknowledged: boolean;
   ack_comment: string | null;
   ack_by: string | null;
+  ack_expires_at: string | null;
   in_downtime: boolean;
 }
 

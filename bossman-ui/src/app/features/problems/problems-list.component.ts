@@ -13,7 +13,7 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { StatusFilterChipsComponent } from '../../shared/components/status-filter-chips/status-filter-chips.component';
-import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
+import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { serviceStateBadge } from '../../shared/status.util';
 
@@ -200,9 +200,9 @@ export class ProblemsListComponent implements OnInit {
       width: '420px',
       data: { serviceName: p.name, hostName: p.agent_name },
     });
-    ref.afterClosed().subscribe((comment: string | undefined) => {
-      if (comment === undefined) return;
-      this.monitoringService.acknowledge(p.id, comment).subscribe(() => this.reload());
+    ref.afterClosed().subscribe((result: AcknowledgeDialogResult | undefined) => {
+      if (!result) return;
+      this.monitoringService.acknowledge(p.id, result.comment, result.expireAfterMinutes).subscribe(() => this.reload());
     });
   }
 

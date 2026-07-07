@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory
@@ -151,6 +151,7 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
                 existing.acknowledged = False
                 existing.ack_comment = None
                 existing.ack_by = None
+                existing.ack_expires_at = None
 
         if state_changed:
             session.add(
@@ -225,6 +226,7 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
                 existing.acknowledged = False
                 existing.ack_comment = None
                 existing.ack_by = None
+                existing.ack_expires_at = None
 
         if state_changed:
             session.add(ServiceStateHistory(time=now, agent_id=agent.id, service_name=name, state=state, value=value))
@@ -295,6 +297,7 @@ async def query_problems(
     services currently under an active Downtime unless include_downtime is
     set, since a downtime means "we already know, don't page anyone"."""
     now = datetime.now(timezone.utc)
+    await expire_acknowledgements(session, now)
     stmt = select(Service, Agent.name).join(Agent, Agent.id == Service.agent_id).where(Service.state != "OK")
     if state is not None:
         stmt = stmt.where(Service.state == state)
@@ -340,17 +343,36 @@ async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[Se
     if agent is None:
         return None
     now = datetime.now(timezone.utc)
+    await expire_acknowledgements(session, now)
     services = (await session.scalars(select(Service).where(Service.agent_id == agent_id).order_by(Service.name))).all()
     return [await _to_view(session, s, agent.name, now) for s in services]
 
 
-async def acknowledge_service(session: AsyncSession, service_id: UUID, comment: str, ack_by: str) -> Service | None:
+async def expire_acknowledgements(session: AsyncSession, now: datetime) -> int:
+    """Lapses every timed acknowledgement whose expiry has passed
+    (CheckMK's "acknowledge for a limited time" — Block H5): the problem
+    reverts to unhandled and resurfaces. Called at the top of the problem/
+    service read paths so an expired ack is never shown as still handled,
+    and by the poller so it happens even with no UI open. Returns the
+    number expired. Does not commit — the caller owns the transaction."""
+    result = await session.execute(
+        update(Service)
+        .where(Service.acknowledged.is_(True), Service.ack_expires_at.isnot(None), Service.ack_expires_at <= now)
+        .values(acknowledged=False, ack_expires_at=None)
+    )
+    return result.rowcount or 0
+
+
+async def acknowledge_service(
+    session: AsyncSession, service_id: UUID, comment: str, ack_by: str, expires_at: datetime | None = None
+) -> Service | None:
     service = await session.get(Service, service_id)
     if service is None:
         return None
     service.acknowledged = True
     service.ack_comment = comment
     service.ack_by = ack_by
+    service.ack_expires_at = expires_at
     await session.commit()
     return service
 
@@ -362,6 +384,7 @@ async def unacknowledge_service(session: AsyncSession, service_id: UUID) -> Serv
     service.acknowledged = False
     service.ack_comment = None
     service.ack_by = None
+    service.ack_expires_at = None
     await session.commit()
     return service
 

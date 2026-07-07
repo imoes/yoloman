@@ -47,8 +47,11 @@ export class MonitoringService {
     );
   }
 
-  acknowledge(serviceId: string, comment: string) {
-    return this.http.post<ServiceState>(`${this.base}/services/${serviceId}/acknowledge`, { comment });
+  acknowledge(serviceId: string, comment: string, expireAfterMinutes: number | null = null) {
+    return this.http.post<ServiceState>(`${this.base}/services/${serviceId}/acknowledge`, {
+      comment,
+      expire_after_minutes: expireAfterMinutes,
+    });
   }
 
   unacknowledge(serviceId: string) {
