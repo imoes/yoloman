@@ -63,6 +63,11 @@ type HostSnapshot struct {
 	LastSampleAt string          `json:"last_sample_at,omitempty"`
 	Metrics      []MetricSample  `json:"metrics"`
 	Checks       []CheckSnapshot `json:"checks,omitempty"`
+	// Inventory is the host's HW/SW inventory document (see
+	// internal/inventory, Block H1) — typed for the self snapshot, raw
+	// JSON passed through unchanged for satellites (their own agents
+	// already shaped it).
+	Inventory any `json:"inventory,omitempty"`
 }
 
 // HostsOverviewResponse is the GET /api/v1/hosts/overview response body.
@@ -80,14 +85,18 @@ func handleHostsOverview(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 	hosts := []HostSnapshot{self}
 	if cfg.Mode == "proxy" && cfg.SatelliteSnapshots != nil {
 		for _, sat := range cfg.SatelliteSnapshots.All() {
-			hosts = append(hosts, HostSnapshot{
+			snap := HostSnapshot{
 				Host:         sat.Host,
 				Parent:       cfg.HostName,
 				Mode:         "satellite",
 				LastSampleAt: sat.LastSampleAt,
 				Metrics:      convertFleetMetrics(sat.Metrics),
 				Checks:       convertFleetChecks(sat.Checks),
-			})
+			}
+			if len(sat.Inventory) > 0 {
+				snap.Inventory = sat.Inventory
+			}
+			hosts = append(hosts, snap)
 		}
 	}
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Host < hosts[j].Host })
@@ -123,6 +132,9 @@ func selfSnapshot(ctx context.Context, cfg RESTConfig) (HostSnapshot, error) {
 		Mode:    cfg.Mode,
 		Metrics: metrics,
 		Checks:  checkSnaps,
+	}
+	if cfg.Inventory != nil {
+		snap.Inventory = cfg.Inventory.Get()
 	}
 	if !lastSampleAt.IsZero() {
 		snap.LastSampleAt = lastSampleAt.UTC().Format(time.RFC3339)

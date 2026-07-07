@@ -20,6 +20,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
+	"github.com/mutkluge/agentic-mcp/internal/inventory"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
@@ -161,6 +162,9 @@ func run(args []string) error {
 		HostName:           hostName,
 		CheckRegistry:      checkRegistry,
 		SatelliteSnapshots: satelliteSnapshots,
+		// HW/SW inventory (Block H1): near-static, cached for an hour so
+		// the overview endpoint never re-walks sysfs per poll tick.
+		Inventory: inventory.NewCached(inventory.DefaultCollector(), time.Hour),
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
 }

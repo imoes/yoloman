@@ -13,6 +13,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/collect"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
+	"github.com/mutkluge/agentic-mcp/internal/inventory"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/store"
@@ -99,6 +100,10 @@ type RESTConfig struct {
 	// monitoring-cockpit ergänzung ("ein Endpoint der alle Hosts mit
 	// ihren Metriken ausgibt").
 	SatelliteSnapshots *fleet.SnapshotCache
+	// Inventory is the cached HW/SW inventory collector (see
+	// internal/inventory, Block H1) — optional (nil omits the inventory
+	// field from GET /api/v1/hosts/overview).
+	Inventory *inventory.Cached
 }
 
 type ctxKey int

@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 )
@@ -48,6 +49,10 @@ type HostSnapshot struct {
 	LastSampleAt string          `json:"last_sample_at,omitempty"`
 	Metrics      []MetricSample  `json:"metrics"`
 	Checks       []CheckSnapshot `json:"checks,omitempty"`
+	// Inventory is passed through verbatim (the satellite's agent already
+	// shaped it — see internal/inventory); RawMessage keeps this package
+	// free of that dependency.
+	Inventory json.RawMessage `json:"inventory,omitempty"`
 }
 
 // SnapshotCache holds the most recently pulled GET /api/v1/hosts/overview
