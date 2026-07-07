@@ -238,8 +238,13 @@ async def test_poll_once_only_polls_enrolled_agents(db_session, session_factory)
 
     results = await poll_once(session_factory, _settings(), factory)
 
-    assert len(results) == 1
-    assert results[0].agent_id == str(enrolled.id)
+    # Assert about the two agents this test created, not a global count:
+    # poll_once operates on every enrolled agent in the (shared) DB, so a
+    # count assertion is fragile against residue from other tests. The
+    # invariant under test is "enrolled polled, pending skipped".
+    result_ids = {r.agent_id for r in results}
+    assert str(enrolled.id) in result_ids
+    assert str(pending.id) not in result_ids
 
     await db_session.delete(enrolled)
     await db_session.delete(pending)

@@ -30,6 +30,25 @@ export interface ServiceHistoryPoint {
   value: number | null;
 }
 
+/** Matches bossman/api/monitoring.py's AvailabilityOut (Block H9). */
+export interface AvailabilitySlice {
+  state: string;
+  seconds: number;
+  percent: number;
+}
+
+export interface Availability {
+  agent_id: string;
+  service_name: string;
+  start: string;
+  end: string;
+  window_seconds: number;
+  monitored_seconds: number;
+  ok_percent: number;
+  state_changes: number;
+  slices: AvailabilitySlice[];
+}
+
 /** Matches bossman/api/monitoring.py's DowntimeOut. */
 export interface Downtime {
   id: string;

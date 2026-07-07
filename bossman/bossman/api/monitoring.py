@@ -26,6 +26,7 @@ from bossman.db.session import get_session
 from bossman.services.monitoring import (
     ServiceView,
     acknowledge_service,
+    compute_availability,
     create_downtime,
     fleet_hosts,
     fleet_summary,
@@ -129,6 +130,53 @@ async def get_service_history(
 ) -> list[ServiceHistoryPointOut]:
     rows = await service_state_history(session, agent_id, service_name, limit=limit)
     return [ServiceHistoryPointOut(time=r.time, state=r.state, value=r.value) for r in rows]
+
+
+class AvailabilitySliceOut(BaseModel):
+    state: str
+    seconds: float
+    percent: float
+
+
+class AvailabilityOut(BaseModel):
+    agent_id: UUID
+    service_name: str
+    start: datetime
+    end: datetime
+    window_seconds: float
+    monitored_seconds: float
+    ok_percent: float
+    state_changes: int
+    slices: list[AvailabilitySliceOut]
+
+
+@router.get(
+    "/api/v1/agents/{agent_id}/services/{service_name:path}/availability",
+    response_model=AvailabilityOut,
+)
+async def get_service_availability(
+    agent_id: UUID,
+    service_name: str,
+    hours: float = Query(24.0, gt=0, le=8784, description="Look-back window in hours (default 24h)"),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> AvailabilityOut:
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(hours=hours)
+    report = await compute_availability(session, agent_id, service_name, start, end)
+    return AvailabilityOut(
+        agent_id=report.agent_id,
+        service_name=report.service_name,
+        start=report.start,
+        end=report.end,
+        window_seconds=report.window_seconds,
+        monitored_seconds=report.monitored_seconds,
+        ok_percent=report.ok_percent,
+        state_changes=report.state_changes,
+        slices=[
+            AvailabilitySliceOut(state=s.state, seconds=s.seconds, percent=s.percent) for s in report.slices
+        ],
+    )
 
 
 class AcknowledgeRequest(BaseModel):

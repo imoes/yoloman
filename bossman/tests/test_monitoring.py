@@ -11,6 +11,7 @@ from sqlalchemy import select
 from bossman.db.models import Agent, CheckRule, Metric, Service, ServiceStateHistory
 from bossman.services.monitoring import (
     acknowledge_service,
+    compute_availability,
     compute_state,
     evaluate_host,
     expire_acknowledgements,
@@ -510,3 +511,69 @@ async def test_timed_acknowledgement_expires(db_session):
     assert service.acknowledged is True
 
     await _cleanup(db_session, agent, rule)
+
+
+# ---------------------------------------------------------------------------
+# compute_availability — Block H9 SLA report
+
+
+async def _hist(db_session, agent, name, when, state):
+    db_session.add(ServiceStateHistory(time=when, agent_id=agent.id, service_name=name, state=state, value=None))
+    await db_session.flush()
+    await db_session.commit()
+
+
+async def test_compute_availability_splits_time_in_state(db_session):
+    """A CRIT that lasted a quarter of the window yields ok_percent≈75,
+    reconstructed from the hard-state timeline plus the tail to `end`."""
+    agent = await _make_agent(db_session)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(hours=4)
+    # OK for 3h, CRIT for the last 1h (25%).
+    await _hist(db_session, agent, "CPU", start, "OK")
+    await _hist(db_session, agent, "CPU", end - timedelta(hours=1), "CRIT")
+
+    report = await compute_availability(db_session, agent.id, "CPU", start, end)
+    ok = next(s for s in report.slices if s.state == "OK")
+    crit = next(s for s in report.slices if s.state == "CRIT")
+    assert abs(report.ok_percent - 75.0) < 0.01
+    assert abs(ok.percent - 75.0) < 0.01
+    assert abs(crit.percent - 25.0) < 0.01
+    assert abs(report.monitored_seconds - 4 * 3600) < 1.0
+    assert report.state_changes == 2
+
+    await _cleanup(db_session, agent)
+
+
+async def test_compute_availability_carry_in_from_before_window(db_session):
+    """A state recorded before `start` (carry-in) covers the leading span —
+    a service CRIT since before the window is 100% CRIT within it."""
+    agent = await _make_agent(db_session)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(hours=2)
+    await _hist(db_session, agent, "Disk", start - timedelta(hours=5), "CRIT")
+
+    report = await compute_availability(db_session, agent.id, "Disk", start, end)
+    crit = next(s for s in report.slices if s.state == "CRIT")
+    assert abs(crit.percent - 100.0) < 0.01
+    assert report.ok_percent == 0.0
+    assert report.state_changes == 0
+
+    await _cleanup(db_session, agent)
+
+
+async def test_compute_availability_leading_gap_is_unmonitored(db_session):
+    """No record before the first in-window change: the leading span is left
+    uncounted (monitored < wall window), not charged as downtime."""
+    agent = await _make_agent(db_session)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(hours=4)
+    # First-ever record 1h into the window; OK from there on.
+    await _hist(db_session, agent, "Mem", start + timedelta(hours=1), "OK")
+
+    report = await compute_availability(db_session, agent.id, "Mem", start, end)
+    assert abs(report.monitored_seconds - 3 * 3600) < 1.0
+    assert abs(report.window_seconds - 4 * 3600) < 1.0
+    assert abs(report.ok_percent - 100.0) < 0.01
+
+    await _cleanup(db_session, agent)

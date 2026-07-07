@@ -14,7 +14,8 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { Agent, LatestMetric, MetricPoint } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
-import { FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
+import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
+import { BM_GREEN, BM_GOLD, BM_RED, BM_UNKNOWN } from '../../shared/bm-colors';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { ChartSeries, MetricChartComponent } from '../../shared/components/metric-chart/metric-chart.component';
 import { MetricGaugeComponent } from '../../shared/components/metric-gauge/metric-gauge.component';
@@ -225,6 +226,53 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           <td colspan="7">
                             <div class="bm-metric-chart-wrap">
                               <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
+                              @if (availability(); as av) {
+                                <div class="bm-avail">
+                                  <div class="bm-avail-head">
+                                    <span class="bm-avail-title">Availability</span>
+                                    <span class="bm-avail-ranges">
+                                      @for (r of availabilityRanges; track r.hours) {
+                                        <button
+                                          mat-button
+                                          class="bm-avail-range"
+                                          [class.bm-avail-range--on]="availabilityHours() === r.hours"
+                                          (click)="setAvailabilityRange(r.hours)"
+                                        >
+                                          {{ r.label }}
+                                        </button>
+                                      }
+                                    </span>
+                                    <span class="bm-avail-ok">{{ av.ok_percent | number: '1.2-3' }}% OK</span>
+                                  </div>
+                                  @if (av.monitored_seconds > 0) {
+                                    <div class="bm-avail-bar">
+                                      @for (s of av.slices; track s.state) {
+                                        @if (s.percent > 0) {
+                                          <span
+                                            class="bm-avail-seg"
+                                            [style.width.%]="s.percent"
+                                            [style.background]="availabilityColor(s.state)"
+                                            [title]="s.state + ' ' + (s.percent | number: '1.1-1') + '%'"
+                                          ></span>
+                                        }
+                                      }
+                                    </div>
+                                    <ul class="bm-avail-legend">
+                                      @for (s of av.slices; track s.state) {
+                                        @if (s.percent > 0) {
+                                          <li>
+                                            <span class="bm-avail-dot" [style.background]="availabilityColor(s.state)"></span>
+                                            {{ s.state }} {{ s.percent | number: '1.2-2' }}%
+                                          </li>
+                                        }
+                                      }
+                                      <li class="bm-avail-changes">{{ av.state_changes }} state changes</li>
+                                    </ul>
+                                  } @else {
+                                    <p class="bm-empty">No state history recorded in this window yet.</p>
+                                  }
+                                </div>
+                              }
                               @if (serviceHistory().length) {
                                 <ul class="bm-history-list">
                                   @for (h of serviceHistory(); track h.time) {
@@ -472,6 +520,72 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-service-detail {
         margin-top: 20px;
+      }
+      .bm-avail {
+        margin-top: 16px;
+      }
+      .bm-avail-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .bm-avail-title {
+        font-weight: 600;
+      }
+      .bm-avail-ranges {
+        display: flex;
+        gap: 2px;
+      }
+      .bm-avail-range {
+        min-width: 0;
+        padding: 0 10px;
+        line-height: 28px;
+        opacity: 0.6;
+      }
+      .bm-avail-range--on {
+        opacity: 1;
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      .bm-avail-ok {
+        margin-left: auto;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .bm-avail-bar {
+        display: flex;
+        height: 20px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 8px;
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+      }
+      .bm-avail-seg {
+        height: 100%;
+      }
+      .bm-avail-legend {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .bm-avail-legend li {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .bm-avail-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+      .bm-avail-changes {
+        opacity: 0.6;
       }
       .bm-history-list {
         list-style: none;
@@ -786,6 +900,14 @@ export class HostDetailComponent implements OnInit {
   selectedService = signal<ServiceState | null>(null);
   serviceChartSeries = signal<ChartSeries[]>([]);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
+  /** Block H9 availability/SLA report for the expanded service. */
+  availability = signal<Availability | null>(null);
+  availabilityHours = signal(24);
+  readonly availabilityRanges = [
+    { label: '24h', hours: 24 },
+    { label: '7d', hours: 168 },
+    { label: '30d', hours: 720 },
+  ];
   overview = signal<FleetHost | null>(null);
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
@@ -851,6 +973,28 @@ export class HostDetailComponent implements OnInit {
       });
     }
     this.monitoringService.serviceHistory(agent.id, svc.name).subscribe((history) => this.serviceHistory.set(history));
+    this.loadAvailability(svc);
+  }
+
+  /** Load the SLA report for the expanded service over the selected range. */
+  private loadAvailability(svc: ServiceState): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.availability.set(null);
+    this.monitoringService
+      .serviceAvailability(agent.id, svc.name, this.availabilityHours())
+      .subscribe((report) => this.availability.set(report));
+  }
+
+  setAvailabilityRange(hours: number): void {
+    this.availabilityHours.set(hours);
+    const svc = this.selectedService();
+    if (svc) this.loadAvailability(svc);
+  }
+
+  /** A CheckMK-style state colour for the availability bar segments. */
+  availabilityColor(state: string): string {
+    return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
   }
 
   serviceBadge(svc: ServiceState) {

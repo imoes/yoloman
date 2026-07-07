@@ -423,6 +423,41 @@ async def test_get_service_history_name_with_slash(db_session):
     await _cleanup(db_session, agent)
 
 
+async def test_get_service_availability_report(db_session):
+    """Block H9: the availability endpoint splits time-in-state over a
+    look-back window (here 4h, CRIT for the last hour → ok_percent≈75)."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    now = datetime.now(timezone.utc)
+    ok = ServiceStateHistory(time=now - timedelta(hours=4), agent_id=agent.id, service_name="CPU load", state="OK", value=10.0)
+    crit = ServiceStateHistory(time=now - timedelta(hours=1), agent_id=agent.id, service_name="CPU load", state="CRIT", value=99.0)
+    db_session.add_all([ok, crit])
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get(
+            f"/api/v1/agents/{agent.id}/services/CPU%20load/availability",
+            params={"hours": 4},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert abs(body["ok_percent"] - 75.0) < 0.5
+    by_state = {s["state"]: s["percent"] for s in body["slices"]}
+    assert abs(by_state["CRIT"] - 25.0) < 0.5
+    # The OK row sits on the window's left edge; depending on sub-second
+    # request timing it counts either as an in-window change or as carry-in
+    # — either way the percentages above hold.
+    assert body["state_changes"] >= 1
+
+    await db_session.delete(api_token)
+    await db_session.delete(ok)
+    await db_session.delete(crit)
+    await db_session.flush()
+    await _cleanup(db_session, agent)
+
+
 async def test_update_agent_groups(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)

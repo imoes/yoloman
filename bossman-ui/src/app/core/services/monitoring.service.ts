@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -43,6 +43,14 @@ export class MonitoringService {
     const params = new HttpParams().set('limit', String(limit));
     return this.http.get<ServiceHistoryPoint[]>(
       `${this.base}/agents/${agentId}/services/${encodeURIComponent(serviceName)}/history`,
+      { params },
+    );
+  }
+
+  serviceAvailability(agentId: string, serviceName: string, hours = 24) {
+    const params = new HttpParams().set('hours', String(hours));
+    return this.http.get<Availability>(
+      `${this.base}/agents/${agentId}/services/${encodeURIComponent(serviceName)}/availability`,
       { params },
     );
   }

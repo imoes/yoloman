@@ -488,6 +488,102 @@ async def service_state_history(
     return list(rows)
 
 
+_AVAIL_STATES = ("OK", "WARN", "CRIT", "UNKNOWN")
+
+
+@dataclass
+class AvailabilitySlice:
+    state: str
+    seconds: float
+    percent: float
+
+
+@dataclass
+class AvailabilityReport:
+    """A service's uptime split over [start, end], reconstructed from the
+    hard-state timeline (service_state_history holds only hard transitions
+    since Block H7, so soft blips don't count against an SLA — exactly what
+    CheckMK's availability view does). Percentages are of *monitored* time:
+    any leading span before the first recorded state (a service we have no
+    record for yet) is left uncounted rather than charged as downtime."""
+
+    agent_id: UUID
+    service_name: str
+    start: datetime
+    end: datetime
+    window_seconds: float
+    monitored_seconds: float
+    slices: list[AvailabilitySlice]
+    ok_percent: float
+    state_changes: int
+
+
+async def compute_availability(
+    session: AsyncSession, agent_id: UUID, service_name: str, start: datetime, end: datetime
+) -> AvailabilityReport:
+    """Time-in-state for one service. Carry-in = the last hard state before
+    `start`; that state holds until the next recorded change, and the tail
+    holds until `end`."""
+    carry_in = await session.scalar(
+        select(ServiceStateHistory.state)
+        .where(
+            ServiceStateHistory.agent_id == agent_id,
+            ServiceStateHistory.service_name == service_name,
+            ServiceStateHistory.time < start,
+        )
+        .order_by(ServiceStateHistory.time.desc())
+        .limit(1)
+    )
+    changes = (
+        await session.scalars(
+            select(ServiceStateHistory)
+            .where(
+                ServiceStateHistory.agent_id == agent_id,
+                ServiceStateHistory.service_name == service_name,
+                ServiceStateHistory.time >= start,
+                ServiceStateHistory.time <= end,
+            )
+            .order_by(ServiceStateHistory.time.asc())
+        )
+    ).all()
+
+    durations: dict[str, float] = {}
+    current: str | None = carry_in
+    cursor = start
+    for ch in changes:
+        if current is not None:
+            seg = (ch.time - cursor).total_seconds()
+            if seg > 0:
+                durations[current] = durations.get(current, 0.0) + seg
+        current = ch.state
+        cursor = ch.time
+    if current is not None:
+        seg = (end - cursor).total_seconds()
+        if seg > 0:
+            durations[current] = durations.get(current, 0.0) + seg
+
+    monitored = sum(durations.values())
+    slices = [
+        AvailabilitySlice(
+            state=st,
+            seconds=durations.get(st, 0.0),
+            percent=(durations.get(st, 0.0) / monitored * 100.0) if monitored > 0 else 0.0,
+        )
+        for st in _AVAIL_STATES
+    ]
+    return AvailabilityReport(
+        agent_id=agent_id,
+        service_name=service_name,
+        start=start,
+        end=end,
+        window_seconds=(end - start).total_seconds(),
+        monitored_seconds=monitored,
+        slices=slices,
+        ok_percent=next((s.percent for s in slices if s.state == "OK"), 0.0),
+        state_changes=len(changes),
+    )
+
+
 async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[ServiceView] | None:
     """Every service for one host, by id. Returns None (not an empty list)
     if the agent itself doesn't exist, so callers can tell "no services
