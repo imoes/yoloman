@@ -22,6 +22,7 @@ import { TimeRangePickerComponent } from '../../shared/components/time-range-pic
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
 import { AcknowledgeDialogComponent } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
+import { HostInventoryComponent } from './host-inventory.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -94,6 +95,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatButtonToggleModule,
     MatButtonModule,
     HostStatusBadgeComponent,
+    HostInventoryComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
@@ -153,26 +155,99 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </mat-tab>
 
-          <mat-tab label="Facts">
+          <mat-tab label="Services">
             <div class="bm-tab-content">
-              <dl class="bm-facts">
-                <dt>Address</dt>
-                <dd>{{ agent.address || '—' }}</dd>
-                <dt>Mode</dt>
-                <dd>{{ agent.mode }}</dd>
-                <dt>Enrollment state</dt>
-                <dd>{{ agent.enrollment_state }}</dd>
-                <dt>Last seen</dt>
-                <dd>{{ agent.last_seen_at ? (agent.last_seen_at | date: 'medium') : 'never' }}</dd>
-                <dt>Tags</dt>
-                <dd>{{ hasTags(agent) ? tagsJson(agent) : '—' }}</dd>
-              </dl>
-            </div>
-          </mat-tab>
+              <!-- CheckMK-style services view (Block H3): every check as one
+                   row — State | Service | Summary | Age | Checked |
+                   Perf-O-Meter — expanding inline into the history chart.
+                   The former separate "Metrics" tab lives on below as the
+                   collapsible raw "Latest data" section (Zabbix's own
+                   split: services grade, latest data is telemetry). -->
+              @if (services().length) {
+                <table class="bm-table bm-svc">
+                  <thead>
+                    <tr>
+                      <th class="bm-col-state">State</th>
+                      <th>Service</th>
+                      <th class="bm-col-summary">Summary</th>
+                      <th class="bm-col-age">Age</th>
+                      <th class="bm-col-age">Checked</th>
+                      <th class="bm-col-pom">Perf-O-Meter</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (svc of services(); track svc.id) {
+                      <tr
+                        class="bm-row-link"
+                        [class.bm-row-selected]="selectedService()?.id === svc.id"
+                        (click)="toggleService(svc)"
+                      >
+                        <td class="bm-col-state">
+                          <app-status-badge [status]="serviceBadge(svc)" [label]="svc.state" />
+                          @if (svc.acknowledged) {
+                            <span class="bm-flag" title="acknowledged">✔</span>
+                          }
+                          @if (svc.in_downtime) {
+                            <span class="bm-flag" title="in downtime">⏸</span>
+                          }
+                        </td>
+                        <td class="bm-svc-name">{{ svc.name }}</td>
+                        <td class="bm-col-summary">{{ svc.output || '—' }}</td>
+                        <td class="bm-col-age">{{ timeAgo(svc.last_state_change) }}</td>
+                        <td class="bm-col-age">{{ timeAgo(svc.last_checked) }}</td>
+                        <td class="bm-col-pom">
+                          @if (serviceIsPct(svc) && svc.value !== null) {
+                            <app-perf-o-meter [value]="svc.value" [warn]="80" [crit]="90" />
+                          } @else if (svc.value !== null) {
+                            <span class="bm-svc-value">{{ svc.value | number: '1.0-2' }}</span>
+                          }
+                        </td>
+                        <td class="bm-actions">
+                          @if (!svc.acknowledged) {
+                            <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
+                          } @else {
+                            <button mat-button (click)="unacknowledge(svc, $event)">Unacknowledge</button>
+                          }
+                          <button mat-button (click)="scheduleDowntime(svc, $event)">Downtime</button>
+                        </td>
+                      </tr>
+                      @if (selectedService()?.id === svc.id) {
+                        <tr class="bm-expand-row">
+                          <td colspan="7">
+                            <div class="bm-metric-chart-wrap">
+                              <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
+                              @if (serviceHistory().length) {
+                                <ul class="bm-history-list">
+                                  @for (h of serviceHistory(); track h.time) {
+                                    <li>
+                                      <app-status-badge [status]="historyBadge(h)" [label]="h.state" />
+                                      <span>{{ h.time | date: 'medium' }}</span>
+                                      @if (h.value !== null) {
+                                        <span class="bm-history-value">{{ h.value | number: '1.0-2' }}</span>
+                                      }
+                                    </li>
+                                  }
+                                </ul>
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="bm-empty">No monitored services on this host yet — define a check rule in Settings.</p>
+              }
 
-          <mat-tab label="Metrics">
-            <div class="bm-tab-content">
-              @if (latestMetrics().length) {
+              <div class="bm-raw-toggle">
+                <button mat-button (click)="showRaw.set(!showRaw())">
+                  {{ showRaw() ? '▾ Hide' : '▸ Show' }} latest data ({{ shownCount() }} metrics)
+                </button>
+              </div>
+
+              @if (showRaw() && latestMetrics().length) {
                 <!-- CheckMK/Zabbix "Latest data": every metric in a list (not a
                      dropdown), grouped by subsystem, with a coloured check-state
                      column, inline Perf-O-Meters for percentages, and each row
@@ -272,67 +347,25 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     No metrics in {{ metricFilter() === 'crit' ? 'critical' : 'warning' }} state — everything healthy.
                   </p>
                 }
-              } @else {
-                <p class="bm-empty">No metrics recorded for this host yet.</p>
               }
             </div>
           </mat-tab>
 
-          <mat-tab label="Services">
+          <mat-tab label="Inventory">
             <div class="bm-tab-content">
-              @if (services().length) {
-                <table class="bm-table">
-                  <thead>
-                    <tr>
-                      <th>Service</th>
-                      <th>State</th>
-                      <th>Value</th>
-                      <th>Since</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (svc of services(); track svc.id) {
-                      <tr [class.bm-row-selected]="selectedService()?.id === svc.id" class="bm-row-link" (click)="selectService(svc)">
-                        <td>{{ svc.name }}</td>
-                        <td><app-status-badge [status]="serviceBadge(svc)" [label]="svc.state" /></td>
-                        <td>{{ svc.value !== null ? (svc.value | number: '1.0-2') : '—' }}</td>
-                        <td>{{ svc.last_state_change | date: 'short' }}</td>
-                        <td class="bm-actions">
-                          @if (!svc.acknowledged) {
-                            <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
-                          } @else {
-                            <button mat-button (click)="unacknowledge(svc, $event)">Unacknowledge</button>
-                          }
-                          <button mat-button (click)="scheduleDowntime(svc, $event)">Downtime</button>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-
-                @if (selectedService(); as svc) {
-                  <div class="bm-service-detail">
-                    <h3>{{ svc.name }} — {{ svc.output }}</h3>
-                    <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
-                    @if (serviceHistory().length) {
-                      <ul class="bm-history-list">
-                        @for (h of serviceHistory(); track h.time) {
-                          <li>
-                            <app-status-badge [status]="historyBadge(h)" [label]="h.state" />
-                            <span>{{ h.time | date: 'medium' }}</span>
-                            @if (h.value !== null) {
-                              <span class="bm-history-value">{{ h.value | number: '1.0-2' }}</span>
-                            }
-                          </li>
-                        }
-                      </ul>
-                    }
-                  </div>
-                }
-              } @else {
-                <p class="bm-empty">No monitored services on this host yet — define a check rule in Settings.</p>
-              }
+              <app-host-inventory [agent]="agent" />
+              <dl class="bm-facts">
+                <dt>Address</dt>
+                <dd>{{ agent.address || '—' }}</dd>
+                <dt>Mode</dt>
+                <dd>{{ agent.mode }}</dd>
+                <dt>Enrollment state</dt>
+                <dd>{{ agent.enrollment_state }}</dd>
+                <dt>Last seen</dt>
+                <dd>{{ agent.last_seen_at ? (agent.last_seen_at | date: 'medium') : 'never' }}</dd>
+                <dt>Tags</dt>
+                <dd>{{ hasTags(agent) ? tagsJson(agent) : '—' }}</dd>
+              </dl>
             </div>
           </mat-tab>
 
@@ -451,6 +484,38 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-history-value {
         opacity: 0.7;
+      }
+      .bm-svc .bm-col-summary {
+        max-width: 420px;
+        font-size: 13px;
+        opacity: 0.85;
+      }
+      .bm-svc .bm-col-age {
+        width: 84px;
+        white-space: nowrap;
+        opacity: 0.7;
+        font-size: 13px;
+      }
+      .bm-svc .bm-col-pom {
+        width: 160px;
+      }
+      .bm-svc-name {
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .bm-svc-value {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .bm-flag {
+        margin-left: 6px;
+        font-size: 12px;
+        opacity: 0.75;
+      }
+      .bm-raw-toggle {
+        margin-top: 18px;
+        border-top: 1px solid var(--mat-sys-outline-variant);
+        padding-top: 6px;
       }
       .bm-metric-toolbar {
         display: flex;
@@ -619,6 +684,9 @@ export class HostDetailComponent implements OnInit {
   metricFilter = signal<'all' | 'crit' | 'warn'>('all');
   expandedMetric = signal<string | null>(null);
   showInternal = signal(false);
+  /** The raw "Latest data" section under the Services table (the former
+   * separate Metrics tab), collapsed by default. */
+  showRaw = signal(false);
 
   /** Per-metric check state, from two sources merged worst-wins: (1) Bossman
    * CheckRule-derived services (which carry a populated `metric`), and (2) the
@@ -726,6 +794,23 @@ export class HostDetailComponent implements OnInit {
         this.selectedService.set(updated);
       }
     });
+  }
+
+  /** Expand/collapse a service row inline (CheckMK-style, Block H3) —
+   * expanding loads its chart + state history via selectService. */
+  toggleService(svc: ServiceState): void {
+    if (this.selectedService()?.id === svc.id) {
+      this.selectedService.set(null);
+      return;
+    }
+    this.selectService(svc);
+  }
+
+  /** True when the service grades a percentage metric — those rows get a
+   * CheckMK Perf-O-Meter instead of a bare number. */
+  serviceIsPct(svc: ServiceState): boolean {
+    const spec = serviceMetricSpec(svc.name, svc.metric);
+    return !!spec && spec.members[0].endsWith('_pct');
   }
 
   selectService(svc: ServiceState): void {

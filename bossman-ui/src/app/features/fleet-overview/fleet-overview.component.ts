@@ -34,42 +34,72 @@ import { DashboardGridComponent } from './dashboard-grid.component';
     <div class="bm-page">
       <h1>Fleet Overview</h1>
 
-      <div class="bm-summary-row">
-        <mat-card class="bm-summary-card">
-          <mat-card-content>
-            <div class="bm-summary-value">{{ summary()?.hosts_total ?? agents().length }}</div>
-            <div class="bm-summary-label">Hosts</div>
-          </mat-card-content>
+      <!-- CheckMK-style statistics panels (Block H3): Host statistics +
+           Service statistics side by side, each a colored-count table —
+           the same at-a-glance layout as CheckMK's problems dashboard,
+           in the Rastafari palette. -->
+      <div class="bm-stats-row">
+        <mat-card class="bm-stats-card">
+          <div class="bm-stats-title">Host statistics</div>
+          <div class="bm-stats-body">
+            <div class="bm-stats-total">
+              <div class="bm-stats-total-value">{{ summary()?.hosts_total ?? agents().length }}</div>
+              <div class="bm-stats-total-label">Total</div>
+            </div>
+            <table class="bm-stats-table">
+              @for (row of hostStats(); track row.label) {
+                <tr>
+                  <td><span class="bm-sq" [style.background]="row.color"></span></td>
+                  <td>{{ row.label }}</td>
+                  <td class="bm-stats-count">{{ row.count }}</td>
+                </tr>
+              }
+            </table>
+          </div>
         </mat-card>
-        <mat-card class="bm-summary-card">
-          <mat-card-content>
-            <div class="bm-summary-value bm-ok">{{ servicesByState().OK }}</div>
-            <div class="bm-summary-label">Services OK</div>
-          </mat-card-content>
+
+        <mat-card class="bm-stats-card">
+          <div class="bm-stats-title">Service statistics</div>
+          <div class="bm-stats-body">
+            <div class="bm-stats-total">
+              <div class="bm-stats-total-value">{{ servicesTotal() }}</div>
+              <div class="bm-stats-total-label">Total</div>
+            </div>
+            <table class="bm-stats-table">
+              <tr>
+                <td><span class="bm-sq bm-sq--ok"></span></td>
+                <td>OK</td>
+                <td class="bm-stats-count">{{ servicesByState().OK }}</td>
+              </tr>
+              <tr>
+                <td><span class="bm-sq bm-sq--warn"></span></td>
+                <td>Warning</td>
+                <td class="bm-stats-count">{{ servicesByState().WARN }}</td>
+              </tr>
+              <tr>
+                <td><span class="bm-sq bm-sq--crit"></span></td>
+                <td>Critical</td>
+                <td class="bm-stats-count">{{ servicesByState().CRIT }}</td>
+              </tr>
+              <tr>
+                <td><span class="bm-sq bm-sq--unknown"></span></td>
+                <td>Unknown</td>
+                <td class="bm-stats-count">{{ servicesByState().UNKNOWN }}</td>
+              </tr>
+            </table>
+          </div>
         </mat-card>
-        <mat-card class="bm-summary-card">
-          <mat-card-content>
-            <div class="bm-summary-value bm-warn">{{ servicesByState().WARN }}</div>
-            <div class="bm-summary-label">Warning</div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="bm-summary-card">
-          <mat-card-content>
-            <div class="bm-summary-value bm-crit">{{ servicesByState().CRIT }}</div>
-            <div class="bm-summary-label">Critical</div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="bm-summary-card">
-          <mat-card-content>
-            <div class="bm-summary-value bm-unknown">{{ servicesByState().UNKNOWN }}</div>
-            <div class="bm-summary-label">Unknown</div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="bm-summary-card bm-summary-card--problems" routerLink="/problems">
-          <mat-card-content>
-            <div class="bm-summary-value bm-crit">{{ summary()?.open_problems ?? 0 }}</div>
-            <div class="bm-summary-label">Open problems</div>
-          </mat-card-content>
+
+        <mat-card class="bm-stats-card bm-stats-card--problems" routerLink="/problems">
+          <div class="bm-stats-title">Open problems</div>
+          <div class="bm-stats-problems">
+            <div class="bm-stats-total-value" [class.bm-crit]="(summary()?.open_problems ?? 0) > 0" [class.bm-ok]="(summary()?.open_problems ?? 0) === 0">
+              {{ summary()?.open_problems ?? 0 }}
+            </div>
+            <div class="bm-stats-total-label">
+              {{ (summary()?.open_problems ?? 0) === 0 ? 'everything irie' : 'unhandled' }}
+            </div>
+          </div>
         </mat-card>
       </div>
 
@@ -176,28 +206,87 @@ import { DashboardGridComponent } from './dashboard-grid.component';
         max-width: 1100px;
         margin: 0 auto;
       }
-      .bm-summary-row {
+      .bm-stats-row {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        grid-template-columns: 1fr 1fr 0.8fr;
         gap: 12px;
         margin-bottom: 20px;
       }
-      .bm-summary-card mat-card-content {
+      .bm-stats-card {
+        padding: 14px 16px;
+        border-top: 3px solid transparent;
+        border-image: linear-gradient(90deg, var(--bm-red) 0%, var(--bm-gold) 50%, var(--bm-green) 100%) 1;
+      }
+      .bm-stats-card--problems {
+        cursor: pointer;
         text-align: center;
       }
-      .bm-summary-card--problems {
-        cursor: pointer;
-      }
-      .bm-summary-value {
-        font-size: 32px;
-        font-weight: 600;
-        line-height: 1.1;
-      }
-      .bm-summary-label {
+      .bm-stats-title {
         font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         opacity: 0.7;
+        margin-bottom: 10px;
+      }
+      .bm-stats-body {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .bm-stats-total {
+        text-align: center;
+        min-width: 72px;
+      }
+      .bm-stats-total-value {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .bm-stats-total-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        opacity: 0.6;
+      }
+      .bm-stats-problems {
+        padding-top: 4px;
+      }
+      .bm-stats-table {
+        flex: 1;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .bm-stats-table td {
+        padding: 2px 6px;
+      }
+      .bm-stats-count {
+        text-align: right;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .bm-sq {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        background: var(--bm-unknown);
+      }
+      .bm-sq--ok {
+        background: var(--bm-green);
+      }
+      .bm-sq--warn {
+        background: var(--bm-gold);
+      }
+      .bm-sq--crit {
+        background: var(--bm-red);
+      }
+      .bm-sq--unknown {
+        background: var(--bm-unknown);
+      }
+      @media (max-width: 900px) {
+        .bm-stats-row {
+          grid-template-columns: 1fr;
+        }
       }
       .bm-ok {
         color: var(--bm-green);
@@ -271,6 +360,28 @@ export class FleetOverviewComponent implements OnInit {
   servicesByState = computed(() => {
     const defaults = { OK: 0, WARN: 0, CRIT: 0, UNKNOWN: 0 };
     return { ...defaults, ...(this.summary()?.services_by_state ?? {}) };
+  });
+
+  servicesTotal = computed(() => {
+    const s = this.servicesByState();
+    return s.OK + s.WARN + s.CRIT + s.UNKNOWN;
+  });
+
+  /** CheckMK's host reachability breakdown, derived from the same
+   * enrollment/last-seen heuristic every badge in the app uses
+   * (agentHealthStatus): ok→Up, unknown/stale→Unreachable, crit
+   * (revoked)→Down, warn (pending)→Pending. */
+  hostStats = computed(() => {
+    const counts = { ok: 0, unknown: 0, crit: 0, warn: 0 };
+    for (const a of this.agents()) {
+      counts[agentHealthStatus(a)]++;
+    }
+    return [
+      { label: 'Up', count: counts.ok, color: 'var(--bm-green)' },
+      { label: 'Unreachable', count: counts.unknown, color: 'var(--bm-unknown)' },
+      { label: 'Down', count: counts.crit, color: 'var(--bm-red)' },
+      { label: 'Pending', count: counts.warn, color: 'var(--bm-gold)' },
+    ];
   });
 
   ngOnInit(): void {
