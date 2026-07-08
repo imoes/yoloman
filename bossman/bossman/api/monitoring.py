@@ -447,6 +447,14 @@ async def update_check_rule(
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    if rule.template_id is not None:
+        # Block K12: this row is generated from a Template's TemplateRule —
+        # a direct edit would just get overwritten on the next
+        # materialization. Edit the owning template instead.
+        raise HTTPException(
+            status_code=409,
+            detail=f"check rule {rule_id} is managed by template {rule.template_id} — edit the template instead",
+        )
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
     _validate_scope(body.scope_type, body.scope_value)
@@ -480,6 +488,11 @@ async def delete_check_rule(
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    if rule.template_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"check rule {rule_id} is managed by template {rule.template_id} — unlink the template instead",
+        )
     # Delete the services this rule materialized first (services.rule_id
     # FKs check_rules.id, so a bare rule delete 500s once it owns any
     # service — Block H6/H7). The agent's built-in check, if any, simply

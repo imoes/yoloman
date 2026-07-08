@@ -17,7 +17,7 @@ comparable user-facing features.
 - [x] Batch 1 — Ch.3 Zabbix Processes (light) — 3 gaps found; HA deferred, Housekeeping (K1) + Runtime control (K2) implemented
 - [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found; K1-fix+K1b+K2b+K2c+K4+K5 implemented, K3 planned (deferred)
 - [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found; K6+K7+K8+K9+K10 implemented, event correlation deferred
-- [ ] Batch 4 — Ch.7c Configuration: Visualization, Templates
+- [x] Batch 4 — Ch.7c Configuration: Visualization, Templates — 3 gaps found, decisions below
 - [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
 - [ ] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
 - [ ] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring
@@ -228,3 +228,51 @@ Read: [config/triggers/expression](https://www.zabbix.com/documentation/7.0/en/m
   yolo-man's 4 values (OK/WARN/CRIT/UNKNOWN), narrower than Zabbix's fully free-text severities.
 - **Event correlation → deferred**, pending a concrete need (it builds directly on K7's tagging, which is
   now available if this is revisited).
+
+---
+
+## Batch 4 — Ch.7c Configuration: Visualization, Templates
+
+Read: [config/visualization/graphs/custom](https://www.zabbix.com/documentation/7.0/en/manual/config/visualization/graphs/custom),
+[config/visualization/maps/map](https://www.zabbix.com/documentation/7.0/en/manual/config/visualization/maps/map),
+[config/templates_out_of_the_box](https://www.zabbix.com/documentation/7.0/en/manual/config/templates_out_of_the_box).
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition |
+|---|---|---|---|
+| Custom multi-host/multi-item graphs | Combine items from several hosts on one saved chart; per-item color/draw-style(line/bold/filled/dot/dashed/gradient)/Y-axis-side/function(avg/min/max/last/all); graph-level Y-axis mode, percentile lines, legend, working-time overlay, trigger-line overlay, normal/stacked/pie/exploded | ❌ sharpens #24 (dashboard has a `timeseries` widget, but no saved, reusable, cross-host custom-graph builder) | **implement now** (user overrode my "defer" recommendation) → K11 |
+| Network maps: manual layout + link indicators + navigation tree | Drag-and-drop element positioning (host/host-group/trigger/map/image elements), link-indicator rules (color/style by linked trigger state), hierarchical map-of-maps navigation | 🟡 sharpens #27 (auto-layout only; no manual editor, no persisted positions, no link-indicator rules) | **implement now** (user overrode my "defer" recommendation) → not yet started |
+| **Templates** — a named, reusable bundle of items+triggers+graphs+discovery-rules+dashboards+web-scenarios, **live-linked** (not copied) to a host/group so editing the template cascades to every linked host; nestable (a template links other templates); grouped (template groups); Zabbix ships an out-of-box library for common software (MySQL/PostgreSQL/Docker/network devices/...) | The biggest single gap this analysis has found — genuinely missing (baseline #6); the closest analog, `CheckRule.scope_type="group"`, is one rule at a time, not a bundle, and isn't itself a versioned/nameable object | ❌ missing entirely | **implement now, full scope** (user overrode my recommended "scoped v1") → K12 |
+
+**Decisions (user, 2026-07-07) — all three "implement now":**
+
+- **Custom multi-host graphs → K11, done.** `Graph`/`GraphItem` models (`bossman/alembic/versions/5e81d459a395_custom_graphs.py`),
+  `bossman/bossman/api/graphs.py` — named, saved graphs combining metrics from any agents/services, reusing
+  `services/metrics_query.query_series` per item for `GET /graphs/{id}/data`. No draw-style/Y-axis-side/percentile
+  options (Zabbix's full per-item styling) — a plain multi-series line overlay, not the richer rendering options.
+  Found and fixed a real `sqlalchemy.exc.MissingGreenlet` bug along the way: `list_graphs`/`get_graph` were
+  touching the lazy `Graph.items` relationship outside an eager-load; fixed with a module-level
+  `selectinload(Graph.items)` applied to every query that reaches `GraphOut.from_model()`.
+- **Templates → K12, done, full scope.** `Template`/`TemplateRule`/`TemplateGroup`/`TemplateNesting`/`TemplateLink`
+  models (`bossman/alembic/versions/ee733489430c_templates.py`), `bossman/bossman/services/templates.py`
+  (recursive, cycle-safe effective-rule collection + ancestor-cascade materialization),
+  `bossman/bossman/api/templates.py` (full CRUD + link/unlink). A template is a named, editable bundle of
+  `TemplateRule` rows; linking it to a host group **live-materializes** real `CheckRule` rows (upserted by
+  `source_template_rule_id`, not copied once) — editing the template or its nesting re-materializes every
+  linked group and every ancestor template's links too. Templates can nest other templates (self-nesting and
+  cycles rejected at the API layer). A materialized `CheckRule` cannot be edited/deleted directly
+  (`check_rules.template_id` set → 409, pointing the caller at the template instead). Scope note: Zabbix
+  templates also bundle graphs/discovery-rules/dashboards/web-scenarios — this only covers the trigger/item
+  (`CheckRule`) side, which is what has real user-facing value here; no out-of-box template library was built
+  (no Docker/MySQL/etc. starter templates), since yolo-man's own default checks (`seed_default_check_rules`)
+  already cover the equivalent ground.
+  - Two bugs found and fixed while testing: (1) `create_template`'s early `session.flush()` (needed to get
+    `template.id` before constructing `TemplateRule`/`TemplateNesting` rows) sat outside the `try/except
+    IntegrityError` block, so a duplicate template name crashed with a raw `asyncpg.UniqueViolationError`
+    instead of a 409 — fixed by having `Template` generate its own client-side UUID so no early flush is
+    needed. (2) A test asserted a materialized `CheckRule`'s `.id` stays stable across a template edit; it
+    doesn't (whole-form template edits delete+recreate `TemplateRule` rows with fresh UUIDs, so
+    materialization treats it as delete-old+create-new by design) — fixed the test to re-query by
+    `(template_id, scope_value)` instead of refreshing a stale reference.
+- **Manual network maps → accepted, not yet implemented.** Queued as the next piece of this batch's work
+  (drag-and-drop layout + link-indicator rules + map-of-maps navigation, building on the existing
+  auto-layout topology graph, baseline #27).

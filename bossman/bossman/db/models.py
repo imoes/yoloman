@@ -393,6 +393,99 @@ class GraphItem(Base):
     )
 
 
+class TemplateGroup(Base):
+    """Organizational container for Templates (Zabbix gap-analysis Block
+    K12), the same role HostGroup-style tags play for agents."""
+
+    __tablename__ = "template_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+
+class Template(Base):
+    """A named, reusable bundle of check rules (Block K12) — the biggest
+    single gap the Zabbix comparison found. Live-linked (not copied) to
+    one or more host groups via TemplateLink: editing a Template's rules
+    or its nesting and re-materializing regenerates every linked group's
+    CheckRule rows to match. Nestable via TemplateNesting (a template can
+    include other templates' rules). Scoped to check-rule bundling for
+    v1 — see the migration's docstring for what's deferred."""
+
+    __tablename__ = "templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    template_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("template_groups.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    rules: Mapped[list["TemplateRule"]] = relationship(back_populates="template", cascade="all, delete-orphan")
+
+
+class TemplateRule(Base):
+    """One bundled check definition within a Template (Block K12) — the
+    same shape as CheckRule minus scope (scope comes from the TemplateLink
+    a Template is linked with, not the rule itself)."""
+
+    __tablename__ = "template_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), nullable=False)
+    service_name: Mapped[str] = mapped_column(String, nullable=False)
+    metric: Mapped[str] = mapped_column(String, nullable=False)
+    comparison: Mapped[str] = mapped_column(String, nullable=False)
+    warn_threshold: Mapped[float | None] = mapped_column(Float)
+    crit_threshold: Mapped[float | None] = mapped_column(Float)
+    label_value: Mapped[str | None] = mapped_column(String)
+    max_attempts: Mapped[int | None] = mapped_column(Integer)
+    recovery_threshold: Mapped[float | None] = mapped_column(Float)
+    value_map_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("value_maps.id", ondelete="SET NULL"))
+    depends_on_service_name: Mapped[str | None] = mapped_column(String)
+    extra_conditions: Mapped[list | None] = mapped_column(JSONB)
+    condition_logic: Mapped[str] = mapped_column(String, nullable=False, default="AND")
+
+    template: Mapped["Template"] = relationship(back_populates="rules")
+
+    __table_args__ = (
+        CheckConstraint("comparison IN ('gt', 'lt', 'ge', 'le', 'eq', 'ne')", name="ck_template_rules_comparison"),
+        CheckConstraint("condition_logic IN ('AND', 'OR')", name="ck_template_rules_condition_logic"),
+    )
+
+
+class TemplateNesting(Base):
+    """parent template includes child template's rules (Block K12) — a
+    plain association row, queried directly (both directions) by
+    services/templates.py's materialization walk rather than through an
+    ORM relationship, since that walk needs both parent->children and
+    child->parents traversal."""
+
+    __tablename__ = "template_nesting"
+
+    parent_template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), primary_key=True)
+    child_template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (CheckConstraint("parent_template_id != child_template_id", name="ck_template_nesting_no_self_nest"),)
+
+
+class TemplateLink(Base):
+    """A Template linked to one host group (Block K12) — the "live" part
+    of "live-linked": services/templates.py's materialize_template_link
+    keeps this group's CheckRule rows in sync with the template's current
+    effective rule set (own + nested) whenever the template, its nesting,
+    or this link changes."""
+
+    __tablename__ = "template_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), nullable=False)
+    host_group: Mapped[str] = mapped_column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint("template_id", "host_group", name="uq_template_links_template_group"),)
+
+
 class ValueMap(Base):
     """A reusable named numeric/string -> human-label mapping (Zabbix gap-
     analysis Block K4), e.g. {"0": "Down", "1": "Up"}. Attached to a
@@ -468,6 +561,16 @@ class CheckRule(Base):
     # = today's single-metric behavior.
     extra_conditions: Mapped[list | None] = mapped_column(JSONB)
     condition_logic: Mapped[str] = mapped_column(String, nullable=False, default="AND")
+    # Block K12: set only on a CheckRule materialized FROM a Template's
+    # TemplateLink — template_id says which template owns it (CASCADE:
+    # deleting the template removes every rule it generated);
+    # source_template_rule_id is the exact TemplateRule it was generated
+    # from, the identity key materialize_template_link upserts by. Both
+    # NULL for a hand-authored CheckRule.
+    template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"))
+    source_template_rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("template_rules.id", ondelete="CASCADE")
+    )
 
     __table_args__ = (
         CheckConstraint(
