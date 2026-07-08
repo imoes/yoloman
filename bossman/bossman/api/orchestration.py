@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity
 from bossman.db.models import Agent, HostGroup, OrchestrationPlan, OrchestrationPlanLink, OrchestrationPlanVersion, OUNode
 from bossman.db.session import get_session
-from bossman.services.compiler import compile_host_desired_state, compile_tenant
+from bossman.services.compiler import affected_agent_ids, compile_host_desired_state, compile_tenant, is_yolo_mode, preview_plan_link
 
 router = APIRouter()
 
@@ -195,6 +195,7 @@ class PlanLinkOut(PlanLinkIn):
     id: UUID
     plan_id: UUID
     enabled: bool
+    status: str
     created_at: datetime
 
     @classmethod
@@ -203,7 +204,8 @@ class PlanLinkOut(PlanLinkIn):
             id=link.id, plan_id=link.plan_id, plan_version=link.plan_version, target_type=link.target_type,
             ou_id=link.ou_id, agent_id=link.agent_id, host_group_id=link.host_group_id, parameters=link.parameters,
             priority=link.priority, link_order=link.link_order, enforced=link.enforced, enabled=link.enabled,
-            auto_apply=link.auto_apply, require_approval=link.require_approval, created_at=link.created_at,
+            auto_apply=link.auto_apply, require_approval=link.require_approval, status=link.status,
+            created_at=link.created_at,
         )
 
 
@@ -215,32 +217,11 @@ def _validate_link_target(body: PlanLinkIn) -> None:
         raise HTTPException(status_code=422, detail=f"target_type={body.target_type!r} requires the matching id field")
 
 
-async def _affected_agent_ids(session: AsyncSession, link: OrchestrationPlanLink) -> list[UUID]:
-    """Which hosts a link touches — used to recompile just the relevant
-    hosts instead of the whole tenant on every link change."""
-    if link.target_type == "global":
-        rows = (await session.scalars(select(Agent.id).where(Agent.tenant_id == DEFAULT_TENANT_ID))).all()
-        return list(rows)
-    if link.target_type == "host":
-        return [link.agent_id] if link.agent_id else []
-    if link.target_type == "group":
-        from bossman.db.models import HostGroupMember
-
-        rows = (await session.scalars(select(HostGroupMember.agent_id).where(HostGroupMember.host_group_id == link.host_group_id))).all()
-        return list(rows)
-    if link.target_type == "ou":
-        # Every host whose OU path is this OU or a descendant of it.
-        node = await session.get(OUNode, link.ou_id)
-        if node is None:
-            return []
-        subtree = (
-            await session.scalars(
-                select(OUNode.id).where(OUNode.tenant_id == DEFAULT_TENANT_ID, OUNode.path.like(f"{node.path}%"))
-            )
-        ).all()
-        rows = (await session.scalars(select(Agent.id).where(Agent.ou_id.in_(subtree)))).all()
-        return list(rows)
-    return []
+async def _affected(session: AsyncSession, link: OrchestrationPlanLink) -> list[UUID]:
+    return await affected_agent_ids(
+        session, link.target_type, ou_id=link.ou_id, agent_id=link.agent_id,
+        host_group_id=link.host_group_id, tenant_id=link.tenant_id,
+    )
 
 
 @router.get("/api/v1/orchestration/plans/{plan_id}/links", response_model=list[PlanLinkOut])
@@ -252,10 +233,61 @@ async def list_plan_links(
     return [PlanLinkOut.from_model(link) for link in rows]
 
 
+@router.get("/api/v1/orchestration/pending-links", response_model=list[PlanLinkOut])
+async def list_pending_links(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> list[PlanLinkOut]:
+    """Every link awaiting human approval, tenant-wide — the review queue
+    an admin (or the MCP list_pending_orchestration_links tool, read-only)
+    checks before deciding what to approve/reject."""
+    rows = (
+        await session.scalars(
+            select(OrchestrationPlanLink).where(
+                OrchestrationPlanLink.tenant_id == DEFAULT_TENANT_ID, OrchestrationPlanLink.status == "pending_approval"
+            ).order_by(OrchestrationPlanLink.created_at)
+        )
+    ).all()
+    return [PlanLinkOut.from_model(link) for link in rows]
+
+
+class PlanLinkPreviewIn(BaseModel):
+    plan_version: int | None = None
+    target_type: str
+    ou_id: UUID | None = None
+    agent_id: UUID | None = None
+    host_group_id: UUID | None = None
+    parameters: dict = {}
+
+
+@router.post("/api/v1/orchestration/plans/{plan_id}/preview-link")
+async def preview_plan_link_endpoint(
+    plan_id: UUID, body: PlanLinkPreviewIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> dict:
+    """The safe "what would this link do" primitive (Block L2) — computes
+    blast radius + a sample before/after monitoring diff WITHOUT persisting
+    anything. Same underlying compiler.preview_plan_link the MCP dry-run
+    tool calls."""
+    await _get_plan_or_404(session, plan_id)
+    result = await preview_plan_link(
+        session, DEFAULT_TENANT_ID, plan_id, body.target_type, plan_version=body.plan_version,
+        ou_id=body.ou_id, agent_id=body.agent_id, host_group_id=body.host_group_id, parameters=body.parameters,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"no such orchestration plan {plan_id}")
+    return result
+
+
 @router.post("/api/v1/orchestration/plans/{plan_id}/links", response_model=PlanLinkOut)
 async def create_plan_link(
     plan_id: UUID, body: PlanLinkIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanLinkOut:
+    """Block L2 approval gate: a link is created `active` immediately only
+    if the global YOLO-MAN switch is on, or the link itself opts in via
+    auto_apply / require_approval=false — otherwise it starts
+    `pending_approval` and has no effect until POST .../approve. This is
+    the one and only place that decides a link's initial status; the MCP
+    write tool calls this same endpoint's underlying logic and can never
+    pass auto_apply=true (see mcp/server.py)."""
     await _get_plan_or_404(session, plan_id)
     _validate_link_target(body)
     if body.ou_id is not None and await session.get(OUNode, body.ou_id) is None:
@@ -265,12 +297,47 @@ async def create_plan_link(
     if body.host_group_id is not None and await session.get(HostGroup, body.host_group_id) is None:
         raise HTTPException(status_code=422, detail=f"no such host group {body.host_group_id}")
 
-    link = OrchestrationPlanLink(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan_id, **body.model_dump())
+    yolo = await is_yolo_mode(session)
+    status = "active" if (yolo or body.auto_apply or not body.require_approval) else "pending_approval"
+
+    link = OrchestrationPlanLink(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan_id, status=status, **body.model_dump())
     session.add(link)
     await session.commit()
 
-    for agent_id in await _affected_agent_ids(session, link):
+    if status == "active":
+        for agent_id in await _affected(session, link):
+            await compile_host_desired_state(session, agent_id)
+        await session.commit()
+    return PlanLinkOut.from_model(link)
+
+
+@router.post("/api/v1/orchestration/plans/{plan_id}/links/{link_id}/approve", response_model=PlanLinkOut)
+async def approve_plan_link(
+    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> PlanLinkOut:
+    link = await session.get(OrchestrationPlanLink, link_id)
+    if link is None or link.plan_id != plan_id:
+        raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
+    if link.status != "pending_approval":
+        raise HTTPException(status_code=409, detail=f"link {link_id} is {link.status!r}, not pending_approval")
+    link.status = "active"
+    await session.commit()
+    for agent_id in await _affected(session, link):
         await compile_host_desired_state(session, agent_id)
+    await session.commit()
+    return PlanLinkOut.from_model(link)
+
+
+@router.post("/api/v1/orchestration/plans/{plan_id}/links/{link_id}/reject", response_model=PlanLinkOut)
+async def reject_plan_link(
+    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> PlanLinkOut:
+    link = await session.get(OrchestrationPlanLink, link_id)
+    if link is None or link.plan_id != plan_id:
+        raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
+    if link.status != "pending_approval":
+        raise HTTPException(status_code=409, detail=f"link {link_id} is {link.status!r}, not pending_approval")
+    link.status = "rejected"
     await session.commit()
     return PlanLinkOut.from_model(link)
 
@@ -282,7 +349,8 @@ async def delete_plan_link(
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
-    affected = await _affected_agent_ids(session, link)
+    was_active = link.status == "active"
+    affected = await _affected(session, link) if was_active else []
     await session.delete(link)
     await session.commit()
     for agent_id in affected:

@@ -68,12 +68,19 @@ async def _plan(db_session, plan_type="role", version=1, generated_monitoring=No
     return plan
 
 
-async def _link(db_session, plan, target_type, *, ou=None, agent=None, group=None, parameters=None, priority=100, link_order=100):
+async def _link(
+    db_session, plan, target_type, *, ou=None, agent=None, group=None, parameters=None, priority=100,
+    link_order=100, status="active",
+):
+    # status="active" by default: these tests exercise assignment-resolution
+    # mechanics, not the L2 approval gate (see test_compiler_l2.py) — the
+    # model's own default is "pending_approval", which resolve_orchestration_assignments
+    # deliberately ignores.
     link = OrchestrationPlanLink(
         id=uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan.id, target_type=target_type,
         ou_id=(ou.id if ou else None), agent_id=(agent.id if agent else None),
         host_group_id=(group.id if group else None), parameters=parameters or {},
-        priority=priority, link_order=link_order,
+        priority=priority, link_order=link_order, status=status,
     )
     db_session.add(link)
     await db_session.flush()

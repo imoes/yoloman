@@ -34,6 +34,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import (
+    SYSTEM_SETTINGS_ID,
     Agent,
     CompiledHostState,
     HostGroupMember,
@@ -41,6 +42,7 @@ from bossman.db.models import (
     OrchestrationPlanLink,
     OrchestrationPlanVersion,
     OUNode,
+    SystemSettings,
 )
 
 
@@ -108,8 +110,53 @@ async def _plan_version(
     )
 
 
+async def is_yolo_mode(session: AsyncSession) -> bool:
+    """The global L2 override switch ("YOLO-MAN" — You Only Look Once):
+    when true, api/orchestration.py's create_plan_link makes every new
+    link active immediately, bypassing its own require_approval/auto_apply
+    values. Deliberately human-only to set (REST API, never the MCP write
+    tool) — see db.models.SystemSettings."""
+    settings = await session.get(SystemSettings, UUID(SYSTEM_SETTINGS_ID))
+    return settings.yolo_mode if settings is not None else False
+
+
+async def affected_agent_ids(
+    session: AsyncSession,
+    target_type: str,
+    *,
+    ou_id: UUID | None = None,
+    agent_id: UUID | None = None,
+    host_group_id: UUID | None = None,
+    tenant_id: UUID | None = None,
+) -> list[UUID]:
+    """Which hosts a given scope (as used by an OrchestrationPlanLink)
+    touches — shared by the REST link create/delete/approve endpoints (to
+    know which hosts to recompile) and by preview_plan_link (to report
+    blast radius before a link is even created)."""
+    if target_type == "global":
+        if tenant_id is None:
+            return []
+        rows = (await session.scalars(select(Agent.id).where(Agent.tenant_id == tenant_id))).all()
+        return list(rows)
+    if target_type == "host":
+        return [agent_id] if agent_id else []
+    if target_type == "group":
+        rows = (await session.scalars(select(HostGroupMember.agent_id).where(HostGroupMember.host_group_id == host_group_id))).all()
+        return list(rows)
+    if target_type == "ou":
+        node = await session.get(OUNode, ou_id) if ou_id else None
+        if node is None:
+            return []
+        subtree = (
+            await session.scalars(select(OUNode.id).where(OUNode.tenant_id == node.tenant_id, OUNode.path.like(f"{node.path}%")))
+        ).all()
+        rows = (await session.scalars(select(Agent.id).where(Agent.ou_id.in_(subtree)))).all()
+        return list(rows)
+    return []
+
+
 async def resolve_orchestration_assignments(
-    session: AsyncSession, agent: Agent
+    session: AsyncSession, agent: Agent, extra_candidate_link: OrchestrationPlanLink | None = None
 ) -> list[ResolvedAssignment]:
     """Collect every enabled OrchestrationPlanLink that reaches this host —
     global links, links on any OU on the host's ancestry path, links on any
@@ -134,9 +181,17 @@ async def resolve_orchestration_assignments(
             select(OrchestrationPlanLink).where(
                 OrchestrationPlanLink.tenant_id == agent.tenant_id,
                 OrchestrationPlanLink.enabled.is_(True),
+                # Block L2: a pending_approval link has no effect until a
+                # human approves it; a rejected one never will.
+                OrchestrationPlanLink.status == "active",
             )
         )
     ).all()
+    if extra_candidate_link is not None:
+        # preview_plan_link's not-yet-persisted "what if this link existed"
+        # candidate — evaluated as if it were active, since previewing a
+        # pending-approval link's would-be effect is the whole point.
+        links = [*links, extra_candidate_link]
 
     # scope specificity rank (higher = more specific), for tie-breaking.
     _SPECIFICITY = {"host": 3, "group": 2, "ou": 1, "global": 0, "label_selector": 0}
@@ -243,18 +298,15 @@ def _canonical_hash(state: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-async def compile_host_desired_state(session: AsyncSession, agent_id: UUID) -> CompiledState | None:
-    """Build the host's desired-state document, hash it, and — only if the
-    hash differs from the current is_current row — retire that row and write
-    a new generation. Returns None if the agent doesn't exist. Does not
-    commit; the caller owns the transaction boundary (matching
-    services/templates.py)."""
-    agent = await session.scalar(select(Agent).where(Agent.id == agent_id))
-    if agent is None:
-        return None
-
+async def _build_desired_state(
+    session: AsyncSession, agent: Agent, extra_candidate_link: OrchestrationPlanLink | None = None
+) -> tuple[dict, dict]:
+    """The pure "assemble the document" half of compiling a host's desired
+    state — shared by compile_host_desired_state (persists it) and
+    preview_plan_link (never touches the DB). Takes no None-agent case;
+    callers resolve the agent first."""
     ancestry = await resolve_ou_ancestry(session, agent.ou_id)
-    assignments = await resolve_orchestration_assignments(session, agent)
+    assignments = await resolve_orchestration_assignments(session, agent, extra_candidate_link)
     monitoring = derive_generated_monitoring(assignments)
 
     state = {
@@ -275,7 +327,20 @@ async def compile_host_desired_state(session: AsyncSession, agent_id: UUID) -> C
         "ou_path": [n.path for n in ancestry],
         "assignments": [{"plan": a.plan_name, "source": a.source, "version": a.version} for a in assignments],
     }
+    return state, explain
 
+
+async def compile_host_desired_state(session: AsyncSession, agent_id: UUID) -> CompiledState | None:
+    """Build the host's desired-state document, hash it, and — only if the
+    hash differs from the current is_current row — retire that row and write
+    a new generation. Returns None if the agent doesn't exist. Does not
+    commit; the caller owns the transaction boundary (matching
+    services/templates.py)."""
+    agent = await session.scalar(select(Agent).where(Agent.id == agent_id))
+    if agent is None:
+        return None
+
+    state, explain = await _build_desired_state(session, agent)
     config_hash = _canonical_hash(state)
 
     current = await session.scalar(
@@ -320,3 +385,65 @@ async def compile_tenant(session: AsyncSession, tenant_id: UUID) -> int:
         if result is not None and result.changed:
             changed += 1
     return changed
+
+
+async def preview_plan_link(
+    session: AsyncSession,
+    tenant_id: UUID,
+    plan_id: UUID,
+    target_type: str,
+    *,
+    plan_version: int | None = None,
+    ou_id: UUID | None = None,
+    agent_id: UUID | None = None,
+    host_group_id: UUID | None = None,
+    parameters: dict | None = None,
+) -> dict | None:
+    """Block L2's safe "propose" primitive: computes what a NOT-YET-CREATED
+    link would do — blast radius (how many/which hosts) and a before/after
+    monitoring diff for one representative affected host — without writing
+    anything to the database. Returns None if the plan doesn't exist. This
+    is what the MCP dry-run tool calls; nothing here ever touches
+    compiled_host_state or orchestration_plan_links.
+
+    v1 simplification: the diff is computed against a single sample host
+    (the first affected one), not every affected host individually — good
+    enough to judge a proposal's shape before approval; a documented future
+    extension if per-host divergence within one scope turns out to matter."""
+    plan = await session.scalar(select(OrchestrationPlan).where(OrchestrationPlan.id == plan_id))
+    if plan is None:
+        return None
+    version = await _plan_version(session, plan, plan_version)
+    if version is None:
+        return None
+
+    affected = await affected_agent_ids(
+        session, target_type, ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, tenant_id=tenant_id
+    )
+
+    # A synthetic, never-added-to-session candidate link — resolve_orchestration_assignments
+    # only reads its plain attributes, so a bare unpersisted instance is enough.
+    candidate = OrchestrationPlanLink(
+        tenant_id=tenant_id, plan_id=plan_id, plan_version=plan_version, target_type=target_type,
+        ou_id=ou_id, agent_id=agent_id, host_group_id=host_group_id, parameters=parameters or {},
+        priority=100, link_order=100, status="active",
+    )
+
+    sample_diff = None
+    if affected:
+        sample = await session.scalar(select(Agent).where(Agent.id == affected[0]))
+        if sample is not None:
+            before, _ = await _build_desired_state(session, sample)
+            after, _ = await _build_desired_state(session, sample, extra_candidate_link=candidate)
+            sample_diff = {
+                "host": sample.name,
+                "checks_added": sorted(set(after["monitoring"]["checks"]) - set(before["monitoring"]["checks"])),
+                "roles_added": sorted(set(after["orchestration"]["roles"]) - set(before["orchestration"]["roles"])),
+            }
+
+    return {
+        "plan_name": plan.name,
+        "plan_version": version.version,
+        "affected_host_count": len(affected),
+        "sample_diff": sample_diff,
+    }

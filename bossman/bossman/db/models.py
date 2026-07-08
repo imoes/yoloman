@@ -46,6 +46,10 @@ CHUNK_EMBEDDING_DIM = 1024
 # reference the same row.
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
+# The fixed, well-known UUID for the one-and-only SystemSettings row
+# (Block L2) — must match the literal in the c7e4d81a9f52 migration.
+SYSTEM_SETTINGS_ID = "00000000-0000-0000-0000-0000000000f1"
+
 # Every timestamp column in this schema is timezone-aware (Postgres
 # TIMESTAMPTZ) — a fleet spans hosts in different timezones, and comparing/
 # bucketing naive timestamps across them would be silently wrong. Found by
@@ -688,6 +692,13 @@ class OrchestrationPlanLink(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     auto_apply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     require_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Block L2: pending_approval (safe default) until a human approves it —
+    # only 'active' links are picked up by
+    # compiler.resolve_orchestration_assignments. Set at creation time by
+    # api/orchestration.py's create_plan_link based on require_approval/
+    # auto_apply and the global SystemSettings.yolo_mode override; never
+    # settable directly by the MCP write tool (see mcp/server.py).
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending_approval")
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
@@ -697,7 +708,32 @@ class OrchestrationPlanLink(Base):
             "target_type IN ('ou', 'host', 'group', 'label_selector', 'global')",
             name="ck_orchestration_plan_links_target_type",
         ),
+        CheckConstraint(
+            "status IN ('pending_approval', 'active', 'rejected')", name="ck_orchestration_plan_links_status"
+        ),
     )
+
+
+class SystemSettings(Base):
+    """One-and-only row of Bossman-wide runtime toggles (Block L2) — DB-
+    backed (not env-var) so they flip instantly via the REST API/UI without
+    a process restart, the same way Claude Code's own auto/manual mode
+    toggles instantly mid-session.
+
+    `yolo_mode` (named for the project itself — "You Only Look Once") is
+    the global override for the Policy/Orchestration approval gate: when
+    true, every new OrchestrationPlanLink is created `active` immediately,
+    bypassing its own require_approval/auto_apply values entirely. Off
+    (the seeded default) is the safe, per-link-gated posture. Deliberately
+    human-only: the MCP write tool never sets this, only the REST endpoint
+    a real logged-in caller hits (see api/system_settings.py)."""
+
+    __tablename__ = "system_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    yolo_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_by: Mapped[str | None] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 
 class CompiledHostState(Base):

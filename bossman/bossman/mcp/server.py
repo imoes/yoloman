@@ -21,16 +21,34 @@ from typing import Any
 from uuid import UUID
 
 from mcp.server.fastmcp import FastMCP
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from bossman.config import Settings
-from bossman.db.models import Agent, HostEdge, Metric, PlanRun, Service
+from bossman.db.models import (
+    Agent,
+    HostEdge,
+    HostGroup,
+    HostGroupMember,
+    Metric,
+    OrchestrationPlan,
+    OrchestrationPlanLink,
+    OrchestrationPlanVersion,
+    OUNode,
+    PlanRun,
+    Service,
+)
 from bossman.mcp.auth import current_identity
 from bossman.services import module_library
 from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
+from bossman.services.compiler import (
+    affected_agent_ids,
+    compile_host_desired_state,
+    is_yolo_mode,
+    preview_plan_link as compiler_preview_plan_link,
+)
 from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.monitoring import (
     ServiceView,
@@ -45,6 +63,9 @@ from bossman.services.monitoring import (
 from bossman.services.plan_engine import run_plan as engine_run_plan
 from bossman.services.plan_loader import PlanError, load_host_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans as search_plans_service
+
+DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+_TARGET_TYPES = ("ou", "host", "group", "label_selector", "global")
 
 
 def _service_view_dict(view: ServiceView) -> dict[str, Any]:
@@ -425,5 +446,200 @@ def build_mcp_server(
         next fqcn from there, get_module_source() it, translate, validate_module()
         until ok, then submit_module(). Safe to call any time for resume."""
         return module_library.status(settings.modules_dir, settings.module_sources_dir)
+
+    # ── Policy & Orchestration (Block L2) ────────────────────────────────
+    # Read-only + a safe dry-run preview + ONE gated write tool for the
+    # Policy/Orchestration layer (Block L1: OU tree, host groups,
+    # orchestration plans/links, compiled desired state — see
+    # services/compiler.py). The write tool (propose_orchestration_plan_link)
+    # can NEVER set auto_apply=true — only a human via the REST API can.
+    # A new link therefore starts pending_approval unless the global
+    # YOLO-MAN switch (system_settings.yolo_mode, human-toggled via
+    # PUT /api/v1/system/yolo-mode, never exposed to MCP as a write) is on,
+    # in which case every link — MCP-proposed or not — activates
+    # immediately. "The AI proposes; a human confirms" is enforced here by
+    # what this tool CANNOT pass, not by asking the model nicely.
+
+    async def _resolve_plan_or_raise(session: AsyncSession, plan_name: str) -> OrchestrationPlan:
+        plan = await session.scalar(
+            select(OrchestrationPlan).where(OrchestrationPlan.tenant_id == DEFAULT_TENANT_ID, OrchestrationPlan.name == plan_name)
+        )
+        if plan is None:
+            raise ValueError(f"no such orchestration plan {plan_name!r}")
+        return plan
+
+    @mcp.tool()
+    async def list_orchestration_plans() -> list[dict[str, Any]]:
+        """List every orchestration plan (a named role/cluster/deployment bundle like
+        "docker_host" or "postgres_cluster" — see get_orchestration_plan for its full
+        content): name, display_name, plan_type, current_version, enabled."""
+        async with session_factory() as session:
+            rows = (
+                await session.scalars(
+                    select(OrchestrationPlan).where(OrchestrationPlan.tenant_id == DEFAULT_TENANT_ID, OrchestrationPlan.deleted_at.is_(None)).order_by(OrchestrationPlan.name)
+                )
+            ).all()
+        return [
+            {"name": p.name, "display_name": p.display_name, "plan_type": p.plan_type, "current_version": p.current_version, "enabled": p.enabled}
+            for p in rows
+        ]
+
+    @mcp.tool()
+    async def get_orchestration_plan(plan: str) -> dict[str, Any]:
+        """Full detail for one orchestration plan by name, including its current
+        version's steps/parameters/generated_monitoring — read this before proposing
+        a link so you know what a host would actually get."""
+        async with session_factory() as session:
+            p = await _resolve_plan_or_raise(session, plan)
+            version = await session.scalar(
+                select(OrchestrationPlanVersion).where(OrchestrationPlanVersion.plan_id == p.id, OrchestrationPlanVersion.version == p.current_version)
+            )
+        return {
+            "name": p.name, "display_name": p.display_name, "description": p.description,
+            "plan_type": p.plan_type, "current_version": p.current_version, "enabled": p.enabled,
+            "default_parameters": version.default_parameters if version else {},
+            "generated_monitoring": version.generated_monitoring if version else {},
+            "steps": version.steps if version else [],
+        }
+
+    @mcp.tool()
+    async def list_host_groups() -> list[dict[str, Any]]:
+        """List every host group (the AD-model many-to-many group object a host can
+        belong to alongside its single OU placement): name, description, member count."""
+        async with session_factory() as session:
+            rows = (
+                await session.scalars(
+                    select(HostGroup).where(HostGroup.tenant_id == DEFAULT_TENANT_ID, HostGroup.deleted_at.is_(None)).order_by(HostGroup.name)
+                )
+            ).all()
+            counts = {}
+            for g in rows:
+                counts[g.id] = await session.scalar(
+                    select(func.count(HostGroupMember.id)).where(HostGroupMember.host_group_id == g.id)
+                )
+        return [{"name": g.name, "description": g.description, "member_count": counts.get(g.id, 0)} for g in rows]
+
+    @mcp.tool()
+    async def get_ou_tree() -> list[dict[str, Any]]:
+        """Every OU node, flat, sorted by path (e.g. "/Germany/Munich/Prod") — a host
+        lives at exactly one of these (its single AD-style placement); reconstruct the
+        tree from parent_path if you need nesting, or just match on path prefix."""
+        async with session_factory() as session:
+            rows = (
+                await session.scalars(
+                    select(OUNode).where(OUNode.tenant_id == DEFAULT_TENANT_ID, OUNode.deleted_at.is_(None)).order_by(OUNode.path)
+                )
+            ).all()
+        return [{"name": n.name, "path": n.path} for n in rows]
+
+    @mcp.tool()
+    async def get_host_desired_state(host: str) -> dict[str, Any]:
+        """The compiled desired state for one host by name — orchestration roles it's
+        assigned (via its OU/groups/direct links) and the monitoring checks/thresholds
+        those roles generate. Compiles fresh on every call; cheap, side-effect-free
+        beyond persisting the (usually unchanged) generation row."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            result = await compile_host_desired_state(session, agent.id)
+            await session.commit()
+        return {"generation": result.generation, "config_hash": result.config_hash, "state": result.state}
+
+    @mcp.tool()
+    async def list_pending_orchestration_links() -> list[dict[str, Any]]:
+        """The approval queue: every orchestration plan link — MCP-proposed or
+        human-created — currently awaiting a human's approve/reject decision (see
+        POST /api/v1/orchestration/plans/{id}/links/{id}/approve). Nothing here
+        affects any host's desired state yet."""
+        async with session_factory() as session:
+            rows = (
+                await session.scalars(
+                    select(OrchestrationPlanLink).where(OrchestrationPlanLink.tenant_id == DEFAULT_TENANT_ID, OrchestrationPlanLink.status == "pending_approval").order_by(OrchestrationPlanLink.created_at)
+                )
+            ).all()
+            out = []
+            for link in rows:
+                plan = await session.get(OrchestrationPlan, link.plan_id)
+                out.append({
+                    "link_id": str(link.id), "plan": plan.name if plan else None, "target_type": link.target_type,
+                    "parameters": link.parameters, "created_by": link.created_by, "created_at": link.created_at.isoformat(),
+                })
+        return out
+
+    async def _resolve_target(session: AsyncSession, target_type: str, target: str | None) -> dict[str, UUID]:
+        if target_type not in _TARGET_TYPES:
+            raise ValueError(f"target_type must be one of {_TARGET_TYPES}")
+        if target_type == "global":
+            return {}
+        if target is None:
+            raise ValueError(f"target_type={target_type!r} requires `target`")
+        if target_type == "host":
+            agent = await session.scalar(select(Agent).where(Agent.name == target))
+            if agent is None:
+                raise ValueError(f"no such host {target!r}")
+            return {"agent_id": agent.id}
+        if target_type == "ou":
+            node = await session.scalar(select(OUNode).where(OUNode.tenant_id == DEFAULT_TENANT_ID, OUNode.path == target))
+            if node is None:
+                raise ValueError(f"no such OU {target!r}")
+            return {"ou_id": node.id}
+        if target_type == "group":
+            group = await session.scalar(select(HostGroup).where(HostGroup.tenant_id == DEFAULT_TENANT_ID, HostGroup.name == target))
+            if group is None:
+                raise ValueError(f"no such host group {target!r}")
+            return {"host_group_id": group.id}
+        raise ValueError(f"target_type {target_type!r} is not resolvable")
+
+    @mcp.tool()
+    async def preview_orchestration_plan_link(
+        plan: str, target_type: str, target: str | None = None, parameters: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Safe, read-only "what would happen" preview for a NOT-YET-CREATED plan
+        link — blast radius (how many hosts) and a sample before/after monitoring
+        diff for one affected host. Writes nothing. target_type is one of
+        ou/host/group/global; target is the OU path / host name / group name
+        (omit for global). Always call this before propose_orchestration_plan_link
+        so you can explain the impact to the user."""
+        async with session_factory() as session:
+            plan_obj = await _resolve_plan_or_raise(session, plan)
+            ids = await _resolve_target(session, target_type, target)
+            result = await compiler_preview_plan_link(
+                session, DEFAULT_TENANT_ID, plan_obj.id, target_type, parameters=parameters or {}, **ids
+            )
+        if result is None:
+            raise ValueError(f"no such orchestration plan {plan!r}")
+        return result
+
+    @mcp.tool()
+    async def propose_orchestration_plan_link(
+        plan: str, target_type: str, target: str | None = None, parameters: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Propose linking a plan to a scope (OU/host/group/global) — the ONE gated
+        write tool in this section. This NEVER activates immediately: it always
+        creates the link with require_approval=true and auto_apply=false, so it
+        starts status="pending_approval" and has zero effect on any host until a
+        human approves it via the REST API (unless the global YOLO-MAN switch is
+        already on, which only a human can enable). Call preview_orchestration_plan_link
+        first and show the user the blast radius before proposing."""
+        ids = {}
+        requested_by = current_identity.get() or "mcp-facade"
+        async with session_factory() as session:
+            plan_obj = await _resolve_plan_or_raise(session, plan)
+            ids = await _resolve_target(session, target_type, target)
+            yolo = await is_yolo_mode(session)
+            status = "active" if yolo else "pending_approval"
+            link = OrchestrationPlanLink(
+                tenant_id=DEFAULT_TENANT_ID, plan_id=plan_obj.id, target_type=target_type,
+                parameters=parameters or {}, require_approval=True, auto_apply=False,
+                status=status, created_by=requested_by, **ids,
+            )
+            session.add(link)
+            await session.commit()
+            if status == "active":
+                for agent_id in await affected_agent_ids(session, target_type, tenant_id=DEFAULT_TENANT_ID, **ids):
+                    await compile_host_desired_state(session, agent_id)
+                await session.commit()
+        return {"link_id": str(link.id), "plan": plan, "status": status}
 
     return mcp

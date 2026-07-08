@@ -194,14 +194,17 @@ async def test_orchestration_plan_full_lifecycle(db_session):
         )
     assert bad_type.status_code == 422
 
-    # Link the plan directly to the host.
+    # Link the plan directly to the host. auto_apply=True so this test
+    # exercises compile mechanics directly rather than the L2 approval gate
+    # (see test_orchestration_link_approval_gate for that).
     with TestClient(create_app()) as client:
         link_resp = client.post(
             f"/api/v1/orchestration/plans/{plan['id']}/links",
-            json={"target_type": "host", "agent_id": str(agent.id)},
+            json={"target_type": "host", "agent_id": str(agent.id), "auto_apply": True},
             headers=_headers(raw),
         )
     assert link_resp.status_code == 200
+    assert link_resp.json()["status"] == "active"
     link_id = link_resp.json()["id"]
 
     # Desired state now reflects the role + generated monitoring.
@@ -271,6 +274,164 @@ async def test_plan_link_invalid_target_422(db_session):
 
     with TestClient(create_app()) as client:
         client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Block L2: approval gate + YOLO-MAN global switch
+
+
+async def _set_yolo_mode(client, headers, enabled: bool):
+    resp = client.put("/api/v1/system/yolo-mode", json={"enabled": enabled}, headers=headers)
+    assert resp.status_code == 200
+    return resp.json()
+
+
+async def test_orchestration_link_approval_gate(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    agent = await _make_agent(db_session)
+    sfx = uuid.uuid4().hex[:8]
+
+    with TestClient(create_app()) as client:
+        plan = client.post(
+            "/api/v1/orchestration/plans",
+            json={
+                "name": f"gated-{sfx}", "display_name": "x", "plan_type": "role",
+                "version": {"generated_monitoring": {"checks": ["docker_daemon"], "thresholds": {}}},
+            },
+            headers=_headers(raw),
+        ).json()
+
+        # Default require_approval=True, auto_apply=False -> pending_approval,
+        # zero effect on the host's desired state.
+        link_resp = client.post(
+            f"/api/v1/orchestration/plans/{plan['id']}/links",
+            json={"target_type": "host", "agent_id": str(agent.id)},
+            headers=_headers(raw),
+        )
+        assert link_resp.status_code == 200
+        link = link_resp.json()
+        assert link["status"] == "pending_approval"
+
+        state = client.get(f"/api/v1/agents/{agent.id}/desired-state", headers=_headers(raw)).json()
+        assert state["state"]["orchestration"]["roles"] == []
+
+        pending = client.get("/api/v1/orchestration/pending-links", headers=_headers(raw)).json()
+        assert any(p["id"] == link["id"] for p in pending)
+
+        # Approve -> active, host's desired state now shows the role.
+        approve = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/approve", headers=_headers(raw))
+        assert approve.status_code == 200
+        assert approve.json()["status"] == "active"
+
+        state_after = client.get(f"/api/v1/agents/{agent.id}/desired-state", headers=_headers(raw)).json()
+        assert plan["name"] in state_after["state"]["orchestration"]["roles"]
+
+        # Re-approving an already-active link is a 409.
+        re_approve = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/approve", headers=_headers(raw))
+        assert re_approve.status_code == 409
+
+        client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+
+    await _delete_agent(db_session, agent)
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_orchestration_link_reject(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    agent = await _make_agent(db_session)
+    sfx = uuid.uuid4().hex[:8]
+
+    with TestClient(create_app()) as client:
+        plan = client.post(
+            "/api/v1/orchestration/plans", json={"name": f"rej-{sfx}", "display_name": "x", "plan_type": "role"}, headers=_headers(raw)
+        ).json()
+        link = client.post(
+            f"/api/v1/orchestration/plans/{plan['id']}/links", json={"target_type": "host", "agent_id": str(agent.id)}, headers=_headers(raw)
+        ).json()
+
+        reject = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/reject", headers=_headers(raw))
+        assert reject.status_code == 200
+        assert reject.json()["status"] == "rejected"
+
+        # A rejected link no longer shows up in the pending queue.
+        pending = client.get("/api/v1/orchestration/pending-links", headers=_headers(raw)).json()
+        assert not any(p["id"] == link["id"] for p in pending)
+
+        client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+
+    await _delete_agent(db_session, agent)
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_yolo_mode_toggle_and_link_bypass(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    agent = await _make_agent(db_session)
+    sfx = uuid.uuid4().hex[:8]
+
+    with TestClient(create_app()) as client:
+        default_state = client.get("/api/v1/system/yolo-mode", headers=_headers(raw))
+        assert default_state.status_code == 200
+        assert default_state.json()["yolo_mode"] is False
+
+    with TestClient(create_app()) as client:
+        await _set_yolo_mode(client, _headers(raw), True)
+
+    try:
+        with TestClient(create_app()) as client:
+            plan = client.post(
+                "/api/v1/orchestration/plans", json={"name": f"yolo-{sfx}", "display_name": "x", "plan_type": "role"}, headers=_headers(raw)
+            ).json()
+            # No auto_apply passed at all -> still active, because the
+            # global switch overrides the per-link default.
+            link = client.post(
+                f"/api/v1/orchestration/plans/{plan['id']}/links", json={"target_type": "host", "agent_id": str(agent.id)}, headers=_headers(raw)
+            ).json()
+            assert link["status"] == "active"
+            client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+    finally:
+        with TestClient(create_app()) as client:
+            await _set_yolo_mode(client, _headers(raw), False)
+
+    await _delete_agent(db_session, agent)
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_preview_plan_link_endpoint_persists_nothing(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    agent = await _make_agent(db_session)
+    sfx = uuid.uuid4().hex[:8]
+
+    with TestClient(create_app()) as client:
+        plan = client.post(
+            "/api/v1/orchestration/plans",
+            json={
+                "name": f"preview-{sfx}", "display_name": "x", "plan_type": "role",
+                "version": {"generated_monitoring": {"checks": ["docker_daemon"], "thresholds": {}}},
+            },
+            headers=_headers(raw),
+        ).json()
+
+        preview = client.post(
+            f"/api/v1/orchestration/plans/{plan['id']}/preview-link",
+            json={"target_type": "host", "agent_id": str(agent.id)},
+            headers=_headers(raw),
+        )
+        assert preview.status_code == 200
+        body = preview.json()
+        assert body["affected_host_count"] == 1
+        assert body["sample_diff"]["checks_added"] == ["docker_daemon"]
+
+        links = client.get(f"/api/v1/orchestration/plans/{plan['id']}/links", headers=_headers(raw)).json()
+        assert links == []  # preview never persists a link
+
+        client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+
+    await _delete_agent(db_session, agent)
     await db_session.delete(api_token)
     await db_session.commit()
 
