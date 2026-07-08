@@ -19,7 +19,7 @@ comparable user-facing features.
 - [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found; K6+K7+K8+K9+K10 implemented, event correlation deferred
 - [x] Batch 4 — Ch.7c Configuration: Visualization, Templates — 3 gaps found, decisions below
 - [x] Batch 5 — Ch.7d Configuration: Notifications, Macros — 13 gaps found; recommendations below (incl. a real dispatch bug K13-fix); no code yet, awaiting decisions
-- [ ] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
+- [x] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export — 12 gaps found; two real security defects flagged (K14-fix RBAC not enforced, K15-fix plaintext agent tokens); no code yet, awaiting decisions
 - [ ] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring
 - [ ] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import
 - [ ] Batch 9 — Ch.15 Discovery
@@ -331,3 +331,55 @@ media, secret/vault macros; **reject for now** SMS, macro contexts/functions, an
 operations (the last belongs to the remediation layer). Per the project rule, the logic-changing items
 (K13-fix and anything touching the dispatch/resolution path) are confirmed with the user before any
 code.
+
+## Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
+
+Read: [config/users_and_usergroups/permissions](https://www.zabbix.com/documentation/7.0/en/manual/config/users_and_usergroups/permissions),
+[config/secrets](https://www.zabbix.com/documentation/7.0/en/manual/config/secrets),
+[reports/scheduled](https://www.zabbix.com/documentation/7.0/en/manual/web_interface/frontend_sections/reports/scheduled),
+[appendix real-time export](https://www.zabbix.com/documentation/7.0/en/manual/appendix/install/real_time_export).
+
+Bossman side verified file:line. Summary of what exists today: a 2-role (`admin`/`operator`) local
+user DB with JWT+bcrypt login (`db/models.py:277-288`, `services/auth.py:28`), SHA-256-hashed API
+tokens (`models.py:291-303`) and a shared-secret agent enrollment (`api/enroll.py:37-61`). A Go
+per-tool ACL exists **on the agent** (`internal/authz/acl.go`) but does not govern Bossman's API. No
+SSO, no secrets manager, no reports, no bulk export.
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition (recommendation) |
+|---|---|---|---|
+| **User types / role ceiling** (User · Admin · Super Admin) | Three built-in tiers, each a ceiling on what a custom role can do | 🟡 two role *names* exist (`admin`/`operator`, `models.py:288`) but they are **never checked** anywhere | see K14-fix below |
+| **Custom roles** restricting menu sections / services / modules / **API methods** / frontend actions | Fine-grained revoke-only role editor | ❌ nothing comparable in Bossman | **defer** — big; only meaningful after basic role enforcement (K14-fix) lands |
+| **User groups → per-host-group permissions** (read / read-write / **deny**, deny-wins, access only via group membership) | Resource authz is entirely group-mediated and host-group-scoped | ❌ no user groups, no per-host-group permissions, no deny semantics (`grep` empty) | **defer** — bundle with real RBAC + the multi-tenant `tenant_id` work; large block |
+| **Authentication: LDAP / SAML / HTTP / MFA** | Directory SSO + second factor | ❌ local password DB only (`api/auth.py:33-43`); OAuth explicitly rejected for MCP (`mcp/auth.py:5-10`) | **defer** — example.internal has AD, so LDAP/SAML SSO is plausibly wanted eventually; not now. MFA **reject for now** |
+| **User & API-token management** (create/list/revoke users, roles, tokens from the UI/API) | Full admin CRUD in the frontend | ❌ tokens/users can ONLY be created via `scripts/seed_admin.py` + test helpers; no router, no UI (`main.py:17,158` mounts login only) | **implement (small, high value)** — a minimal admin CRUD for users + API tokens (create/list/revoke); prerequisite for anyone but the seed admin to exist |
+| **Secret user macros** (masked value in UI) | `{$PASSWORD}` stored masked | ❌ no macro system at all (see Batch 5 #8) | **defer** — bundle with the Batch-5 macro decision |
+| **Vault secrets** (HashiCorp / CyberArk references for macros + DB creds) | External secret store, no secret in Zabbix DB | ❌ all secrets are plain env vars (`config.py:80,103,124,135`); TLS key on disk with `NoEncryption()` (`services/keys.py:58`) | **defer** — real hardening, but needs a vault to exist in the environment first |
+| **Scheduled reports** (dashboard → PDF via web service, emailed daily/weekly/monthly) | Headless-Chromium PDF render on a schedule to users/groups | ❌ no report generation, no PDF lib, no scheduler for it (`cron*.go` is a host-config module, not a Bossman reporter) | **reject for now** — heavy infra (headless browser) for low marginal value; the live dashboards + availability views already cover the "how are we doing" question |
+| **Real-time data export** (NDJSON of history / trends / events to `ExportDir`, `ExportType`/`ExportFileSize`) | Continuous file export for external consumers (SIEM/data lake) | ❌ only per-event email/webhook (`notification.py:95-125`); read APIs return JSON to the UI, no bulk/stream dump | **defer** — a scoped events/audit **export endpoint** (or an outbound stream) is the useful 20%; revisit if a concrete downstream consumer appears |
+| **Audit log** (who changed what, viewable + exportable) | Full config-change audit with export | 🟡 the Go agent writes JSON audit lines to stderr/journal (`audit.New`, agent-side); plan-runs are audited (`runs.py`); no Bossman-wide config-change audit log or its export | **defer** — partial today; a unified Bossman audit trail pairs naturally with the RBAC work |
+
+### Bugs found while analyzing (real security defects, not Zabbix gaps)
+
+**K14-fix — the `admin`/`operator` roles are stored but NEVER enforced; every authenticated caller has
+full access.** Each protected route depends on `get_current_identity` bound to a throwaway `_identity`
+parameter (underscore = never read), e.g. `api/admin.py:70,105,123`, `api/orchestration.py:105-391`,
+`api/templates.py:58-344`. A repo-wide search for `identity.role`/`== "admin"`/`403`/permission checks
+in `bossman/bossman/api` + `services` returns **zero** hits. Concretely: an `operator` JWT can delete
+templates/graphs/check-rules, run housekeeping, change the log level, delete orchestration links — and
+**a read-only user cannot exist**. **Recommend** a minimal enforcement layer: a `require_role(...)`
+dependency gating destructive endpoints to `admin`, and a real read-only role (`viewer`) — the smallest
+step that makes the stored roles mean something. Logic change → confirm before coding.
+
+**K15-fix — agent bearer tokens are stored in plaintext in the DB** (`Agent.token`, `models.py:89`),
+unlike `ApiToken` which is SHA-256-hashed (`services/auth.py:99-107`). A DB read (backup leak, SQL
+injection, operator over-access) hands over every agent's push/poll credential in the clear.
+**Recommend** hashing agent tokens the same way ApiToken already is (compare by hash), or at minimum
+documenting the accepted risk. Touches enrollment + the poll/push auth path → confirm before coding.
+
+**Decisions (awaiting user).** Analysis pass only — no code. Priority recommendation: **(1) K14-fix**
+(role enforcement + a read-only role — the biggest real gap here; "logged-in = full access" is a
+liability once more than one person has a login); **(2) K15-fix** (hash agent tokens); **(3)** the
+user/API-token management CRUD (so accounts exist without the seed script). **Defer** full user-group/
+per-host-group RBAC, custom roles, LDAP/SAML SSO, vault secrets, secret macros, a unified audit log,
+and a scoped data-export endpoint. **Reject for now** scheduled PDF reports and MFA. Both K-fixes are
+logic changes to the auth path and are confirmed with the user before any code.
