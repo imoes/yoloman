@@ -91,3 +91,21 @@ async def test_invalid_json_raises_agent_client_error():
     client = _client(handler)
     with pytest.raises(AgentClientError):
         await client.metrics_dump(None)
+
+
+async def test_missing_client_cert_raises_agent_client_error_not_bare_oserror():
+    """Regression: a missing/unreadable mTLS cert/key file used to raise a
+    bare FileNotFoundError from httpx.AsyncClient(cert=...)'s construction
+    — uncaught by `except httpx.HTTPError`, so it escaped every per-agent
+    try/except in poll_agent/poll_once entirely (found via a real
+    background-poller crash during unrelated API tests, not by inspection).
+    No MockTransport here on purpose: this must exercise real cert-path
+    loading, which MockTransport bypasses."""
+    client = AgentClient(
+        address="agent.example.com:8010",
+        token="tok",
+        client_cert_path="/nonexistent/cert.pem",
+        client_key_path="/nonexistent/key.pem",
+    )
+    with pytest.raises(AgentClientError, match="agent.example.com:8010"):
+        await client.metrics_dump(None)

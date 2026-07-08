@@ -341,6 +341,58 @@ class SeverityLabel(Base):
     __table_args__ = (CheckConstraint("state IN ('OK', 'WARN', 'CRIT', 'UNKNOWN')", name="ck_severity_labels_state"),)
 
 
+class Graph(Base):
+    """A saved, reusable chart combining items from several hosts on one
+    chart (Zabbix gap-analysis Block K11) — unlike a dashboard widget's
+    ad-hoc series, this is a named, editable object with its own draw
+    options, made of GraphItem rows."""
+
+    __tablename__ = "graphs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    graph_type: Mapped[str] = mapped_column(String, nullable=False, default="normal")
+    y_axis_mode: Mapped[str] = mapped_column(String, nullable=False, default="calculated")
+    show_legend: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    show_working_time: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    items: Mapped[list["GraphItem"]] = relationship(
+        back_populates="graph", cascade="all, delete-orphan", order_by="GraphItem.sort_order"
+    )
+
+    __table_args__ = (CheckConstraint("graph_type IN ('normal', 'stacked')", name="ck_graphs_graph_type"),)
+
+
+class GraphItem(Base):
+    """One member series of a Graph — pinned to one agent+metric with its
+    own display options (Block K11)."""
+
+    __tablename__ = "graph_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    graph_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("graphs.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    metric: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str | None] = mapped_column(String)
+    color: Mapped[str] = mapped_column(String, nullable=False, default="#1e9600")
+    draw_style: Mapped[str] = mapped_column(String, nullable=False, default="line")
+    axis_side: Mapped[str] = mapped_column(String, nullable=False, default="left")
+    function: Mapped[str] = mapped_column(String, nullable=False, default="avg")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    graph: Mapped["Graph"] = relationship(back_populates="items")
+
+    __table_args__ = (
+        CheckConstraint(
+            "draw_style IN ('line', 'bold_line', 'filled', 'dot', 'dashed', 'gradient')",
+            name="ck_graph_items_draw_style",
+        ),
+        CheckConstraint("axis_side IN ('left', 'right')", name="ck_graph_items_axis_side"),
+        CheckConstraint("function IN ('avg', 'min', 'max', 'last')", name="ck_graph_items_function"),
+    )
+
+
 class ValueMap(Base):
     """A reusable named numeric/string -> human-label mapping (Zabbix gap-
     analysis Block K4), e.g. {"0": "Down", "1": "Up"}. Attached to a

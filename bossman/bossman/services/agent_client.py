@@ -23,9 +23,16 @@ if TYPE_CHECKING:
 
 
 class AgentClientError(Exception):
-    """Raised when a pull against an agent fails (network, auth, or a
-    non-200 response) — always carries a human-readable message, since
-    the poller only logs/records this, it doesn't retry inline."""
+    """Raised when a pull against an agent fails (network, auth, a non-200
+    response, or a local OSError — e.g. Bossman's own mTLS cert/key file
+    missing/unreadable) — always carries a human-readable message, since
+    the poller only logs/records this, it doesn't retry inline. Real bug
+    found via testing: an earlier version only caught httpx.HTTPError, so
+    a missing cert file (a bare FileNotFoundError from
+    httpx.AsyncClient(cert=...)'s construction) escaped every per-agent
+    try/except in poll_agent/poll_once entirely, defeating the "one bad
+    agent's failure is isolated" design and disrupting sibling polls in
+    the same asyncio.gather."""
 
 
 class AgentClient:
@@ -66,7 +73,7 @@ class AgentClient:
         try:
             async with self._client() as client:
                 resp = await client.get(url, params=params)
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, OSError) as exc:
             raise AgentClientError(f"{self.address}: request failed: {exc}") from exc
 
         if resp.status_code != 200:
@@ -128,7 +135,7 @@ class AgentClient:
         try:
             async with self._client() as client:
                 resp = await client.post(url, json=body)
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, OSError) as exc:
             raise AgentClientError(f"{self.address}: tool {name!r}: request failed: {exc}") from exc
 
         if resp.status_code != 200:
@@ -151,7 +158,7 @@ class AgentClient:
                     content=data,
                     headers={"Content-Type": "application/octet-stream"},
                 )
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, OSError) as exc:
             raise AgentClientError(f"{self.address}: upload {remote_name!r}: request failed: {exc}") from exc
 
         if resp.status_code != 200:

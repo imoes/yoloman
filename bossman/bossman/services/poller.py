@@ -392,21 +392,24 @@ async def poller_loop(
 ) -> None:
     """Runs poll_once on settings.poll_interval_seconds until stop_event is
     set — the long-lived background task started from bossman.main's
-    lifespan."""
+    lifespan. Skips actual polling entirely while settings.poll_enabled is
+    False (mirrors housekeeping_loop's own settings.housekeeping_enabled
+    guard) — disabled in the test suite, see config.py's poll_enabled."""
     while not stop_event.is_set():
-        started = datetime.now(timezone.utc)
-        try:
-            results = await poll_once(session_factory, settings)
-            failed = [r for r in results if r.errors]
-            if failed:
-                logger.warning("poll cycle: %d/%d agents had errors: %s", len(failed), len(results), failed)
-            if stats is not None:
-                stats.last_run_at = started
-                stats.last_run_duration_ms = (datetime.now(timezone.utc) - started).total_seconds() * 1000
-                stats.agents_polled = len(results)
-                stats.agents_with_errors = len(failed)
-        except Exception:
-            logger.exception("poll cycle failed unexpectedly")
+        if settings.poll_enabled:
+            started = datetime.now(timezone.utc)
+            try:
+                results = await poll_once(session_factory, settings)
+                failed = [r for r in results if r.errors]
+                if failed:
+                    logger.warning("poll cycle: %d/%d agents had errors: %s", len(failed), len(results), failed)
+                if stats is not None:
+                    stats.last_run_at = started
+                    stats.last_run_duration_ms = (datetime.now(timezone.utc) - started).total_seconds() * 1000
+                    stats.agents_polled = len(results)
+                    stats.agents_with_errors = len(failed)
+            except Exception:
+                logger.exception("poll cycle failed unexpectedly")
 
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=settings.poll_interval_seconds)

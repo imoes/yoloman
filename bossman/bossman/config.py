@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     # pollute the shared test database's count-based assertions.
     seed_default_checks: bool = True
 
+    # Master switch for the background poller (mirrors housekeeping_enabled)
+    # — disabled in the test suite (see tests/conftest.py) so a TestClient's
+    # real app lifespan doesn't run real network/DB work concurrently with
+    # whatever the test itself is doing on the shared event loop. A real
+    # bug this surfaced: AgentClient's httpx.AsyncClient(cert=...) raising a
+    # bare OSError for a missing cert file used to escape every per-agent
+    # try/except (fixed separately, services/agent_client.py) — but even
+    # with that fixed, letting the poller touch the DB for real during
+    # every API test was needless concurrency the tests never asked for.
+    poll_enabled: bool = True
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

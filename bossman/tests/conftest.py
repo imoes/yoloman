@@ -7,6 +7,18 @@ import os
 # constructed). Production keeps the default (True).
 os.environ.setdefault("BOSSMAN_SEED_DEFAULT_CHECKS", "false")
 
+# Every TestClient(create_app()) triggers the real lifespan, including the
+# background poller/housekeeping loops. Letting those run for real during
+# every API test means genuine concurrent DB/network work racing the
+# test's own db_session on the same event loop — a real, reproducible
+# sqlalchemy.exc.MissingGreenlet found while adding Block K11's tests, not
+# a hypothetical concern. Tests that exercise poll_once/poll_agent or
+# run_housekeeping directly (test_poller.py, test_housekeeping.py) call
+# them explicitly and are unaffected by the background loop being quiet.
+# Production keeps both defaults (True).
+os.environ.setdefault("BOSSMAN_POLL_ENABLED", "false")
+os.environ.setdefault("BOSSMAN_HOUSEKEEPING_ENABLED", "false")
+
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
