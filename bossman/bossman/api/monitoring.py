@@ -81,6 +81,12 @@ async def metric_catalog(
     metrics = sorted((await session.scalars(select(Metric.metric).distinct())).all())
     out: list[MetricCatalogEntry] = []
     for m in metrics:
+        # Skip the derived per-check state series (check_<name>_state, emitted
+        # by CheckStatusMetricName): they're a check's own 0/1/2/3 output, not
+        # a measurable metric you'd threshold — they only cluttered the metric
+        # search with "Check … state" entries.
+        if m.startswith("check_") and m.endswith("_state"):
+            continue
         if m in _METRIC_DISPLAY:
             display, unit = _METRIC_DISPLAY[m]
         else:
