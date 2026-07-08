@@ -75,14 +75,27 @@ interface TreeRow {
 
       <div class="bm-split">
         <!-- Left: the tree -->
-        <div class="bm-tree">
+        <div
+          class="bm-tree"
+          [class.bm-drop-root]="dragOuId() && dropTargetId() === '__root__'"
+          (dragover)="onRootDragOver($event)"
+          (dragleave)="onRootDragLeave()"
+          (drop)="onRootDrop($event)"
+        >
           @if (rows().length) {
             @for (row of rows(); track rowKey(row)) {
               @if (row.kind === 'ou') {
                 <div
                   class="bm-node bm-ou"
                   [class.bm-selected]="isSelected(row)"
+                  [class.bm-drop-target]="dropTargetId() === row.ou!.id"
                   [style.paddingLeft.px]="8 + row.depth * 18"
+                  draggable="true"
+                  (dragstart)="onOuDragStart(row.ou!, $event)"
+                  (dragend)="onDragEnd()"
+                  (dragover)="onOuDragOver(row.ou!, $event)"
+                  (dragleave)="onOuDragLeave(row.ou!)"
+                  (drop)="onOuDrop(row.ou!, $event)"
                   (click)="select(row)"
                   [cdkContextMenuTriggerFor]="ouMenu"
                   (contextmenu)="ctx.set(row)"
@@ -160,7 +173,7 @@ interface TreeRow {
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">New Host Group…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Link Orchestration Plan…</button>
         <div class="bm-menu-sep"></div>
-        <button class="bm-menu-item" cdkMenuItem (click)="newOrchestrationPlan()">New Orchestration Plan…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newOrchestrationPlan(ctx()!.ou!)">New Orchestration Plan…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
@@ -218,6 +231,14 @@ interface TreeRow {
       }
       .bm-node:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-selected { background: color-mix(in srgb, var(--bm-green) 16%, transparent) !important; }
+      .bm-ou { cursor: grab; }
+      .bm-ou:active { cursor: grabbing; }
+      .bm-drop-target {
+        outline: 2px solid var(--bm-green);
+        outline-offset: -2px;
+        background: color-mix(in srgb, var(--bm-green) 12%, transparent);
+      }
+      .bm-drop-root { outline: 2px dashed color-mix(in srgb, var(--bm-green) 60%, transparent); outline-offset: -4px; }
       .bm-disabled .bm-label { text-decoration: line-through; opacity: 0.6; }
       .bm-twisty { width: 14px; text-align: center; opacity: 0.7; }
       .bm-ou-icon, .bm-obj-icon { font-size: 18px; height: 18px; width: 18px; }
@@ -264,6 +285,10 @@ export class OuPolicyComponent implements OnInit {
   selected = signal<TreeRow | null>(null);
   ctx = signal<TreeRow | null>(null);
   yoloMode = signal<SystemSettings | null>(null);
+  /** Drag-and-drop reparenting (Block L3e): the OU currently being dragged,
+   * and the current drop target ('__root__' = the forest root). */
+  dragOuId = signal<string | null>(null);
+  dropTargetId = signal<string | null>(null);
 
   private childrenByParent = computed(() => {
     const map = new Map<string | null, OUNode[]>();
@@ -354,6 +379,84 @@ export class OuPolicyComponent implements OnInit {
     this.systemSettings.setYoloMode({ enabled }).subscribe((s) => this.yoloMode.set(s));
   }
 
+  // --- drag-and-drop reparenting (Block L3e) ---
+
+  /** True if `target` is inside the dragged OU's own subtree (or is it) — such
+   * a drop would create a cycle and the server would reject it, so we forbid
+   * it in the UI too (no drop highlight, drop ignored). Uses the materialized
+   * ltree_path: a descendant's path starts with "<dragged>." (or equals it). */
+  private wouldCycle(targetOu: OUNode): boolean {
+    const dragged = this.ous().find((o) => o.id === this.dragOuId());
+    if (!dragged) return true;
+    const dp = dragged.ltree_path;
+    const tp = targetOu.ltree_path;
+    return tp === dp || tp.startsWith(dp + '.');
+  }
+
+  onOuDragStart(ou: OUNode, event: DragEvent): void {
+    this.dragOuId.set(ou.id);
+    event.dataTransfer?.setData('text/plain', ou.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onDragEnd(): void {
+    this.dragOuId.set(null);
+    this.dropTargetId.set(null);
+  }
+
+  onOuDragOver(ou: OUNode, event: DragEvent): void {
+    if (!this.dragOuId() || this.dragOuId() === ou.id || this.wouldCycle(ou)) return;
+    event.preventDefault(); // allow the drop
+    event.stopPropagation(); // don't also mark the root zone
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dropTargetId.set(ou.id);
+  }
+
+  onOuDragLeave(ou: OUNode): void {
+    if (this.dropTargetId() === ou.id) this.dropTargetId.set(null);
+  }
+
+  onOuDrop(ou: OUNode, event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const dragged = this.dragOuId();
+    this.dropTargetId.set(null);
+    this.dragOuId.set(null);
+    if (!dragged || dragged === ou.id || this.wouldCycle(ou)) return;
+    this.ouService.move(dragged, ou.id).subscribe({
+      next: () => {
+        this.expanded.update((e) => new Set(e).add(ou.id));
+        this.reload();
+      },
+      error: (e) => alert(e?.error?.detail ?? 'move failed'),
+    });
+  }
+
+  onRootDragOver(event: DragEvent): void {
+    if (!this.dragOuId()) return;
+    event.preventDefault();
+    this.dropTargetId.set('__root__');
+  }
+
+  onRootDragLeave(): void {
+    if (this.dropTargetId() === '__root__') this.dropTargetId.set(null);
+  }
+
+  onRootDrop(event: DragEvent): void {
+    event.preventDefault();
+    const dragged = this.dragOuId();
+    this.dropTargetId.set(null);
+    this.dragOuId.set(null);
+    if (!dragged) return;
+    // Already a root OU? no-op.
+    const node = this.ous().find((o) => o.id === dragged);
+    if (!node || node.parent_id === null) return;
+    this.ouService.move(dragged, null).subscribe({
+      next: () => this.reload(),
+      error: (e) => alert(e?.error?.detail ?? 'move failed'),
+    });
+  }
+
   // --- OU actions ---
 
   createOu(parentId: string | null): void {
@@ -414,13 +517,20 @@ export class OuPolicyComponent implements OnInit {
 
   // --- orchestration (restored management: create a plan, link it to an OU) ---
 
-  newOrchestrationPlan(): void {
+  newOrchestrationPlan(ou: OUNode): void {
     const ref = this.dialog.open<OrchestrationPlanDialogComponent, undefined, OrchestrationPlanInput>(
       OrchestrationPlanDialogComponent, { width: '480px' },
     );
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
-      this.orchestration.createPlan(input).subscribe();
+      // Create the plan AND link it to the OU it was created under, so it
+      // appears immediately as a policy object beneath that OU (previously a
+      // freshly-created plan was invisible until separately linked).
+      this.orchestration.createPlan(input).subscribe((plan) => {
+        this.orchestration
+          .createLink(plan.id, { target_type: 'ou', ou_id: ou.id, require_approval: true })
+          .subscribe(() => this.afterObjectChange(ou.id));
+      });
     });
   }
 

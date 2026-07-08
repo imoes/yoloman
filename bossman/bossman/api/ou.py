@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -117,6 +117,88 @@ async def create_ou_node(
         await session.rollback()
         raise HTTPException(status_code=409, detail=f"an OU named {body.name!r} already exists under this parent") from exc
     return OUNodeOut.from_model(node)
+
+
+class OUMoveRequest(BaseModel):
+    # The OU's new parent; null = move to the forest root.
+    parent_id: UUID | None = None
+
+
+@router.post("/api/v1/ou/{ou_id}/move", response_model=OUNodeOut)
+async def move_ou_node(
+    ou_id: UUID,
+    body: OUMoveRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> OUNodeOut:
+    """Reparent an OU (the drag-and-drop move, Block L3e). Rewrites the
+    materialized `path` + `ltree_path` of the node AND its whole subtree, then
+    recompiles every host under it (OU-scoped rules + GPO precedence change
+    with the new depth/ancestry). Rejects a move into the node's own subtree
+    (a cycle) and a name collision under the new parent."""
+    node = await _get_ou_or_404(session, ou_id)
+    old_ltree = str(node.ltree_path)
+    old_path = node.path
+
+    parent_path, parent_ltree = "", ""
+    if body.parent_id is not None:
+        if body.parent_id == ou_id:
+            raise HTTPException(status_code=422, detail="an OU cannot be its own parent")
+        parent = await _get_ou_or_404(session, body.parent_id)
+        # Cycle guard: the new parent must not be inside the moved subtree.
+        if str(parent.ltree_path) == old_ltree or await session.scalar(
+            select(OUNode.id).where(OUNode.id == body.parent_id).where(
+                text("ou_nodes.ltree_path <@ :old ::ltree")
+            ).params(old=old_ltree)
+        ):
+            raise HTTPException(status_code=422, detail="cannot move an OU into its own subtree")
+        parent_path, parent_ltree = parent.path, str(parent.ltree_path)
+
+    segment = _ltree_segment(node.name)
+    new_ltree = f"{parent_ltree}.{segment}" if parent_ltree else segment
+    new_path = f"{parent_path}/{node.name}"
+
+    if new_ltree == old_ltree:
+        return OUNodeOut.from_model(node)  # already there — no-op
+
+    # Rewrite the subtree's materialized paths: keep each node's tail relative
+    # to the moved node's PARENT (subpath from nlevel(old)-1 retains the moved
+    # node's own label and everything below it), and prepend the new parent's
+    # ltree ('' for a move to the forest root). Using nlevel(old)-1 (not
+    # nlevel(old)) avoids subpath's out-of-range error on the moved node
+    # itself, whose level equals nlevel(old).
+    try:
+        await session.execute(
+            text(
+                "UPDATE ou_nodes SET ltree_path = (:pl ::ltree || subpath(ltree_path, nlevel(:old ::ltree) - 1)) "
+                "WHERE ltree_path <@ :old ::ltree"
+            ).params(pl=parent_ltree, old=old_ltree)
+        )
+        await session.execute(
+            text(
+                "UPDATE ou_nodes SET path = (:newp || substring(path FROM char_length(:oldp) + 1)) "
+                "WHERE path = :oldp OR path LIKE :oldp || '/%'"
+            ).params(newp=new_path, oldp=old_path)
+        )
+        await session.execute(
+            text("UPDATE ou_nodes SET parent_id = :pid WHERE id = :id").params(
+                pid=str(body.parent_id) if body.parent_id else None, id=str(ou_id)
+            )
+        )
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail=f"an OU named {node.name!r} already exists under the target parent"
+        ) from exc
+
+    # Recompile every host now under the moved subtree (their ancestry changed).
+    for agent_id in await affected_agent_ids(session, "ou", ou_id=ou_id, tenant_id=DEFAULT_TENANT_ID):
+        await compile_host_desired_state(session, agent_id)
+    await session.commit()
+
+    refreshed = await _get_ou_or_404(session, ou_id)
+    return OUNodeOut.from_model(refreshed)
 
 
 class OUNodePatch(BaseModel):

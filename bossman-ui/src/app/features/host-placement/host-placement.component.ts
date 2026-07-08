@@ -39,13 +39,21 @@ interface Row {
         <div class="bm-tree">
           @for (row of rows(); track rowKey(row)) {
             @if (row.kind === 'ou' || row.kind === 'unassigned') {
-              <div class="bm-node bm-ou" [style.paddingLeft.px]="8 + row.depth * 18">
+              <div
+                class="bm-node bm-ou"
+                [class.bm-drop-target]="dropTargetId() === (row.kind === 'unassigned' ? '__none__' : row.ou!.id)"
+                [style.paddingLeft.px]="8 + row.depth * 18"
+                (dragover)="onDragOver(row.kind === 'unassigned' ? null : row.ou!.id, $event)"
+                (dragleave)="onDragLeave(row.kind === 'unassigned' ? null : row.ou!.id)"
+                (drop)="onDrop(row.kind === 'unassigned' ? null : row.ou!.id, $event)"
+              >
                 <mat-icon class="bm-ou-icon">{{ row.kind === 'unassigned' ? 'help_outline' : 'folder' }}</mat-icon>
                 <span class="bm-label">{{ row.kind === 'unassigned' ? 'Unassigned' : row.ou!.name }}</span>
               </div>
             } @else {
               <div class="bm-node bm-host" [class.bm-selected]="selectedHost()?.id === row.host!.id"
-                   [style.paddingLeft.px]="8 + row.depth * 18" (click)="selectHost(row.host!)">
+                   [style.paddingLeft.px]="8 + row.depth * 18" (click)="selectHost(row.host!)"
+                   draggable="true" (dragstart)="onHostDragStart(row.host!, $event)" (dragend)="onHostDragEnd()">
                 <mat-icon class="bm-host-icon">dns</mat-icon>
                 <span class="bm-label">{{ row.host!.name }}</span>
                 <mat-form-field appearance="outline" class="bm-move" (click)="$event.stopPropagation()">
@@ -105,9 +113,14 @@ interface Row {
       .bm-tree { flex: 1 1 58%; padding: 6px 0; overflow-x: auto; }
       .bm-detail { flex: 1 1 42%; padding: 12px 16px; }
       .bm-node { display: flex; align-items: center; gap: 6px; padding: 3px 10px; white-space: nowrap; }
-      .bm-host { cursor: pointer; }
+      .bm-host { cursor: grab; }
+      .bm-host:active { cursor: grabbing; }
       .bm-host:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-selected { background: color-mix(in srgb, var(--bm-green) 16%, transparent); }
+      .bm-drop-target {
+        outline: 2px solid var(--bm-green); outline-offset: -2px;
+        background: color-mix(in srgb, var(--bm-green) 12%, transparent);
+      }
       .bm-ou-icon, .bm-host-icon { font-size: 18px; height: 18px; width: 18px; }
       .bm-ou-icon { opacity: 0.8; }
       .bm-host-icon { opacity: 0.65; }
@@ -131,6 +144,10 @@ export class HostPlacementComponent implements OnInit {
   hosts = signal<Agent[]>([]);
   selectedHost = signal<Agent | null>(null);
   desired = signal<CompiledHostState | null>(null);
+  /** Drag-and-drop host placement: the host being dragged, and the OU drop
+   * target ('__none__' = the Unassigned bucket). */
+  dragHostId = signal<string | null>(null);
+  dropTargetId = signal<string | null>(null);
 
   rows = computed<Row[]>(() => {
     const out: Row[] = [];
@@ -186,5 +203,39 @@ export class HostPlacementComponent implements OnInit {
       this.hosts.update((hs) => hs.map((h) => (h.id === host.id ? { ...h, ou_id: ouId } : h)));
       if (this.selectedHost()?.id === host.id) this.selectHost({ ...host, ou_id: ouId });
     });
+  }
+
+  // --- drag-and-drop placement (drag a host onto an OU / the Unassigned bucket) ---
+
+  onHostDragStart(host: Agent, event: DragEvent): void {
+    this.dragHostId.set(host.id);
+    event.dataTransfer?.setData('text/plain', host.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onHostDragEnd(): void {
+    this.dragHostId.set(null);
+    this.dropTargetId.set(null);
+  }
+
+  onDragOver(ouId: string | null, event: DragEvent): void {
+    if (!this.dragHostId()) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dropTargetId.set(ouId ?? '__none__');
+  }
+
+  onDragLeave(ouId: string | null): void {
+    if (this.dropTargetId() === (ouId ?? '__none__')) this.dropTargetId.set(null);
+  }
+
+  onDrop(ouId: string | null, event: DragEvent): void {
+    event.preventDefault();
+    const hostId = this.dragHostId();
+    this.dropTargetId.set(null);
+    this.dragHostId.set(null);
+    if (!hostId) return;
+    const host = this.hosts().find((h) => h.id === hostId);
+    if (host) this.moveHost(host, ouId);
   }
 }

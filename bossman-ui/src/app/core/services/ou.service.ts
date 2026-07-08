@@ -35,6 +35,12 @@ export class OuService {
     return this.http.patch<OUNode>(`${this.base}/${id}`, { block_inheritance: blockInheritance });
   }
 
+  /** Block L3e: reparent an OU (drag-and-drop move). parentId=null moves it
+   * to the forest root. The server rewrites the whole subtree's paths. */
+  move(id: string, parentId: string | null) {
+    return this.http.post<OUNode>(`${this.base}/${id}/move`, { parent_id: parentId });
+  }
+
   assignAgent(agentId: string, ouId: string | null) {
     return this.http.put<OUNode | null>(`${environment.apiUrl}/agents/${agentId}/ou`, { ou_id: ouId });
   }
