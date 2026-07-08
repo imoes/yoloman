@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from bossman.api.plans import get_client_factory
 from bossman.db.models import Agent, Metric
@@ -322,3 +323,76 @@ async def test_poll_agent_now_unknown_agent_404(db_session):
 
     assert resp.status_code == 404
     await _cleanup(db_session, api_token=api_token)
+
+
+async def test_delete_agent_removes_host_and_children(db_session):
+    from bossman.db.models import Service
+
+    agent = await _make_agent(db_session, address="10.0.0.9:8010")
+    # A child row in a NO-ACTION (non-cascading) table, to prove the endpoint
+    # clears it rather than hitting an FK violation.
+    svc = Service(agent_id=agent.id, name="CPU load", metric="cpu_load5", state="OK")
+    db_session.add(svc)
+    await db_session.commit()
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.delete(f"/api/v1/agents/{agent.id}", headers=_headers(raw))
+    assert resp.status_code == 204
+
+    # The app committed on its own session; drop this test session's identity-
+    # map cache (expunge, not expire — expire would trigger a lazy reload of
+    # the deleted row and MissingGreenlet) so the re-fetch actually hits the DB.
+    db_session.expunge_all()
+    assert await db_session.scalar(select(Agent).where(Agent.id == agent.id)) is None
+    left = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    assert left is None
+
+    await _cleanup(db_session, api_token=api_token)
+
+
+async def test_delete_agent_orphans_satellites(db_session):
+    proxy = await _make_agent(db_session, mode="proxy", address="10.0.0.1:8010")
+    sat = await _make_agent(db_session, mode="satellite", parent_agent_id=proxy.id)
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.delete(f"/api/v1/agents/{proxy.id}", headers=_headers(raw))
+    assert resp.status_code == 204
+
+    # The satellite survives, orphaned (parent_agent_id cleared) — deleting a
+    # proxy must not delete the hosts it was relaying.
+    await db_session.refresh(sat)
+    assert sat.parent_agent_id is None
+
+    await _cleanup(db_session, agent=sat, api_token=api_token)
+
+
+async def test_delete_agent_unknown_404(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.delete(f"/api/v1/agents/{uuid.uuid4()}", headers=_headers(raw))
+    assert resp.status_code == 404
+    await _cleanup(db_session, api_token=api_token)
+
+
+async def test_dns_name_falls_back_to_inventory_hostname(db_session):
+    # No address (a satellite) but an inventory hostname → dns_name resolves
+    # to the hostname, not blank.
+    sat = await _make_agent(
+        db_session, mode="satellite", address=None,
+        facts={"os": {"hostname": "host1.example.internal"}},
+    )
+    # An addressed host → dns_name is the host part, port stripped.
+    addressed = await _make_agent(db_session, address="host2.example.internal:18051")
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        sat_body = client.get(f"/api/v1/agents/{sat.id}", headers=_headers(raw)).json()
+        addr_body = client.get(f"/api/v1/agents/{addressed.id}", headers=_headers(raw)).json()
+
+    assert sat_body["dns_name"] == "host1.example.internal"
+    assert addr_body["dns_name"] == "host2.example.internal"
+
+    await _cleanup(db_session, agent=sat, api_token=api_token)
+    await _cleanup(db_session, agent=addressed)

@@ -82,12 +82,13 @@ import { Agent, InventoryFacts } from '../../core/models/agent.model';
           <h3>Network interfaces</h3>
           <table class="bm-inv-table">
             <thead>
-              <tr><th>Interface</th><th>MAC</th><th>State</th><th>MTU</th><th>Speed</th></tr>
+              <tr><th>Interface</th><th>Address</th><th>MAC</th><th>State</th><th>MTU</th><th>Speed</th></tr>
             </thead>
             <tbody>
               @for (n of facts().nics; track n.name) {
                 <tr>
                   <td class="bm-mono">{{ n.name }}</td>
+                  <td class="bm-mono">{{ nicAddresses(n) }}</td>
                   <td class="bm-mono">{{ n.mac || '—' }}</td>
                   <td>
                     <span class="bm-dot" [class.bm-dot--up]="n.state === 'up'"></span>
@@ -252,11 +253,21 @@ export class HostInventoryComponent {
       ['Codename', o.codename],
       ['Kernel', o.kernel],
       ['Hostname', o.hostname],
+      // The resolvable DNS name, so a satellite (no direct address) still
+      // shows one — falls back to the inventory hostname server-side.
+      ['DNS name', this.agent().dns_name ?? undefined],
     ]);
   });
 
   private rows(pairs: [string, string | undefined][]): [string, string][] {
     return pairs.filter((p): p is [string, string] => !!p[1]);
+  }
+
+  /** Joined IPv4+IPv6 addresses of one NIC, or "—" when the agent's
+   * inventory doesn't report addresses (older agents omit them). */
+  nicAddresses(n: { ipv4?: string[]; ipv6?: string[] }): string {
+    const addrs = [...(n.ipv4 ?? []), ...(n.ipv6 ?? [])];
+    return addrs.length ? addrs.join(', ') : '—';
   }
 
   formatBytes(bytes?: number): string {

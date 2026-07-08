@@ -11,6 +11,10 @@ export interface Agent {
   parent_agent_id: string | null;
   /** Block L3d: the OU this host is placed in (null = unassigned). */
   ou_id?: string | null;
+  /** A resolvable name even when `address` is null (a satellite polled via a
+   * proxy) — falls back to the inventory hostname. Used by the run/inventory
+   * views so a DNS name shows instead of a blank. */
+  dns_name?: string | null;
   /** The host's HW/SW inventory document (Go agent internal/inventory,
    * Block H2) — {} until the first poll after enrollment. */
   facts: InventoryFacts;
@@ -54,7 +58,17 @@ export interface InventoryFacts {
     hostname?: string;
   };
   disks?: { name: string; size_bytes?: number; model?: string; serial?: string; rotational?: boolean }[];
-  nics?: { name: string; mac?: string; state?: string; mtu?: number; speed_mbps?: number }[];
+  nics?: {
+    name: string;
+    mac?: string;
+    state?: string;
+    mtu?: number;
+    speed_mbps?: number;
+    /** Per-NIC addresses (Block C1a) — populated once the agent's inventory
+     * collector reports them; older agents omit these. */
+    ipv4?: string[];
+    ipv6?: string[];
+  }[];
 }
 
 export interface MetricPoint {

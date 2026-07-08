@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.api.auth import get_current_identity
@@ -29,6 +29,22 @@ router = APIRouter()
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
     return request.app.state.session_factory
+
+
+def _resolve_dns_name(agent: Agent) -> str | None:
+    """A resolvable host name for `agent`, even when it has no `address`
+    (satellites polled through a proxy carry none). Prefers the host part of
+    `address`, then the inventory hostname (facts.os.hostname). This is what
+    lets a run/inventory view show a DNS name instead of a blank for a
+    satellite whose only identity is what its own inventory reported."""
+    if agent.address:
+        # Strip a trailing :port so the run/inventory view shows the host, not host:port.
+        host = agent.address.rsplit(":", 1)[0] if ":" in agent.address else agent.address
+        if host:
+            return host
+    os_facts = (agent.facts or {}).get("os") or {}
+    hostname = os_facts.get("hostname")
+    return hostname or None
 
 
 class AgentOut(BaseModel):
@@ -50,6 +66,11 @@ class AgentOut(BaseModel):
     # Block L3d: which OU the host is placed in (AD-style, exactly one) —
     # NULL = unassigned. Drives the host-placement tree.
     ou_id: UUID | None
+    # A resolvable name for the host even when `address` is null (a satellite
+    # polled through a proxy has no direct address). Falls back to the
+    # inventory hostname (facts.os.hostname), so a run/inventory view can show
+    # a DNS name instead of a blank. None only when neither is known.
+    dns_name: str | None
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -67,6 +88,7 @@ class AgentOut(BaseModel):
             facts_updated_at=agent.facts_updated_at,
             tags=agent.tags or {},
             ou_id=agent.ou_id,
+            dns_name=_resolve_dns_name(agent),
         )
 
 
@@ -116,6 +138,47 @@ async def get_agent(
     _identity=Depends(get_current_identity),
 ) -> AgentOut:
     return AgentOut.from_model(await _get_agent_or_404(session, agent_id))
+
+
+# Tables whose FK to agents is NO ACTION (verified against the live schema):
+# they won't cascade on an agent delete, so they're cleared explicitly, in
+# FK-safe order, before the agent row goes. Everything else
+# (agent_acks/agent_config_delivery/compiled_host_state/graph_items/
+# host_group_members/orchestration_plan_links) is ON DELETE CASCADE and goes
+# automatically. metrics + service_state_history are TimescaleDB hypertables,
+# which is exactly why a plain FK-cascade wasn't put on them and we delete
+# by agent_id here instead. plan_run_steps cascades from plan_runs.
+_AGENT_CHILD_DELETES = (
+    "DELETE FROM host_edges WHERE src_agent_id = :id OR dst_agent_id = :id",
+    "DELETE FROM connection_events WHERE src_agent_id = :id",
+    "DELETE FROM plan_runs WHERE agent_id = :id",
+    "DELETE FROM downtimes WHERE agent_id = :id",
+    "DELETE FROM service_state_history WHERE agent_id = :id",
+    "DELETE FROM services WHERE agent_id = :id",
+    "DELETE FROM metrics WHERE agent_id = :id",
+)
+
+
+@router.delete("/api/v1/agents/{agent_id}", status_code=204)
+async def delete_agent(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> None:
+    """Remove a host (agent) and everything it owns. Satellites that used this
+    agent as their proxy parent are orphaned (parent_agent_id → NULL), not
+    deleted — deleting a proxy must not silently take its satellites with it.
+    All in one transaction, so a mid-delete failure leaves the host intact."""
+    agent = await _get_agent_or_404(session, agent_id)
+    params = {"id": str(agent_id)}
+    # Orphan any satellites polled through this agent (self-referential FK).
+    await session.execute(
+        text("UPDATE agents SET parent_agent_id = NULL WHERE parent_agent_id = :id"), params
+    )
+    for stmt in _AGENT_CHILD_DELETES:
+        await session.execute(text(stmt), params)
+    await session.delete(agent)  # cascade clears the ON DELETE CASCADE tables
+    await session.commit()
 
 
 class UpdateGroupsRequest(BaseModel):

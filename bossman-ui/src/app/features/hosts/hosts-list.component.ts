@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { AgentService } from '../../core/services/agent.service';
 import { FleetHost } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
@@ -39,6 +40,7 @@ interface HostRow extends FleetHost {
               <th>Disk (max)</th>
               <th>Services</th>
               <th>Last seen</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -66,10 +68,21 @@ interface HostRow extends FleetHost {
                   }
                 </td>
                 <td>{{ host.last_seen_at ? (host.last_seen_at | date: 'medium') : 'never' }}</td>
+                <td class="bm-actions-cell">
+                  <button
+                    type="button"
+                    class="bm-delete-btn"
+                    title="Delete host"
+                    [disabled]="deleting() === host.id"
+                    (click)="deleteHost(host, $event)"
+                  >
+                    🗑
+                  </button>
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="bm-empty">
+                <td colspan="8" class="bm-empty">
                   No hosts enrolled yet. Go to
                   <a routerLink="/settings" (click)="$event.stopPropagation()">Settings</a> for the enrollment command.
                 </td>
@@ -138,12 +151,38 @@ interface HostRow extends FleetHost {
         opacity: 0.6;
         text-align: center;
       }
+      .bm-actions-cell {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .bm-delete-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 15px;
+        opacity: 0.55;
+        padding: 4px 6px;
+        border-radius: 4px;
+        line-height: 1;
+      }
+      .bm-delete-btn:hover {
+        opacity: 1;
+        background: color-mix(in srgb, var(--bm-red) 18%, transparent);
+      }
+      .bm-delete-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
     `,
   ],
 })
 export class HostsListComponent implements OnInit {
   private monitoringService = inject(MonitoringService);
+  private agentService = inject(AgentService);
   hosts = signal<FleetHost[]>([]);
+  /** The id currently being deleted, so its button disables (prevents a
+   * double-submit); null when idle. */
+  deleting = signal<string | null>(null);
 
   /** Top-level hosts first (in name order), each immediately followed by
    * its own satellites (also name-ordered) — a simple two-level tree
@@ -172,10 +211,31 @@ export class HostsListComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  private reload(): void {
     this.monitoringService.fleetHosts().subscribe((hosts) => this.hosts.set(hosts));
   }
 
   badgeOf(host: FleetHost) {
     return serviceStateBadge(host.state_rollup);
+  }
+
+  /** Delete a host after a confirm. stopPropagation keeps the row's
+   * routerLink from firing (a click on the button would otherwise navigate
+   * into the host we're removing). */
+  deleteHost(host: FleetHost, event: Event): void {
+    event.stopPropagation();
+    if (this.deleting()) return;
+    if (!confirm(`Delete host "${host.name}" and all its data? This cannot be undone.`)) return;
+    this.deleting.set(host.id);
+    this.agentService.delete(host.id).subscribe({
+      next: () => {
+        this.deleting.set(null);
+        this.reload();
+      },
+      error: () => this.deleting.set(null),
+    });
   }
 }

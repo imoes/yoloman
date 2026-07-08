@@ -45,4 +45,10 @@ export class AgentService {
   updateGroups(id: string, groups: string[]) {
     return this.http.patch<Agent>(`${this.base}/${id}/groups`, { groups });
   }
+
+  /** Remove a host and everything it owns (metrics/services/downtimes/…);
+   * satellites polled through it are orphaned, not deleted. 204 on success. */
+  delete(id: string) {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
 }
