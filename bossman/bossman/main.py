@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chunks, dashboard, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
+from bossman.api import admin, agent_facing, agents, auth, chunks, dashboard, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -26,6 +26,7 @@ from bossman.services.embedding_client import embedding_client_for
 from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import seed_default_check_rules
 from bossman.services.poller import PollerStats, poller_loop
+from bossman.services.reconciler import ReconcileStats, reconciler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -99,11 +100,17 @@ async def lifespan(app: FastAPI):
     # Bossman needing a persistent queue of its own.
     app.state.poller_stats = PollerStats()
     app.state.housekeeping_stats = HousekeepingStats()
+    # Block L4: the desired-state reconciler drains controller_outbox,
+    # recompiles affected hosts and enqueues agent_config_delivery rows.
+    app.state.reconcile_stats = ReconcileStats()
 
     stop_event = asyncio.Event()
     poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event, app.state.poller_stats))
     housekeeping_task = asyncio.create_task(
         housekeeping_loop(app.state.session_factory, settings, stop_event, app.state.housekeeping_stats)
+    )
+    reconciler_task = asyncio.create_task(
+        reconciler_loop(app.state.session_factory, settings, stop_event, app.state.reconcile_stats)
     )
     try:
         async with mcp_server.session_manager.run():
@@ -117,10 +124,13 @@ async def lifespan(app: FastAPI):
         stop_event.set()
         poller_task.cancel()
         housekeeping_task.cancel()
+        reconciler_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
             await housekeeping_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await reconciler_task
         await engine.dispose()
 
 
@@ -169,6 +179,10 @@ def create_app() -> FastAPI:
     app.include_router(host_groups.router, tags=["host-groups"])
     app.include_router(orchestration.router, tags=["orchestration"])
     app.include_router(system_settings.router, tags=["system-settings"])
+    # Block L4: agent-facing desired-state pull + ack (agent-token auth,
+    # not get_current_identity). Always mounted — an enrolled agent can pull
+    # its state regardless of whether new enrollments are open.
+    app.include_router(agent_facing.router, tags=["agent"])
     # Always mounted (unlike POST /api/v1/enroll below) — the Settings
     # page needs a real "not configured yet" answer, not a 404.
     app.include_router(enroll_info.router, tags=["enroll"])

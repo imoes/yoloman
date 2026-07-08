@@ -3986,3 +3986,28 @@ rule appears nested under the OU with an "enforced" badge → right-click it →
 Angular build clean. Orchestration-plan-link creation from the tree (needs plan selection) is the one
 deferred piece — links are shown read-only in the tree for now; everything else (OU / threshold /
 notification / host-group) is fully create/toggle/delete from the console.
+
+### Block L4 — desired-state delivery pipeline (controller half, implemented, 2026-07-08)
+
+The Kubernetes-style reconcile + delivery half (docs/policy-orchestration-architecture.md §6–§8),
+built **safe**: the controller computes/tracks/serves desired state but nothing here mutates a real
+host (the agent-side apply in Go is a later, separately authorized block). Migration
+`e7a2b6c04d19` adds `policy_events`, `controller_outbox`, `agent_config_delivery`, `agent_acks`.
+
+`services/reconciler.py`: `enqueue_policy_event(session, tenant, kind, agent_ids=|scope=)` writes a
+PolicyEvent + a pending ControllerOutbox row in the caller's transaction (transactional outbox — a
+change and its event commit atomically). `process_outbox_once` drains ready rows with
+`FOR UPDATE SKIP LOCKED`, recompiles each event's affected hosts (`compile_host_desired_state`),
+enqueues an idempotent per-(agent, generation) `agent_config_delivery`, commits per row, and
+retries poison rows with backoff → dead-letter after 5 attempts. `reconciler_loop` runs it on a
+timer (mirrors poller/housekeeping; gated by `settings.reconcile_enabled`, disabled in tests).
+Check-rule create/update/patch/delete enqueue a `rule_changed` event (scope='tenant' for now).
+
+Agent-facing endpoints (`api/agent_facing.py`, agent-token auth — the agent presents the token
+Bossman stored at enrollment, resolved to its Agent row): `GET /api/agent/v1/desired-state`
+recompiles on demand, returns 304 when the agent's `current_hash` already matches, else the state +
+records the delivery `sent`; `POST /api/agent/v1/ack` records an AgentAck and flips the delivery to
+acked/nacked. Verified: `tests/test_reconciler.py` (enqueue→process→delivery, idempotent
+re-delivery, pull→304→ack, bad-token 401, nack records error). Full suite 466 passing, ruff clean,
+migration down/up verified. The Go agent consumer (pull loop + apply/rollback + `GET /state` drift)
+is the next, separately-authorized block since it touches real hosts.

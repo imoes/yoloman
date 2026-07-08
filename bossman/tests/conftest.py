@@ -18,6 +18,7 @@ os.environ.setdefault("BOSSMAN_SEED_DEFAULT_CHECKS", "false")
 # Production keeps both defaults (True).
 os.environ.setdefault("BOSSMAN_POLL_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_HOUSEKEEPING_ENABLED", "false")
+os.environ.setdefault("BOSSMAN_RECONCILE_ENABLED", "false")
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

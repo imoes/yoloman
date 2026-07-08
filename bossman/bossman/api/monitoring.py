@@ -21,8 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import CheckRule, Downtime, OUNode, Service
+from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, Downtime, OUNode, Service
 from bossman.db.session import get_session
+from bossman.services.reconciler import enqueue_policy_event
 from bossman.services.monitoring import (
     ServiceView,
     acknowledge_service,
@@ -404,6 +405,14 @@ def _validate_scope(scope_type: str, scope_value: str | None, scope_ou_id: UUID 
         raise HTTPException(status_code=422, detail=f"scope_value is required when scope_type is {scope_type!r}")
 
 
+async def _enqueue_rule_change(session: AsyncSession) -> None:
+    """Block L4: record a transactional-outbox event so the reconciler
+    recompiles + re-delivers affected hosts' desired state. scope='tenant'
+    (recompile the whole default tenant) — correct, if broader than strictly
+    needed; precise per-OU blast-radius targeting is a later refinement."""
+    await enqueue_policy_event(session, UUID(DEFAULT_TENANT_ID), "rule_changed", scope="tenant")
+
+
 def _validate_composite(body: CheckRuleIn) -> None:
     if body.condition_logic not in ("AND", "OR"):
         raise HTTPException(status_code=422, detail="condition_logic must be one of AND|OR")
@@ -457,6 +466,7 @@ async def create_check_rule(
         condition_logic=body.condition_logic,
     )
     session.add(rule)
+    await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule)
 
@@ -504,6 +514,7 @@ async def update_check_rule(
     rule.depends_on_service_name = body.depends_on_service_name
     rule.extra_conditions = body.extra_conditions
     rule.condition_logic = body.condition_logic
+    await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule)
 
@@ -538,6 +549,7 @@ async def patch_check_rule(
         rule.enabled = body.enabled
     if body.link_order is not None:
         rule.link_order = body.link_order
+    await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule)
 
@@ -568,6 +580,7 @@ async def delete_check_rule(
     # won't order these on its own and would otherwise hit the FK.
     await session.flush()
     await session.delete(rule)
+    await _enqueue_rule_change(session)
     await session.commit()
 
 

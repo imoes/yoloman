@@ -784,6 +784,92 @@ class CompiledHostState(Base):
     )
 
 
+class PolicyEvent(Base):
+    """A change signal (Block L4) — a rule/OU/link/label/plan change writes
+    one of these in the SAME transaction as the change (transactional
+    outbox), so the reconciler never misses a change. Holds only the ids of
+    what changed, never the compiled config itself."""
+
+    __tablename__ = "policy_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('rule_changed', 'ou_changed', 'host_moved', 'label_changed', 'plan_changed', 'link_changed')",
+            name="ck_policy_events_kind",
+        ),
+    )
+
+
+class ControllerOutbox(Base):
+    """A retryable work item (Block L4) — the reconciler consumes these with
+    FOR UPDATE SKIP LOCKED, recompiles the affected hosts, enqueues
+    deliveries, and marks the row done. Failures back off via available_at."""
+
+    __tablename__ = "controller_outbox"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    event_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("policy_events.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    available_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'processing', 'done', 'failed')", name="ck_controller_outbox_status"),
+    )
+
+
+class AgentConfigDelivery(Base):
+    """One delivery of a compiled generation to an agent (Block L4) — idempotent
+    on (agent_id, generation). Status tracks pull/ack lifecycle; the agent
+    never has more than one row per generation."""
+
+    __tablename__ = "agent_config_delivery"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    config_hash: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "generation", name="uq_agent_config_delivery_agent_generation"),
+        CheckConstraint(
+            "status IN ('pending', 'sent', 'acked', 'nacked', 'failed')", name="ck_agent_config_delivery_status"
+        ),
+    )
+
+
+class AgentAck(Base):
+    """An agent's ack/nack of a delivered generation (Block L4)."""
+
+    __tablename__ = "agent_acks"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    result: Mapped[str] = mapped_column(String, nullable=False)
+    detail: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (CheckConstraint("result IN ('ack', 'nack')", name="ck_agent_acks_result"),)
+
+
 class CheckRule(Base):
     """A CheckMK-style monitoring rule: "if <metric> <comparison> <warn/
     crit threshold>, that's a WARN/CRIT service named <service_name>" (see

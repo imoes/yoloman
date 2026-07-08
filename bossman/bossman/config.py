@@ -147,6 +147,13 @@ class Settings(BaseSettings):
     notifications_retention_days: int = 90
     plan_runs_retention_days: int = 90
 
+    # Block L4: the desired-state reconciler (drains controller_outbox,
+    # recompiles affected hosts, enqueues agent_config_delivery). Mirrors
+    # poll_enabled/housekeeping_enabled — disabled in the test suite so the
+    # background loop doesn't race per-test DB state.
+    reconcile_enabled: bool = True
+    reconcile_interval_seconds: int = 15
+
     # metrics/connection_events/service_state_history are TimescaleDB
     # hypertables with their OWN native add_retention_policy(...) background
     # jobs, registered at migration time — these three values are NOT
