@@ -3987,55 +3987,59 @@ Angular build clean. Orchestration-plan-link creation from the tree (needs plan 
 deferred piece — links are shown read-only in the tree for now; everything else (OU / threshold /
 notification / host-group) is fully create/toggle/delete from the console.
 
-### Block L4 — desired-state delivery pipeline (controller half, implemented, 2026-07-08)
+### Block L4 — desired-state delivery pipeline, PUSH (controller half, implemented, 2026-07-08)
 
-The Kubernetes-style reconcile + delivery half (docs/policy-orchestration-architecture.md §6–§8),
-built **safe**: the controller computes/tracks/serves desired state but nothing here mutates a real
-host (the agent-side apply in Go is a later, separately authorized block). Migration
-`e7a2b6c04d19` adds `policy_events`, `controller_outbox`, `agent_config_delivery`, `agent_acks`.
+The Kubernetes-style reconcile + delivery half (docs/policy-orchestration-architecture.md §6–§8).
+**Decisive design point (user-set):** delivery is controller-initiated **PUSH**, not agent pull —
+Bossman POSTs each new generation to the agent over the existing mTLS channel, so the firewall needs
+a **single rule (Bossman → agent)** and the agent never dials out. There is deliberately **no
+agent-facing ingress on Bossman**. Migration `e7a2b6c04d19` adds `policy_events`, `controller_outbox`,
+`agent_config_delivery`, `agent_acks`.
 
 `services/reconciler.py`: `enqueue_policy_event(session, tenant, kind, agent_ids=|scope=)` writes a
 PolicyEvent + a pending ControllerOutbox row in the caller's transaction (transactional outbox — a
-change and its event commit atomically). `process_outbox_once` drains ready rows with
-`FOR UPDATE SKIP LOCKED`, recompiles each event's affected hosts (`compile_host_desired_state`),
-enqueues an idempotent per-(agent, generation) `agent_config_delivery`, commits per row, and
-retries poison rows with backoff → dead-letter after 5 attempts. `reconciler_loop` runs it on a
-timer (mirrors poller/housekeeping; gated by `settings.reconcile_enabled`, disabled in tests).
-Check-rule create/update/patch/delete enqueue a `rule_changed` event (scope='tenant' for now).
+change and its event commit atomically). `process_outbox_once(session, settings, client_factory=)`
+drains ready rows with `FOR UPDATE SKIP LOCKED`, recompiles each event's affected hosts
+(`compile_host_desired_state`), and for every host whose generation changed **pushes** the new
+desired state to that agent's `POST /api/v1/config/apply` via `agent_client.apply_config`. The
+agent's JSON response is the ack: the `agent_config_delivery` row flips to `acked` + an
+`agent_acks('ack')` row is written; a transport/HTTP failure flips it to `nacked` (or `failed` after
+5 attempts) + an `agent_acks('nack')` and never stalls the queue. `client_factory` defaults to
+`agent_client.client_for` and is injected as a fake in tests. `reconciler_loop` runs it on a timer
+(mirrors poller/housekeeping; gated by `settings.reconcile_enabled`, disabled in tests). Check-rule
+create/update/patch/delete enqueue a `rule_changed` event (scope='tenant' for now).
 
-Agent-facing endpoints (`api/agent_facing.py`, agent-token auth — the agent presents the token
-Bossman stored at enrollment, resolved to its Agent row): `GET /api/agent/v1/desired-state`
-recompiles on demand, returns 304 when the agent's `current_hash` already matches, else the state +
-records the delivery `sent`; `POST /api/agent/v1/ack` records an AgentAck and flips the delivery to
-acked/nacked. Verified: `tests/test_reconciler.py` (enqueue→process→delivery, idempotent
-re-delivery, pull→304→ack, bad-token 401, nack records error). Full suite 466 passing, ruff clean,
-migration down/up verified. The Go agent consumer (pull loop + apply/rollback + `GET /state` drift)
-is the next, separately-authorized block since it touches real hosts.
+Verified: `tests/test_reconciler.py` (enqueue→process→**push**→ack with a `FakeAgentClient`,
+idempotent no-second-push on an unchanged generation, push-failure records nack). Full suite 466
+passing, ruff clean, migration down/up verified.
 
-### Block L4-agent — Go agent desired-state consumer (code, NOT yet deployed, 2026-07-08)
+### Block L4-agent — Go agent desired-state applier, PUSH receiver (code, NOT yet deployed, 2026-07-08)
 
-The agent-side half of L4 (controller half was `e0b5e30`): the node agent now has a desired-state
-consumer that PULLs its compiled config from Bossman, stores it locally with rollback, and ACKs it.
-Built **non-destructive**: it fetches/stores/acks but does NOT yet re-apply which checks run (that
-behavioral step, plus orchestration-step execution, is a separate block), and payload-signature
-verification is a documented TODO (Bossman doesn't sign payloads yet) — only the generation +
-transport are validated.
+The agent-side half of L4: the node agent **receives** its compiled config pushed by Bossman, stores
+it locally with rollback, and replies with the ack in the HTTP response. Built **non-destructive**:
+it accepts/stores/acks but does NOT yet re-apply which checks run (that behavioral step, plus
+orchestration-step execution, is a separate block). The agent has **no outbound connection** for
+this — it only listens.
 
-`internal/desiredstate/consumer.go`: a `Consumer` that GETs `/api/agent/v1/desired-state` (sending
-`?current_hash=` so Bossman answers 304 on no-change, authenticating with the agent's own bearer
-token — the reverse of today's Bossman→agent calls), guards against a backwards generation, keeps
-the previous generation for `Rollback()`, persists atomically to a JSON file (survives restart), and
-POSTs an ack (nack on persist failure). A cancellable `Loop` mirrors `internal/fleet/manager.go`.
-Config: a new `bossman:` block (`internal/config/config.go` — `enabled`/`url`/`poll_interval`,
-disabled by default; enabled requires a url). Wired in `cmd/agentic-mcpd/main.go` (starts the loop
-when enabled). Read-only `GET /api/v1/state` (`internal/server/rest.go`) reports the applied
-generation/hash — the drift/status view.
+`internal/desiredstate/applier.go`: an `Applier` with `Apply(generation, configHash, doc) (applied,
+err)` that **rejects a stale/replayed generation** (`<=` current → `applied=false`, `unchanged`),
+keeps the previous generation for `Rollback()`, persists atomically to a JSON file (temp + rename,
+survives restart), and exposes `Status()`. No HTTP client — it never calls out.
+`internal/server/configapply.go`: `POST /api/v1/config/apply` (`handleConfigApply`), **write-gated**
+(a read-only agent returns 403), decodes `{generation, config_hash, state}`, calls `Applier.Apply`,
+returns `{status: "applied"|"unchanged", generation}`. Wired in `internal/server/rest.go`
+(`RESTConfig.DesiredState *desiredstate.Applier` + the route) and `cmd/agentic-mcpd/main.go` (the
+applier is always instantiated over `<db-dir>/desired-state.json`; no loop, no dial-out). The
+`bossman:` config block was removed from `internal/config/config.go` (the agent no longer dials
+Bossman). Read-only `GET /api/v1/state` reports the applied generation/hash (drift/status view; nil
+applier → `{"desired_state":"unconfigured"}`).
 
-Tests: `internal/desiredstate/consumer_test.go` (pull→store→ack, 304 no-op, newer-generation rolls
-previous + rollback, persistence-survives-restart, bad-token 401) and `internal/server/state_test.go`
-(disabled vs. reporting). Full Go suite + build green.
+Tests: `internal/desiredstate/applier_test.go` (stores new generation, rejects stale generation,
+newer rolls previous + rollback, persistence-survives-restart) and `internal/server/state_test.go`
+(unconfigured/never-pushed reporting, push stores + state reflects, read-only agent returns 403).
+Full Go suite + build green.
 
 **Not done (deliberately, needs its own authorization):** deploying this agent build to the real
 hosts (`duppy-docker-test`, `selecta-ansible-runner`) via SSH, and the behavioral apply (make the
-pulled monitoring config actually change which checks run, restartable check loops). Those touch
+pushed monitoring config actually change which checks run, restartable check loops). Those touch
 real machines.

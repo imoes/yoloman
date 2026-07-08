@@ -51,8 +51,9 @@ notification, schedule, agent-config, discovery and maintenance/suppression poli
 A **compiler/reconciler** turns rules + tree + labels into a per-host **`compiled_host_config`**
 (desired state) with a `generation` + `config_hash` + `explain_plan`, recomputed incrementally on
 change via a **transactional outbox** (LISTEN/NOTIFY only as a wake-up signal). The **controller
-pushes** desired state to agents (pull-poll and push/stream modes); agents verify, atomically swap,
-keep a rollback copy, and ack/nack. Orchestration plans (roles/clusters) live in the same tree and
+pushes** desired state to agents over the existing mTLS channel (single firewall rule Bossman →
+agent; the agent never dials out); agents verify the generation, atomically swap, keep a rollback
+copy, and ack/nack in the push response. Orchestration plans (roles/clusters) live in the same tree and
 "what is orchestrated is monitored" (generated monitoring). Everything is versioned, audited,
 explainable, multi-tenant, and RBAC/mTLS-secured.
 
@@ -82,7 +83,7 @@ explainable, multi-tenant, and RBAC/mTLS-secured.
 |  state (Policy Compiler + Orchestration Compiler) →        |
 |  write compiled_host_config generation → enqueue delivery  |
 +----------------------------+------------------------------+
-                             | Controller → Agent (push/pull), signed payloads
+                             | Controller → Agent PUSH (POST /api/v1/config/apply, mTLS)
                              v
 +-----------------------------------------------------------+
 | Agent (Duppy)                                              |
@@ -202,7 +203,7 @@ CREATE TABLE agent_sessions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL,
     agent_id uuid NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-    mode text NOT NULL,                  -- pull | push
+    mode text NOT NULL,                  -- push (controller-initiated; the agent never pulls)
     last_seen_generation bigint,
     last_ack_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
@@ -313,20 +314,26 @@ function compile_host_desired_state(agent):
 `_resolve_gpo_winner(candidates, ou_chain)` is the single shared function used by the Policy Compiler,
 the orchestration-assignment resolver, and monitoring's `resolve_effective_rule`.
 
-## 6. Controller-Agent-Protokoll
+## 6. Controller-Agent-Protokoll (PUSH only)
 
-Agent never reads the DB directly. Two modes:
+Agent never reads the DB directly, and — decisively — **never dials out**. Delivery is
+**controller-initiated PUSH** over the existing mTLS channel Bossman already uses to poll the agent.
+This keeps the firewall to a **single rule (Bossman → agent)**; there is no agent-facing ingress on
+Bossman at all.
 
-- **Pull:** `GET /api/agent/v1/desired-state?current_hash=<h>` → `304` if unchanged, else the signed
-  desired-state document (generation, schema_version, state, signature/HMAC).
-- **Push/stream:** controller signals via WebSocket/gRPC-stream/queue "new generation for you"; agent
-  then pulls as above. (Bossman v1: controller-initiated RPC over the existing mTLS channel;
-  `agents.mode` already distinguishes pull vs. relayed.)
+- **Push:** the reconciler (`services/reconciler.py`) recompiles an affected host, and if its
+  generation changed, POSTs to the agent's own `POST /api/v1/config/apply` with
+  `{generation, config_hash, state}`. The agent's JSON response (`{status: "applied"|"unchanged",
+  generation}`) **is** the ack — recorded as the `agent_config_delivery` status (`acked`) plus an
+  `agent_acks` row. A transport/HTTP failure records `nacked` (or `failed` after N attempts) and the
+  outbox retries with backoff; a single unreachable agent never stalls the queue.
 
-Agent apply discipline (every delivery): verify **signature/HMAC** → verify **generation** is newer →
-verify **schema_version** compatible → **atomically swap** config → keep previous generation for
-**rollback** → **ack/nack** with result/errors to `POST /api/agent/v1/ack`. Orchestration executions
-use the existing plan-step endpoints (`POST /api/v1/tools/{name}`), reported per step.
+Agent apply discipline (`internal/desiredstate/applier.go`): receive the pushed delivery → verify
+**generation** is newer (a stale/replayed push returns `unchanged`, never downgrades) → **atomically
+swap** config (temp-file + rename) → keep the previous generation for **rollback** → reply
+`applied`/`unchanged`. The apply endpoint is **write-gated** (a read-only agent returns `403`).
+Orchestration executions use the existing plan-step endpoints (`POST /api/v1/tools/{name}`), reported
+per step.
 
 ## 7. PostgreSQL-Eventing / Outbox
 
@@ -336,9 +343,10 @@ use the existing plan-step endpoints (`POST /api/v1/tools/{name}`), reported per
 never the config). Controller workers: `SELECT … FROM controller_outbox WHERE status='pending' AND
 available_at<=now() FOR UPDATE SKIP LOCKED`, compute the **affected-host set** (ltree subtree query
 for OU changes, label match for label changes, direct for host changes), recompile those hosts, write
-new `compiled_host_config` generations, enqueue `agent_config_delivery`, mark the outbox row `done`.
-Failures increment `attempts`, set `available_at = now() + backoff`, and after N attempts move to a
-**dead-letter** state.
+new `compiled_host_config` generations, **push each changed generation to its agent's
+`POST /api/v1/config/apply`** and record the ack in `agent_config_delivery` + `agent_acks`, then mark
+the outbox row `done`. Failures increment `attempts`, set `available_at = now() + backoff`, and after
+N attempts move to a **dead-letter** state.
 
 ## 8. API-Design (REST, `/api/v1`)
 
@@ -352,7 +360,8 @@ Failures increment `attempts`, set `available_at = now() + backoff`, and after N
 - Orchestration (L1/L2, implemented): `/orchestration/plans`, `/versions`, `/links`,
   `/links/{id}/approve|reject`, `/pending-links`, `/preview-link`; `system/yolo-mode`.
 - Effective/explain: `GET /agents/{id}/desired-state`, `GET /agents/{id}/explain?check=…`.
-- Agent: `GET /api/agent/v1/desired-state`, `POST /api/agent/v1/ack`.
+- Agent (on the AGENT, pushed to by Bossman): `POST /api/v1/config/apply`, `GET /api/v1/state`. There
+  is no agent-facing endpoint on Bossman — the agent never calls in.
 - Ops: `POST /reconcile` (manual trigger), `POST /rules/dry-run`, `POST /rules/impact`
   ("which hosts would change?").
 
@@ -416,10 +425,13 @@ check; `/Germany/Munich`→agent check every 60 s; `/Germany/Munich/Prod`→CPU 
 - **L3 (next):** ltree upgrade + `block_inheritance`; all rule types (thresholds/check-rules,
   notification) bound to OUs with `enforced`/`link_order`; the shared `_resolve_gpo_winner`
   (full GPO precedence); `GET /ou/{id}/objects`; **the GPO tree UI** (this replaces the flat card UI).
-- **L4:** transactional outbox + reconciler workers + `agent_config_delivery`/`agent_acks`;
-  push delivery of desired state to agents; pull `desired-state` endpoint + ack.
+- **L4 (done):** transactional outbox + reconciler workers + `agent_config_delivery`/`agent_acks`;
+  **controller-initiated PUSH** of desired state to each agent's `POST /api/v1/config/apply` over the
+  existing mTLS channel (single firewall rule Bossman → agent; the agent never dials out). Agent side:
+  `internal/desiredstate/applier.go` (generation-guarded atomic swap + rollback), write-gated apply
+  endpoint, `GET /api/v1/state`.
 - **L5:** clusters (`orchestration_clusters`/`_members`, locks, rolling execution) + `postgres_cluster`.
-- **L6:** drift detection (`GET /api/agent/v1/state`, controller compare, remediation rules).
+- **L6:** drift detection (`GET /api/v1/state`, controller compare, remediation rules).
 - **L7:** schedule/agent-config/discovery/suppression rule types; explain/dry-run/impact UI polish.
 
 ## 14. Risiken und Gegenmaßnahmen
@@ -430,14 +442,16 @@ check; `/Germany/Munich`→agent check every 60 s; `/Germany/Munich/Prod`→CPU 
   human `path` unique separately.
 - **Enforced/block-inheritance mis-resolution** → the single shared `_resolve_gpo_winner` with an
   exhaustive test matrix (a–f in the L3 test list).
-- **Agent applies a bad config** → signature + generation + schema checks + atomic swap + rollback +
-  nack; controller stops rolling further deliveries on nack.
+- **Agent applies a bad config** → generation check + atomic swap + rollback + nack; the agent's
+  response is the ack, and a nack flips the delivery to `nacked`/`failed` for backoff-retry.
 - **Split-brain between the two databases** (dev vs. compose) → single source of truth per
   environment; migrations gated in CI.
 
 ## 15. Offene technische Entscheidungen
 
-- Push transport for L4: reuse controller→agent mTLS RPC vs. add WebSocket/gRPC stream.
+- ~~Push transport for L4~~ **(decided):** reuse the controller→agent mTLS channel — Bossman POSTs
+  `/api/v1/config/apply` on the agent. No WebSocket/gRPC stream, no agent-facing ingress, single
+  firewall rule Bossman → agent.
 - Normalize `notification_targets`/`notification_routes` out of `notification_rules` now or when
   routing grows.
 - `host_labels` normalized table vs. keep everything in `agents.tags` JSONB (currently both exist;

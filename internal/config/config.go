@@ -70,24 +70,12 @@ type Config struct {
 	// services with zero configuration.
 	Checks []CheckSpec `yaml:"checks"`
 
-	// Bossman configures the L4 desired-state consumer (docs/policy-
-	// orchestration-architecture.md §6): when enabled, the agent
-	// periodically PULLs its compiled desired state from the central
-	// Bossman controller (GET /api/agent/v1/desired-state, authenticated
-	// with this agent's own Token), stores it locally with rollback, and
-	// ACKs it. Disabled by default — a standalone agent needs no central
-	// controller. The URL is not auto-persisted at enrollment yet, so it's
-	// configured here explicitly.
-	Bossman Bossman `yaml:"bossman"`
-}
-
-// Bossman is the central controller this agent pulls its desired state from.
-type Bossman struct {
-	Enabled bool `yaml:"enabled"`
-	// URL is the Bossman base URL, e.g. "https://bossman.example:8123".
-	URL string `yaml:"url"`
-	// PollInterval is how often the agent pulls its desired state.
-	PollInterval Duration `yaml:"poll_interval"`
+	// L4 desired-state (docs/policy-orchestration-architecture.md §6):
+	// there is deliberately NO config here for talking to Bossman. The
+	// controller PUSHES compiled config to the agent's
+	// POST /api/v1/config/apply over the existing server→agent mTLS
+	// channel; the agent never dials out (single firewall rule, Bossman →
+	// agent). The applied state is persisted next to the DB file.
 }
 
 // Collect configures the periodic OS-metric sampler.
@@ -271,7 +259,6 @@ func Default() Config {
 		Mode:          "standalone",
 		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
 		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second)},
-		Bossman:       Bossman{Enabled: false, PollInterval: Duration(30 * time.Second)},
 	}
 }
 
@@ -326,9 +313,6 @@ func (c Config) Validate() error {
 		if t.Token == "" {
 			return fmt.Errorf("tokens[%s]: token must not be empty", t.Name)
 		}
-	}
-	if c.Bossman.Enabled && c.Bossman.URL == "" {
-		return fmt.Errorf("bossman.enabled requires bossman.url")
 	}
 	if c.TLS.Enabled && (c.TLS.CertFile == "" || c.TLS.KeyFile == "") {
 		return fmt.Errorf("tls.enabled requires tls.cert_file and tls.key_file")

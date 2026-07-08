@@ -125,21 +125,11 @@ func run(args []string) error {
 		collector.SetEdgeSink(st)
 	}
 
-	// Block L4: the desired-state consumer pulls this agent's compiled
-	// config from the central Bossman controller on an interval (non-
-	// destructive v1: it fetches/stores/acks, doesn't yet re-apply checks).
-	// Disabled unless a Bossman URL is configured.
-	var dsConsumer *desiredstate.Consumer
-	if cfg.Bossman.Enabled {
-		dsPath := filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json")
-		dsConsumer = desiredstate.NewConsumer(cfg.Bossman.URL, cfg.Token, dsPath, nil)
-		dsCtx, dsCancel := context.WithCancel(context.Background())
-		defer dsCancel()
-		go dsConsumer.Loop(dsCtx, cfg.Bossman.PollInterval.Duration(), func(err error) {
-			slog.Warn("desired-state pull failed", "error", err)
-		})
-		slog.Info("desired-state consumer started", "bossman", cfg.Bossman.URL)
-	}
+	// Block L4: the desired-state store — the target Bossman PUSHES compiled
+	// config into via POST /api/v1/config/apply (the agent never dials out).
+	// Always present so the push endpoint + GET /api/v1/state work; the
+	// applied state persists next to the DB file across restarts.
+	dsApplier := desiredstate.NewApplier(filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json"))
 
 	// Audit entries are written to stderr as JSON lines: under systemd
 	// (the packaged deployment) each line lands in the journal
@@ -158,26 +148,26 @@ func run(args []string) error {
 	}
 
 	restHandler := server.NewRESTHandler(server.RESTConfig{
-		ProcRoot:          "/proc",
-		ModReg:            comps.modReg,
-		Tasks:             comps.taskList,
-		Policy:            comps.policy,
-		Store:             st,
-		Write:             cfg.Write,
-		Token:             cfg.Token,
-		Tokens:            cfg.TokenEntries(),
-		ACL:               acl,
-		Sessions:          sessions,
-		PAMAuth:           pamAuth,
-		EBPF:              collector,
-		DesiredState:      dsConsumer,
-		Audit:             al,
-		UploadsDir:        cfg.UploadsDir,
-		MaxUploadSize:     cfg.MaxUploadSize,
-		Mode:              cfg.Mode,
-		ProxyEnrollSecret: cfg.Proxy.EnrollSecret,
-		ProxyPublicKeyPEM: proxyPublicKeyPEM,
-		SatelliteManager:  satelliteManager,
+		ProcRoot:           "/proc",
+		ModReg:             comps.modReg,
+		Tasks:              comps.taskList,
+		Policy:             comps.policy,
+		Store:              st,
+		Write:              cfg.Write,
+		Token:              cfg.Token,
+		Tokens:             cfg.TokenEntries(),
+		ACL:                acl,
+		Sessions:           sessions,
+		PAMAuth:            pamAuth,
+		EBPF:               collector,
+		DesiredState:       dsApplier,
+		Audit:              al,
+		UploadsDir:         cfg.UploadsDir,
+		MaxUploadSize:      cfg.MaxUploadSize,
+		Mode:               cfg.Mode,
+		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
+		ProxyPublicKeyPEM:  proxyPublicKeyPEM,
+		SatelliteManager:   satelliteManager,
 		HostName:           hostName,
 		CheckRegistry:      checkRegistry,
 		SatelliteSnapshots: satelliteSnapshots,

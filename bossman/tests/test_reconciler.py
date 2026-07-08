@@ -1,14 +1,17 @@
 """Tests for the L4 desired-state delivery pipeline — the reconciler
-(enqueue → process_outbox → delivery) at the service level, and the
-agent-facing pull/ack endpoints over real HTTP. See tests/conftest.py.
+(enqueue → process_outbox → PUSH to the agent → record ack/nack) at the
+service level. L4 is push, not pull: Bossman POSTs each new generation to the
+agent's own /api/v1/config/apply, so there is no agent-facing HTTP ingress to
+test here. The push itself is exercised with a fake AgentClient so no socket
+is opened. See tests/conftest.py.
 """
 
 import uuid
 from uuid import UUID
 
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from bossman.config import Settings
 from bossman.db.models import (
     Agent,
     AgentAck,
@@ -18,16 +21,44 @@ from bossman.db.models import (
     OrchestrationPlanLink,
     OrchestrationPlanVersion,
 )
-from bossman.main import create_app
+from bossman.services.agent_client import AgentClientError
 from bossman.services.reconciler import enqueue_policy_event, process_outbox_once
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+
+
+class FakeAgentClient:
+    """Stands in for services.agent_client.AgentClient: records every pushed
+    generation and replies like the Go agent's /api/v1/config/apply
+    ({"status": "applied", "generation": N}). Set `fail=True` to simulate an
+    unreachable/erroring agent."""
+
+    def __init__(self, fail: bool = False):
+        self.fail = fail
+        self.pushed: list[tuple[int, str, dict]] = []
+
+    async def apply_config(self, generation: int, config_hash: str, state: dict) -> dict:
+        if self.fail:
+            raise AgentClientError("push failed: connection refused")
+        self.pushed.append((generation, config_hash, state))
+        return {"status": "applied", "generation": generation}
+
+
+def _factory(client):
+    """A ClientFactory (agent, settings) -> client that always yields the same
+    fake, so the test can inspect what was pushed."""
+
+    def make(_agent, _settings):
+        return client
+
+    return make
 
 
 async def _agent(db_session, **overrides) -> Agent:
     fields = {
         "name": f"recon-{uuid.uuid4().hex[:8]}", "token": f"tok-{uuid.uuid4().hex}",
         "mode": "standalone", "enrollment_state": "enrolled", "tenant_id": DEFAULT_TENANT_ID,
+        "address": "10.0.0.9:8443",
     }
     fields.update(overrides)
     agent = Agent(**fields)
@@ -63,124 +94,99 @@ async def _cleanup(db_session, *objs):
     await db_session.commit()
 
 
+async def _drain(db_session):
+    """Delete every outbox/delivery/ack row for the default tenant — keeps the
+    shared dev DB clean between tests."""
+    for model in (AgentAck, AgentConfigDelivery, ControllerOutbox):
+        for row in (await db_session.scalars(select(model).where(model.tenant_id == DEFAULT_TENANT_ID))).all():
+            await db_session.delete(row)
+    await db_session.commit()
+
+
 # ---------------------------------------------------------------------------
-# Reconciler service pipeline
+# Reconciler push pipeline
 
 
-async def test_enqueue_then_process_creates_delivery(db_session):
+async def test_enqueue_then_process_pushes_and_acks(db_session):
+    settings = Settings()
     agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["docker_daemon"])
+    client = FakeAgentClient()
 
-    # Enqueue a change targeting this host, then drain the outbox.
     await enqueue_policy_event(db_session, DEFAULT_TENANT_ID, "rule_changed", agent_ids=[agent.id])
     await db_session.commit()
 
-    stats = await process_outbox_once(db_session)
+    stats = await process_outbox_once(db_session, settings, client_factory=_factory(client))
     assert stats.processed >= 1
     assert stats.delivered >= 1
 
-    delivery = await db_session.scalar(
-        select(AgentConfigDelivery).where(AgentConfigDelivery.agent_id == agent.id)
-    )
+    # The desired state was actually pushed to the agent, and it carried the
+    # compiled checks.
+    assert len(client.pushed) == 1
+    gen, _chash, state = client.pushed[0]
+    assert "docker_daemon" in state["monitoring"]["checks"]
+
+    # The push was acked: delivery 'acked' + an AgentAck('ack').
+    delivery = await db_session.scalar(select(AgentConfigDelivery).where(AgentConfigDelivery.agent_id == agent.id))
     assert delivery is not None
-    assert delivery.status == "pending"
+    assert delivery.status == "acked"
+    assert delivery.generation == gen
+    ack = await db_session.scalar(select(AgentAck).where(AgentAck.agent_id == agent.id))
+    assert ack is not None and ack.result == "ack"
 
     # The outbox row is now done.
     outbox = (await db_session.scalars(select(ControllerOutbox).where(ControllerOutbox.tenant_id == DEFAULT_TENANT_ID))).all()
     assert any(o.status == "done" for o in outbox)
 
-    # cleanup
-    await db_session.delete(delivery)
-    for o in outbox:
-        if o.status == "done":
-            await db_session.delete(o)
-    await db_session.commit()
+    await _drain(db_session)
     await _cleanup(db_session, plan, agent)
 
 
-async def test_process_outbox_idempotent_delivery(db_session):
+async def test_process_outbox_idempotent_no_second_push(db_session):
+    settings = Settings()
     agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["x"])
+    client = FakeAgentClient()
+
     await enqueue_policy_event(db_session, DEFAULT_TENANT_ID, "rule_changed", agent_ids=[agent.id])
     await db_session.commit()
-    await process_outbox_once(db_session)
+    await process_outbox_once(db_session, settings, client_factory=_factory(client))
 
-    # A second enqueue+process for an unchanged desired state must NOT create
-    # a duplicate delivery (same generation, hash unchanged).
+    # A second enqueue+process for an unchanged desired state must NOT push
+    # again (same generation, hash unchanged → compiler reports changed=False).
     await enqueue_policy_event(db_session, DEFAULT_TENANT_ID, "rule_changed", agent_ids=[agent.id])
     await db_session.commit()
-    await process_outbox_once(db_session)
+    await process_outbox_once(db_session, settings, client_factory=_factory(client))
 
+    assert len(client.pushed) == 1
     deliveries = (await db_session.scalars(select(AgentConfigDelivery).where(AgentConfigDelivery.agent_id == agent.id))).all()
     assert len(deliveries) == 1
 
-    for d in deliveries:
-        await db_session.delete(d)
-    for o in (await db_session.scalars(select(ControllerOutbox).where(ControllerOutbox.tenant_id == DEFAULT_TENANT_ID))).all():
-        await db_session.delete(o)
-    await db_session.commit()
+    await _drain(db_session)
     await _cleanup(db_session, plan, agent)
 
 
-# ---------------------------------------------------------------------------
-# Agent-facing pull / ack endpoints
-
-
-async def test_agent_pulls_desired_state_and_acks(db_session):
-    agent = await _agent(db_session, token=f"pulltok-{uuid.uuid4().hex}")
+async def test_push_failure_records_nack(db_session):
+    settings = Settings()
+    agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["docker_daemon"])
-    headers = {"Authorization": f"Bearer {agent.token}"}
+    client = FakeAgentClient(fail=True)
 
-    with TestClient(create_app()) as client:
-        resp = client.get("/api/agent/v1/desired-state", headers=headers)
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["agent_id"] == str(agent.id)
-        assert "docker_daemon" in body["state"]["monitoring"]["checks"]
-        gen, chash = body["generation"], body["config_hash"]
-
-        # Re-pull with the current hash → 304 (nothing changed).
-        again = client.get(f"/api/agent/v1/desired-state?current_hash={chash}", headers=headers)
-        assert again.status_code == 304
-
-        # Ack the generation.
-        ack = client.post("/api/agent/v1/ack", json={"generation": gen, "result": "ack"}, headers=headers)
-        assert ack.status_code == 200
-
-    delivery = await db_session.scalar(select(AgentConfigDelivery).where(AgentConfigDelivery.agent_id == agent.id))
-    assert delivery.status == "acked"
-    ack_row = await db_session.scalar(select(AgentAck).where(AgentAck.agent_id == agent.id))
-    assert ack_row.result == "ack"
-
-    await db_session.delete(ack_row)
-    await db_session.delete(delivery)
+    await enqueue_policy_event(db_session, DEFAULT_TENANT_ID, "rule_changed", agent_ids=[agent.id])
     await db_session.commit()
-    await _cleanup(db_session, plan, agent)
 
+    stats = await process_outbox_once(db_session, settings, client_factory=_factory(client))
+    # The outbox row still processed (a failed push must not stall the queue);
+    # the delivery carries the failure.
+    assert stats.processed >= 1
+    assert stats.failed >= 1
 
-async def test_agent_endpoint_rejects_bad_token(db_session):
-    with TestClient(create_app()) as client:
-        resp = client.get("/api/agent/v1/desired-state", headers={"Authorization": "Bearer nonsense-token"})
-    assert resp.status_code == 401
-
-
-async def test_agent_nack_records_error(db_session):
-    agent = await _agent(db_session, token=f"nacktok-{uuid.uuid4().hex}")
-    plan = await _plan_linked_to_host(db_session, agent, ["x"])
-    headers = {"Authorization": f"Bearer {agent.token}"}
-    with TestClient(create_app()) as client:
-        body = client.get("/api/agent/v1/desired-state", headers=headers).json()
-        client.post(
-            "/api/agent/v1/ack",
-            json={"generation": body["generation"], "result": "nack", "detail": {"error": "schema mismatch"}},
-            headers=headers,
-        )
     delivery = await db_session.scalar(select(AgentConfigDelivery).where(AgentConfigDelivery.agent_id == agent.id))
+    assert delivery is not None
     assert delivery.status == "nacked"
-    assert "schema mismatch" in (delivery.last_error or "")
+    assert "connection refused" in (delivery.last_error or "")
+    ack = await db_session.scalar(select(AgentAck).where(AgentAck.agent_id == agent.id))
+    assert ack is not None and ack.result == "nack"
 
-    ack_row = await db_session.scalar(select(AgentAck).where(AgentAck.agent_id == agent.id))
-    await db_session.delete(ack_row)
-    await db_session.delete(delivery)
-    await db_session.commit()
+    await _drain(db_session)
     await _cleanup(db_session, plan, agent)

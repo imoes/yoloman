@@ -61,10 +61,10 @@ type RESTConfig struct {
 	// net/connections, net/top-talkers, and exec-events routes are mounted.
 	EBPF *ebpf.Collector
 
-	// DesiredState is the L4 desired-state consumer (nil when Bossman
-	// integration is disabled). When set, GET /api/v1/state reports the
-	// applied generation + hash (a read-only drift/status view).
-	DesiredState *desiredstate.Consumer
+	// DesiredState is the L4 desired-state store (the push target). Bossman
+	// PUSHES compiled config to POST /api/v1/config/apply (the agent never
+	// dials out); GET /api/v1/state reports the applied generation + hash.
+	DesiredState *desiredstate.Applier
 
 	// Audit is optional (nil disables audit logging).
 	Audit *audit.Logger
@@ -251,12 +251,18 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 		handleHostsOverview(w, r, cfg)
 	})
 
-	// Block L4: read-only desired-state status (drift view) — which compiled
-	// generation this agent has applied. Reports "disabled" when the agent
-	// isn't wired to a Bossman controller.
+	// Block L4: Bossman PUSHES the compiled desired state here (server→agent,
+	// the single-firewall-rule direction). Write-gated — applying pushed
+	// config is a write action. The response IS the ack the controller
+	// records (status applied/unchanged + the stored generation).
+	mux.HandleFunc("POST /api/v1/config/apply", func(w http.ResponseWriter, r *http.Request) {
+		handleConfigApply(w, r, cfg)
+	})
+	// Read-only desired-state status (drift view) — which compiled
+	// generation this agent has applied.
 	mux.HandleFunc("GET /api/v1/state", func(w http.ResponseWriter, r *http.Request) {
 		if cfg.DesiredState == nil {
-			writeJSON(w, http.StatusOK, map[string]any{"desired_state_consumer": "disabled"})
+			writeJSON(w, http.StatusOK, map[string]any{"desired_state": "unconfigured"})
 			return
 		}
 		writeJSON(w, http.StatusOK, cfg.DesiredState.Status())

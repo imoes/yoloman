@@ -145,6 +145,28 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: tool {name!r}: decoding response: {exc}") from exc
 
+    async def apply_config(self, generation: int, config_hash: str, state: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/config/apply — PUSH the compiled desired state to the
+        agent (Block L4, docs/policy-orchestration-architecture.md §6). This
+        is the controller→agent direction that keeps the firewall to a single
+        rule (Bossman → agent); the agent never dials out. The agent's JSON
+        response is the ack the reconciler records ({status:
+        "applied"|"unchanged", generation})."""
+        url = f"https://{self.address}/api/v1/config/apply"
+        payload = {"generation": generation, "config_hash": config_hash, "state": state}
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=payload)
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: config apply: request failed: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: config apply returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: config apply: decoding response: {exc}") from exc
+
     async def upload_file(self, remote_name: str, data: bytes) -> dict[str, Any]:
         """PUT /api/v1/upload?name=<remote_name> — the raw-body,
         no-base64 large-file upload path (see docs/plan.md's "File upload

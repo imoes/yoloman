@@ -3,16 +3,22 @@ Kubernetes-style reconcile loop (see docs/policy-orchestration-architecture.md
 §6–§8). A policy/rule/OU/link change enqueues a transactional-outbox event
 (same DB transaction as the change, so a change is never lost); a background
 worker drains the outbox, recompiles the affected hosts' desired state
-(services/compiler), and enqueues a per-(agent, generation) delivery the
-agent then PULLs and ACKs. LISTEN/NOTIFY is only a wake-up optimization —
-the durable truth is the outbox + compiled_host_state tables; nothing here
-mutates a real host.
+(services/compiler), and — for every host whose generation changed — PUSHES
+the new desired state to that agent's own POST /api/v1/config/apply over the
+existing mTLS channel (services/agent_client). The agent's JSON response is
+the ack, recorded as the delivery's status + an AgentAck row.
+
+This is PUSH, not pull: the agent never dials into Bossman, so the firewall
+needs a single rule (Bossman -> agent). LISTEN/NOTIFY is only a wake-up
+optimization — the durable truth is the outbox + compiled_host_state tables;
+a failed push backs off and is retried, it is never lost.
 
 Framework-free, like services/poller.py / services/monitoring.py.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -21,8 +27,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import AgentConfigDelivery, ControllerOutbox, PolicyEvent
-from bossman.services.compiler import compile_host_desired_state
+from bossman.db.models import Agent, AgentAck, AgentConfigDelivery, ControllerOutbox, PolicyEvent
+from bossman.services.agent_client import AgentClient, AgentClientError, client_for
+from bossman.services.compiler import CompiledState, compile_host_desired_state
+
+# A factory that turns an Agent + Settings into a live client — the real one
+# is services.agent_client.client_for; tests inject a fake so no socket is
+# opened. Kept as a parameter (not a hard import) purely for testability.
+ClientFactory = Callable[[Agent, Settings], AgentClient]
 
 # Retry backoff: attempt n waits min(n*30s, 5min); after this many attempts a
 # poison event is parked as 'failed' (dead letter) rather than looping forever.
@@ -50,19 +62,72 @@ async def enqueue_policy_event(
     await session.flush()
 
 
-async def _enqueue_delivery(session: AsyncSession, tenant_id: UUID, agent_id: UUID, generation: int, config_hash: str) -> bool:
-    """Idempotent per (agent, generation): insert a pending delivery unless
-    one already exists. Returns True if a new delivery row was created."""
-    existing = await session.scalar(
+async def _delivery_for(session: AsyncSession, agent: Agent, result: CompiledState) -> AgentConfigDelivery:
+    """The delivery row for this (agent, generation), created 'pending' if it
+    doesn't exist yet — idempotent on the (agent_id, generation) unique
+    constraint, so a retried push reuses the same row."""
+    delivery = await session.scalar(
         select(AgentConfigDelivery).where(
-            AgentConfigDelivery.agent_id == agent_id, AgentConfigDelivery.generation == generation
+            AgentConfigDelivery.agent_id == agent.id, AgentConfigDelivery.generation == result.generation
         )
     )
-    if existing is not None:
+    if delivery is None:
+        delivery = AgentConfigDelivery(
+            tenant_id=agent.tenant_id,
+            agent_id=agent.id,
+            generation=result.generation,
+            config_hash=result.config_hash,
+            status="pending",
+        )
+        session.add(delivery)
+        # Flush so the `attempts` default (0) is materialized — an un-flushed
+        # ORM object carries None for default=-only columns, which would make
+        # the `delivery.attempts += 1` in _push_to_agent a TypeError.
+        await session.flush()
+    return delivery
+
+
+async def _push_to_agent(
+    session: AsyncSession, agent: Agent, result: CompiledState, client_factory: ClientFactory, settings: Settings
+) -> bool:
+    """PUSH one changed generation to the agent's POST /api/v1/config/apply and
+    record the outcome. On the agent's 200 response the delivery flips to
+    'acked' + an AgentAck('ack') is written; on any transport/HTTP error the
+    delivery flips to 'nacked' (or 'failed' after too many attempts) + an
+    AgentAck('nack') carrying the error. Returns True iff the agent applied it.
+
+    Never raises — a single unreachable agent must not stall the outbox; the
+    delivery row's status/attempts drive any later retry."""
+    delivery = await _delivery_for(session, agent, result)
+    delivery.attempts += 1
+    delivery.updated_at = datetime.now(timezone.utc)
+    client = client_factory(agent, settings)
+    try:
+        resp = await client.apply_config(result.generation, result.config_hash, result.state)
+    except AgentClientError as exc:
+        delivery.status = "failed" if delivery.attempts >= _MAX_ATTEMPTS else "nacked"
+        delivery.last_error = str(exc)[:2000]
+        session.add(
+            AgentAck(
+                tenant_id=agent.tenant_id,
+                agent_id=agent.id,
+                generation=result.generation,
+                result="nack",
+                detail={"error": str(exc)[:2000]},
+            )
+        )
         return False
+
+    delivery.status = "acked"
+    delivery.last_error = None
+    agent.last_seen_at = datetime.now(timezone.utc)
     session.add(
-        AgentConfigDelivery(
-            tenant_id=tenant_id, agent_id=agent_id, generation=generation, config_hash=config_hash, status="pending"
+        AgentAck(
+            tenant_id=agent.tenant_id,
+            agent_id=agent.id,
+            generation=result.generation,
+            result="ack",
+            detail=resp if isinstance(resp, dict) else {"response": resp},
         )
     )
     return True
@@ -77,11 +142,16 @@ class ReconcileStats:
     failed: int = 0
 
 
-async def process_outbox_once(session: AsyncSession, batch: int = 50) -> ReconcileStats:
+async def process_outbox_once(
+    session: AsyncSession,
+    settings: Settings,
+    batch: int = 50,
+    client_factory: ClientFactory = client_for,
+) -> ReconcileStats:
     """Drain up to `batch` ready outbox rows: recompile each event's affected
-    hosts and enqueue deliveries for the ones whose generation changed. Uses
-    FOR UPDATE SKIP LOCKED so multiple workers never process the same row.
-    Commits per row so partial progress survives a crash."""
+    hosts and PUSH the new desired state to every host whose generation
+    changed. Uses FOR UPDATE SKIP LOCKED so multiple workers never process the
+    same row. Commits per row so partial progress survives a crash."""
     stats = ReconcileStats(last_run_at=datetime.now(timezone.utc))
     now = datetime.now(timezone.utc)
     rows = (
@@ -107,10 +177,16 @@ async def process_outbox_once(session: AsyncSession, batch: int = 50) -> Reconci
             agent_ids = await _affected_from_event(session, event)
             for agent_id in agent_ids:
                 result = await compile_host_desired_state(session, agent_id)
-                if result is not None and result.changed:
-                    stats.recompiled += 1
-                    if await _enqueue_delivery(session, event.tenant_id, agent_id, result.generation, result.config_hash):
-                        stats.delivered += 1
+                if result is None or not result.changed:
+                    continue
+                stats.recompiled += 1
+                agent = await session.get(Agent, agent_id)
+                if agent is None:
+                    continue
+                if await _push_to_agent(session, agent, result, client_factory, settings):
+                    stats.delivered += 1
+                else:
+                    stats.failed += 1
             row.status = "done"
             row.processed_at = datetime.now(timezone.utc)
             await session.commit()
@@ -153,6 +229,7 @@ async def reconciler_loop(
     settings: Settings,
     stop_event,
     stats: ReconcileStats | None = None,
+    client_factory: ClientFactory = client_for,
 ) -> None:
     """Background worker (mirrors services/poller.poller_loop): drains the
     outbox every reconcile_interval_seconds. Gated by settings.reconcile_enabled
@@ -163,7 +240,7 @@ async def reconciler_loop(
         if settings.reconcile_enabled:
             try:
                 async with session_factory() as session:
-                    run = await process_outbox_once(session)
+                    run = await process_outbox_once(session, settings, client_factory=client_factory)
                 if stats is not None:
                     stats.last_run_at = run.last_run_at
                     stats.processed += run.processed
