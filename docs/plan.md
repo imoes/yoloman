@@ -3823,3 +3823,128 @@ already exists as write-gated modules (`systemd`, `systemd_service`, `service_fa
 
 Sequenced after the alerting core (H7 soft/hard+flapping · H8 notifications · H9 availability) —
 **the H-series is now done (2026-07-07), so J1–J3 are the next work** unless reprioritised.
+
+---
+
+## L-series — Policy & Orchestration layer (a shared OU-tree policy + orchestration engine)
+
+**Context / user vision (2026-07-08).** The user's idea: grow Bossman from a monitoring tool
+into a unified **Policy- and Orchestration system** organised around an **OU tree** (Active-
+Directory-style). OUs, host groups, monitoring/notification/threshold rules **and**
+orchestration plans (roles like `docker_host`, clusters like `postgres_cluster`) are all managed
+over the same tree with the same inheritance. A **compiler** resolves inheritance into a
+per-host **compiled desired state** (with a monotonic `generation` + `config_hash`); a controller
+later pushes it to agents, which run idempotent steps; drift is detected. "What is orchestrated is
+automatically monitored" (`generated_monitoring`). The guiding principle (user's own words): the
+AI/MCP layer *proposes, analyses, links and starts controlled workflows* — the productive truth
+lives in the policy system, and the controller only pushes vetted, versioned, audited state.
+
+**Four confirmed foundation decisions (2026-07-08, via plan-mode Q&A):**
+1. **Additive, not a rebuild.** `agents` stays `agents`, `check_rules` stays. No generic `rules`
+   table, no `rule_links` refactor, no `agents→hosts` rename. The existing plan engine
+   (`services/plan_engine.py`) + Go modules (`internal/modules/*.go` behind `POST /api/v1/tools/{name}`)
+   *are* the orchestration step executor. New concepts are added as new tables/services and the
+   proposal design is realised 1:1 on Bossman's existing building blocks.
+2. **Multi-tenant from day one.** Every new table carries `tenant_id`; a fixed default tenant is
+   seeded and `agents` is backfilled onto it (additive, existing queries untouched).
+3. **AD model for OU/groups.** A host lives at exactly **one** OU node; multi-membership is
+   exclusively via **groups** (many-to-many); group objects themselves live inside an OU; rules/plans
+   link to an OU (inherits the subtree) or a group.
+4. **Data model + compiler first**, backend only, no agent changes.
+
+**Rule the user set:** ask before *any* change to existing logic. Accordingly the L-series does not
+touch `services/monitoring.resolve_effective_rule` or the flat `agents.groups` list — those stay
+exactly as they are; the OU/orchestration layer is purely additive. Rerouting the existing
+monitoring rule resolution through the OU tree would be a separate, explicitly-asked decision.
+
+Planned staging (L1/L2 implemented; L3–L7 sketched, each later stage that touches existing logic is
+asked first): **L1** data model + compiler → `compiled_host_state`. **L2** MCP read-only tools +
+dry-run/approval gate. **L3** push delivery (controller pushes the compiled desired state to the
+agent, reusing `agent_client` + the plan engine; ACK/NACK; a multi-host execution model replacing
+today's single-host `PlanRun`). **L4** first real plan `docker_host` end-to-end
+(compile→push→apply→generated_monitoring→rollback). **L5** cluster model (`orchestration_clusters` +
+members, locks, rolling execution) + `postgres_cluster`. **L6** drift detection (Go agent
+`GET /api/v1/state`, controller compare, remediation rules). **L7** UI (OU-tree navigation,
+orchestration view, desired-state/execution status, cluster detail).
+
+### Block L1 — OU tree, host groups, orchestration plans + compiler (implemented, 2026-07-08)
+
+Migration `alembic/versions/b3f1a2c9d740_orchestration_l1.py` (additive only; verified
+downgrade→upgrade against the live TimescaleDB, default-tenant seed + 86-agent backfill confirmed
+via psql). New tables + `db/models.py` models:
+
+- `tenants` — multi-tenant spine; a fixed default tenant (`00000000-…-0001`) is seeded, and
+  `agents.tenant_id` gets a **DB-level `server_default`** of it so every future INSERT (enroll.go,
+  tests) is tenant-scoped without any app-code change; existing rows are backfilled.
+- `ou_nodes` — the OU tree. `path` is the materialised slash-path (e.g. `/Germany/Munich/Prod`),
+  unique per tenant, matching the slash convention `agents.groups` already used. `parent_id` NULL =
+  a tenant root. `agents.ou_id` places a host at exactly one node.
+- `host_groups` + `host_group_members` — first-class group objects (each living inside an OU) with
+  many-to-many host membership; **distinct from** the legacy flat `agents.groups` string list, which
+  L1 leaves untouched (bridging the two is a deliberately-deferred, separate decision).
+- `orchestration_plans` / `_versions` / `_links` — a named, versioned, reusable bundle (role/cluster/
+  deployment/…): the version holds `steps` + `default_parameters` + `requirements` +
+  `generated_monitoring` + `generated_notifications`; a link attaches a plan to an OU / host / group /
+  global with priority/link_order/parameters.
+- `compiled_host_state` — the compiler's output per host: the full desired-state document
+  (`monitoring{checks,thresholds,notifications}` + `orchestration{roles,plans}`), a monotonic
+  `generation`, a sha256 `config_hash`, and `is_current` (a partial unique index enforces at most one
+  current row per host).
+
+`services/compiler.py` (framework-free, explicit `select()` throughout — no lazy-relationship
+traversal, avoiding the K11 `MissingGreenlet` class of bug): `resolve_ou_ancestry` (root→node,
+cycle-safe), `resolve_host_group_ids`, `resolve_orchestration_assignments` (collects every link
+reaching a host — global + each OU on its ancestry path + each group it's in + host-direct —
+deduplicated per plan by priority→specificity→link_order, parameters merged over the version's
+defaults), `derive_generated_monitoring` (union of the assigned plans' `generated_monitoring` —
+"what is orchestrated is monitored"), `compile_host_desired_state` (builds + canonical-JSON-hashes
+the document, writing a new generation **only when the hash changed**), `compile_tenant` (bulk
+recompile). REST: `api/ou.py` (OU tree CRUD + host-placement), `api/host_groups.py` (group CRUD +
+membership), `api/orchestration.py` (plans/versions/links) + `GET /api/v1/agents/{id}/desired-state`.
+
+**Deliberately NOT in L1:** no push, no agent endpoint, no cluster/drift; `resolve_effective_rule`
+and `agents.groups` untouched; the monitoring section of the compiled state comes only from the
+orchestration plans' `generated_monitoring`, not from rerouting the existing CheckRule resolution.
+
+Verified: `tests/test_compiler.py` (15 tests — OU inheritance, group membership, link
+precedence/param merge, hash stability vs generation bump, cycle safety) + `tests/test_orchestration_api.py`
+(REST CRUD end-to-end via TestClient — the same OU→link→desired-state path a manual `curl` run would
+exercise). Full suite green, ruff clean. Commit `994fe6b`.
+
+### Block L2 — MCP read-only tools + approval gate + global YOLO-MAN switch (implemented, 2026-07-08)
+
+The project's name is its safety model: **YOLO-MAN = "You Only Look Once"**, an **auto mode** and a
+**manual mode** like Claude Code's own. L2 wires up the `require_approval`/`auto_apply` columns L1
+had added to `orchestration_plan_links` but never enforced. Migration
+`alembic/versions/c7e4d81a9f52_orchestration_l2_approval.py` (verified down/up; the singleton
+`system_settings` row seeded with `yolo_mode=false`; pre-existing links backfilled to `active` so L2
+changes no existing behaviour):
+
+- **Per-link gate.** A link now carries `status ∈ {pending_approval, active, rejected}`. It is created
+  `active` only if the link opts in (`auto_apply=true` / `require_approval=false`) **or** the global
+  switch is on; otherwise it starts `pending_approval`. `services/compiler.py` only resolves `active`
+  links — a pending link has zero effect on any host until a human approves it via
+  `POST /api/v1/orchestration/plans/{id}/links/{id}/approve` (or `/reject`).
+  `GET /api/v1/orchestration/pending-links` is the review queue.
+- **Global switch (auto vs manual mode).** `system_settings.yolo_mode` — a DB-backed runtime toggle
+  (`GET`/`PUT /api/v1/system/yolo-mode`, `api/system_settings.py`) that flips instantly without a
+  restart, like Claude Code's mode toggle. When ON, every new link is created `active` immediately,
+  bypassing its own require_approval/auto_apply. OFF is the seeded, safe default. Deliberately
+  **human-only** to set — no MCP tool exposes a write for it.
+- **MCP tools (Block L2 section in `mcp/server.py`).** Read-only: `list_orchestration_plans`,
+  `get_orchestration_plan`, `list_host_groups`, `get_ou_tree`, `get_host_desired_state`,
+  `list_pending_orchestration_links`. Safe dry-run: `preview_orchestration_plan_link` (blast radius +
+  a sample before/after monitoring diff for one affected host, persists nothing — backed by
+  `compiler.preview_plan_link`, which resolves a not-yet-persisted candidate link in-memory). Exactly
+  **one gated write**: `propose_orchestration_plan_link`, which can **never** set `auto_apply=true`
+  itself — so an MCP/AI-proposed link always starts `pending_approval` (unless a human has already
+  turned YOLO-MAN on). "The AI proposes, a human confirms" is enforced by what the tool *cannot* pass,
+  not by instruction alone.
+
+Verified: `tests/test_mcp_orchestration.py` (8), `tests/test_compiler_l2.py` (status filter,
+`is_yolo_mode`, `affected_agent_ids`, `preview_plan_link` — all no-persist paths asserted),
+`tests/test_orchestration_api.py` (approval gate, reject, YOLO-mode bypass, preview-persists-nothing).
+Full suite **442/442** green, ruff clean. Commit `9dfaa50`. Note: YOLO-MAN activation itself is left
+to the user (human-only, per design); the switch currently lives only in the dev DB — the running
+`agentic-mcp-bossman-1` container runs pre-L1/L2 code and needs a redeploy before the switch exists
+there.
