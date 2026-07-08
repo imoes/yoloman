@@ -424,10 +424,24 @@ export class OuPolicyComponent implements OnInit {
       // a fresh page load / reload — previously objects loaded only on expand,
       // so a reload showed an empty tree until a new policy was created. OUs
       // that actually have objects auto-expand so the policies are on screen.
+      const parentOf = new Map(ous.map((o) => [o.id, o.parent_id] as const));
       for (const ou of ous) {
         this.ouService.objects(ou.id).subscribe((objs) => {
           this.objectsByOu.update((m) => new Map(m).set(ou.id, objs));
-          if (objs.length) this.expanded.update((e) => new Set(e).add(ou.id));
+          if (objs.length) {
+            // Expand this OU AND all its ancestors, so a policy on a nested OU
+            // is actually visible in the tree (not hidden under a collapsed
+            // parent).
+            this.expanded.update((e) => {
+              const next = new Set(e);
+              let cur: string | null | undefined = ou.id;
+              while (cur) {
+                next.add(cur);
+                cur = parentOf.get(cur) ?? null;
+              }
+              return next;
+            });
+          }
         });
       }
     });
