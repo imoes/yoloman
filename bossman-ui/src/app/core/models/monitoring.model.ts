@@ -89,6 +89,14 @@ export interface CheckRule {
 
 export type CheckRuleInput = Omit<CheckRule, 'id' | 'created_at' | 'is_default'>;
 
+/** Matches bossman/api/monitoring.py's MetricCatalogEntry (Block L3c) — a
+ * metric actually collected across the fleet, with a human-readable name. */
+export interface MetricCatalogEntry {
+  metric: string;
+  display_name: string;
+  unit: string;
+}
+
 /** Matches bossman/api/monitoring.py's FleetSummaryOut. */
 export interface FleetSummary {
   hosts_total: number;

@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, Downtime, OUNode, Service
+from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, Downtime, Metric, OUNode, Service
 from bossman.db.session import get_session
 from bossman.services.reconciler import enqueue_policy_event
 from bossman.services.monitoring import (
@@ -39,6 +39,61 @@ from bossman.services.monitoring import (
 )
 
 router = APIRouter()
+
+
+# Human-readable names + units for the metrics the built-in agent collectors
+# emit (Block L3c: the threshold dialog's live metric search). Anything not
+# listed falls back to a titleized metric key. Kept here (not the DB) because
+# it's presentation, not data — the *available* metrics come from the DB.
+_METRIC_DISPLAY: dict[str, tuple[str, str]] = {
+    "cpu_pct": ("CPU usage", "%"),
+    "load1": ("Load average (1 min)", ""),
+    "load5": ("Load average (5 min)", ""),
+    "load15": ("Load average (15 min)", ""),
+    "mem_used_pct": ("Memory used", "%"),
+    "mem_pct": ("Memory used", "%"),
+    "swap_used_pct": ("Swap used", "%"),
+    "disk_used_pct": ("Disk used", "%"),
+    "disk_io_util_pct": ("Disk I/O utilization", "%"),
+    "net_rx_bytes": ("Network received", "bytes/s"),
+    "net_tx_bytes": ("Network sent", "bytes/s"),
+    "uptime_seconds": ("Uptime", "s"),
+    "process_count": ("Process count", ""),
+}
+
+
+class MetricCatalogEntry(BaseModel):
+    metric: str
+    display_name: str
+    unit: str
+
+
+@router.get("/api/v1/metric-catalog", response_model=list[MetricCatalogEntry])
+async def metric_catalog(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> list[MetricCatalogEntry]:
+    """Every distinct metric actually collected across the fleet (from the
+    `metrics` hypertable) with a human-readable display name — powers the
+    threshold dialog's live metric search (Block L3c). Display names come
+    from the built-in map, then any existing check-rule's service_name for
+    that metric, then a titleized fallback — so the list is always
+    meaningful, and the set itself is loaded from the DB."""
+    metrics = sorted((await session.scalars(select(Metric.metric).distinct())).all())
+    # A metric's own rules can supply a better human name if it isn't built-in.
+    rule_names: dict[str, str] = {}
+    for m, svc in (await session.execute(select(CheckRule.metric, CheckRule.service_name))).all():
+        rule_names.setdefault(m, svc)
+
+    out: list[MetricCatalogEntry] = []
+    for m in metrics:
+        if m in _METRIC_DISPLAY:
+            display, unit = _METRIC_DISPLAY[m]
+        elif m in rule_names:
+            display, unit = rule_names[m], ""
+        else:
+            display, unit = m.replace("_", " ").replace("pct", "%").strip().capitalize(), ""
+        out.append(MetricCatalogEntry(metric=m, display_name=display, unit=unit))
+    return out
 
 
 class ServiceOut(BaseModel):

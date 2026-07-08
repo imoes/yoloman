@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Availability, CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -106,5 +106,11 @@ export class MonitoringService {
 
   fleetHosts() {
     return this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`);
+  }
+
+  /** Block L3c: distinct fleet metrics + human-readable names for the
+   * threshold dialog's live search. */
+  metricCatalog() {
+    return this.http.get<MetricCatalogEntry[]>(`${this.base}/metric-catalog`);
   }
 }

@@ -6,17 +6,25 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { HostGroupInput } from '../../core/models/host-group.model';
 import { OUNode, OUObject } from '../../core/models/ou.model';
-import { CheckRuleInput } from '../../core/models/monitoring.model';
-import { NotificationRuleInput } from '../../core/models/notification.model';
+import { CheckRule, CheckRuleInput } from '../../core/models/monitoring.model';
+import { NotificationRule, NotificationRuleInput } from '../../core/models/notification.model';
+import { OrchestrationPlanInput } from '../../core/models/orchestration.model';
 import { SystemSettings } from '../../core/models/system-settings.model';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { OrchestrationService } from '../../core/services/orchestration.service';
 import { OuService } from '../../core/services/ou.service';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
 import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/components/threshold-dialog/threshold-dialog.component';
+import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
+import {
+  OuLinkPlanDialogComponent,
+  OuLinkPlanDialogData,
+  OuLinkPlanResult,
+} from '../../shared/components/ou-link-plan-dialog/ou-link-plan-dialog.component';
 import {
   NotificationOuDialogComponent,
   NotificationOuDialogData,
@@ -144,6 +152,9 @@ interface TreeRow {
         <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">New Threshold…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">New Notification…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">New Host Group…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Link Orchestration Plan…</button>
+        <div class="bm-menu-sep"></div>
+        <button class="bm-menu-item" cdkMenuItem (click)="newOrchestrationPlan()">New Orchestration Plan…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
@@ -157,6 +168,7 @@ interface TreeRow {
     <ng-template #objMenu>
       <div class="bm-menu" cdkMenu>
         @if (ctx()?.obj?.kind === 'check_rule' || ctx()?.obj?.kind === 'notification') {
+          <button class="bm-menu-item" cdkMenuItem (click)="editObject(ctx()!)">Edit…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="toggleEnforced(ctx()!)">
             {{ ctx()?.obj?.enforced ? '✓ ' : '' }}Enforced
           </button>
@@ -231,6 +243,7 @@ export class OuPolicyComponent implements OnInit {
   private monitoring = inject(MonitoringService);
   private notification = inject(NotificationService);
   private hostGroup = inject(HostGroupService);
+  private orchestration = inject(OrchestrationService);
   private systemSettings = inject(SystemSettingsService);
   private dialog = inject(MatDialog);
 
@@ -388,6 +401,66 @@ export class OuPolicyComponent implements OnInit {
     });
   }
 
+  // --- orchestration (restored management: create a plan, link it to an OU) ---
+
+  newOrchestrationPlan(): void {
+    const ref = this.dialog.open<OrchestrationPlanDialogComponent, undefined, OrchestrationPlanInput>(
+      OrchestrationPlanDialogComponent, { width: '480px' },
+    );
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      this.orchestration.createPlan(input).subscribe();
+    });
+  }
+
+  linkPlan(ou: OUNode): void {
+    const ref = this.dialog.open<OuLinkPlanDialogComponent, OuLinkPlanDialogData, OuLinkPlanResult>(OuLinkPlanDialogComponent, {
+      width: '460px', data: { ouId: ou.id, ouPath: ou.path },
+    });
+    ref.afterClosed().subscribe((res) => {
+      if (!res) return;
+      this.orchestration
+        .createLink(res.plan_id, {
+          target_type: 'ou', ou_id: ou.id, enforced: res.enforced,
+          auto_apply: res.auto_apply, require_approval: !res.auto_apply,
+        })
+        .subscribe(() => this.afterObjectChange(ou.id));
+    });
+  }
+
+  // --- edit an existing object (Block L3c) ---
+
+  editObject(row: TreeRow): void {
+    const obj = row.obj!;
+    const ou = this.ous().find((n) => n.id === row.ownerOuId);
+    if (!ou) return;
+    if (obj.kind === 'check_rule') {
+      this.monitoring.listCheckRules().subscribe((rules) => {
+        const rule = rules.find((r) => r.id === obj.id);
+        if (!rule) return;
+        const ref = this.dialog.open<ThresholdDialogComponent, ThresholdDialogData, CheckRuleInput>(ThresholdDialogComponent, {
+          width: '460px', data: { ouId: ou.id, ouPath: ou.path, rule },
+        });
+        ref.afterClosed().subscribe((input) => {
+          if (!input) return;
+          this.monitoring.updateCheckRule(rule.id, input).subscribe(() => this.afterObjectChange(ou.id));
+        });
+      });
+    } else if (obj.kind === 'notification') {
+      this.notification.listRules().subscribe((rules) => {
+        const rule = rules.find((r: NotificationRule) => r.id === obj.id);
+        if (!rule) return;
+        const ref = this.dialog.open<NotificationOuDialogComponent, NotificationOuDialogData, NotificationRuleInput>(
+          NotificationOuDialogComponent, { width: '460px', data: { ouId: ou.id, ouPath: ou.path, rule } },
+        );
+        ref.afterClosed().subscribe((input) => {
+          if (!input) return;
+          this.notification.updateRule(rule.id, input).subscribe(() => this.afterObjectChange(ou.id));
+        });
+      });
+    }
+  }
+
   private afterObjectChange(ouId: string): void {
     this.expanded.update((e) => new Set(e).add(ouId));
     this.reloadObjects(ouId);
@@ -417,6 +490,6 @@ export class OuPolicyComponent implements OnInit {
     if (obj.kind === 'check_rule') this.monitoring.deleteCheckRule(obj.id).subscribe(done);
     else if (obj.kind === 'notification') this.notification.deleteRule(obj.id).subscribe(done);
     else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
-    // orchestration_link deletion is managed from the orchestration flow (needs plan id) — read-only here in v1.
+    else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
   }
 }

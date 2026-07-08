@@ -574,3 +574,57 @@ async def test_notification_rule_patch_toggles(db_session):
         client.delete(f"/api/v1/notification-rules/{rule['id']}", headers=_headers(raw))
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+async def test_metric_catalog_returns_display_names(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    # Seed one metric row so the catalog has something from the DB.
+    from datetime import datetime, timezone
+    from bossman.db.models import Metric
+    agent = await _make_agent(db_session)
+    db_session.add(Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="cpu_pct", value=42.0, labels={}))
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/metric-catalog", headers=_headers(raw))
+    assert resp.status_code == 200
+    entries = resp.json()
+    cpu = next((e for e in entries if e["metric"] == "cpu_pct"), None)
+    assert cpu is not None
+    assert cpu["display_name"] == "CPU usage"
+    assert cpu["unit"] == "%"
+
+    # cleanup the seeded metric + agent
+    from sqlalchemy import select as _select
+    for m in (await db_session.scalars(_select(Metric).where(Metric.agent_id == agent.id))).all():
+        await db_session.delete(m)
+    await db_session.commit()
+    await _delete_agent(db_session, agent)
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_delete_link_by_id(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    agent = await _make_agent(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        plan = client.post(
+            "/api/v1/orchestration/plans",
+            json={"name": f"linkdel-{sfx}", "display_name": "x", "plan_type": "role"},
+            headers=_headers(raw),
+        ).json()
+        link = client.post(
+            f"/api/v1/orchestration/plans/{plan['id']}/links",
+            json={"target_type": "host", "agent_id": str(agent.id), "auto_apply": True},
+            headers=_headers(raw),
+        ).json()
+        # Delete by link id alone (the OU-tree path).
+        resp = client.delete(f"/api/v1/orchestration/links/{link['id']}", headers=_headers(raw))
+        assert resp.status_code == 204
+        remaining = client.get(f"/api/v1/orchestration/plans/{plan['id']}/links", headers=_headers(raw)).json()
+        assert remaining == []
+        client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
+    await _delete_agent(db_session, agent)
+    await db_session.delete(api_token)
+    await db_session.commit()

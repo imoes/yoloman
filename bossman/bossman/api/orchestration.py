@@ -349,6 +349,22 @@ async def delete_plan_link(
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
+    await _delete_link(session, link)
+
+
+@router.delete("/api/v1/orchestration/links/{link_id}", status_code=204)
+async def delete_link_by_id(
+    link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> None:
+    """Delete a plan link by its id alone (Block L3c) — the OU-tree console
+    deletes an orchestration-link object without needing its plan id."""
+    link = await session.get(OrchestrationPlanLink, link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail=f"no such link {link_id}")
+    await _delete_link(session, link)
+
+
+async def _delete_link(session: AsyncSession, link: OrchestrationPlanLink) -> None:
     was_active = link.status == "active"
     affected = await _affected(session, link) if was_active else []
     await session.delete(link)

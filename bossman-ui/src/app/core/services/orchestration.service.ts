@@ -67,6 +67,11 @@ export class OrchestrationService {
     return this.http.delete<void>(`${this.base}/plans/${planId}/links/${linkId}`);
   }
 
+  /** Block L3c: delete a link by its id alone (from the OU tree). */
+  deleteLinkById(linkId: string) {
+    return this.http.delete<void>(`${this.base}/links/${linkId}`);
+  }
+
   desiredState(agentId: string) {
     return this.http.get<CompiledHostState>(`${environment.apiUrl}/agents/${agentId}/desired-state`);
   }
