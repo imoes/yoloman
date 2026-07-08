@@ -20,7 +20,7 @@ comparable user-facing features.
 - [x] Batch 4 — Ch.7c Configuration: Visualization, Templates — 3 gaps found, decisions below
 - [x] Batch 5 — Ch.7d Configuration: Notifications, Macros — 13 gaps found; recommendations below (incl. a real dispatch bug K13-fix); no code yet, awaiting decisions
 - [x] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export — 12 gaps found; two real security defects flagged (K14-fix RBAC not enforced, K15-fix plaintext agent tokens); no code yet, awaiting decisions
-- [ ] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring
+- [x] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring — 9 gaps found; one correctness fix flagged (K16-fix downtime not excluded from availability); no code yet, awaiting decisions
 - [ ] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import
 - [ ] Batch 9 — Ch.15 Discovery
 - [ ] Batch 10 — Ch.16 Distributed Monitoring (Proxies) + Ch.17 Encryption
@@ -383,3 +383,50 @@ user/API-token management CRUD (so accounts exist without the seed script). **De
 per-host-group RBAC, custom roles, LDAP/SAML SSO, vault secrets, secret macros, a unified audit log,
 and a scoped data-export endpoint. **Reject for now** scheduled PDF reports and MFA. Both K-fixes are
 logic changes to the auth path and are confirmed with the user before any code.
+
+## Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring
+
+Read: [it_services/service_tree](https://www.zabbix.com/documentation/7.0/en/manual/it_services/service_tree),
+[web_monitoring](https://www.zabbix.com/documentation/7.0/en/manual/web_monitoring),
+[vm_monitoring](https://www.zabbix.com/documentation/7.0/en/manual/vm_monitoring).
+
+Bossman side verified file:line. **The critical distinction:** Bossman's `Service` (`db/models.py:967`)
+is a per-host CheckMK-style *check result*, not a composable business service — there is only a
+per-host worst-wins `state_rollup` (`monitoring.py:918,1017`), no service-of-services tree above it.
+Availability is computed as OK% of monitored time (`compute_availability`, `monitoring.py:697`), and
+the UI "SLA bar" (`host-detail.component.ts:1207-1266`) renders that OK% + a state-duration bar — with
+no SLA target and no compliant/breach verdict. Scheduled downtime exists (`Downtime`, `models.py:1089`)
+but suppresses problems/notifications only; it is **not** subtracted from the availability denominator.
+No web-scenario feature and no hypervisor/VMware discovery exist.
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition (recommendation) |
+|---|---|---|---|
+| **Business-service tree** (Ch.8) — services composed of child services/hosts, multi-parent | A named service with children; status rolls up from children | ❌ `Service` is per-host, no parent/child (`models.py:967`); only per-host worst-wins rollup (`monitoring.py:1017`) | **defer** — genuine value ("is the webshop healthy" = composite of app+db+lb), but a sizeable feature (tree model + calc + UI); the OU tree + `state_rollup` are reusable building blocks |
+| **Service status-calculation rules** | most-critical-of-child · most-critical-if-all · if-≥N/≥N%-children · integer weights (0–1e6) · propagation ±severity | ❌ only worst-wins for one host's own services | **defer** — part of the business-service block above |
+| **Problem-tag → service mapping** (AND-logic tags bind problems to leaf services) | Leaf services adopt the severity of matching problems | ❌ no tag layer on services (problems key directly to the per-host service) | **defer** — part of the business-service block |
+| **SLA / SLO** — target %, uptime/downtime budget, compliant/breach verdict, period SLA report | Explicit SLO with target and pass/fail over a window | 🟡 availability OK% exists (`compute_availability`, `monitoring.py:697`; API `api/monitoring.py:216`) but **no target, no verdict, no multi-service report** | **implement (small)** — add an SLA target % + compliant/breach verdict on top of the existing OK% calc; the numeric groundwork is already there |
+| **Web scenario** (Ch.9) — multi-step HTTP: per-step URL/method/POST/expected-status/required-string/timeout → response-time/download-speed/last-error metrics | First-class synthetic-HTTP monitoring | ❌ none (built-ins are only CPU/Mem/Disk/Uptime, `collect/checks.go:122`) | **implement (scoped v1)** — a single-request HTTP check (URL, expected status, response-time threshold) feeding the existing services/graphs/check-rules pipeline; defer true multi-step scenarios. High value ("is the site up + how fast") |
+| Web check via existing plugins/modules | `uri`/`get_url` modules + curl-in-pipeline are HTTP-capable | 🟡 generic config-management only (`modules/uri.go:29`, `server/modules.go:69`; curl in `configs/commands.yaml`) — one-shot actions, no schedule/perf-metric/expected-string contract | (covered by the scoped web check above — reuse the module for the fetch, add the check/metric contract) |
+| **VMware/vCenter/ESXi discovery** (Ch.10) — LLD of hypervisors/VMs/datastores, auto host-creation, VM metrics via SOAP | Server-side hypervisor collector | ❌ only a guest-side DMI virtualization fact (`inventory.go:324`); no discovery/API integration | **reject for now** — big integration, and the environment already has separate `vcenter-api`/`proxmox-api` skills + a proxmox→netbox importer for inventory; revisit only if hypervisor-level metrics become a Bossman requirement |
+| Auto host-creation for guests / low-level discovery (LLD) | Zabbix creates hosts from discovered VMs via templates | ❌ no LLD mechanism at all (grep empty) | **defer** — LLD generally (not just VMs) is a bigger discovery feature; baseline #17 already tracks the discovery gap |
+
+### Correctness gap found while analyzing
+
+**K16-fix — scheduled downtime is NOT excluded from the availability/SLA denominator.** `Downtime`
+(`models.py:1089`) suppresses problems + notifications (`monitoring.py:552-616`,
+`notification.py:199-212`), but `compute_availability` (`monitoring.py:697`) reads only
+`ServiceStateHistory` and never subtracts downtime windows. So planned maintenance counts as
+non-OK time and drags down the reported OK% — the opposite of what an SLA view should do (Zabbix
+explicitly excludes maintenance from SLA, and this module's own docstring, `monitoring.py:679-684`,
+states the intent that "soft blips don't count against an SLA"). **Recommend** subtracting
+overlapping `Downtime` windows from the availability denominator (or reporting a separate
+"scheduled" slice that doesn't count as downtime). Logic change to the availability calc — confirm
+before coding.
+
+**Decisions (awaiting user).** Analysis pass only — no code. Priority recommendation: **(1)** the
+scoped **web/HTTP check** (highest new-value: synthetic uptime + response-time for services, a very
+common real need); **(2) K16-fix** downtime-excluded availability + an **SLA target/verdict** on top
+of the existing OK% (small, and makes the "SLA bar" honest); **defer** the full business-service
+tree (composition + status-calc rules + problem-tag mapping + LLD); **reject for now** VMware/vCenter
+discovery (external tooling already covers inventory). The logic-changing items (K16-fix, and anything
+touching the availability calc) are confirmed with the user before any code.
