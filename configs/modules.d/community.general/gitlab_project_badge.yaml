@@ -1,0 +1,60 @@
+name: gitlab_project_badge
+fqcn: community.general.gitlab_project_badge
+collection: community.general
+short_description: Manage project badges on GitLab Server
+description: This module allows to add and remove badges to/from a project.
+options:
+  api_job_token:
+    type: str
+    description: GitLab CI job token for logging in.
+  api_oauth_token:
+    type: str
+    description: GitLab OAuth token for logging in.
+  api_password:
+    type: str
+    description: The password to use for authentication against the API.
+  api_token:
+    type: str
+    description: GitLab access token with API permissions.
+  api_url:
+    type: str
+    description: The resolvable endpoint for the API.
+  api_username:
+    type: str
+    description: The username to use for authentication against the API.
+  ca_path:
+    type: str
+    description: The CA certificates bundle to use to verify GitLab server certificate.
+  image_url:
+    type: str
+    required: true
+    description: The image URL of the badge. A badge is identified by this URL.
+  link_url:
+    type: str
+    required: true
+    description: The URL associated with the badge.
+  project:
+    type: str
+    required: true
+    description: The name (or full path) of the GitLab project the badge is added to/removed from.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: State of the badge in the project. On V(present), it adds a badge to a GitLab project.
+      On V(absent), it removes a badge from a GitLab project.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add a badge to a GitLab Project\n  community.general.gitlab_project_badge:\n    api_url:\
+  \ 'https://example.gitlab.com'\n    api_token: 'Your-Private-Token'\n    project: projectname\n    state:\
+  \ present\n    link_url: 'https://example.gitlab.com/%{project_path}'\n    image_url: 'https://example.gitlab.com/%{project_path}/badges/%{default_branch}/pipeline.svg'\n\
+  \n- name: Remove a badge from a GitLab Project\n  community.general.gitlab_project_badge:\n    api_url:\
+  \ 'https://example.gitlab.com'\n    api_token: 'Your-Private-Token'\n    project: projectname\n    state:\
+  \ absent\n    link_url: 'https://example.gitlab.com/%{project_path}'\n    image_url: 'https://example.gitlab.com/%{project_path}/badges/%{default_branch}/pipeline.svg'\n"

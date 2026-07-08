@@ -1,0 +1,178 @@
+name: dnsmadeeasy
+fqcn: community.general.dnsmadeeasy
+collection: community.general
+short_description: Interface with dnsmadeeasy.com (a DNS hosting service)
+description: 'Manages DNS records via the v2 REST API of the DNS Made Easy service.  It handles records
+  only; there is no manipulation of domains or monitor/account support yet. See: U(https://www.dnsmadeeasy.com/integration/restapi/)
+
+  '
+options:
+  account_key:
+    type: str
+    required: true
+    description: Account API Key.
+  account_secret:
+    type: str
+    required: true
+    description: Account Secret Key.
+  autoFailover:
+    type: bool
+    default: false
+    description: If true, fallback to the primary IP address is manual after a failover. If false, fallback
+      to the primary IP address is automatic after a failover.
+  contactList:
+    type: str
+    description: Name or id of the contact list that the monitor will notify. The default V('') means
+      the Account Owner.
+  domain:
+    type: str
+    required: true
+    description: Domain to work with. Can be the domain name (e.g. "mydomain.com") or the numeric ID of
+      the domain in DNS Made Easy (e.g. "839989") for faster resolution
+  failover:
+    type: bool
+    default: false
+    description: If V(true), add or change the failover.  This is applicable only for A records.
+  httpFile:
+    type: str
+    description: The file at the Fqdn that the monitor queries for HTTP or HTTPS.
+  httpFqdn:
+    type: str
+    description: The fully qualified domain name used by the monitor.
+  httpQueryString:
+    type: str
+    description: The string in the httpFile that the monitor queries for HTTP or HTTPS.
+  ip1:
+    type: str
+    description: Primary IP address for the failover. Required if adding or changing the monitor or failover.
+  ip2:
+    type: str
+    description: Secondary IP address for the failover. Required if adding or changing the failover.
+  ip3:
+    type: str
+    description: Tertiary IP address for the failover.
+  ip4:
+    type: str
+    description: Quaternary IP address for the failover.
+  ip5:
+    type: str
+    description: Quinary IP address for the failover.
+  maxEmails:
+    type: int
+    default: 1
+    description: Number of emails sent to the contact list by the monitor.
+  monitor:
+    type: bool
+    default: false
+    description: If V(true), add or change the monitor.  This is applicable only for A records.
+  port:
+    type: int
+    default: 80
+    description: Port used by the monitor.
+  protocol:
+    type: str
+    default: HTTP
+    choices:
+    - TCP
+    - UDP
+    - HTTP
+    - DNS
+    - SMTP
+    - HTTPS
+    description: Protocol used by the monitor.
+  record_name:
+    type: str
+    description: Record name to get/create/delete/update. If record_name is not specified; all records
+      for the domain will be returned in "result" regardless of the state argument.
+  record_ttl:
+    type: int
+    default: 1800
+    description: record's "Time to live".  Number of seconds the record remains cached in DNS servers.
+  record_type:
+    type: str
+    choices:
+    - A
+    - AAAA
+    - CNAME
+    - ANAME
+    - HTTPRED
+    - MX
+    - NS
+    - PTR
+    - SRV
+    - TXT
+    description: Record type.
+  record_value:
+    type: str
+    description: "Record value. HTTPRED: <redirection URL>, MX: <priority> <target name>, NS: <name server>,\
+      \ PTR: <target name>, SRV: <priority> <weight> <port> <target name>, TXT: <text value>\"\n If record_value\
+      \ is not specified; no changes will be made and the record will be returned in 'result' (in other\
+      \ words, this module can be used to fetch a record's current id, type, and ttl)\n"
+  sandbox:
+    type: bool
+    default: false
+    description: Decides if the sandbox API should be used. Otherwise (default) the production API of
+      DNS Made Easy is used.
+  sensitivity:
+    type: str
+    default: Medium
+    choices:
+    - Low
+    - Medium
+    - High
+    description: Number of checks the monitor performs before a failover occurs where Low = 8, Medium
+      = 5,and High = 3.
+  state:
+    type: str
+    required: true
+    choices:
+    - present
+    - absent
+    description: whether the record should exist or not
+  systemDescription:
+    type: str
+    default: ''
+    description: Description used by the monitor.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Fetch my.com domain records\n  community.general.dnsmadeeasy:\n    account_key: key\n\
+  \    account_secret: secret\n    domain: my.com\n    state: present\n  register: response\n\n- name:\
+  \ Create a record\n  community.general.dnsmadeeasy:\n    account_key: key\n    account_secret: secret\n\
+  \    domain: my.com\n    state: present\n    record_name: test\n    record_type: A\n    record_value:\
+  \ 127.0.0.1\n\n- name: Update the previously created record\n  community.general.dnsmadeeasy:\n    account_key:\
+  \ key\n    account_secret: secret\n    domain: my.com\n    state: present\n    record_name: test\n \
+  \   record_value: 192.0.2.23\n\n- name: Fetch a specific record\n  community.general.dnsmadeeasy:\n\
+  \    account_key: key\n    account_secret: secret\n    domain: my.com\n    state: present\n    record_name:\
+  \ test\n  register: response\n\n- name: Delete a record\n  community.general.dnsmadeeasy:\n    account_key:\
+  \ key\n    account_secret: secret\n    domain: my.com\n    record_type: A\n    state: absent\n    record_name:\
+  \ test\n\n- name: Add a failover\n  community.general.dnsmadeeasy:\n    account_key: key\n    account_secret:\
+  \ secret\n    domain: my.com\n    state: present\n    record_name: test\n    record_type: A\n    record_value:\
+  \ 127.0.0.1\n    failover: true\n    ip1: 127.0.0.2\n    ip2: 127.0.0.3\n\n- name: Add a failover\n\
+  \  community.general.dnsmadeeasy:\n    account_key: key\n    account_secret: secret\n    domain: my.com\n\
+  \    state: present\n    record_name: test\n    record_type: A\n    record_value: 127.0.0.1\n    failover:\
+  \ true\n    ip1: 127.0.0.2\n    ip2: 127.0.0.3\n    ip3: 127.0.0.4\n    ip4: 127.0.0.5\n    ip5: 127.0.0.6\n\
+  \n- name: Add a monitor\n  community.general.dnsmadeeasy:\n    account_key: key\n    account_secret:\
+  \ secret\n    domain: my.com\n    state: present\n    record_name: test\n    record_type: A\n    record_value:\
+  \ 127.0.0.1\n    monitor: true\n    ip1: 127.0.0.2\n    protocol: HTTP  # default\n    port: 80  # default\n\
+  \    maxEmails: 1\n    systemDescription: Monitor Test A record\n    contactList: my contact list\n\n\
+  - name: Add a monitor with http options\n  community.general.dnsmadeeasy:\n    account_key: key\n  \
+  \  account_secret: secret\n    domain: my.com\n    state: present\n    record_name: test\n    record_type:\
+  \ A\n    record_value: 127.0.0.1\n    monitor: true\n    ip1: 127.0.0.2\n    protocol: HTTP  # default\n\
+  \    port: 80  # default\n    maxEmails: 1\n    systemDescription: Monitor Test A record\n    contactList:\
+  \ 1174  # contact list id\n    httpFqdn: http://my.com\n    httpFile: example\n    httpQueryString:\
+  \ some string\n\n- name: Add a monitor and a failover\n  community.general.dnsmadeeasy:\n    account_key:\
+  \ key\n    account_secret: secret\n    domain: my.com\n    state: present\n    record_name: test\n \
+  \   record_type: A\n    record_value: 127.0.0.1\n    failover: true\n    ip1: 127.0.0.2\n    ip2: 127.0.0.3\n\
+  \    monitor: true\n    protocol: HTTPS\n    port: 443\n    maxEmails: 1\n    systemDescription: monitoring\
+  \ my.com status\n    contactList: emergencycontacts\n\n- name: Remove a failover\n  community.general.dnsmadeeasy:\n\
+  \    account_key: key\n    account_secret: secret\n    domain: my.com\n    state: present\n    record_name:\
+  \ test\n    record_type: A\n    record_value: 127.0.0.1\n    failover: false\n\n- name: Remove a monitor\n\
+  \  community.general.dnsmadeeasy:\n    account_key: key\n    account_secret: secret\n    domain: my.com\n\
+  \    state: present\n    record_name: test\n    record_type: A\n    record_value: 127.0.0.1\n    monitor:\
+  \ false\n"
