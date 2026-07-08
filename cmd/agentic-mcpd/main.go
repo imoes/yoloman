@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -18,6 +19,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/checks"
 	"github.com/mutkluge/agentic-mcp/internal/collect"
 	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/desiredstate"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/inventory"
@@ -123,6 +125,22 @@ func run(args []string) error {
 		collector.SetEdgeSink(st)
 	}
 
+	// Block L4: the desired-state consumer pulls this agent's compiled
+	// config from the central Bossman controller on an interval (non-
+	// destructive v1: it fetches/stores/acks, doesn't yet re-apply checks).
+	// Disabled unless a Bossman URL is configured.
+	var dsConsumer *desiredstate.Consumer
+	if cfg.Bossman.Enabled {
+		dsPath := filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json")
+		dsConsumer = desiredstate.NewConsumer(cfg.Bossman.URL, cfg.Token, dsPath, nil)
+		dsCtx, dsCancel := context.WithCancel(context.Background())
+		defer dsCancel()
+		go dsConsumer.Loop(dsCtx, cfg.Bossman.PollInterval.Duration(), func(err error) {
+			slog.Warn("desired-state pull failed", "error", err)
+		})
+		slog.Info("desired-state consumer started", "bossman", cfg.Bossman.URL)
+	}
+
 	// Audit entries are written to stderr as JSON lines: under systemd
 	// (the packaged deployment) each line lands in the journal
 	// automatically and, being valid JSON, is directly consumable via
@@ -152,6 +170,7 @@ func run(args []string) error {
 		Sessions:          sessions,
 		PAMAuth:           pamAuth,
 		EBPF:              collector,
+		DesiredState:      dsConsumer,
 		Audit:             al,
 		UploadsDir:        cfg.UploadsDir,
 		MaxUploadSize:     cfg.MaxUploadSize,

@@ -4011,3 +4011,31 @@ acked/nacked. Verified: `tests/test_reconciler.py` (enqueue→process→delivery
 re-delivery, pull→304→ack, bad-token 401, nack records error). Full suite 466 passing, ruff clean,
 migration down/up verified. The Go agent consumer (pull loop + apply/rollback + `GET /state` drift)
 is the next, separately-authorized block since it touches real hosts.
+
+### Block L4-agent — Go agent desired-state consumer (code, NOT yet deployed, 2026-07-08)
+
+The agent-side half of L4 (controller half was `e0b5e30`): the node agent now has a desired-state
+consumer that PULLs its compiled config from Bossman, stores it locally with rollback, and ACKs it.
+Built **non-destructive**: it fetches/stores/acks but does NOT yet re-apply which checks run (that
+behavioral step, plus orchestration-step execution, is a separate block), and payload-signature
+verification is a documented TODO (Bossman doesn't sign payloads yet) — only the generation +
+transport are validated.
+
+`internal/desiredstate/consumer.go`: a `Consumer` that GETs `/api/agent/v1/desired-state` (sending
+`?current_hash=` so Bossman answers 304 on no-change, authenticating with the agent's own bearer
+token — the reverse of today's Bossman→agent calls), guards against a backwards generation, keeps
+the previous generation for `Rollback()`, persists atomically to a JSON file (survives restart), and
+POSTs an ack (nack on persist failure). A cancellable `Loop` mirrors `internal/fleet/manager.go`.
+Config: a new `bossman:` block (`internal/config/config.go` — `enabled`/`url`/`poll_interval`,
+disabled by default; enabled requires a url). Wired in `cmd/agentic-mcpd/main.go` (starts the loop
+when enabled). Read-only `GET /api/v1/state` (`internal/server/rest.go`) reports the applied
+generation/hash — the drift/status view.
+
+Tests: `internal/desiredstate/consumer_test.go` (pull→store→ack, 304 no-op, newer-generation rolls
+previous + rollback, persistence-survives-restart, bad-token 401) and `internal/server/state_test.go`
+(disabled vs. reporting). Full Go suite + build green.
+
+**Not done (deliberately, needs its own authorization):** deploying this agent build to the real
+hosts (`duppy-docker-test`, `selecta-ansible-runner`) via SSH, and the behavioral apply (make the
+pulled monitoring config actually change which checks run, restartable check loops). Those touch
+real machines.

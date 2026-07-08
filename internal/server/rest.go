@@ -11,6 +11,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/collect"
+	"github.com/mutkluge/agentic-mcp/internal/desiredstate"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/inventory"
@@ -59,6 +60,11 @@ type RESTConfig struct {
 	// docs/plan.md's graceful-degradation requirement); when set, the
 	// net/connections, net/top-talkers, and exec-events routes are mounted.
 	EBPF *ebpf.Collector
+
+	// DesiredState is the L4 desired-state consumer (nil when Bossman
+	// integration is disabled). When set, GET /api/v1/state reports the
+	// applied generation + hash (a read-only drift/status view).
+	DesiredState *desiredstate.Consumer
 
 	// Audit is optional (nil disables audit logging).
 	Audit *audit.Logger
@@ -243,6 +249,17 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	mux.HandleFunc("GET /api/v1/hosts/overview", func(w http.ResponseWriter, r *http.Request) {
 		handleHostsOverview(w, r, cfg)
+	})
+
+	// Block L4: read-only desired-state status (drift view) — which compiled
+	// generation this agent has applied. Reports "disabled" when the agent
+	// isn't wired to a Bossman controller.
+	mux.HandleFunc("GET /api/v1/state", func(w http.ResponseWriter, r *http.Request) {
+		if cfg.DesiredState == nil {
+			writeJSON(w, http.StatusOK, map[string]any{"desired_state_consumer": "disabled"})
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg.DesiredState.Status())
 	})
 
 	mux.HandleFunc("GET /api/v1/acl/tools/{name}", func(w http.ResponseWriter, r *http.Request) {
