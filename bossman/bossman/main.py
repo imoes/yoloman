@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chunks, dashboard, enroll, enroll_info, graphs, health, modules, monitoring, notifications, plans, processes, relationships, runs, severity_labels, templates, translate, value_maps
+from bossman.api import admin, agents, auth, chunks, dashboard, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, templates, translate, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -165,6 +165,9 @@ def create_app() -> FastAPI:
     app.include_router(severity_labels.router, tags=["severity-labels"])
     app.include_router(graphs.router, tags=["graphs"])
     app.include_router(templates.router, tags=["templates"])
+    app.include_router(ou.router, tags=["ou"])
+    app.include_router(host_groups.router, tags=["host-groups"])
+    app.include_router(orchestration.router, tags=["orchestration"])
     # Always mounted (unlike POST /api/v1/enroll below) — the Settings
     # page needs a real "not configured yet" answer, not a 404.
     app.include_router(enroll_info.router, tags=["enroll"])

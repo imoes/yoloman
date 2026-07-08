@@ -25,6 +25,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -38,6 +39,12 @@ from sqlalchemy.sql import func
 # means updating both together and re-embedding everything, since vectors
 # from different models aren't comparable.
 CHUNK_EMBEDDING_DIM = 1024
+
+# The fixed, well-known UUID for the seeded default tenant (Block L1) —
+# must match the literal in the b3f1a2c9d740 migration exactly, since both
+# the DB-level server_default below and the migration's INSERT/UPDATE
+# reference the same row.
+DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
 # Every timestamp column in this schema is timezone-aware (Postgres
 # TIMESTAMPTZ) — a fleet spans hosts in different timezones, and comparing/
@@ -108,6 +115,17 @@ class Agent(Base):
     # satellite from an invisible label buried in the proxy's metrics into
     # its own first-class host in the fleet view/topology.
     parent_agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
+
+    # Policy/Orchestration layer (Block L1): additive only. tenant_id scopes
+    # the host to a tenant (backfilled to the seeded default tenant by the
+    # L1 migration); ou_id places it at exactly one node in the OU tree
+    # (AD-style — multi-membership is via HostGroup, not multiple OUs). Both
+    # nullable and ignored by every existing query — only the new compiler
+    # (services/compiler.py) and the OU/orchestration REST routers read them.
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="SET NULL"), server_default=text(f"'{DEFAULT_TENANT_ID}'::uuid")
+    )
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
 
     __table_args__ = (
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
@@ -499,6 +517,212 @@ class ValueMap(Base):
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     mappings: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+# --------------------------------------------------------------------------
+# Policy & Orchestration layer (Block L1) — the OU tree, first-class host
+# groups, versioned orchestration plans, and the per-host compiled desired
+# state. All additive; see the approved L-series plan and the
+# b3f1a2c9d740 migration. Every service that walks these tables uses
+# explicit select() queries (not lazy relationship traversal) to avoid the
+# MissingGreenlet class of bug found in Block K11.
+# --------------------------------------------------------------------------
+
+
+class Tenant(Base):
+    """A tenant — multi-tenancy from day one (Block L1). Every OU node,
+    host group, orchestration plan and compiled state is scoped to one.
+    The L1 migration seeds a fixed 'default' tenant and backfills every
+    existing agent onto it."""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class OUNode(Base):
+    """One node in the OU tree (Block L1) — AD-style: a host lives at
+    exactly one OU (agents.ou_id), and inheritance flows down the tree. A
+    rule/plan linked to this OU applies to every host in its subtree.
+    `path` is the materialized slash-path (e.g. /Germany/Munich/Prod),
+    unique per tenant, matching the slash convention agents.groups already
+    uses. parent_id NULL means a tenant root."""
+
+    __tablename__ = "ou_nodes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    path: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (UniqueConstraint("tenant_id", "path", name="uq_ou_nodes_tenant_path"),)
+
+
+class HostGroup(Base):
+    """A first-class host group (Block L1) — the AD "group" object: it
+    lives inside an OU (ou_id) but has many-to-many host membership via
+    HostGroupMember, which is how a host gets assignments beyond its single
+    OU placement. Distinct from the legacy flat agents.groups string list,
+    which stays untouched in L1."""
+
+    __tablename__ = "host_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_host_groups_tenant_name"),)
+
+
+class HostGroupMember(Base):
+    """A host's membership in a HostGroup (Block L1) — the many-to-many
+    join implementing the AD model's cross-cutting group membership."""
+
+    __tablename__ = "host_group_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    host_group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (UniqueConstraint("host_group_id", "agent_id", name="uq_host_group_members_group_agent"),)
+
+
+class OrchestrationPlan(Base):
+    """A named, reusable orchestration plan (Block L1) — a role like
+    docker_host, a cluster like postgres_cluster, a deployment, etc. The
+    plan itself is a stable named handle; its actual content lives in
+    versioned OrchestrationPlanVersion rows (current_version points at the
+    live one). Linked to scopes via OrchestrationPlanLink."""
+
+    __tablename__ = "orchestration_plans"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    plan_type: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    current_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_by: Mapped[str | None] = mapped_column(String)
+    updated_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_orchestration_plans_tenant_name"),
+        CheckConstraint(
+            "plan_type IN ('role', 'cluster', 'deployment', 'remediation', 'maintenance', 'bootstrap')",
+            name="ck_orchestration_plans_plan_type",
+        ),
+    )
+
+
+class OrchestrationPlanVersion(Base):
+    """One immutable version of an OrchestrationPlan (Block L1). Holds the
+    parameter schema/defaults, requirements, steps (idempotent
+    package/file/service/command actions run by the existing plan engine +
+    Go modules), rollback/validation steps, and — crucially — the monitoring
+    and notifications this role generates automatically (proposal §12: "was
+    orchestriert wird, wird überwacht"). The compiler reads generated_*."""
+
+    __tablename__ = "orchestration_plan_versions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("orchestration_plans.id", ondelete="CASCADE"), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    parameter_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    default_parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    requirements: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    rollback_steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    validation_steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    generated_monitoring: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    generated_notifications: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "plan_id", "version", name="uq_orchestration_plan_versions_plan_version"),
+    )
+
+
+class OrchestrationPlanLink(Base):
+    """A plan linked to a scope (Block L1, proposal §9) — target_type says
+    which of ou_id/agent_id/host_group_id is set (or global/label_selector).
+    plan_version NULL = follow the plan's current_version. The compiler
+    collects every link that reaches a host (global + each OU on its
+    ancestry path + each group it's in + host-direct), applies priority/
+    link_order, and merges parameters over the version's defaults."""
+
+    __tablename__ = "orchestration_plan_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("orchestration_plans.id", ondelete="CASCADE"), nullable=False)
+    plan_version: Mapped[int | None] = mapped_column(Integer)
+    target_type: Mapped[str] = mapped_column(String, nullable=False)
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    auto_apply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    require_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "target_type IN ('ou', 'host', 'group', 'label_selector', 'global')",
+            name="ck_orchestration_plan_links_target_type",
+        ),
+    )
+
+
+class CompiledHostState(Base):
+    """The per-host compiled desired state (Block L1) — the compiler's
+    output: the full desired-state document (monitoring{} + orchestration{})
+    with a monotonic `generation` and a sha256 `config_hash` of its
+    canonical JSON. A new generation is written only when the hash changes;
+    at most one row per host has is_current=true (partial unique index).
+    L1 stores it for inspection; the push controller (L3) consumes it."""
+
+    __tablename__ = "compiled_host_state"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    config_hash: Mapped[str] = mapped_column(String, nullable=False)
+    state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    explain: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    compiled_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "agent_id", "generation", name="uq_compiled_host_state_agent_generation"),
+    )
 
 
 class CheckRule(Base):
