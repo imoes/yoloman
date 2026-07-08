@@ -18,7 +18,7 @@ comparable user-facing features.
 - [x] Batch 2 — Ch.7a Configuration: Hosts/groups, Items — 18 gaps found; K1-fix+K1b+K2b+K2c+K4+K5 implemented, K3 planned (deferred)
 - [x] Batch 3 — Ch.7b Configuration: Triggers, Events, Event correlation, Tagging — 6 gaps found; K6+K7+K8+K9+K10 implemented, event correlation deferred
 - [x] Batch 4 — Ch.7c Configuration: Visualization, Templates — 3 gaps found, decisions below
-- [ ] Batch 5 — Ch.7d Configuration: Notifications, Macros
+- [x] Batch 5 — Ch.7d Configuration: Notifications, Macros — 13 gaps found; recommendations below (incl. a real dispatch bug K13-fix); no code yet, awaiting decisions
 - [ ] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export
 - [ ] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring
 - [ ] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import
@@ -276,3 +276,58 @@ Read: [config/visualization/graphs/custom](https://www.zabbix.com/documentation/
 - **Manual network maps → accepted, not yet implemented.** Queued as the next piece of this batch's work
   (drag-and-drop layout + link-indicator rules + map-of-maps navigation, building on the existing
   auto-layout topology graph, baseline #27).
+
+## Batch 5 — Ch.7d Configuration: Notifications, Macros
+
+Read: [config/notifications/media](https://www.zabbix.com/documentation/7.0/en/manual/config/notifications/media),
+[config/notifications/action/operation](https://www.zabbix.com/documentation/7.0/en/manual/config/notifications/action/operation),
+[config/macros/user_macros](https://www.zabbix.com/documentation/7.0/en/manual/config/macros/user_macros).
+
+Bossman side verified against the code (file:line), not memory: model `NotificationRule`
+(`bossman/bossman/db/models.py:1030-1063`), CRUD `api/notifications.py`, send path
+`services/notification.py`. Today's model is a single fire-once rule with an `email`|`webhook`
+channel to one `target`, gated by event type / severity floor / host+service substring / tag subset,
+with hard-coded ack/downtime/flapping/dependency suppression at dispatch and a hard-coded message
+body. No macro system exists anywhere in the repo.
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition (recommendation) |
+|---|---|---|---|
+| Media type: **custom alert script** | Run an arbitrary executable with the message as args/stdin — the universal escape hatch (Slack/Telegram/PagerDuty/Opsgenie all shipped as scripts) | ❌ only `email`+`webhook` channels exist (`notification.py:158-161`) | **implement** — one `script` channel (write-gated exec of a configured command) covers every third-party target for free |
+| Media type: **SMS** | Serial-modem / gateway SMS | ❌ missing | **reject for now** — no SMS gateway in this environment; a webhook to an SMS-API covers the rare case |
+| Media type retry/concurrency options | Retry attempts (1–100, default 3), retry interval (0–3600s), concurrent-session cap | ❌ a failed send is logged `status="failed"` and never retried (`notification.py:162-163`) | **implement** — small, high-value: a transient webhook/SMTP failure should retry with backoff before giving up |
+| **Message templates** — editable subject+body per media type / per event type | 255-char subject + body with macros, defaults per event type (problem/recovery/…) | ❌ body is a fixed f-string (`render`, `notification.py:81-92`); no configurable message field in the model or API | **implement** — a per-rule (or per-channel) subject/body template; pairs with built-in macros below |
+| **User macros** `{$MACRO}` with host>template>global override hierarchy, contexts `{$MACRO:context}` incl. regex | Config-time substitution in item keys, trigger expressions, notification text, many fields | ❌ no macro system at all (grep across Python+Go empty; `internal/modules/template.go:20-21` is a reduced Jinja subset that explicitly excludes macros) | **defer** — big, and only pays off once there's a template/host var layer to hang it on; the monitoring `Template` layer (K12) is the natural host |
+| **Built-in macros** `{HOST.NAME}`/`{ITEM.VALUE}`/`{TRIGGER.STATUS}`/`{EVENT.*}` in messages | Auto-resolved at send time from the event context | ❌ not implemented (the body only interpolates hard-coded host/service/state fields) | **implement** — the minimum useful set (`{HOST.NAME}`, `{SERVICE.NAME}`, `{ITEM.VALUE}`, `{EVENT.SEVERITY}`, `{EVENT.TIME}`) so the message-template feature above is actually worth having |
+| **Secret / vault macros** | Masked value; HashiCorp/CyberArk vault reference | ❌ missing | **defer** — bundle with real secrets storage (baseline #10, still plain env vars) |
+| Macro **contexts + macro functions** | `{$MACRO:context}`, regex contexts, value-transform functions | ❌ missing | **reject for now** — niche; revisit only if user macros land and demand it |
+| **Actions: escalations / multi-step** | Step ranges (from/to), per-step duration, escalate to a *different* user group at later steps | ❌ fire-once; no step model (`dispatch` sends exactly one attempt per rule per event) | **defer** — real value but a sizeable state-machine + scheduler; scope carefully later |
+| **Repeat / renotify until ack or resolve** | Re-send every N minutes while the problem stays unacked | ❌ missing (one-shot) | **implement (scoped v1)** — a per-rule "renotify every N min until acknowledged/recovered" is the 80% of escalation value without the multi-step machinery |
+| **Recovery + update(ack) operations** | Distinct notification when a problem recovers / is updated / acknowledged | 🟡 `on_recovery` exists (`models.py:1041`); no notify-on-ack / notify-on-update | **defer** — low marginal value until escalation exists |
+| Action condition: **time period / active window** | "only send 00:00–06:00" per action, user-timezone aware | ❌ no time-window column or check anywhere | **implement** — common real need ("only page at night"); a per-rule active-window string like the downtime windows already parsed |
+| Action condition: **host group** (not just substring) | Condition on structured host-group membership incl. nested groups | 🟡 only `host_filter`/`service_filter` substrings + `tag_filter` (`notification.py:60-78`); no group-membership condition | **implement (small)** — reuse the nested-group match already built for `CheckRule` (K2b) |
+| Operation: **remote command** in response to a problem | Run a command/script on the host when a trigger fires | ❌ not in the notify path | **reject here** — this is auto-remediation; belongs to the L-series orchestration/remediation layer, not notifications |
+
+### Bug found while analyzing (not a Zabbix gap — a real defect)
+
+**K13-fix — OU scope + GPO precedence is stored & API-configurable on notification rules but IGNORED at
+dispatch.** `NotificationRule` carries `ou_id`/`enforced`/`link_order` (`models.py:1056-1058`) and the
+API accepts + PATCH-toggles them (`api/notifications.py:42-44,125-139`), but the send path never reads
+them: `dispatch` selects only `enabled` rules (`notification.py:150`) and `rule_matches`
+(`notification.py:60-78`) filters on event/severity/host/service/tag only — never `ou_id`. So a rule
+scoped to one OU fires for **every** host, and `enforced`/`link_order` do nothing. This mirrors the
+monitoring side's GPO resolution (services/gpo.py, used by check_rules) but was never wired into
+notifications. **Recommend fixing** by resolving the effective notification rules per host through the
+same `gpo.resolve_winner`/OU-ancestry path `resolve_effective_rule` uses, so a notification rule
+scoped to an OU only fires for hosts under that OU. This is a logic change to the dispatch path — to
+be confirmed before implementing.
+
+**Decisions (awaiting user).** Nothing implemented in this batch yet — this is the analysis pass. My
+recommendation, in priority order: **(1) K13-fix** the OU/GPO dispatch bug (it silently breaks a
+feature that already looks configured); **(2)** message templates + the minimal built-in-macro set +
+a `script` media channel (these three compound — a scriptable channel with a templated, macro-filled
+body is what makes notifications genuinely useful); **(3)** renotify-until-ack + per-rule time window
+(the high-value slices of escalation); **defer** full multi-step escalation, user macros, per-user
+media, secret/vault macros; **reject for now** SMS, macro contexts/functions, and remote-command
+operations (the last belongs to the remediation layer). Per the project rule, the logic-changing items
+(K13-fix and anything touching the dispatch/resolution path) are confirmed with the user before any
+code.
