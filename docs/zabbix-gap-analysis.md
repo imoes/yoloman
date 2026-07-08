@@ -21,7 +21,7 @@ comparable user-facing features.
 - [x] Batch 5 — Ch.7d Configuration: Notifications, Macros — 13 gaps found; recommendations below (incl. a real dispatch bug K13-fix); no code yet, awaiting decisions
 - [x] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export — 12 gaps found; two real security defects flagged (K14-fix RBAC not enforced, K15-fix plaintext agent tokens); no code yet, awaiting decisions
 - [x] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring — 9 gaps found; one correctness fix flagged (K16-fix downtime not excluded from availability); no code yet, awaiting decisions
-- [ ] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import
+- [x] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import — 8 gaps found; no code yet, awaiting decisions
 - [ ] Batch 9 — Ch.15 Discovery
 - [ ] Batch 10 — Ch.16 Distributed Monitoring (Proxies) + Ch.17 Encryption
 - [ ] Batch 11 — Ch.18a Web Interface: Dashboards + widgets
@@ -430,3 +430,37 @@ of the existing OK% (small, and makes the "SLA bar" honest); **defer** the full 
 tree (composition + status-calc rules + problem-tag mapping + LLD); **reject for now** VMware/vCenter
 discovery (external tooling already covers inventory). The logic-changing items (K16-fix, and anything
 touching the availability calc) are confirmed with the user before any code.
+
+## Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Acknowledgement + Ch.14 Config Export/Import
+
+Read: [maintenance](https://www.zabbix.com/documentation/7.0/en/manual/maintenance),
+[regular_expressions](https://www.zabbix.com/documentation/7.0/en/manual/regular_expressions),
+[acknowledgment](https://www.zabbix.com/documentation/7.0/en/manual/acknowledgment_of_events),
+[config export/import](https://www.zabbix.com/documentation/7.0/en/manual/xml_export_import).
+
+Bossman side verified file:line. Summary: `Downtime` (`db/models.py:1095-1105`) is a **one-time**
+window (`starts_at`/`ends_at`, optional `service_name`, comment, created_by) — no recurrence, no
+data-collection mode, no tag filter. Acknowledgement is real (`acknowledge_service`/
+`unacknowledge_service` + auto-expiry `expire_acknowledgements`, `services/monitoring.py:810-834`,
+Block H5) but single-service and comment-only. No global regexp catalog and no config export/import
+feature exist (grep confirms: all `regexp`/`import` hits are inline `re.compile` or Python `import`
+statements).
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition (recommendation) |
+|---|---|---|---|
+| **Maintenance: periodic/recurring windows** | one-time · daily · weekly · monthly schedules, active-since/till | 🟡 `Downtime` is one-time only (`models.py:1099-1100`) | **implement (small)** — add recurrence (daily/weekly) to Downtime; a recurring "every Sunday 02:00–04:00 patch window" is a common real need |
+| **Maintenance: "no data collection" mode** | maintenance can either keep collecting (suppress only) or **stop polling** during the window | ❌ downtime suppresses problems/notifications only; collection continues (`monitoring.py:552-616`) | **defer** — "stop collection" ties to the L4 push layer (tell the agent to pause checks); revisit with the behavioral-apply work |
+| **Maintenance: tag-based problem selection** | only problems matching maintenance tags are suppressed | ❌ downtime covers whole-host or one named service (`models.py:1098`), no tag filter | **defer** — pairs with the trigger-tag system (Block K10 exists but downtime isn't tag-aware) |
+| **Maintenance excluded from SLA** | maintenance windows don't count against availability | ❌ see **K16-fix** (Batch 7) — downtime not subtracted from the availability denominator | (tracked as K16-fix; fixing it makes maintenance SLA-correct) |
+| **Global/named regular expressions** | central regexp catalog referenced as `@name` in item keys / LLD / triggers | ❌ no named-regexp feature (all regex is inline: `internal/tasks/task.go:50`, `internal/pipeline/policy.go:43`) | **reject for now** — low value for this fleet (rules are metric-name + comparison based, not regexp-driven); revisit only if LLD/log-pattern rules grow |
+| **Acknowledgement** (ack + comment + auto-expiry) | ack a problem with a note | ✅ implemented (`acknowledge_service`, `monitoring.py:825-834`; timed auto-expiry `:810`; Block H5) | — (already covered) |
+| **Problem update: bulk-ack, manual-close, severity-change, message thread** | ack many at once · manually close a problem · change severity on ack · a running update history | ❌ single-service ack, comment-only, no bulk/close/severity/thread (`api/monitoring.py:253-269`) | **implement (small): bulk-ack** (ack N selected problems in one call — real ergonomic win); **defer** manual-close, severity-change, and the update-message thread |
+| **Configuration export / import** (hosts/templates/rules/media/maps → XML/YAML/JSON; import with create/update/delete rules) | config-as-code: backup, share templates, migrate between instances | ❌ none for check_rules/notification_rules/templates/downtimes (baseline #16) | **implement (scoped)** — YAML/JSON export+import of the rule/template config; high value (config-as-code + safe dev→prod migration, directly addresses the two-database split-brain risk noted in the L-series doc), and pairs naturally with the Template layer (K12) |
+
+**Decisions (awaiting user).** Analysis pass only — no code. Priority recommendation: **(1)** scoped
+**config export/import** (YAML/JSON for check_rules/notification_rules/templates/downtimes — config-as-
+code + safe dev→prod migration is the highest-leverage item here); **(2) bulk-ack** and **recurring
+maintenance windows** (both small, both real ergonomics); **(3)** fold in **K16-fix** so maintenance
+is SLA-correct. **Defer** "no-data-collection" maintenance mode (needs L4 push), tag-based maintenance
+selection, manual-close/severity-change/ack-thread. **Reject for now** the global regexp catalog. Any
+change to the downtime/availability/ack semantics is confirmed with the user before code.
