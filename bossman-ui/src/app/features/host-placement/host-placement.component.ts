@@ -1,9 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { FormsModule } from '@angular/forms';
 import { Agent } from '../../core/models/agent.model';
 import { OUNode } from '../../core/models/ou.model';
 import { CompiledHostState } from '../../core/models/orchestration.model';
@@ -29,7 +26,7 @@ interface Row {
 @Component({
   selector: 'app-host-placement',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatSelectModule],
+  imports: [MatIconModule, MatButtonModule],
   template: `
     <div class="bm-page">
       <h1>Host placement</h1>
@@ -56,14 +53,7 @@ interface Row {
                    draggable="true" (dragstart)="onHostDragStart(row.host!, $event)" (dragend)="onHostDragEnd()">
                 <mat-icon class="bm-host-icon">dns</mat-icon>
                 <span class="bm-label">{{ row.host!.name }}</span>
-                <mat-form-field appearance="outline" class="bm-move" (click)="$event.stopPropagation()">
-                  <mat-select [ngModel]="row.host!.ou_id ?? null" (ngModelChange)="moveHost(row.host!, $event)">
-                    <mat-option [value]="null">(unassigned)</mat-option>
-                    @for (n of ous(); track n.id) {
-                      <mat-option [value]="n.id">{{ n.path }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                <span class="bm-drag-hint">drag onto an OU →</span>
               </div>
             }
           }
@@ -125,8 +115,8 @@ interface Row {
       .bm-ou-icon { opacity: 0.8; }
       .bm-host-icon { opacity: 0.65; }
       .bm-label { font-size: 13.5px; flex: 0 0 auto; }
-      .bm-move { margin-left: auto; width: 220px; }
-      .bm-move ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+      .bm-drag-hint { margin-left: auto; font-size: 11px; opacity: 0; transition: opacity 0.15s; }
+      .bm-host:hover .bm-drag-hint { opacity: 0.5; }
       .bm-empty { opacity: 0.7; padding: 4px 0; }
       .bm-kv { border-collapse: collapse; margin: 8px 0; }
       .bm-kv th { text-align: left; opacity: 0.7; padding: 4px 16px 4px 0; font-weight: 500; }

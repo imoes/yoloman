@@ -74,22 +74,15 @@ async def metric_catalog(
 ) -> list[MetricCatalogEntry]:
     """Every distinct metric actually collected across the fleet (from the
     `metrics` hypertable) with a human-readable display name — powers the
-    threshold dialog's live metric search (Block L3c). Display names come
-    from the built-in map, then any existing check-rule's service_name for
-    that metric, then a titleized fallback — so the list is always
-    meaningful, and the set itself is loaded from the DB."""
+    threshold dialog's live metric search (Block L3c). The display name
+    describes the METRIC (built-in map, then a titleized fallback), never a
+    check-rule's service_name — a rule name like "... check" is about a rule,
+    not the metric, and leaked the word "check" into the metric list."""
     metrics = sorted((await session.scalars(select(Metric.metric).distinct())).all())
-    # A metric's own rules can supply a better human name if it isn't built-in.
-    rule_names: dict[str, str] = {}
-    for m, svc in (await session.execute(select(CheckRule.metric, CheckRule.service_name))).all():
-        rule_names.setdefault(m, svc)
-
     out: list[MetricCatalogEntry] = []
     for m in metrics:
         if m in _METRIC_DISPLAY:
             display, unit = _METRIC_DISPLAY[m]
-        elif m in rule_names:
-            display, unit = rule_names[m], ""
         else:
             display, unit = m.replace("_", " ").replace("pct", "%").strip().capitalize(), ""
         out.append(MetricCatalogEntry(metric=m, display_name=display, unit=unit))
