@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Notification, NotificationRule
+from bossman.db.models import Notification, NotificationRule, OUNode
 from bossman.db.session import get_session
 
 router = APIRouter()
@@ -37,6 +37,11 @@ class NotificationRuleIn(BaseModel):
     # key:value pair here must be present (empty-string value = name-only,
     # matches any value for that key). None = no tag condition.
     tag_filter: dict[str, str] | None = None
+    # Block L3a: OU binding + GPO precedence. ou_id NULL = global (today's
+    # behavior); a value scopes the rule to that OU's subtree.
+    ou_id: UUID | None = None
+    enforced: bool = False
+    link_order: int = 100
 
 
 class NotificationRuleOut(NotificationRuleIn):
@@ -58,16 +63,21 @@ class NotificationRuleOut(NotificationRuleIn):
             target=r.target,
             created_at=r.created_at,
             tag_filter=r.tag_filter,
+            ou_id=r.ou_id,
+            enforced=r.enforced,
+            link_order=r.link_order,
         )
 
 
-def _validate(body: NotificationRuleIn) -> None:
+async def _validate(body: NotificationRuleIn, session: AsyncSession) -> None:
     if body.channel not in _CHANNELS:
         raise HTTPException(status_code=422, detail=f"channel must be one of {'|'.join(_CHANNELS)}")
     if body.min_state not in _STATES:
         raise HTTPException(status_code=422, detail=f"min_state must be one of {'|'.join(_STATES)}")
     if not body.target.strip():
         raise HTTPException(status_code=422, detail="target is required")
+    if body.ou_id is not None and await session.get(OUNode, body.ou_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
 
 
 @router.get("/api/v1/notification-rules", response_model=list[NotificationRuleOut])
@@ -82,7 +92,7 @@ async def list_notification_rules(
 async def create_notification_rule(
     body: NotificationRuleIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> NotificationRuleOut:
-    _validate(body)
+    await _validate(body, session)
     rule = NotificationRule(**body.model_dump())
     session.add(rule)
     await session.commit()
@@ -96,7 +106,7 @@ async def update_notification_rule(
     rule = await session.get(NotificationRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
-    _validate(body)
+    await _validate(body, session)
     for field, value in body.model_dump().items():
         setattr(rule, field, value)
     await session.commit()

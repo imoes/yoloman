@@ -145,10 +145,17 @@ async def test_affected_agent_ids_group(db_session):
 
 
 async def test_affected_agent_ids_ou_subtree(db_session):
-    root = OUNode(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"r-{_sfx()}", path=f"/r-{_sfx()}")
+    rpath = f"/r-{_sfx()}"
+    root = OUNode(
+        id=uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"r-{_sfx()}", path=rpath,
+        ltree_path=rpath.strip("/").replace("/", "."),
+    )
     db_session.add(root)
     await db_session.flush()
-    child = OUNode(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, parent_id=root.id, name="child", path=f"{root.path}/child")
+    child = OUNode(
+        id=uuid4(), tenant_id=DEFAULT_TENANT_ID, parent_id=root.id, name="child", path=f"{root.path}/child",
+        ltree_path=f"{root.path.strip('/').replace('/', '.')}.child",
+    )
     db_session.add(child)
     await db_session.flush()
     agent = await _agent(db_session, ou=child)

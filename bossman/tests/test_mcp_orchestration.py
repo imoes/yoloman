@@ -145,7 +145,7 @@ async def test_list_host_groups(db_session, session_factory, tmp_path):
 
 async def test_get_ou_tree(db_session, session_factory, tmp_path):
     sfx = uuid.uuid4().hex[:8]
-    root = OUNode(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"Root-{sfx}", path=f"/Root-{sfx}")
+    root = OUNode(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"Root-{sfx}", path=f"/Root-{sfx}", ltree_path=f"Root_{sfx}")
     db_session.add(root)
     await db_session.commit()
     mcp = _mcp(session_factory, tmp_path)

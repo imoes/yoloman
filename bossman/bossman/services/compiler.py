@@ -30,7 +30,7 @@ import json
 from dataclasses import dataclass, field
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import (
@@ -44,6 +44,7 @@ from bossman.db.models import (
     OUNode,
     SystemSettings,
 )
+from bossman.services import gpo
 
 
 @dataclass
@@ -72,20 +73,28 @@ class CompiledState:
 
 async def resolve_ou_ancestry(session: AsyncSession, ou_id: UUID | None) -> list[OUNode]:
     """The OU nodes from the tenant root down to (and including) `ou_id`,
-    root first — the inheritance path. Cycle-safe (a corrupt parent chain
-    can't loop forever). Returns [] for ou_id=None (host not placed)."""
-    chain: list[OUNode] = []
-    seen: set[UUID] = set()
-    current = ou_id
-    while current is not None and current not in seen:
-        seen.add(current)
-        node = await session.scalar(select(OUNode).where(OUNode.id == current))
-        if node is None:
-            break
-        chain.append(node)
-        current = node.parent_id
-    chain.reverse()  # root first
-    return chain
+    root first — the inheritance path. Block L3a: one ltree ancestor query
+    (`ancestor.ltree_path @> target.ltree_path`) instead of walking parent_id,
+    ordered by depth (number of path labels). Returns [] for ou_id=None
+    (host not placed)."""
+    if ou_id is None:
+        return []
+    target = await session.scalar(select(OUNode).where(OUNode.id == ou_id, OUNode.deleted_at.is_(None)))
+    if target is None:
+        return []
+    rows = (
+        await session.scalars(
+            select(OUNode)
+            .where(
+                OUNode.tenant_id == target.tenant_id,
+                OUNode.deleted_at.is_(None),
+                text("ou_nodes.ltree_path @> :p ::ltree"),
+            )
+            .params(p=str(target.ltree_path))
+        )
+    ).all()
+    # root first: fewer labels = shallower. nlevel == number of dots + 1.
+    return sorted(rows, key=lambda n: str(n.ltree_path).count("."))
 
 
 async def resolve_host_group_ids(session: AsyncSession, agent_id: UUID) -> set[UUID]:
@@ -147,8 +156,15 @@ async def affected_agent_ids(
         node = await session.get(OUNode, ou_id) if ou_id else None
         if node is None:
             return []
+        # ltree descendant match (`descendant <@ ancestor`) — correct subtree
+        # semantics, unlike a path prefix LIKE which would also match a
+        # sibling like /Germany2 under /Germany.
         subtree = (
-            await session.scalars(select(OUNode.id).where(OUNode.tenant_id == node.tenant_id, OUNode.path.like(f"{node.path}%")))
+            await session.scalars(
+                select(OUNode.id).where(
+                    OUNode.tenant_id == node.tenant_id, text("ou_nodes.ltree_path <@ :p ::ltree")
+                ).params(p=str(node.ltree_path))
+            )
         ).all()
         rows = (await session.scalars(select(Agent.id).where(Agent.ou_id.in_(subtree)))).all()
         return list(rows)
@@ -172,9 +188,14 @@ async def resolve_orchestration_assignments(
         return []
 
     ancestry = await resolve_ou_ancestry(session, agent.ou_id)
-    ancestry_ids = {n.id for n in ancestry}
+    ancestry_depth = {n.id: i for i, n in enumerate(ancestry)}
     ou_paths = {n.id: n.path for n in ancestry}
     group_ids = await resolve_host_group_ids(session, agent.id)
+    # Deepest OU on the path that blocks inheritance (GPO Block Inheritance).
+    blocked_level: int | None = None
+    for n in ancestry:
+        if n.block_inheritance:
+            blocked_level = gpo.LEVEL_OU_BASE + ancestry_depth[n.id]
 
     links = (
         await session.scalars(
@@ -193,51 +214,56 @@ async def resolve_orchestration_assignments(
         # pending-approval link's would-be effect is the whole point.
         links = [*links, extra_candidate_link]
 
-    # scope specificity rank (higher = more specific), for tie-breaking.
-    _SPECIFICITY = {"host": 3, "group": 2, "ou": 1, "global": 0, "label_selector": 0}
-
-    @dataclass
-    class _Candidate:
-        link: OrchestrationPlanLink
-        specificity: int
-        source: str
-
-    candidates: list[_Candidate] = []
+    # Group candidate links per plan; the GPO winner per plan is the
+    # effective assignment (Block L3a: enforced/block_inheritance/level via
+    # services/gpo.resolve_winner, shared with monitoring). `source` records
+    # provenance for the explain plan; `priority` rides the subrank tiebreak
+    # (higher priority wins within a level).
+    per_plan: dict[UUID, list[gpo.GpoCandidate]] = {}
+    sources: dict[int, str] = {}
     for link in links:
         if link.target_type == "global":
-            candidates.append(_Candidate(link, _SPECIFICITY["global"], "global"))
-        elif link.target_type == "ou" and link.ou_id in ancestry_ids:
-            candidates.append(_Candidate(link, _SPECIFICITY["ou"], f"ou:{ou_paths.get(link.ou_id, link.ou_id)}"))
+            level, source = gpo.LEVEL_GLOBAL, "global"
+        elif link.target_type == "ou" and link.ou_id in ancestry_depth:
+            level = gpo.LEVEL_OU_BASE + ancestry_depth[link.ou_id]
+            source = f"ou:{ou_paths.get(link.ou_id, link.ou_id)}"
         elif link.target_type == "group" and link.host_group_id in group_ids:
-            candidates.append(_Candidate(link, _SPECIFICITY["group"], f"group:{link.host_group_id}"))
+            level, source = gpo.LEVEL_GROUP, f"group:{link.host_group_id}"
         elif link.target_type == "host" and link.agent_id == agent.id:
-            candidates.append(_Candidate(link, _SPECIFICITY["host"], "host"))
-        # label_selector is defined in the schema but not evaluated in L1.
-
-    # Winner per plan_id: highest priority, then most specific, then lowest
-    # link_order (stable, deterministic — no reliance on row order).
-    best: dict[UUID, _Candidate] = {}
-    for cand in candidates:
-        pid = cand.link.plan_id
-        cur = best.get(pid)
-        if cur is None or _better(cand, cur):
-            best[pid] = cand
+            level, source = gpo.LEVEL_HOST, "host"
+        else:
+            continue  # label_selector / non-matching scope — not evaluated here
+        sources[id(link)] = source
+        per_plan.setdefault(link.plan_id, []).append(
+            gpo.GpoCandidate(
+                obj=link,
+                # None-safe for un-flushed links (e.g. preview's synthetic candidate).
+                enforced=bool(link.enforced),
+                level=level,
+                link_order=link.link_order if link.link_order is not None else 100,
+                created_ts=link.created_at.timestamp() if link.created_at else 0.0,
+                subrank=link.priority if link.priority is not None else 100,
+            )
+        )
 
     assignments: list[ResolvedAssignment] = []
-    for cand in best.values():
+    for plan_id, cands in per_plan.items():
+        winner = gpo.resolve_winner(cands, blocked_level)
+        if winner is None:
+            continue
         plan = await session.scalar(
             select(OrchestrationPlan).where(
-                OrchestrationPlan.id == cand.link.plan_id,
+                OrchestrationPlan.id == plan_id,
                 OrchestrationPlan.enabled.is_(True),
                 OrchestrationPlan.deleted_at.is_(None),
             )
         )
         if plan is None:
             continue
-        version = await _plan_version(session, plan, cand.link.plan_version)
+        version = await _plan_version(session, plan, winner.plan_version)
         if version is None:
             continue
-        merged = {**version.default_parameters, **cand.link.parameters}
+        merged = {**version.default_parameters, **winner.parameters}
         assignments.append(
             ResolvedAssignment(
                 plan_id=plan.id,
@@ -245,7 +271,7 @@ async def resolve_orchestration_assignments(
                 plan_type=plan.plan_type,
                 version=version.version,
                 parameters=merged,
-                source=cand.source,
+                source=sources[id(winner)],
                 generated_monitoring=version.generated_monitoring or {},
                 generated_notifications=version.generated_notifications or {},
             )
@@ -253,17 +279,6 @@ async def resolve_orchestration_assignments(
     # Deterministic ordering of the output (by plan name).
     assignments.sort(key=lambda a: a.plan_name)
     return assignments
-
-
-def _better(a, b) -> bool:
-    """True if candidate `a` should beat `b` for the same plan."""
-    if a.link.priority != b.link.priority:
-        return a.link.priority > b.link.priority
-    if a.specificity != b.specificity:
-        return a.specificity > b.specificity
-    if a.link.link_order != b.link.link_order:
-        return a.link.link_order < b.link.link_order
-    return False
 
 
 def derive_generated_monitoring(assignments: list[ResolvedAssignment]) -> dict:

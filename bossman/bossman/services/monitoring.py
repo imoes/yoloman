@@ -24,6 +24,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory, ValueMap
+from bossman.services import gpo
 
 _COMPARISONS = {
     "gt": lambda value, threshold: value > threshold,
@@ -34,60 +35,93 @@ _COMPARISONS = {
     "ne": lambda value, threshold: value != threshold,
 }
 
-# host > group > global — the exact precedence the user asked for
-# ("Regeln für Gruppen ... die von Host-Regeln übersteuert werden
-# können"), mirroring CheckMK's own rule-set editor.
-_SCOPE_PRECEDENCE = {"host": 0, "group": 1, "global": 2}
-
-
 def resolve_effective_rule(
-    rules: list[CheckRule], host_name: str, host_groups: list[str], metric: str, label_value: str | None = None
+    rules: list[CheckRule],
+    host_name: str,
+    host_groups: list[str],
+    metric: str,
+    label_value: str | None = None,
+    host_ou_ancestry: list | None = None,
 ) -> CheckRule | None:
     """Picks the single rule that governs `metric` (for one label series,
     e.g. a disk mount) on this host, out of every rule that could apply.
-    Only enabled rules for this exact metric are considered; among those,
-    the most specific label wins (a rule pinned to this label_value over a
-    label-agnostic one — Block H6), then the most specific scope (host >
-    group > global), then most-recently-created. A rule pinned to a
+
+    Only enabled rules for this exact metric are considered. The most
+    specific label wins first (a rule pinned to this label_value over a
+    label-agnostic one — Block H6); within the chosen label pool the winner
+    is decided by full GPO precedence (Block L3a, services/gpo.py): normally
+    the closest level wins (host > OU(deep→shallow) > group > global), but an
+    `enforced` rule at a higher level can't be overridden and pierces block
+    inheritance, and an OU on the host's path with `block_inheritance` drops
+    inherited non-enforced rules from above it.
+
+    `host_ou_ancestry` is the OU chain root→host-OU (each item exposing
+    `.id` and `.block_inheritance`); pass None/[] for a host with no OU
+    placement, in which case only global/group/host rules apply and the
+    result is identical to the pre-L3a behavior. A rule pinned to a
     *different* label_value is excluded. Returns None if nothing matches."""
+    ancestry = host_ou_ancestry or []
+    ancestry_depth = {ou.id: i for i, ou in enumerate(ancestry)}
+    # Deepest OU level on the path that blocks inheritance (None if none).
+    blocked_level: int | None = None
+    for ou in ancestry:
+        if getattr(ou, "block_inheritance", False):
+            blocked_level = gpo.LEVEL_OU_BASE + ancestry_depth[ou.id]
 
     def _scope_matches(rule: CheckRule) -> bool:
         if rule.scope_type == "global":
             return True
         if rule.scope_type == "group":
             # Zabbix gap-analysis Block K2b ("nested host groups"): a rule
-            # scoped to "Europe" also governs a host tagged "Europe/Latvia"
-            # — the child inherits the parent group's rule, exactly like
-            # Zabbix's slash-notation subgroup permission inheritance.
-            # Groups are still a flat list on Agent (no separate group
-            # object/hierarchy of their own); this is purely a naming
-            # convention interpreted at match time.
+            # scoped to "Europe" also governs a host tagged "Europe/Latvia".
             prefix = rule.scope_value + "/"
             return any(g == rule.scope_value or g.startswith(prefix) for g in host_groups)
         if rule.scope_type == "host":
             return rule.scope_value == host_name
+        if rule.scope_type == "ou":
+            return rule.scope_ou_id in ancestry_depth
         return False
 
     def _label_matches(rule: CheckRule) -> bool:
-        # A label-agnostic rule (label_value NULL) applies to every series;
-        # a pinned rule only to its own label_value.
         return rule.label_value is None or rule.label_value == label_value
 
     matching = [r for r in rules if r.enabled and r.metric == metric and _scope_matches(r) and _label_matches(r)]
     if not matching:
         return None
 
-    # Stable sorts, least-significant first: newest → group nesting depth →
-    # scope → label. The last sort dominates, so overall: label-specific
-    # beats label-agnostic, then host beats group beats global, then (for
-    # two group rules) the deeper/more specific subgroup wins — a rule
-    # scoped to "Europe/Latvia" outranks one scoped to "Europe" for a host
-    # tagged "Europe/Latvia" (Block K2b) — then newest breaks remaining ties.
-    matching.sort(key=lambda r: r.created_at, reverse=True)
-    matching.sort(key=lambda r: r.scope_value.count("/") if r.scope_type == "group" else 0, reverse=True)
-    matching.sort(key=lambda r: _SCOPE_PRECEDENCE[r.scope_type])
-    matching.sort(key=lambda r: 0 if r.label_value == label_value else 1)
-    return matching[0]
+    # Label specificity dominates (Block H6): if any rule is pinned to this
+    # exact label, only those compete; otherwise the label-agnostic rules do.
+    if label_value is not None:
+        specific = [r for r in matching if r.label_value == label_value]
+        pool = specific if specific else [r for r in matching if r.label_value is None]
+    else:
+        pool = matching
+
+    def _level(rule: CheckRule) -> int:
+        if rule.scope_type == "host":
+            return gpo.LEVEL_HOST
+        if rule.scope_type == "ou":
+            return gpo.LEVEL_OU_BASE + ancestry_depth[rule.scope_ou_id]
+        if rule.scope_type == "group":
+            return gpo.LEVEL_GROUP
+        return gpo.LEVEL_GLOBAL
+
+    candidates = [
+        gpo.GpoCandidate(
+            obj=r,
+            # None-safe: a freshly constructed (un-flushed) CheckRule hasn't
+            # had its column defaults applied yet — treat missing as the
+            # DB defaults (not enforced, link_order 100).
+            enforced=bool(r.enforced),
+            level=_level(r),
+            link_order=r.link_order if r.link_order is not None else 100,
+            created_ts=r.created_at.timestamp() if r.created_at else 0.0,
+            # Group nesting depth as the within-group tiebreak (K2b).
+            subrank=r.scope_value.count("/") if r.scope_type == "group" and r.scope_value else 0,
+        )
+        for r in pool
+    ]
+    return gpo.resolve_winner(candidates, blocked_level)
 
 
 # Consecutive non-OK checks before a state is promoted to hard (Block H7),
@@ -262,6 +296,14 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
     if not metrics_needed:
         return []
 
+    # Block L3a: the host's OU ancestry (root→host-OU), loaded once, so
+    # resolve_effective_rule can apply OU-scoped rules + GPO precedence
+    # (enforced / block_inheritance). Empty for a host with no OU placement,
+    # in which case only global/group/host rules apply (pre-L3a behavior).
+    from bossman.services.compiler import resolve_ou_ancestry
+
+    host_ou_ancestry = await resolve_ou_ancestry(session, agent.ou_id)
+
     now = datetime.now(timezone.utc)
     updated: list[Service] = []
 
@@ -296,7 +338,9 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
         )
 
         for mount, value in series:
-            rule = resolve_effective_rule(list(rules), agent.name, agent.groups, metric, mount)
+            rule = resolve_effective_rule(
+                list(rules), agent.name, agent.groups, metric, mount, host_ou_ancestry=host_ou_ancestry
+            )
             if rule is None:
                 continue
 

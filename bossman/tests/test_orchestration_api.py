@@ -443,3 +443,89 @@ async def test_desired_state_404_for_missing_agent(db_session):
     assert resp.status_code == 404
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Block L3a: OU-scoped check rules, block_inheritance toggle, GET /ou/{id}/objects
+
+
+async def test_ou_block_inheritance_toggle(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        ou = client.post("/api/v1/ou", json={"name": f"BlockOU-{sfx}"}, headers=_headers(raw)).json()
+        assert ou["block_inheritance"] is False
+        assert ou["ltree_path"] == f"BlockOU-{sfx}"
+
+        patched = client.patch(f"/api/v1/ou/{ou['id']}", json={"block_inheritance": True}, headers=_headers(raw))
+        assert patched.status_code == 200
+        assert patched.json()["block_inheritance"] is True
+
+        client.delete(f"/api/v1/ou/{ou['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_ou_scoped_check_rule_and_objects_listing(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        ou = client.post("/api/v1/ou", json={"name": f"RuleOU-{sfx}"}, headers=_headers(raw)).json()
+
+        # An OU-scoped check rule with enforced set.
+        rule = client.post(
+            "/api/v1/check-rules",
+            json={
+                "service_name": "CPU", "metric": "cpu_pct", "comparison": "gt",
+                "warn_threshold": 85.0, "crit_threshold": 95.0,
+                "scope_type": "ou", "scope_ou_id": ou["id"], "enforced": True, "link_order": 50,
+            },
+            headers=_headers(raw),
+        )
+        assert rule.status_code == 200
+        assert rule.json()["scope_type"] == "ou"
+        assert rule.json()["scope_ou_id"] == ou["id"]
+        assert rule.json()["enforced"] is True
+        assert rule.json()["link_order"] == 50
+        rule_id = rule.json()["id"]
+
+        # scope_type='ou' without scope_ou_id is rejected.
+        bad = client.post(
+            "/api/v1/check-rules",
+            json={"service_name": "X", "metric": "m", "comparison": "gt", "scope_type": "ou"},
+            headers=_headers(raw),
+        )
+        assert bad.status_code == 422
+
+        # GET /ou/{id}/objects shows the rule as a check_rule child.
+        objs = client.get(f"/api/v1/ou/{ou['id']}/objects", headers=_headers(raw)).json()
+        assert any(o["kind"] == "check_rule" and o["id"] == rule_id and o["enforced"] for o in objs)
+
+        client.delete(f"/api/v1/check-rules/{rule_id}", headers=_headers(raw))
+        client.delete(f"/api/v1/ou/{ou['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_notification_rule_ou_scope(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        ou = client.post("/api/v1/ou", json={"name": f"NotifOU-{sfx}"}, headers=_headers(raw)).json()
+        rule = client.post(
+            "/api/v1/notification-rules",
+            json={"name": f"noc-{sfx}", "channel": "email", "target": "noc@example.com", "ou_id": ou["id"], "enforced": True},
+            headers=_headers(raw),
+        )
+        assert rule.status_code == 200
+        assert rule.json()["ou_id"] == ou["id"]
+        assert rule.json()["enforced"] is True
+        rule_id = rule.json()["id"]
+
+        objs = client.get(f"/api/v1/ou/{ou['id']}/objects", headers=_headers(raw)).json()
+        assert any(o["kind"] == "notification" and o["id"] == rule_id for o in objs)
+
+        client.delete(f"/api/v1/notification-rules/{rule_id}", headers=_headers(raw))
+        client.delete(f"/api/v1/ou/{ou['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()

@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import CheckRule, Downtime, Service
+from bossman.db.models import CheckRule, Downtime, OUNode, Service
 from bossman.db.session import get_session
 from bossman.services.monitoring import (
     ServiceView,
@@ -315,6 +315,11 @@ class CheckRuleIn(BaseModel):
     crit_threshold: float | None = None
     scope_type: str = "global"
     scope_value: str | None = None
+    # Block L3a: OU-scoped rules + GPO precedence. scope_type='ou' pins the
+    # rule to scope_ou_id; enforced/link_order drive inheritance resolution.
+    scope_ou_id: UUID | None = None
+    enforced: bool = False
+    link_order: int = 100
     # Optional label pin (a disk mount) — see CheckRule.label_value (H6).
     label_value: str | None = None
     # Consecutive non-OK checks before hard (Block H7); null = global default.
@@ -341,6 +346,9 @@ class CheckRuleOut(BaseModel):
     crit_threshold: float | None
     scope_type: str
     scope_value: str | None
+    scope_ou_id: UUID | None
+    enforced: bool
+    link_order: int
     label_value: str | None
     max_attempts: int | None
     is_default: bool
@@ -363,6 +371,9 @@ class CheckRuleOut(BaseModel):
             crit_threshold=r.crit_threshold,
             scope_type=r.scope_type,
             scope_value=r.scope_value,
+            scope_ou_id=r.scope_ou_id,
+            enforced=r.enforced,
+            link_order=r.link_order,
             label_value=r.label_value,
             max_attempts=r.max_attempts,
             is_default=r.is_default,
@@ -376,9 +387,17 @@ class CheckRuleOut(BaseModel):
         )
 
 
-def _validate_scope(scope_type: str, scope_value: str | None) -> None:
-    if scope_type not in ("global", "group", "host"):
-        raise HTTPException(status_code=422, detail="scope_type must be one of global|group|host")
+def _validate_scope(scope_type: str, scope_value: str | None, scope_ou_id: UUID | None = None) -> None:
+    if scope_type not in ("global", "group", "host", "ou"):
+        raise HTTPException(status_code=422, detail="scope_type must be one of global|group|host|ou")
+    if scope_type == "ou":
+        if scope_ou_id is None:
+            raise HTTPException(status_code=422, detail="scope_ou_id is required when scope_type is 'ou'")
+        if scope_value is not None:
+            raise HTTPException(status_code=422, detail="scope_value must be null when scope_type is 'ou'")
+        return
+    if scope_ou_id is not None:
+        raise HTTPException(status_code=422, detail="scope_ou_id is only valid when scope_type is 'ou'")
     if scope_type == "global" and scope_value is not None:
         raise HTTPException(status_code=422, detail="scope_value must be null when scope_type is global")
     if scope_type in ("group", "host") and not scope_value:
@@ -412,8 +431,10 @@ async def create_check_rule(
 ) -> CheckRuleOut:
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
-    _validate_scope(body.scope_type, body.scope_value)
+    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id)
     _validate_composite(body)
+    if body.scope_ou_id is not None and await session.get(OUNode, body.scope_ou_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
 
     rule = CheckRule(
         service_name=body.service_name,
@@ -423,6 +444,9 @@ async def create_check_rule(
         crit_threshold=body.crit_threshold,
         scope_type=body.scope_type,
         scope_value=body.scope_value,
+        scope_ou_id=body.scope_ou_id,
+        enforced=body.enforced,
+        link_order=body.link_order,
         label_value=body.label_value,
         max_attempts=body.max_attempts,
         enabled=body.enabled,
@@ -457,8 +481,10 @@ async def update_check_rule(
         )
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
-    _validate_scope(body.scope_type, body.scope_value)
+    _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id)
     _validate_composite(body)
+    if body.scope_ou_id is not None and await session.get(OUNode, body.scope_ou_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
 
     rule.service_name = body.service_name
     rule.metric = body.metric
@@ -467,6 +493,9 @@ async def update_check_rule(
     rule.crit_threshold = body.crit_threshold
     rule.scope_type = body.scope_type
     rule.scope_value = body.scope_value
+    rule.scope_ou_id = body.scope_ou_id
+    rule.enforced = body.enforced
+    rule.link_order = body.link_order
     rule.label_value = body.label_value
     rule.max_attempts = body.max_attempts
     rule.enabled = body.enabled

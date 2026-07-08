@@ -30,6 +30,21 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from sqlalchemy.types import UserDefinedType
+
+
+class LTREE(UserDefinedType):
+    """Minimal SQLAlchemy binding for PostgreSQL's `ltree` type (Block L3a) —
+    the OU tree's materialized label-path (e.g. Germany.Munich.Prod), stored
+    alongside the human-readable varchar `path`. Values move as plain strings
+    in Python; the actual ancestor/descendant queries (@>/<@) are issued as
+    explicit text() SQL in services/compiler.py, so this type only needs to
+    name the column type for DDL/reflection."""
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw) -> str:  # noqa: ARG002
+        return "ltree"
 
 # Embedding dimension for the chunk-similarity cache's vector column (see
 # docs/plan.md's "Chunk-similarity embedding cache") — the bge-m3 model
@@ -562,6 +577,14 @@ class OUNode(Base):
     parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String, nullable=False)
     path: Mapped[str] = mapped_column(String, nullable=False)
+    # Block L3a: the materialized ltree label-path (sanitized from `path` —
+    # slashes become dots, chars outside [A-Za-z0-9_-] become _). GiST-indexed
+    # for ancestor/descendant queries. `path` stays the human-readable form
+    # (may contain spaces the ltree segment can't).
+    ltree_path: Mapped[str] = mapped_column(LTREE, nullable=False)
+    # Block L3a: GPO "Block Inheritance" — when true, non-enforced rules
+    # inherited from levels above this OU are dropped (enforced still apply).
+    block_inheritance: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
@@ -831,16 +854,25 @@ class CheckRule(Base):
     source_template_rule_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("template_rules.id", ondelete="CASCADE")
     )
+    # Block L3a: OU-scoped rules + GPO precedence. scope_type='ou' pins the
+    # rule to an OU (scope_ou_id), inherited down that OU's ltree subtree.
+    # `enforced` = GPO "Enforced" (can't be overridden by lower levels,
+    # pierces block_inheritance); `link_order` breaks ties within one level
+    # (lowest wins). See services/compiler._resolve_gpo_winner.
+    scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
 
     __table_args__ = (
         CheckConstraint(
             "comparison IN ('gt', 'lt', 'ge', 'le', 'eq', 'ne')", name="ck_check_rules_comparison"
         ),
         CheckConstraint("condition_logic IN ('AND', 'OR')", name="ck_check_rules_condition_logic"),
-        CheckConstraint("scope_type IN ('global', 'group', 'host')", name="ck_check_rules_scope_type"),
+        CheckConstraint("scope_type IN ('global', 'group', 'host', 'ou')", name="ck_check_rules_scope_type"),
         CheckConstraint(
-            "(scope_type = 'global' AND scope_value IS NULL) OR "
-            "(scope_type IN ('group', 'host') AND scope_value IS NOT NULL)",
+            "(scope_type = 'global' AND scope_value IS NULL AND scope_ou_id IS NULL) OR "
+            "(scope_type IN ('group', 'host') AND scope_value IS NOT NULL AND scope_ou_id IS NULL) OR "
+            "(scope_type = 'ou' AND scope_ou_id IS NOT NULL AND scope_value IS NULL)",
             name="ck_check_rules_scope_value_matches_type",
         ),
     )
@@ -932,6 +964,12 @@ class NotificationRule(Base):
     # (name-only tags stored as "" match a same-name tag of any value).
     # NULL = no tag condition (matches regardless of the host's tags).
     tag_filter: Mapped[dict | None] = mapped_column(JSONB)
+    # Block L3a: OU binding + GPO precedence, mirroring CheckRule. ou_id NULL
+    # = global (today's behavior); a value scopes the rule to that OU's
+    # ltree subtree. enforced/link_order as in CheckRule.
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
 
     __table_args__ = (
         CheckConstraint("channel IN ('email', 'webhook')", name="ck_notification_rules_channel"),

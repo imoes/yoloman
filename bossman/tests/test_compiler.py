@@ -35,7 +35,10 @@ def _sfx() -> str:
 async def _ou(db_session, name, parent=None):
     sfx = _sfx()
     path = (parent.path if parent is not None else "") + "/" + f"{name}-{sfx}"
-    node = OUNode(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, parent_id=(parent.id if parent else None), name=f"{name}-{sfx}", path=path)
+    node = OUNode(
+        id=uuid4(), tenant_id=DEFAULT_TENANT_ID, parent_id=(parent.id if parent else None),
+        name=f"{name}-{sfx}", path=path, ltree_path=path.strip("/").replace("/", "."),
+    )
     db_session.add(node)
     await db_session.flush()
     return node
