@@ -113,6 +113,32 @@ async def update_notification_rule(
     return NotificationRuleOut.from_model(rule)
 
 
+class NotificationRulePatch(BaseModel):
+    """Partial GPO-flag update (Block L3a) — the tree console's Enforced /
+    Enabled context-menu toggles."""
+
+    enforced: bool | None = None
+    enabled: bool | None = None
+    link_order: int | None = None
+
+
+@router.patch("/api/v1/notification-rules/{rule_id}", response_model=NotificationRuleOut)
+async def patch_notification_rule(
+    rule_id: UUID, body: NotificationRulePatch, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> NotificationRuleOut:
+    rule = await session.get(NotificationRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
+    if body.enforced is not None:
+        rule.enforced = body.enforced
+    if body.enabled is not None:
+        rule.enabled = body.enabled
+    if body.link_order is not None:
+        rule.link_order = body.link_order
+    await session.commit()
+    return NotificationRuleOut.from_model(rule)
+
+
 @router.delete("/api/v1/notification-rules/{rule_id}", status_code=204)
 async def delete_notification_rule(
     rule_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)

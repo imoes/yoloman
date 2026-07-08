@@ -137,6 +137,16 @@ export class CheckRuleDialogComponent {
     const scopeValue = value.scope_type === 'global' ? null : value.scope_value;
     // Normalise a blank label pin to null (= applies to all mounts).
     const labelValue = value.label_value?.trim() ? value.label_value.trim() : null;
-    this.dialogRef.close({ ...value, scope_value: scopeValue, label_value: labelValue });
+    // This dialog covers global/group/host scope; OU-scoped rules + GPO
+    // enforced/link_order are set from the OU tree console (Block L3a), so
+    // fill their defaults here to satisfy CheckRuleInput.
+    this.dialogRef.close({
+      ...value,
+      scope_value: scopeValue,
+      label_value: labelValue,
+      scope_ou_id: null,
+      enforced: false,
+      link_order: 100,
+    });
   }
 }

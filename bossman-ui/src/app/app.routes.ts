@@ -44,6 +44,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/topology/topology.component').then((m) => m.TopologyComponent),
   },
   {
+    path: 'ou',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/ou-policy/ou-policy.component').then((m) => m.OuPolicyComponent),
+  },
+  {
     path: 'plans',
     canActivate: [authGuard],
     loadComponent: () => import('./features/plans/plans-list.component').then((m) => m.PlansListComponent),

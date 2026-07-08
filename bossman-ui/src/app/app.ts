@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/notifications', label: 'Notifications', icon: 'notifications' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
+  { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/plans', label: 'Plans', icon: 'checklist' },
   { path: '/runs', label: 'Runs', icon: 'history' },

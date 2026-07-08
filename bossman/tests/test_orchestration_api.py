@@ -529,3 +529,48 @@ async def test_notification_rule_ou_scope(db_session):
         client.delete(f"/api/v1/ou/{ou['id']}", headers=_headers(raw))
     await db_session.delete(api_token)
     await db_session.commit()
+
+
+async def test_check_rule_patch_toggles(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        ou = client.post("/api/v1/ou", json={"name": f"PatchOU-{sfx}"}, headers=_headers(raw)).json()
+        rule = client.post(
+            "/api/v1/check-rules",
+            json={
+                "service_name": "CPU", "metric": "cpu_pct", "comparison": "gt",
+                "scope_type": "ou", "scope_ou_id": ou["id"], "enforced": False,
+            },
+            headers=_headers(raw),
+        ).json()
+        patched = client.patch(f"/api/v1/check-rules/{rule['id']}", json={"enforced": True}, headers=_headers(raw))
+        assert patched.status_code == 200
+        assert patched.json()["enforced"] is True
+        assert patched.json()["scope_type"] == "ou"
+
+        disabled = client.patch(f"/api/v1/check-rules/{rule['id']}", json={"enabled": False}, headers=_headers(raw))
+        assert disabled.json()["enabled"] is False
+        assert disabled.json()["enforced"] is True
+
+        client.delete(f"/api/v1/check-rules/{rule['id']}", headers=_headers(raw))
+        client.delete(f"/api/v1/ou/{ou['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_notification_rule_patch_toggles(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    sfx = uuid.uuid4().hex[:8]
+    with TestClient(create_app()) as client:
+        rule = client.post(
+            "/api/v1/notification-rules",
+            json={"name": f"n-{sfx}", "channel": "email", "target": "x@example.com"},
+            headers=_headers(raw),
+        ).json()
+        patched = client.patch(f"/api/v1/notification-rules/{rule['id']}", json={"enforced": True}, headers=_headers(raw))
+        assert patched.status_code == 200
+        assert patched.json()["enforced"] is True
+        client.delete(f"/api/v1/notification-rules/{rule['id']}", headers=_headers(raw))
+    await db_session.delete(api_token)
+    await db_session.commit()

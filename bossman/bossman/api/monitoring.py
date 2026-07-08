@@ -508,6 +508,40 @@ async def update_check_rule(
     return CheckRuleOut.from_model(rule)
 
 
+class CheckRulePatch(BaseModel):
+    """Partial GPO-flag update (Block L3a) — powers the tree console's
+    Enforced / Enabled context-menu toggles without resending the whole rule."""
+
+    enforced: bool | None = None
+    enabled: bool | None = None
+    link_order: int | None = None
+
+
+@router.patch("/api/v1/check-rules/{rule_id}", response_model=CheckRuleOut)
+async def patch_check_rule(
+    rule_id: UUID,
+    body: CheckRulePatch,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> CheckRuleOut:
+    rule = await session.get(CheckRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    if rule.template_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"check rule {rule_id} is managed by template {rule.template_id} — edit the template instead",
+        )
+    if body.enforced is not None:
+        rule.enforced = body.enforced
+    if body.enabled is not None:
+        rule.enabled = body.enabled
+    if body.link_order is not None:
+        rule.link_order = body.link_order
+    await session.commit()
+    return CheckRuleOut.from_model(rule)
+
+
 @router.delete("/api/v1/check-rules/{rule_id}", status_code=204)
 async def delete_check_rule(
     rule_id: UUID,

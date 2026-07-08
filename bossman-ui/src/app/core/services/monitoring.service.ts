@@ -92,6 +92,10 @@ export class MonitoringService {
     return this.http.put<CheckRule>(`${this.base}/check-rules/${id}`, body);
   }
 
+  patchCheckRule(id: string, patch: { enforced?: boolean; enabled?: boolean; link_order?: number }) {
+    return this.http.patch<CheckRule>(`${this.base}/check-rules/${id}`, patch);
+  }
+
   deleteCheckRule(id: string) {
     return this.http.delete<void>(`${this.base}/check-rules/${id}`);
   }

@@ -3948,3 +3948,41 @@ Full suite **442/442** green, ruff clean. Commit `9dfaa50`. Note: YOLO-MAN activ
 to the user (human-only, per design); the switch currently lives only in the dev DB — the running
 `agentic-mcp-bossman-1` container runs pre-L1/L2 code and needs a redeploy before the switch exists
 there.
+
+### Block L3 — GPO/OU console: ltree + full inheritance + tree UI (implemented, 2026-07-08)
+
+The user rejected the first flat card-list UI and asked for a real Windows-GPMC-style console.
+L3 delivers it, split into a backend foundation (L3a) and the tree UI (L3b). The authoritative
+design is `docs/policy-orchestration-architecture.md` (the user's full brief, integrated).
+
+**L3a — backend (migration `d4c8e1f9a3b7`, commit `5775aca`):** real Postgres `ltree` for the OU
+path (`ou_nodes.ltree_path`, GiST-indexed, backfilled from the varchar `path`) alongside the
+existing `parent_id`; `ou_nodes.block_inheritance` (GPO container property); OU scope + GPO
+precedence fields (`scope_ou_id`/`ou_id` + `enforced` + `link_order`) added additively to
+`check_rules` and `notification_rules`. `services/gpo.py` is the single, pure precedence resolver
+shared by monitoring and the orchestration compiler, implementing the exact GPO semantics verified
+against Microsoft Learn: top-down LSDOU-analogue (closest level wins), `enforced` (highest level
+wins, can't be overridden, pierces block inheritance), `block_inheritance` (drops inherited
+non-enforced rules from above), link_order/created tiebreaks. `compiler.resolve_ou_ancestry` uses an
+ltree ancestor query (`@>`); `affected_agent_ids` uses `<@` (fixing a prefix-LIKE bug where
+`/Germany2` matched under `/Germany`); `monitoring.resolve_effective_rule` gained the OU axis with a
+held regression (identical to before when no OU rules exist). REST: `PATCH /ou/{id}`
+(block_inheritance), `GET /ou/{id}/objects` (the tree's per-OU child list), OU scope + `PATCH`
+enforced/enabled toggles on check-rules and notification-rules. `tests/test_gpo.py` covers the full
+precedence matrix (closest-wins, enforced-beats-lower, multiple-enforced-highest-wins,
+block-drops-inherited, enforced-pierces-block, link_order/created tiebreaks).
+
+**L3b — the GPO/LDAP tree console (`bossman-ui/src/app/features/ou-policy/`):** replaces the flat
+card page entirely. A real expandable OU tree (each OU's policy objects nested beneath it) using
+`@angular/cdk/menu` for right-click context menus. Right-click an OU → New OU / New Threshold
+("Criticality" = a check rule's warn/crit) / New Notification / New Host Group / Block Inheritance
+(✓ toggle) / Delete; right-click an object → Enforced (✓ toggle) / Link Enabled (✓ toggle) / Delete
+— 1:1 with GPMC's menu logic. Enforced/blocked/disabled shown as badges/icons; a right-hand
+scope/detail panel per node; the global YOLO-MAN switch in the header. New dialogs: threshold-dialog,
+notification-ou-dialog (the ou-node/host-group ones are reused). Verified end-to-end via Playwright
+against the live stack (login admin/admin123): right-click Munich → New Threshold (enforced) → the
+rule appears nested under the OU with an "enforced" badge → right-click it → toggle Enforced off
+(badge clears) → delete. Full backend suite 461 passing, ruff clean, migration down/up verified,
+Angular build clean. Orchestration-plan-link creation from the tree (needs plan selection) is the one
+deferred piece — links are shown read-only in the tree for now; everything else (OU / threshold /
+notification / host-group) is fully create/toggle/delete from the console.

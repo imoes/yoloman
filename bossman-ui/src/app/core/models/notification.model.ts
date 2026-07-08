@@ -14,6 +14,10 @@ export interface NotificationRule {
   channel: NotificationChannel;
   target: string;
   created_at: string;
+  /** Block L3a: OU binding + GPO precedence (optional; null ou_id = global). */
+  ou_id?: string | null;
+  enforced?: boolean;
+  link_order?: number;
 }
 
 export type NotificationRuleInput = Omit<NotificationRule, 'id' | 'created_at'>;
