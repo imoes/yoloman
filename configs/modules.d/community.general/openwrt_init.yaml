@@ -1,0 +1,37 @@
+name: openwrt_init
+fqcn: community.general.openwrt_init
+collection: community.general
+short_description: Manage services on OpenWrt
+description: Controls OpenWrt services on remote hosts.
+options:
+  enabled:
+    type: bool
+    description: Whether the service should start on boot. B(At least one of state and enabled are required.)
+  name:
+    type: str
+    required: true
+    aliases:
+    - service
+    description: Name of the service.
+  pattern:
+    type: str
+    description: If the service does not respond to the 'running' command, name a substring to look for
+      as would be found in the output of the C(ps) command as a stand-in for a 'running' result.  If the
+      string is found, the service will be assumed to be running.
+  state:
+    type: str
+    choices:
+    - started
+    - stopped
+    - restarted
+    - reloaded
+    description: V(started)/V(stopped) are idempotent actions that will not run commands unless necessary.
+      V(restarted) will always bounce the service. V(reloaded) will always reload.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Start service httpd, if not running\n  community.general.openwrt_init:\n    state:\
+  \ started\n    name: httpd\n\n- name: Stop service cron, if running\n  community.general.openwrt_init:\n\
+  \    name: cron\n    state: stopped\n\n- name: Reload service httpd, in all cases\n  community.general.openwrt_init:\n\
+  \    name: httpd\n    state: reloaded\n\n- name: Enable service httpd\n  community.general.openwrt_init:\n\
+  \    name: httpd\n    enabled: true\n"

@@ -1,0 +1,51 @@
+name: twilio
+fqcn: community.general.twilio
+collection: community.general
+short_description: Sends a text message to a mobile phone through Twilio
+description: Sends a text message to a phone number through the Twilio messaging API.
+options:
+  account_sid:
+    type: str
+    required: true
+    description: User's Twilio account token found on the account page.
+  auth_token:
+    type: str
+    required: true
+    description: User's Twilio authentication token.
+  from_number:
+    type: str
+    required: true
+    description: The Twilio number to send the text message from, format C(+15551112222).
+  media_url:
+    type: str
+    description: A URL with a picture, video or sound clip to send with an MMS (multimedia message) instead
+      of a plain SMS.
+  msg:
+    type: str
+    required: true
+    description: The body of the text message.
+  to_numbers:
+    type: list
+    required: true
+    aliases:
+    - to_number
+    description: One or more phone numbers to send the text message to, format C(+15551112222).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# send an SMS about the build status to (555) 303 5681\n# note: replace account_sid and auth_token\
+  \ values with your credentials\n# and you have to have the 'from_number' on your Twilio account\n- name:\
+  \ Send a text message to a mobile phone through Twilio\n  community.general.twilio:\n    msg: All servers\
+  \ with webserver role are now configured.\n    account_sid: ACXXXXXXXXXXXXXXXXX\n    auth_token: ACXXXXXXXXXXXXXXXXX\n\
+  \    from_number: +15552014545\n    to_number: +15553035681\n  delegate_to: localhost\n\n# send an SMS\
+  \ to multiple phone numbers about the deployment\n# note: replace account_sid and auth_token values\
+  \ with your credentials\n# and you have to have the 'from_number' on your Twilio account\n- name: Send\
+  \ a text message to a mobile phone through Twilio\n  community.general.twilio:\n    msg: This server\
+  \ configuration is now complete.\n    account_sid: ACXXXXXXXXXXXXXXXXX\n    auth_token: ACXXXXXXXXXXXXXXXXX\n\
+  \    from_number: +15553258899\n    to_numbers:\n      - +15551113232\n      - +12025551235\n      -\
+  \ +19735559010\n  delegate_to: localhost\n\n# send an MMS to a single recipient with an update on the\
+  \ deployment\n# and an image of the results\n# note: replace account_sid and auth_token values with\
+  \ your credentials\n# and you have to have the 'from_number' on your Twilio account\n- name: Send a\
+  \ text message to a mobile phone through Twilio\n  community.general.twilio:\n    msg: Deployment complete!\n\
+  \    account_sid: ACXXXXXXXXXXXXXXXXX\n    auth_token: ACXXXXXXXXXXXXXXXXX\n    from_number: +15552014545\n\
+  \    to_number: +15553035681\n    media_url: https://demo.twilio.com/logo.png\n  delegate_to: localhost\n"

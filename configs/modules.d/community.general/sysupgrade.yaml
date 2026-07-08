@@ -1,0 +1,39 @@
+name: sysupgrade
+fqcn: community.general.sysupgrade
+collection: community.general
+short_description: Manage OpenBSD system upgrades
+description: Manage OpenBSD system upgrades using sysupgrade.
+options:
+  fetch_only:
+    type: bool
+    default: true
+    description: Fetch and verify files and create /bsd.upgrade but do not reboot. Set to V(false) if
+      you want sysupgrade to reboot. This will cause Ansible to error, as it expects the module to exit
+      gracefully. See the examples.
+  force:
+    type: bool
+    default: false
+    description: Force upgrade (for snapshots only).
+  installurl:
+    type: str
+    description: OpenBSD mirror top-level URL for fetching an upgrade. By default, the mirror URL is pulled
+      from /etc/installurl.
+  keep_files:
+    type: bool
+    default: false
+    description: Keep the files under /home/_sysupgrade. By default, the files will be deleted after the
+      upgrade.
+  snapshot:
+    type: bool
+    default: false
+    description: Apply the latest snapshot. Otherwise release will be applied.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Upgrade to latest release\n  community.general.sysupgrade:\n  register: sysupgrade\n\
+  \n- name: Upgrade to latest snapshot\n  community.general.sysupgrade:\n    snapshot: true\n    installurl:\
+  \ https://cloudflare.cdn.openbsd.org/pub/OpenBSD\n  register: sysupgrade\n\n- name: Reboot to apply\
+  \ upgrade if needed\n  ansible.builtin.reboot:\n  when: sysupgrade.changed\n\n# Note: Ansible will error\
+  \ when running this way due to how\n#   the reboot is forcefully handled by sysupgrade:\n\n- name: Have\
+  \ sysupgrade automatically reboot\n  community.general.sysupgrade:\n    fetch_only: false\n  ignore_errors:\
+  \ true\n"

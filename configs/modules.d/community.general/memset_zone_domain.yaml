@@ -1,0 +1,33 @@
+name: memset_zone_domain
+fqcn: community.general.memset_zone_domain
+collection: community.general
+short_description: Create and delete domains in Memset DNS zones
+description: Manage DNS zone domains in a Memset account.
+options:
+  api_key:
+    type: str
+    required: true
+    description: The API key obtained from the Memset control panel.
+  domain:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: The zone domain name. Ensure this value has at most 250 characters.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Indicates desired state of resource.
+  zone:
+    type: str
+    required: true
+    description: The zone to add the domain to (this must already exist).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Create the zone domain 'test.com'\n- name: Create zone domain\n  community.general.memset_zone_domain:\n\
+  \    domain: test.com\n    zone: testzone\n    state: present\n    api_key: 5eb86c9196ab03919abcf03857163741\n\
+  \  delegate_to: localhost\n"

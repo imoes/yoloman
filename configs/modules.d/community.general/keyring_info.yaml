@@ -1,0 +1,26 @@
+name: keyring_info
+fqcn: community.general.keyring_info
+collection: community.general
+short_description: Get a passphrase using the Operating System's native keyring
+description: This module uses the L(keyring Python library, https://pypi.org/project/keyring/) to retrieve
+  passphrases for a given service and username from the OS' native keyring.
+options:
+  keyring_password:
+    type: str
+    required: true
+    description: Password to unlock keyring.
+  service:
+    type: str
+    required: true
+    description: The name of the service.
+  username:
+    type: str
+    required: true
+    description: The user belonging to the service.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n  - name: Retrieve password for service_name/user_name\n    community.general.keyring_info:\n\
+  \      service: test\n      username: test1\n      keyring_password: \"{{ keyring_password }}\"\n  \
+  \  register: test_password\n\n  - name: Display password\n    ansible.builtin.debug:\n      msg: \"\
+  {{ test_password.passphrase }}\"\n"

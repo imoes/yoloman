@@ -1,0 +1,45 @@
+name: packet_project
+fqcn: community.general.packet_project
+collection: community.general
+short_description: Create/delete a project in Packet host
+description: Create/delete a project in Packet host. API is documented at U(https://www.packet.com/developers/api/#projects).
+options:
+  auth_token:
+    type: str
+    description: Packet api token. You can also supply it in environment variable E(PACKET_API_TOKEN).
+  custom_data:
+    type: str
+    description: Custom data about the project to create.
+  id:
+    type: str
+    description: UUID of the project which you want to remove.
+  name:
+    type: str
+    description: Name for/of the project.
+  org_id:
+    type: str
+    description: UUID of the organization to create a project for. When blank, the API assumes the default
+      organization.
+  payment_method:
+    type: str
+    description: Payment method is name of one of the payment methods available to your user. When blank,
+      the API assumes the default payment method.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the target.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# All the examples assume that you have your Packet API token in env var PACKET_API_TOKEN.\n\
+  # You can also pass the api token in module param auth_token.\n\n- name: Create new project\n  hosts:\
+  \ localhost\n  tasks:\n    community.general.packet_project:\n      name: \"new project\"\n\n- name:\
+  \ Create new project within non-default organization\n  hosts: localhost\n  tasks:\n    community.general.packet_project:\n\
+  \      name: \"my org project\"\n      org_id: a4cc87f9-e00f-48c2-9460-74aa60beb6b0\n\n- name: Remove\
+  \ project by id\n  hosts: localhost\n  tasks:\n    community.general.packet_project:\n      state: absent\n\
+  \      id: eef49903-7a09-4ca1-af67-4087c29ab5b6\n\n- name: Create new project with non-default billing\
+  \ method\n  hosts: localhost\n  tasks:\n    community.general.packet_project:\n      name: \"newer project\"\
+  \n      payment_method: \"the other visa\"\n"

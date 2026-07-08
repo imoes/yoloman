@@ -1,0 +1,43 @@
+name: packet_sshkey
+fqcn: community.general.packet_sshkey
+collection: community.general
+short_description: Create/delete an SSH key in Packet host
+description: Create/delete an SSH key in Packet host. API is documented at U(https://www.packet.net/help/api/#page:ssh-keys,header:ssh-keys-ssh-keys-post).
+options:
+  auth_token:
+    type: str
+    description: Packet API token. You can also supply it in environment variable E(PACKET_API_TOKEN).
+  fingerprint:
+    type: str
+    description: Fingerprint of the key which you want to remove.
+  id:
+    type: str
+    description: UUID of the key which you want to remove.
+  key:
+    type: str
+    description: Public Key string ({type} {base64 encoded key} {description}).
+  key_file:
+    type: path
+    description: File with the public key.
+  label:
+    type: str
+    aliases:
+    - name
+    description: Label for the key. If you keep it empty, it will be read from key string.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the target.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# All the examples assume that you have your Packet API token in env var PACKET_API_TOKEN.\n\
+  # You can also pass the api token in module param auth_token.\n\n- name: Create sshkey from string\n\
+  \  hosts: localhost\n  tasks:\n    community.general.packet_sshkey:\n      key: \"{{ lookup('file',\
+  \ 'my_packet_sshkey.pub') }}\"\n\n- name: Create sshkey from file\n  hosts: localhost\n  tasks:\n  \
+  \  community.general.packet_sshkey:\n      label: key from file\n      key_file: ~/ff.pub\n\n- name:\
+  \ Remove sshkey by id\n  hosts: localhost\n  tasks:\n    community.general.packet_sshkey:\n      state:\
+  \ absent\n      id: eef49903-7a09-4ca1-af67-4087c29ab5b6\n"

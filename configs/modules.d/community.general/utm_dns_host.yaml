@@ -1,0 +1,87 @@
+name: utm_dns_host
+fqcn: community.general.utm_dns_host
+collection: community.general
+short_description: Create, update or destroy dns entry in Sophos UTM
+description: Create, update or destroy a dns entry in SOPHOS UTM. This module needs to have the REST Ability
+  of the UTM to be activated.
+options:
+  address:
+    type: str
+    default: 0.0.0.0
+    description: The IPV4 Address of the entry. Can be left empty for automatic resolving.
+  address6:
+    type: str
+    default: '::'
+    description: The IPV6 Address of the entry. Can be left empty for automatic resolving.
+  comment:
+    type: str
+    default: ''
+    description: An optional comment to add to the dns host object
+  headers:
+    type: dict
+    default: {}
+    description: A dictionary of additional headers to be sent to POST and PUT requests. Is needed for
+      some modules.
+  hostname:
+    type: str
+    description: The hostname for the dns host object
+  interface:
+    type: str
+    default: ''
+    description: The reference name of the interface to use. If not provided the default interface will
+      be used
+  name:
+    type: str
+    required: true
+    description: The name of the object. Will be used to identify the entry
+  resolved:
+    type: bool
+    default: false
+    description: whether the hostname's ipv4 address is already resolved or not
+  resolved6:
+    type: bool
+    default: false
+    description: whether the hostname's ipv6 address is already resolved or not
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: The desired state of the object. V(present) will create or update an object. V(absent)
+      will delete an object if it was present.
+  timeout:
+    type: int
+    default: 0
+    description: the timeout for the utm to resolve the ip address for the hostname again
+  utm_host:
+    type: str
+    required: true
+    description: The REST Endpoint of the Sophos UTM.
+  utm_port:
+    type: int
+    default: 4444
+    description: The port of the REST interface.
+  utm_protocol:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: The protocol of the REST Endpoint.
+  utm_token:
+    type: str
+    required: true
+    description: The token used to identify at the REST-API. See U(https://www.sophos.com/en-us/medialibrary/PDFs/documentation/UTMonAWS/Sophos-UTM-RESTful-API.pdf?la=en),
+      Chapter 2.4.2.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether the REST interface's ssl certificate should be verified or not.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create UTM dns host entry\n  community.general.utm_dns_host:\n    utm_host: sophos.host.name\n\
+  \    utm_token: abcdefghijklmno1234\n    name: TestDNSEntry\n    hostname: testentry.some.tld\n    state:\
+  \ present\n\n- name: Remove UTM dns host entry\n  community.general.utm_dns_host:\n    utm_host: sophos.host.name\n\
+  \    utm_token: abcdefghijklmno1234\n    name: TestDNSEntry\n    state: absent\n"

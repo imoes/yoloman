@@ -1,0 +1,45 @@
+name: rollbar_deployment
+fqcn: community.general.rollbar_deployment
+collection: community.general
+short_description: Notify Rollbar about app deployments
+description: Notify Rollbar about app deployments (see https://rollbar.com/docs/deploys_other/)
+options:
+  comment:
+    type: str
+    description: Deploy comment (e.g. what is being deployed).
+  environment:
+    type: str
+    required: true
+    description: Name of the environment being deployed, e.g. 'production'.
+  revision:
+    type: str
+    required: true
+    description: Revision number/sha being deployed.
+  rollbar_user:
+    type: str
+    description: Rollbar username of the user who deployed.
+  token:
+    type: str
+    required: true
+    description: Your project access token.
+  url:
+    type: str
+    default: https://api.rollbar.com/api/1/deploy/
+    description: Optional URL to submit the notification to.
+  user:
+    type: str
+    description: User who deployed.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates for the target url will not be validated. This should only
+      be used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Rollbar deployment notification\n    community.general.rollbar_deployment:\n  \
+  \  token: AAAAAA\n    environment: staging\n    user: ansible\n    revision: '4.2'\n    rollbar_user:\
+  \ admin\n    comment: Test Deploy\n\n  - name: Notify rollbar about current git revision deployment\
+  \ by current user\n    community.general.rollbar_deployment:\n    token: \"{{ rollbar_access_token }}\"\
+  \n    environment: production\n    revision: \"{{ lookup('pipe', 'git rev-parse HEAD') }}\"\n    user:\
+  \ \"{{ lookup('env', 'USER') }}\"\n"

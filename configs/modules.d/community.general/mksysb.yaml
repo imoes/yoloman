@@ -1,0 +1,55 @@
+name: mksysb
+fqcn: community.general.mksysb
+collection: community.general
+short_description: Generates AIX mksysb rootvg backups
+description: This module manages a basic AIX mksysb (image) of rootvg.
+options:
+  backup_crypt_files:
+    type: bool
+    default: true
+    description: Backup encrypted files.
+  backup_dmapi_fs:
+    type: bool
+    default: true
+    description: Back up DMAPI filesystem files.
+  create_map_files:
+    type: bool
+    default: false
+    description: Creates a new MAP files.
+  exclude_files:
+    type: bool
+    default: false
+    description: Excludes files using C(/etc/rootvg.exclude).
+  exclude_wpar_files:
+    type: bool
+    default: false
+    description: Excludes WPAR files.
+  extended_attrs:
+    type: bool
+    default: true
+    description: Backup extended attributes.
+  name:
+    type: str
+    required: true
+    description: Backup name
+  new_image_data:
+    type: bool
+    default: true
+    description: Creates a new file data.
+  software_packing:
+    type: bool
+    default: false
+    description: Exclude files from packing option listed in C(/etc/exclude_packing.rootvg).
+  storage_path:
+    type: str
+    required: true
+    description: Storage path where the mksysb will stored.
+  use_snapshot:
+    type: bool
+    default: false
+    description: Creates backup using snapshots.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Running a backup image mksysb\n  community.general.mksysb:\n    name: myserver\n\
+  \    storage_path: /repository/images\n    exclude_files: true\n    exclude_wpar_files: true\n"

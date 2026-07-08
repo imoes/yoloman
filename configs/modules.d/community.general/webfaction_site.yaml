@@ -1,0 +1,48 @@
+name: webfaction_site
+fqcn: community.general.webfaction_site
+collection: community.general
+short_description: Add or remove a website on a Webfaction host
+description: Add or remove a website on a Webfaction host.  Further documentation at https://github.com/quentinsf/ansible-webfaction.
+options:
+  host:
+    type: str
+    required: true
+    description: The webfaction host on which the site should be created.
+  https:
+    type: bool
+    default: false
+    description: Whether or not to use HTTPS
+  login_name:
+    type: str
+    required: true
+    description: The webfaction account to use
+  login_password:
+    type: str
+    required: true
+    description: The webfaction password to use
+  name:
+    type: str
+    required: true
+    description: The name of the website
+  site_apps:
+    type: list
+    default: []
+    description: A mapping of URLs to apps
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the website should exist
+  subdomains:
+    type: list
+    default: []
+    description: A list of subdomains associated with this site.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Create website\n    community.general.webfaction_site:\n      name: testsite1\n\
+  \      state: present\n      host: myhost.webfaction.com\n      subdomains:\n        - 'testsite1.my_domain.org'\n\
+  \      site_apps:\n        - ['testapp1', '/']\n      https: false\n      login_name: \"{{webfaction_user}}\"\
+  \n      login_password: \"{{webfaction_passwd}}\"\n"

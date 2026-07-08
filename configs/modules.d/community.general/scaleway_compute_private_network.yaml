@@ -1,0 +1,73 @@
+name: scaleway_compute_private_network
+fqcn: community.general.scaleway_compute_private_network
+collection: community.general
+short_description: Scaleway compute - private network management
+description: This module add or remove a private network to a compute instance (U(https://developer.scaleway.com)).
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  compute_id:
+    type: str
+    required: true
+    description: ID of the compute instance (see M(community.general.scaleway_compute)).
+  private_network_id:
+    type: str
+    required: true
+    description: ID of the private network (see M(community.general.scaleway_private_network)).
+  project:
+    type: str
+    required: true
+    description: Project identifier.
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - ams1
+    - EMEA-NL-EVS
+    - par1
+    - EMEA-FR-PAR1
+    - par2
+    - EMEA-FR-PAR2
+    - waw1
+    - EMEA-PL-WAW1
+    description: Scaleway region to use (for example V(par1)).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the VPC.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Plug a VM to a private network\n  community.general.scaleway_compute_private_network:\n\
+  \    project: '{{ scw_project }}'\n    state: present\n    region: par1\n    compute_id: \"12345678-f1e6-40ec-83e5-12345d67ed89\"\
+  \n    private_network_id: \"22345678-f1e6-40ec-83e5-12345d67ed89\"\n  register: nicsvpc_creation_task\n\
+  \n- name: Unplug a VM from a private network\n  community.general.scaleway_compute_private_network:\n\
+  \    project: '{{ scw_project }}'\n    state: absent\n    region: par1\n    compute_id: \"12345678-f1e6-40ec-83e5-12345d67ed89\"\
+  \n    private_network_id: \"22345678-f1e6-40ec-83e5-12345d67ed89\"\n\n"

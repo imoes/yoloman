@@ -1,0 +1,89 @@
+name: scaleway_container_namespace
+fqcn: community.general.scaleway_container_namespace
+collection: community.general
+short_description: Scaleway Container namespace management
+description: This module manages container namespaces on Scaleway account.
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  description:
+    type: str
+    default: ''
+    description: Description of the container namespace.
+  environment_variables:
+    type: dict
+    default: {}
+    description: Environment variables of the container namespace. Injected in containers at runtime.
+  name:
+    type: str
+    required: true
+    description: Name of the container namespace.
+  project_id:
+    type: str
+    required: true
+    description: Project identifier.
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - fr-par
+    - nl-ams
+    - pl-waw
+    description: Scaleway region to use (for example V(fr-par)).
+  secret_environment_variables:
+    type: dict
+    default: {}
+    description: Secret environment variables of the container namespace. Updating those values will not
+      output a C(changed) state in Ansible. Injected in containers at runtime.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the container namespace.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  wait:
+    type: bool
+    default: true
+    description: Wait for the resource to reach its desired state before returning.
+  wait_sleep_time:
+    type: int
+    default: 3
+    description: Time to wait before every attempt to check the state of the resource.
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the resource to reach the expected state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a container namespace\n  community.general.scaleway_container_namespace:\n\
+  \    project_id: '{{ scw_project }}'\n    state: present\n    region: fr-par\n    name: my-awesome-container-namespace\n\
+  \    environment_variables:\n      MY_VAR: my_value\n    secret_environment_variables:\n      MY_SECRET_VAR:\
+  \ my_secret_value\n  register: container_namespace_creation_task\n\n- name: Make sure container namespace\
+  \ is deleted\n  community.general.scaleway_container_namespace:\n    project_id: '{{ scw_project }}'\n\
+  \    state: absent\n    region: fr-par\n    name: my-awesome-container-namespace\n"

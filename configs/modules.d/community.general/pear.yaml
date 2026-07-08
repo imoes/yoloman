@@ -1,0 +1,57 @@
+name: pear
+fqcn: community.general.pear
+collection: community.general
+short_description: Manage pear/pecl packages
+description: Manage PHP packages with the pear package manager.
+options:
+  executable:
+    type: path
+    description: Path to the pear executable.
+  name:
+    type: str
+    required: true
+    aliases:
+    - pkg
+    description: Name of the package to install, upgrade, or remove.
+  prompts:
+    type: list
+    description: 'List of regular expressions that can be used to detect prompts during pear package installation
+      to answer the expected question. Prompts will be processed in the same order as the packages list.
+      You can optionally specify an answer to any question in the list. If no answer is provided, the
+      list item will only contain the regular expression. To specify an answer, the item will be a dict
+      with the regular expression as key and the answer as value C(my_regular_expression: ''an_answer'').
+      You can provide a list containing items with or without answer. A prompt list can be shorter or
+      longer than the packages list but will issue a warning. If you want to specify that a package will
+      not need prompts in the middle of a list,  V(null).'
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - installed
+    - latest
+    - absent
+    - removed
+    description: Desired state of the package.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install pear package\n  community.general.pear:\n    name: Net_URL2\n    state: present\n\
+  \n- name: Install pecl package\n  community.general.pear:\n    name: pecl/json_post\n    state: present\n\
+  \n- name: Install pecl package with expected prompt\n  community.general.pear:\n    name: pecl/apcu\n\
+  \    state: present\n    prompts:\n        - (.*)Enable internal debugging in APCu \\[no\\]\n\n- name:\
+  \ Install pecl package with expected prompt and an answer\n  community.general.pear:\n    name: pecl/apcu\n\
+  \    state: present\n    prompts:\n        - (.*)Enable internal debugging in APCu \\[no\\]: \"yes\"\
+  \n\n- name: Install multiple pear/pecl packages at once with prompts.\n    Prompts will be processed\
+  \ on the same order as the packages order.\n    If there is more prompts than packages, packages without\
+  \ prompts will be installed without any prompt expected.\n    If there is more packages than prompts,\
+  \ additional prompts will be ignored.\n  community.general.pear:\n    name: pecl/gnupg, pecl/apcu\n\
+  \    state: present\n    prompts:\n      - I am a test prompt because gnupg doesnt asks anything\n \
+  \     - (.*)Enable internal debugging in APCu \\[no\\]: \"yes\"\n\n- name: Install multiple pear/pecl\
+  \ packages at once skipping the first prompt.\n    Prompts will be processed on the same order as the\
+  \ packages order.\n    If there is more prompts than packages, packages without prompts will be installed\
+  \ without any prompt expected.\n    If there is more packages than prompts, additional prompts will\
+  \ be ignored.\n  community.general.pear:\n    name: pecl/gnupg, pecl/apcu\n    state: present\n    prompts:\n\
+  \      - null\n      - (.*)Enable internal debugging in APCu \\[no\\]: \"yes\"\n\n- name: Upgrade package\n\
+  \  community.general.pear:\n    name: Net_URL2\n    state: latest\n\n- name: Remove packages\n  community.general.pear:\n\
+  \    name: Net_URL2,pecl/json_post\n    state: absent\n"

@@ -1,0 +1,62 @@
+name: oneandone_public_ip
+fqcn: community.general.oneandone_public_ip
+collection: community.general
+short_description: Configure 1&1 public IPs
+description: Create, update, and remove public IPs. This module has a dependency on 1and1 >= 1.0.
+options:
+  api_url:
+    type: str
+    description: Custom API URL. Overrides the ONEANDONE_API_URL environment variable.
+  auth_token:
+    type: str
+    description: Authenticating API token provided by 1&1.
+  datacenter:
+    type: str
+    default: US
+    choices:
+    - US
+    - ES
+    - DE
+    - GB
+    description: ID of the datacenter where the IP will be created (only for unassigned IPs).
+  public_ip_id:
+    type: str
+    description: The ID of the public IP used with update and delete states.
+  reverse_dns:
+    type: str
+    description: Reverse DNS name. maxLength=256
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - update
+    description: Define a public ip state to create, remove, or update.
+  type:
+    type: str
+    default: IPV4
+    choices:
+    - IPV4
+    - IPV6
+    description: Type of IP. Currently, only IPV4 is available.
+  wait:
+    type: bool
+    default: true
+    description: wait for the instance to be in state 'running' before returning
+  wait_interval:
+    type: int
+    default: 5
+    description: Defines the number of seconds to wait when using the _wait_for methods
+  wait_timeout:
+    type: int
+    default: 600
+    description: how long before wait gives up, in seconds
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a public IP\n  community.general.oneandone_public_ip:\n    auth_token: oneandone_private_api_key\n\
+  \    reverse_dns: example.com\n    datacenter: US\n    type: IPV4\n\n- name: Update a public IP\n  community.general.oneandone_public_ip:\n\
+  \    auth_token: oneandone_private_api_key\n    public_ip_id: public ip id\n    reverse_dns: secondexample.com\n\
+  \    state: update\n\n- name: Delete a public IP\n  community.general.oneandone_public_ip:\n    auth_token:\
+  \ oneandone_private_api_key\n    public_ip_id: public ip id\n    state: absent\n"

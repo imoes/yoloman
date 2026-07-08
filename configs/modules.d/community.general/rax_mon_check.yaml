@@ -1,0 +1,156 @@
+name: rax_mon_check
+fqcn: community.general.rax_mon_check
+collection: community.general
+short_description: Create or delete a Rackspace Cloud Monitoring check for an existing entity.
+description: Create or delete a Rackspace Cloud Monitoring check associated with an existing rax_mon_entity.
+  A check is a specific test or measurement that is performed, possibly from different monitoring zones,
+  on the systems you monitor. Rackspace monitoring module flow | rax_mon_entity -> *rax_mon_check* ->
+  rax_mon_notification -> rax_mon_notification_plan -> rax_mon_alarm
+options:
+  api_key:
+    type: str
+    aliases:
+    - password
+    description: Rackspace API key, overrides O(credentials).
+  auth_endpoint:
+    type: str
+    description: The URI of the authentication service. If not specified will be set to U(https://identity.api.rackspacecloud.com/v2.0/).
+  check_type:
+    type: str
+    required: true
+    description: 'The type of check to create. C(remote.) checks may be created on any rax_mon_entity.
+      C(agent.) checks may only be created on rax_mon_entities that have a non-null C(agent_id). Choices
+      for this option are:
+
+      - V(remote.dns)
+
+      - V(remote.ftp-banner)
+
+      - V(remote.http)
+
+      - V(remote.imap-banner)
+
+      - V(remote.mssql-banner)
+
+      - V(remote.mysql-banner)
+
+      - V(remote.ping)
+
+      - V(remote.pop3-banner)
+
+      - V(remote.postgresql-banner)
+
+      - V(remote.smtp-banner)
+
+      - V(remote.smtp)
+
+      - V(remote.ssh)
+
+      - V(remote.tcp)
+
+      - V(remote.telnet-banner)
+
+      - V(agent.filesystem)
+
+      - V(agent.memory)
+
+      - V(agent.load_average)
+
+      - V(agent.cpu)
+
+      - V(agent.disk)
+
+      - V(agent.network)
+
+      - V(agent.plugin)
+
+      '
+  credentials:
+    type: path
+    aliases:
+    - creds_file
+    description: File to find the Rackspace credentials in. Ignored if O(api_key) and O(username) are
+      provided.
+  details:
+    type: dict
+    default: {}
+    description: Additional details specific to the check type. Must be a hash of strings between 1 and
+      255 characters long, or an array or object containing 0 to 256 items.
+  disabled:
+    type: bool
+    default: false
+    description: If V(true), ensure the check is created, but don't actually use it yet.
+  entity_id:
+    type: str
+    required: true
+    description: ID of the rax_mon_entity to target with this check.
+  env:
+    type: str
+    description: Environment as configured in C(~/.pyrax.cfg), see U(https://github.com/rackspace/pyrax/blob/master/docs/getting_started.md#pyrax-configuration).
+  identity_type:
+    type: str
+    default: rackspace
+    description: Authentication mechanism to use, such as rackspace or keystone.
+  label:
+    type: str
+    required: true
+    description: Defines a label for this check, between 1 and 64 characters long.
+  metadata:
+    type: dict
+    default: {}
+    description: Hash of arbitrary key-value pairs to accompany this check if it fires. Keys and values
+      must be strings between 1 and 255 characters long.
+  monitoring_zones_poll:
+    type: str
+    description: Comma-separated list of the names of the monitoring zones the check should run from.
+      Available monitoring zones include mzdfw, mzhkg, mziad, mzlon, mzord and mzsyd. Required for remote.*
+      checks; prohibited for agent.* checks.
+  period:
+    type: int
+    description: The number of seconds between each time the check is performed. Must be greater than
+      the minimum period set on your account.
+  region:
+    type: str
+    description: Region to create an instance in.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Ensure that a check with this O(label) exists or does not exist.
+  target_alias:
+    type: str
+    description: One of O(target_alias) and O(target_hostname) is required for remote.* checks, but prohibited
+      for agent.* checks. Use the corresponding key in the entity's C(ip_addresses) hash to resolve an
+      IP address to target.
+  target_hostname:
+    type: str
+    description: One of O(target_hostname) and O(target_alias) is required for remote.* checks, but prohibited
+      for agent.* checks. The hostname this check should target. Must be a valid IPv4, IPv6, or FQDN.
+  tenant_id:
+    type: str
+    description: The tenant ID used for authentication.
+  tenant_name:
+    type: str
+    description: The tenant name used for authentication.
+  timeout:
+    type: int
+    description: The number of seconds this check will wait when attempting to collect results. Must be
+      less than the period.
+  username:
+    type: str
+    description: Rackspace username, overrides O(credentials).
+  validate_certs:
+    type: bool
+    aliases:
+    - verify_ssl
+    description: Whether or not to require SSL validation of API endpoints.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a monitoring check\n  gather_facts: false\n  hosts: local\n  connection: local\n\
+  \  tasks:\n  - name: Associate a check with an existing entity.\n    community.general.rax_mon_check:\n\
+  \      credentials: ~/.rax_pub\n      state: present\n      entity_id: \"{{ the_entity['entity']['id']\
+  \ }}\"\n      label: the_check\n      check_type: remote.ping\n      monitoring_zones_poll: mziad,mzord,mzdfw\n\
+  \      details:\n        count: 10\n      meta:\n        hurf: durf\n    register: the_check\n"

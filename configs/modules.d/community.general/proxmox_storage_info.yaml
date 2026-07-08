@@ -1,0 +1,51 @@
+name: proxmox_storage_info
+fqcn: community.general.proxmox_storage_info
+collection: community.general
+short_description: Retrieve information about one or more Proxmox VE storages
+description: Retrieve information about one or more Proxmox VE storages.
+options:
+  api_host:
+    type: str
+    required: true
+    description: Specify the target host of the Proxmox VE cluster.
+  api_password:
+    type: str
+    description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment
+      variable.
+  api_token_id:
+    type: str
+    description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+  api_token_secret:
+    type: str
+    description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+  api_user:
+    type: str
+    required: true
+    description: Specify the user to authenticate with.
+  storage:
+    type: str
+    aliases:
+    - name
+    description: Only return information on a specific storage.
+  type:
+    type: str
+    description: Filter on a specific storage type.
+  validate_certs:
+    type: bool
+    default: false
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: List existing storages\n  community.general.proxmox_storage_info:\n    api_host:\
+  \ helldorado\n    api_user: root@pam\n    api_password: \"{{ password | default(omit) }}\"\n    api_token_id:\
+  \ \"{{ token_id | default(omit) }}\"\n    api_token_secret: \"{{ token_secret | default(omit) }}\"\n\
+  \  register: proxmox_storages\n\n- name: List NFS storages only\n  community.general.proxmox_storage_info:\n\
+  \    api_host: helldorado\n    api_user: root@pam\n    api_password: \"{{ password | default(omit) }}\"\
+  \n    api_token_id: \"{{ token_id | default(omit) }}\"\n    api_token_secret: \"{{ token_secret | default(omit)\
+  \ }}\"\n    type: nfs\n  register: proxmox_storages_nfs\n\n- name: Retrieve information about the lvm2\
+  \ storage\n  community.general.proxmox_storage_info:\n    api_host: helldorado\n    api_user: root@pam\n\
+  \    api_password: \"{{ password | default(omit) }}\"\n    api_token_id: \"{{ token_id | default(omit)\
+  \ }}\"\n    api_token_secret: \"{{ token_secret | default(omit) }}\"\n    storage: lvm2\n  register:\
+  \ proxmox_storage_lvm\n"

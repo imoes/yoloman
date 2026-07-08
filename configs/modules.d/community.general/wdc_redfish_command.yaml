@@ -1,0 +1,73 @@
+name: wdc_redfish_command
+fqcn: community.general.wdc_redfish_command
+collection: community.general
+short_description: Manages WDC UltraStar Data102 Out-Of-Band controllers using Redfish APIs
+description: Builds Redfish URIs locally and sends them to remote OOB controllers to perform an action.
+  Manages OOB controller firmware. For example, Firmware Activate, Update and Activate.
+options:
+  auth_token:
+    type: str
+    description: Security token for authentication with OOB controller.
+  baseuri:
+    type: str
+    description: Base URI of OOB controller.  Must include this or O(ioms).
+  category:
+    type: str
+    required: true
+    description: Category to execute on OOB controller.
+  command:
+    type: list
+    required: true
+    description: List of commands to execute on OOB controller.
+  ioms:
+    type: list
+    description: List of IOM FQDNs for the enclosure.  Must include this or O(baseuri).
+  password:
+    type: str
+    description: Password for authentication with OOB controller.
+  resource_id:
+    type: str
+    description: ID of the component to modify, such as V(Enclosure), V(IOModuleAFRU), V(PowerSupplyBFRU),
+      V(FanExternalFRU3), or V(FanInternalFRU).
+  timeout:
+    type: int
+    default: 10
+    description: Timeout in seconds for URL requests to OOB controller.
+  update_creds:
+    type: dict
+    description: The credentials for retrieving the update image.
+  update_image_uri:
+    type: str
+    description: The URI of the image for the update.
+  username:
+    type: str
+    description: User for authentication with OOB controller.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Firmware Activate (required after SimpleUpdate to apply the new firmware)\n  community.general.wdc_redfish_command:\n\
+  \    category: Update\n    command: FWActivate\n    ioms: \"{{ ioms }}\"\n    username: \"{{ username\
+  \ }}\"\n    password: \"{{ password }}\"\n\n- name: Firmware Activate with individual IOMs specified\n\
+  \  community.general.wdc_redfish_command:\n    category: Update\n    command: FWActivate\n    ioms:\n\
+  \      - iom1.wdc.com\n      - iom2.wdc.com\n    username: \"{{ username }}\"\n    password: \"{{ password\
+  \ }}\"\n\n- name: Firmware Activate with baseuri specified\n  community.general.wdc_redfish_command:\n\
+  \    category: Update\n    command: FWActivate\n    baseuri: \"iom1.wdc.com\"\n    username: \"{{ username\
+  \ }}\"\n    password: \"{{ password }}\"\n\n\n- name: Update and Activate (orchestrates firmware update\
+  \ and activation with a single command)\n  community.general.wdc_redfish_command:\n    category: Update\n\
+  \    command: UpdateAndActivate\n    ioms: \"{{ ioms }}\"\n    username: \"{{ username }}\"\n    password:\
+  \ \"{{ password }}\"\n    update_image_uri: \"{{ update_image_uri }}\"\n    update_creds:\n      username:\
+  \ operator\n      password: supersecretpwd\n\n- name: Turn on enclosure indicator LED\n  community.general.wdc_redfish_command:\n\
+  \    category: Chassis\n    resource_id: Enclosure\n    command: IndicatorLedOn\n    username: \"{{\
+  \ username }}\"\n    password: \"{{ password }}\"\n\n- name: Turn off IOM A indicator LED\n  community.general.wdc_redfish_command:\n\
+  \    category: Chassis\n    resource_id: IOModuleAFRU\n    command: IndicatorLedOff\n    username: \"\
+  {{ username }}\"\n    password: \"{{ password }}\"\n\n- name: Turn on Power Supply B indicator LED\n\
+  \  community.general.wdc_redfish_command:\n    category: Chassis\n    resource_id: PowerSupplyBFRU\n\
+  \    command: IndicatorLedOn\n    username: \"{{ username }}\"\n    password: \"{{ password }}\"\n\n\
+  - name: Turn on External Fan 3 indicator LED\n  community.general.wdc_redfish_command:\n    category:\
+  \ Chassis\n    resource_id: FanExternalFRU3\n    command: IndicatorLedOn\n    username: \"{{ username\
+  \ }}\"\n    password: \"{{ password }}\"\n\n- name: Turn on Internal Fan indicator LED\n  community.general.wdc_redfish_command:\n\
+  \    category: Chassis\n    resource_id: FanInternalFRU\n    command: IndicatorLedOn\n    username:\
+  \ \"{{ username }}\"\n    password: \"{{ password }}\"\n\n- name: Set chassis to Low Power Mode\n  community.general.wdc_redfish_command:\n\
+  \    category: Chassis\n    resource_id: Enclosure\n    command: PowerModeLow\n\n- name: Set chassis\
+  \ to Normal Power Mode\n  community.general.wdc_redfish_command:\n    category: Chassis\n    resource_id:\
+  \ Enclosure\n    command: PowerModeNormal\n\n"

@@ -1,0 +1,27 @@
+name: telegram
+fqcn: community.general.telegram
+collection: community.general
+short_description: Send notifications via telegram
+description: Send notifications via telegram bot, to a verified group or user. Also, the user may try
+  to use any other telegram bot API method, if you specify O(api_method) argument.
+options:
+  api_args:
+    type: dict
+    description: Any parameters for the method. For reference to default method, V(SendMessage), see U(https://core.telegram.org/bots/api#sendmessage).
+  api_method:
+    type: str
+    default: SendMessage
+    description: Bot API method. For reference, see U(https://core.telegram.org/bots/api).
+  token:
+    type: str
+    required: true
+    description: Token identifying your telegram bot.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n\n- name: Send notify to Telegram\n  community.general.telegram:\n    token: '9999999:XXXXXXXXXXXXXXXXXXXXXXX'\n\
+  \    api_args:\n      chat_id: 000000\n      parse_mode: \"markdown\"\n      text: \"Your precious application\
+  \ has been deployed: https://example.com\"\n      disable_web_page_preview: true\n      disable_notification:\
+  \ true\n\n- name: Forward message to someone\n  community.general.telegram:\n    token: '9999999:XXXXXXXXXXXXXXXXXXXXXXX'\n\
+  \    api_method: forwardMessage\n    api_args:\n      chat_id: 000000\n      from_chat_id: 111111\n\
+  \      disable_notification: true\n      message_id: '{{ saved_msg_id }}'\n"

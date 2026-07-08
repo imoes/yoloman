@@ -1,0 +1,47 @@
+name: sysrc
+fqcn: community.general.sysrc
+collection: community.general
+short_description: Manage FreeBSD using sysrc
+description: Manages C(/etc/rc.conf) for FreeBSD.
+options:
+  delim:
+    type: str
+    default: ' '
+    description: Delimiter to be used instead of V(" ") (space). Only used when O(state=value_present)
+      or O(state=value_absent).
+  jail:
+    type: str
+    description: Name or ID of the jail to operate on.
+  name:
+    type: str
+    required: true
+    description: Name of variable in C(/etc/rc.conf) to manage.
+  path:
+    type: str
+    default: /etc/rc.conf
+    description: Path to file to use instead of V(/etc/rc.conf).
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    - value_present
+    - value_absent
+    description: Use V(present) to add the variable. Use V(absent) to remove the variable. Use V(value_present)
+      to add the value to the existing variable. Use V(value_absent) to remove the value from the existing
+      variable.
+  value:
+    type: str
+    description: The value to set when O(state=present). The value to add when O(state=value_present).
+      The value to remove when O(state=value_absent).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n---\n# enable mysql in the /etc/rc.conf\n- name: Configure mysql pid file\n  community.general.sysrc:\n\
+  \    name: mysql_pidfile\n    value: \"/var/run/mysqld/mysqld.pid\"\n\n# enable accf_http kld in the\
+  \ boot loader\n- name: Enable accf_http kld\n  community.general.sysrc:\n    name: accf_http_load\n\
+  \    state: present\n    value: \"YES\"\n    path: /boot/loader.conf\n\n# add gif0 to cloned_interfaces\n\
+  - name: Add gif0 interface\n  community.general.sysrc:\n    name: cloned_interfaces\n    state: value_present\n\
+  \    value: \"gif0\"\n\n# enable nginx on a jail\n- name: Enable nginx in test jail\n  community.general.sysrc:\n\
+  \    name: nginx_enable\n    value: \"YES\"\n    jail: testjail\n"

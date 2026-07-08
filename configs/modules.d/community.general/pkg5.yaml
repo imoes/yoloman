@@ -1,0 +1,44 @@
+name: pkg5
+fqcn: community.general.pkg5
+collection: community.general
+short_description: Manages packages with the Solaris 11 Image Packaging System
+description: IPS packages are the native packages in Solaris 11 and higher.
+options:
+  accept_licenses:
+    type: bool
+    default: false
+    aliases:
+    - accept
+    - accept_licences
+    description: Accept any licences.
+  be_name:
+    type: str
+    description: Creates a new boot environment with the given name.
+  name:
+    type: list
+    required: true
+    description: An FRMI of the package(s) to be installed/removed/updated. Multiple packages may be specified,
+      separated by V(,).
+  refresh:
+    type: bool
+    default: true
+    description: Refresh publishers before execution.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - latest
+    - present
+    - installed
+    - removed
+    - uninstalled
+    description: Whether to install (V(present), V(latest)), or remove (V(absent)) a package.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install Vim\n  community.general.pkg5:\n    name: editor/vim\n\n- name: Install Vim\
+  \ without refreshing publishers\n  community.general.pkg5:\n    name: editor/vim\n    refresh: false\n\
+  \n- name: Remove finger daemon\n  community.general.pkg5:\n    name: service/network/finger\n    state:\
+  \ absent\n\n- name: Install several packages at once\n  community.general.pkg5:\n    name:\n    - /file/gnu-findutils\n\
+  \    - /text/gnu-grep\n"

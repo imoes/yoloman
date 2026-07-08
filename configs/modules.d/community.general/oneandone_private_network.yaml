@@ -1,0 +1,81 @@
+name: oneandone_private_network
+fqcn: community.general.oneandone_private_network
+collection: community.general
+short_description: Configure 1&1 private networking
+description: Create, remove, reconfigure, update a private network. This module has a dependency on 1and1
+  >= 1.0.
+options:
+  add_members:
+    type: list
+    default: []
+    description: List of server identifiers (name or id) to be added to the private network.
+  api_url:
+    type: str
+    description: Custom API URL. Overrides the ONEANDONE_API_URL environment variable.
+  auth_token:
+    type: str
+    description: Authenticating API token provided by 1&1.
+  datacenter:
+    type: str
+    choices:
+    - US
+    - ES
+    - DE
+    - GB
+    description: The identifier of the datacenter where the private network will be created
+  description:
+    type: str
+    description: Set a description for the network.
+  name:
+    type: str
+    description: Private network name used with present state. Used as identifier (id or name) when used
+      with absent state.
+  network_address:
+    type: str
+    description: Set a private network space, i.e. 192.168.1.0
+  private_network:
+    type: str
+    description: The identifier (id or name) of the network used with update state.
+  remove_members:
+    type: list
+    default: []
+    description: List of server identifiers (name or id) to be removed from the private network.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - update
+    description: Define a network's state to create, remove, or update.
+  subnet_mask:
+    type: str
+    description: Set the netmask for the private network, i.e. 255.255.255.0
+  wait:
+    type: bool
+    default: true
+    description: wait for the instance to be in state 'running' before returning
+  wait_interval:
+    type: int
+    default: 5
+    description: Defines the number of seconds to wait when using the _wait_for methods
+  wait_timeout:
+    type: int
+    default: 600
+    description: how long before wait gives up, in seconds
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a private network\n  community.general.oneandone_private_network:\n    auth_token:\
+  \ oneandone_private_api_key\n    name: backup_network\n    description: Testing creation of a private\
+  \ network with ansible\n    network_address: 70.35.193.100\n    subnet_mask: 255.0.0.0\n    datacenter:\
+  \ US\n\n- name: Destroy a private network\n  community.general.oneandone_private_network:\n    auth_token:\
+  \ oneandone_private_api_key\n    state: absent\n    name: backup_network\n\n- name: Modify the private\
+  \ network\n  community.general.oneandone_private_network:\n    auth_token: oneandone_private_api_key\n\
+  \    state: update\n    private_network: backup_network\n    network_address: 192.168.2.0\n    subnet_mask:\
+  \ 255.255.255.0\n\n- name: Add members to the private network\n  community.general.oneandone_private_network:\n\
+  \    auth_token: oneandone_private_api_key\n    state: update\n    private_network: backup_network\n\
+  \    add_members:\n     - server identifier (id or name)\n\n- name: Remove members from the private\
+  \ network\n  community.general.oneandone_private_network:\n    auth_token: oneandone_private_api_key\n\
+  \    state: update\n    private_network: backup_network\n    remove_members:\n     - server identifier\
+  \ (id or name)\n"

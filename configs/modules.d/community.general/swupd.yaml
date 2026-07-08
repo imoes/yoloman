@@ -1,0 +1,58 @@
+name: swupd
+fqcn: community.general.swupd
+collection: community.general
+short_description: Manages updates and bundles in ClearLinux systems
+description: Manages updates and bundles with the swupd bundle manager, which is used by the Clear Linux
+  Project for Intel Architecture.
+options:
+  contenturl:
+    type: str
+    description: URL pointing to the contents of available bundles. If not specified, the contents are
+      retrieved from clearlinux.org.
+  format:
+    type: str
+    description: The format suffix for version file downloads. For example [1,2,3,staging,etc]. If not
+      specified, the default format is used.
+  manifest:
+    type: int
+    aliases:
+    - release
+    - version
+    description: The manifest contains information about the bundles at certain version of the OS. Specify
+      a Manifest version to verify against that version or leave unspecified to verify against the current
+      version.
+  name:
+    type: str
+    aliases:
+    - bundle
+    description: Name of the (I)bundle to install or remove.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicates the desired (I)bundle state. V(present) ensures the bundle is installed while
+      V(absent) ensures the (I)bundle is not installed.
+  update:
+    type: bool
+    default: false
+    description: Updates the OS to the latest version.
+  url:
+    type: str
+    description: Overrides both O(contenturl) and O(versionurl).
+  verify:
+    type: bool
+    default: false
+    description: Verify content for OS version.
+  versionurl:
+    type: str
+    description: URL for version string download.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Update the OS to the latest version\n  community.general.swupd:\n    update: true\n\
+  \n- name: Installs the \"foo\" bundle\n  community.general.swupd:\n    name: foo\n    state: present\n\
+  \n- name: Removes the \"foo\" bundle\n  community.general.swupd:\n    name: foo\n    state: absent\n\
+  \n- name: Check integrity of filesystem\n  community.general.swupd:\n    verify: true\n\n- name: Downgrade\
+  \ OS to release 12920\n  community.general.swupd:\n    verify: true\n    manifest: 12920\n"

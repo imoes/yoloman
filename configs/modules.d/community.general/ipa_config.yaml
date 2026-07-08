@@ -1,0 +1,191 @@
+name: ipa_config
+fqcn: community.general.ipa_config
+collection: community.general
+short_description: Manage Global FreeIPA Configuration Settings
+description: Modify global configuration settings of a FreeIPA Server.
+options:
+  ipa_host:
+    type: str
+    default: ipa.example.com
+    description: IP or hostname of IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST)
+      and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA
+      server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor
+      the environment E(IPA_HOST), nor the value are available in the task, then the default value will
+      be used.
+  ipa_pass:
+    type: str
+    description: Password of administrative user. If the value is not specified in the task, the value
+      of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library
+      is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable
+      E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate
+      to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME)
+      is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the
+      usage of O(ipa_pass) is required.
+  ipa_port:
+    type: int
+    default: 443
+    description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT)
+      and the value are not specified in the task, then default value is set.
+  ipa_prot:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: Protocol used by IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT)
+      and the value are not specified in the task, then default value is set.
+  ipa_timeout:
+    type: int
+    default: 10
+    description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may
+      want to increase this in order to avoid timeout from IPA server. If the value is not specified in
+      the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment
+      variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+  ipa_user:
+    type: str
+    default: admin
+    description: Administrative account used on IPA server. If the value is not specified in the task,
+      the value of environment variable E(IPA_USER) will be used instead. If both the environment variable
+      E(IPA_USER) and the value are not specified in the task, then default value is set.
+  ipaconfigstring:
+    type: list
+    choices:
+    - AllowNThash
+    - KDC:Disable Last Success
+    - KDC:Disable Lockout
+    - KDC:Disable Default Preauth for SPNs
+    aliases:
+    - configstring
+    description: Extra hashes to generate in password plug-in.
+  ipadefaultemaildomain:
+    type: str
+    aliases:
+    - emaildomain
+    description: Default e-mail domain for new users.
+  ipadefaultloginshell:
+    type: str
+    aliases:
+    - loginshell
+    description: Default shell for new users.
+  ipadefaultprimarygroup:
+    type: str
+    aliases:
+    - primarygroup
+    description: Default group for new users.
+  ipagroupobjectclasses:
+    type: list
+    aliases:
+    - groupobjectclasses
+    description: A list of group objectclasses.
+  ipagroupsearchfields:
+    type: list
+    aliases:
+    - groupsearchfields
+    description: A list of fields to search in when searching for groups.
+  ipahomesrootdir:
+    type: str
+    aliases:
+    - homesrootdir
+    description: Default location of home directories.
+  ipakrbauthzdata:
+    type: list
+    choices:
+    - MS-PAC
+    - PAD
+    - nfs:NONE
+    aliases:
+    - krbauthzdata
+    description: Default types of PAC supported for services.
+  ipamaxusernamelength:
+    type: int
+    aliases:
+    - maxusernamelength
+    description: Maximum length of usernames.
+  ipapwdexpadvnotify:
+    type: int
+    aliases:
+    - pwdexpadvnotify
+    description: Notice of impending password expiration, in days.
+  ipasearchrecordslimit:
+    type: int
+    aliases:
+    - searchrecordslimit
+    description: Maximum number of records to search (-1 or 0 is unlimited).
+  ipasearchtimelimit:
+    type: int
+    aliases:
+    - searchtimelimit
+    description: Maximum amount of time (seconds) for a search (-1 or 0 is unlimited).
+  ipaselinuxusermaporder:
+    type: list
+    aliases:
+    - selinuxusermaporder
+    description: The SELinux user map order (order in increasing priority of SELinux users).
+  ipauserauthtype:
+    type: list
+    choices:
+    - password
+    - radius
+    - otp
+    - pkinit
+    - hardened
+    - idp
+    - passkey
+    - disabled
+    aliases:
+    - userauthtype
+    description: The authentication type to use by default. The choice V(idp) has been added in community.general
+      7.3.0. The choice V(passkey) has been added in community.general 8.1.0.
+  ipauserobjectclasses:
+    type: list
+    aliases:
+    - userobjectclasses
+    description: A list of user objectclasses.
+  ipausersearchfields:
+    type: list
+    aliases:
+    - usersearchfields
+    description: A list of fields to search in when searching for users.
+  validate_certs:
+    type: bool
+    default: true
+    description: This only applies if O(ipa_prot) is V(https). If set to V(false), the SSL certificates
+      will not be validated. This should only set to V(false) used on personally controlled sites using
+      self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Ensure password plugin features DC:Disable Last Success and KDC:Disable Lockout are\
+  \ enabled\n  community.general.ipa_config:\n    ipaconfigstring: [\"KDC:Disable Last Success\", \"KDC:Disable\
+  \ Lockout\"]\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure\
+  \ the default login shell is bash\n  community.general.ipa_config:\n    ipadefaultloginshell: /bin/bash\n\
+  \    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the default\
+  \ e-mail domain is ansible.com\n  community.general.ipa_config:\n    ipadefaultemaildomain: ansible.com\n\
+  \    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the default\
+  \ primary group is set to ipausers\n  community.general.ipa_config:\n    ipadefaultprimarygroup: ipausers\n\
+  \    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the group\
+  \ search fields are set to 'cn,description'\n  community.general.ipa_config:\n    ipagroupsearchfields:\
+  \ ['cn', 'description']\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n\
+  - name: Ensure the home directory location is set to /home\n  community.general.ipa_config:\n    ipahomesrootdir:\
+  \ /home\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the\
+  \ default types of PAC supported for services is set to MS-PAC and PAD\n  community.general.ipa_config:\n\
+  \    ipakrbauthzdata: [\"MS-PAC\", \"PAD\"]\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass:\
+  \ supersecret\n\n- name: Ensure the maximum user name length is set to 32\n  community.general.ipa_config:\n\
+  \    ipamaxusernamelength: 32\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\
+  \n- name: Ensure the password expiration notice is set to 4 days\n  community.general.ipa_config:\n\
+  \    ipapwdexpadvnotify: 4\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\
+  \n- name: Ensure the search record limit is set to 100\n  community.general.ipa_config:\n    ipasearchrecordslimit:\
+  \ 100\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the\
+  \ search time limit is set to 2 seconds\n  community.general.ipa_config:\n    ipasearchtimelimit: 2\n\
+  \    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the default\
+  \ user auth type is password\n  community.general.ipa_config:\n    ipauserauthtype: ['password']\n \
+  \   ipa_host: localhost\n    ipa_user: admin\n    ipa_pass: supersecret\n\n- name: Ensure the user search\
+  \ fields is set to 'uid,givenname,sn,ou,title'\n  community.general.ipa_config:\n    ipausersearchfields:\
+  \ ['uid', 'givenname', 'sn', 'ou', 'title']\n    ipa_host: localhost\n    ipa_user: admin\n    ipa_pass:\
+  \ supersecret\n\n- name: Ensure the SELinux user map order is set\n  community.general.ipa_config:\n\
+  \    ipaselinuxusermaporder:\n      - \"guest_u:s0\"\n      - \"xguest_u:s0\"\n      - \"user_u:s0\"\
+  \n      - \"staff_u:s0-s0:c0.c1023\"\n      - \"unconfined_u:s0-s0:c0.c1023\"\n    ipa_host: localhost\n\
+  \    ipa_user: admin\n    ipa_pass: supersecret\n"

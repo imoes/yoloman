@@ -1,0 +1,48 @@
+name: rhn_channel
+fqcn: community.general.rhn_channel
+collection: community.general
+short_description: Adds or removes Red Hat software channels
+description: Adds or removes Red Hat software channels.
+options:
+  name:
+    type: str
+    required: true
+    description: Name of the software channel.
+  password:
+    type: str
+    required: true
+    aliases:
+    - pwd
+    description: RHN/Satellite password.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the channel should be present or not, taking action if the state is different
+      from what is stated.
+  sysname:
+    type: str
+    required: true
+    description: Name of the system as it is known in RHN/Satellite.
+  url:
+    type: str
+    required: true
+    description: The full URL to the RHN/Satellite API.
+  user:
+    type: str
+    required: true
+    description: RHN/Satellite login.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only set to V(false)
+      when used on self controlled sites using self-signed certificates, and you are absolutely sure that
+      nobody can modify traffic between the module and the site.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add a Red Hat software channel\n  community.general.rhn_channel:\n    name: rhel-x86_64-server-v2vwin-6\n\
+  \    sysname: server01\n    url: https://rhn.redhat.com/rpc/api\n    user: rhnuser\n    password: guessme\n\
+  \  delegate_to: localhost\n"

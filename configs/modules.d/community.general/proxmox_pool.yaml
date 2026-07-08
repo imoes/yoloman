@@ -1,0 +1,54 @@
+name: proxmox_pool
+fqcn: community.general.proxmox_pool
+collection: community.general
+short_description: Pool management for Proxmox VE cluster
+description: Create or delete a pool for Proxmox VE clusters. For pool members management please consult
+  M(community.general.proxmox_pool_member) module.
+options:
+  api_host:
+    type: str
+    required: true
+    description: Specify the target host of the Proxmox VE cluster.
+  api_password:
+    type: str
+    description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment
+      variable.
+  api_token_id:
+    type: str
+    description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+  api_token_secret:
+    type: str
+    description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+  api_user:
+    type: str
+    required: true
+    description: Specify the user to authenticate with.
+  comment:
+    type: str
+    description: Specify the description for the pool. Parameter is ignored when pool already exists or
+      O(state=absent).
+  poolid:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: The pool ID.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the pool. The pool must be empty prior deleting it with O(state=absent).
+  validate_certs:
+    type: bool
+    default: false
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create new Proxmox VE pool\n  community.general.proxmox_pool:\n    api_host: node1\n\
+  \    api_user: root@pam\n    api_password: password\n    poolid: test\n    comment: 'New pool'\n\n-\
+  \ name: Delete the Proxmox VE pool\n  community.general.proxmox_pool:\n    api_host: node1\n    api_user:\
+  \ root@pam\n    api_password: password\n    poolid: test\n    state: absent\n"

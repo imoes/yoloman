@@ -1,0 +1,91 @@
+name: redis
+fqcn: community.general.redis
+collection: community.general
+short_description: Various redis commands, replica and flush
+description: Unified utility to interact with redis instances.
+options:
+  ca_certs:
+    type: str
+    description: Path to root certificates file. If not set and O(tls) is set to V(true), certifi ca-certificates
+      will be used.
+  command:
+    type: str
+    choices:
+    - config
+    - flush
+    - replica
+    - slave
+    description: The selected redis command V(config) ensures a configuration setting on an instance.
+      V(flush) flushes all the instance or a specified db. V(replica) sets a redis instance in replica
+      or master mode. (V(slave) is an alias for V(replica).)
+  db:
+    type: int
+    description: The database to flush (used in db mode) [flush command]
+  flush_mode:
+    type: str
+    default: all
+    choices:
+    - all
+    - db
+    description: Type of flush (all the dbs in a redis instance or a specific one) [flush command]
+  login_host:
+    type: str
+    default: localhost
+    description: Specify the target host running the database.
+  login_password:
+    type: str
+    description: Specify the password to authenticate with. Usually not used when target is localhost.
+  login_port:
+    type: int
+    default: 6379
+    description: Specify the port to connect to.
+  login_user:
+    type: str
+    description: Specify the user to authenticate with. Requires L(redis,https://pypi.org/project/redis)
+      >= 3.4.0.
+  master_host:
+    type: str
+    description: The host of the master instance [replica command]
+  master_port:
+    type: int
+    description: The port of the master instance [replica command]
+  name:
+    type: str
+    description: A redis config key.
+  replica_mode:
+    type: str
+    default: replica
+    choices:
+    - master
+    - replica
+    - slave
+    aliases:
+    - slave_mode
+    description: The mode of the redis instance [replica command] V(slave) is an alias for V(replica).
+  tls:
+    type: bool
+    default: false
+    description: Specify whether or not to use TLS for the connection.
+  validate_certs:
+    type: bool
+    default: true
+    description: Specify whether or not to validate TLS certificates. This should only be turned off for
+      personally controlled sites or with C(localhost) as target.
+  value:
+    type: str
+    description: A redis config value. When memory size is needed, it is possible to specify it in the
+      usual form of 1KB, 2M, 400MB where the base is 1024. Units are case insensitive i.e. 1m = 1mb =
+      1M = 1MB.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Set local redis instance to be a replica of melee.island on port 6377\n  community.general.redis:\n\
+  \    command: replica\n    master_host: melee.island\n    master_port: 6377\n\n- name: Deactivate replica\
+  \ mode\n  community.general.redis:\n    command: replica\n    replica_mode: master\n\n- name: Flush\
+  \ all the redis db\n  community.general.redis:\n    command: flush\n    flush_mode: all\n\n- name: Flush\
+  \ only one db in a redis instance\n  community.general.redis:\n    command: flush\n    db: 1\n    flush_mode:\
+  \ db\n\n- name: Configure local redis to have 10000 max clients\n  community.general.redis:\n    command:\
+  \ config\n    name: maxclients\n    value: 10000\n\n- name: Configure local redis maxmemory to 4GB\n\
+  \  community.general.redis:\n    command: config\n    name: maxmemory\n    value: 4GB\n\n- name: Configure\
+  \ local redis to have lua time limit of 100 ms\n  community.general.redis:\n    command: config\n  \
+  \  name: lua-time-limit\n    value: 100\n"

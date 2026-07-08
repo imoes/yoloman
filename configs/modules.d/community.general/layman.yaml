@@ -1,0 +1,43 @@
+name: layman
+fqcn: community.general.layman
+collection: community.general
+short_description: Manage Gentoo overlays
+description: Uses Layman to manage an additional repositories for the Portage package manager on Gentoo
+  Linux. Please note that Layman must be installed on a managed node prior using this module.
+options:
+  list_url:
+    type: str
+    aliases:
+    - url
+    description: An URL of the alternative overlays list that defines the overlay to install. This list
+      will be fetched and saved under C(${overlay_defs}/${name}.xml), where C(overlay_defs) is read from
+      the Layman's configuration.
+  name:
+    type: str
+    required: true
+    description: The overlay id to install, synchronize, or uninstall. Use 'ALL' to sync all of the installed
+      overlays (can be used only when O(state=updated)).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - updated
+    description: Whether to install (V(present)), sync (V(updated)), or uninstall (V(absent)) the overlay.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be set to V(false)
+      when no other option exists.  Prior to 1.9.3 the code defaulted to V(false).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install the overlay mozilla which is on the central overlays list\n  community.general.layman:\n\
+  \    name: mozilla\n\n- name: Install the overlay cvut from the specified alternative list\n  community.general.layman:\n\
+  \    name: cvut\n    list_url: 'http://raw.github.com/cvut/gentoo-overlay/master/overlay.xml'\n\n- name:\
+  \ Update (sync) the overlay cvut or install if not installed yet\n  community.general.layman:\n    name:\
+  \ cvut\n    list_url: 'http://raw.github.com/cvut/gentoo-overlay/master/overlay.xml'\n    state: updated\n\
+  \n- name: Update (sync) all of the installed overlays\n  community.general.layman:\n    name: ALL\n\
+  \    state: updated\n\n- name: Uninstall the overlay cvut\n  community.general.layman:\n    name: cvut\n\
+  \    state: absent\n"

@@ -1,0 +1,79 @@
+name: gitlab_milestone
+fqcn: community.general.gitlab_milestone
+collection: community.general
+short_description: Creates/updates/deletes GitLab Milestones belonging to project or group
+description: When a milestone does not exist, it will be created. When a milestone does exist, its value
+  will be updated when the values are different. Milestones can be purged.
+options:
+  api_job_token:
+    type: str
+    description: GitLab CI job token for logging in.
+  api_oauth_token:
+    type: str
+    description: GitLab OAuth token for logging in.
+  api_password:
+    type: str
+    description: The password to use for authentication against the API.
+  api_token:
+    type: str
+    description: GitLab access token with API permissions.
+  api_url:
+    type: str
+    description: The resolvable endpoint for the API.
+  api_username:
+    type: str
+    description: The username to use for authentication against the API.
+  ca_path:
+    type: str
+    description: The CA certificates bundle to use to verify GitLab server certificate.
+  group:
+    type: str
+    description: The path of the group. Either this or O(project) is required.
+  milestones:
+    type: list
+    default: []
+    description: A list of dictionaries that represents gitlab project's or group's milestones.
+  project:
+    type: str
+    description: The path and name of the project. Either this or O(group) is required.
+  purge:
+    type: bool
+    default: false
+    description: When set to V(true), delete all milestone which are not mentioned in the task.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Create or delete milestone.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# same project's task can be executed for group\n- name: Create one milestone\n  community.general.gitlab_milestone:\n\
+  \    api_url: https://gitlab.com\n    api_token: secret_access_token\n    project: \"group1/project1\"\
+  \n    milestones:\n      - title: milestone_one\n        start_date: \"2024-01-04\"\n    state: present\n\
+  \n- name: Create many group milestones\n  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n\
+  \    api_token: secret_access_token\n    group: \"group1\"\n    milestones:\n      - title: milestone_one\n\
+  \        start_date: \"2024-01-04\"\n        description: this is a milestone\n        due_date: \"\
+  2024-02-04\"\n      - title: milestone_two\n    state: present\n\n- name: Create many project milestones\n\
+  \  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n    api_token: secret_access_token\n\
+  \    project: \"group1/project1\"\n    milestones:\n      - title: milestone_one\n        start_date:\
+  \ \"2024-01-04\"\n        description: this is a milestone\n        due_date: \"2024-02-04\"\n     \
+  \ - title: milestone_two\n    state: present\n\n- name: Set or update some milestones\n  community.general.gitlab_milestone:\n\
+  \    api_url: https://gitlab.com\n    api_token: secret_access_token\n    project: \"group1/project1\"\
+  \n    milestones:\n      - title: milestone_one\n        start_date: \"2024-05-04\"\n    state: present\n\
+  \n- name: Add milestone in check mode\n  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n\
+  \    api_token: secret_access_token\n    project: \"group1/project1\"\n    milestones:\n      - title:\
+  \ milestone_one\n        start_date: \"2024-05-04\"\n    check_mode: true\n\n- name: Delete milestone\n\
+  \  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n    api_token: secret_access_token\n\
+  \    project: \"group1/project1\"\n    milestones:\n      - title: milestone_one\n    state: absent\n\
+  \n- name: Purge all milestones\n  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n\
+  \    api_token: secret_access_token\n    project: \"group1/project1\"\n    purge: true\n\n- name: Delete\
+  \ many milestones\n  community.general.gitlab_milestone:\n    api_url: https://gitlab.com\n    api_token:\
+  \ secret_access_token\n    project: \"group1/project1\"\n    state: absent\n    milestones:\n      -\
+  \ title: milestone-abc123\n      - title: milestone-two\n"

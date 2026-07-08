@@ -1,0 +1,136 @@
+name: oci_vcn
+fqcn: community.general.oci_vcn
+collection: community.general
+short_description: Manage Virtual Cloud Networks(VCN) in OCI
+description: This module allows the user to create, delete and update virtual cloud networks(VCNs) in
+  OCI. The complete Oracle Cloud Infrastructure Ansible Modules can be downloaded from U(https://github.com/oracle/oci-ansible-modules/releases).
+options:
+  api_user:
+    type: str
+    description: The OCID of the user, on whose behalf, OCI APIs are invoked. If not set, then the value
+      of the E(OCI_USER_OCID) environment variable, if any, is used. This option is required if the user
+      is not specified through a configuration file (See O(config_file_location)). To get the user's OCID,
+      please refer U(https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/apisigningkey.htm).
+  api_user_fingerprint:
+    type: str
+    description: Fingerprint for the key pair being used. If not set, then the value of the E(OCI_USER_FINGERPRINT)
+      environment variable, if any, is used. This option is required if the key fingerprint is not specified
+      through a configuration file (See O(config_file_location)). To get the key pair's fingerprint value
+      please refer U(https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/apisigningkey.htm).
+  api_user_key_file:
+    type: path
+    description: Full path and filename of the private key (in PEM format). If not set, then the value
+      of the OCI_USER_KEY_FILE variable, if any, is used. This option is required if the private key is
+      not specified through a configuration file (See O(config_file_location)). If the key is encrypted
+      with a pass-phrase, the O(api_user_key_pass_phrase) option must also be provided.
+  api_user_key_pass_phrase:
+    type: str
+    description: Passphrase used by the key referenced in O(api_user_key_file), if it is encrypted. If
+      not set, then the value of the OCI_USER_KEY_PASS_PHRASE variable, if any, is used. This option is
+      required if the key passphrase is not specified through a configuration file (See O(config_file_location)).
+  auth_type:
+    type: str
+    default: api_key
+    choices:
+    - api_key
+    - instance_principal
+    description: The type of authentication to use for making API requests. By default O(auth_type=api_key)
+      based authentication is performed and the API key (see O(api_user_key_file)) in your config file
+      will be used. If this 'auth_type' module option is not specified, the value of the OCI_ANSIBLE_AUTH_TYPE,
+      if any, is used. Use O(auth_type=instance_principal) to use instance principal based authentication
+      when running ansible playbooks within an OCI compute instance.
+  cidr_block:
+    type: str
+    description: The CIDR IP address block of the VCN. Required when creating a VCN with O(state=present).
+  compartment_id:
+    type: str
+    description: The OCID of the compartment to contain the VCN. Required when creating a VCN with O(state=present).
+      This option is mutually exclusive with O(vcn_id).
+  config_file_location:
+    type: str
+    description: Path to configuration file. If not set then the value of the E(OCI_CONFIG_FILE) environment
+      variable, if any, is used. Otherwise, defaults to C(~/.oci/config).
+  config_profile_name:
+    type: str
+    default: DEFAULT
+    description: The profile to load from the config file referenced by O(config_file_location). If not
+      set, then the value of the E(OCI_CONFIG_PROFILE) environment variable, if any, is used. Otherwise,
+      defaults to the C(DEFAULT) profile in O(config_file_location).
+  defined_tags:
+    type: dict
+    description: Defined tags for this resource. Each key is predefined and scoped to a namespace. For
+      more information, see U(https://docs.us-phoenix-1.oraclecloud.com/Content/General/Concepts/resourcetags.htm).
+  display_name:
+    type: str
+    aliases:
+    - name
+    description: A user-friendly name. Does not have to be unique, and it's changeable.
+  dns_label:
+    type: str
+    description: A DNS label for the VCN, used in conjunction with the VNIC's hostname and subnet's DNS
+      label to form a fully qualified domain name (FQDN) for each VNIC within this subnet (for example,
+      bminstance-1.subnet123.vcn1.oraclevcn.com). Not required to be unique, but it's a best practice
+      to set unique DNS labels for VCNs in your tenancy. Must be an alphanumeric string that begins with
+      a letter. The value cannot be changed.
+  force_create:
+    type: bool
+    default: false
+    description: Whether to attempt non-idempotent creation of a resource. By default, create resource
+      is an idempotent operation, and doesn't create the resource if it already exists. Setting this option
+      to true, forcefully creates a copy of the resource, even if it already exists.This option is mutually
+      exclusive with O(key_by).
+  freeform_tags:
+    type: dict
+    description: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined
+      name, type, or namespace. For more information, see U(https://docs.us-phoenix-1.oraclecloud.com/Content/General/Concepts/resourcetags.htm).
+  key_by:
+    type: list
+    description: The list of comma-separated attributes of this resource which should be used to uniquely
+      identify an instance of the resource. By default, all the attributes of a resource except O(freeform_tags)
+      are used to uniquely identify a resource.
+  region:
+    type: str
+    description: The Oracle Cloud Infrastructure region to use for all OCI API requests. If not set, then
+      the value of the OCI_REGION variable, if any, is used. This option is required if the region is
+      not specified through a configuration file (See O(config_file_location)). Please refer to U(https://docs.us-phoenix-1.oraclecloud.com/Content/General/Concepts/regions.htm)
+      for more information on OCI regions.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Create or update a VCN with O(state=present). Use O(state=absent) to delete a VCN.
+  tenancy:
+    type: str
+    description: OCID of your tenancy. If not set, then the value of the OCI_TENANCY variable, if any,
+      is used. This option is required if the tenancy OCID is not specified through a configuration file
+      (See O(config_file_location)). To get the tenancy OCID, please refer to U(https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/apisigningkey.htm).
+  vcn_id:
+    type: str
+    aliases:
+    - id
+    description: The OCID of the VCN. Required when deleting a VCN with O(state=absent) or updating a
+      VCN with O(state=present). This option is mutually exclusive with O(compartment_id).
+  wait:
+    type: bool
+    default: true
+    description: Whether to wait for create or delete operation to complete.
+  wait_timeout:
+    type: int
+    default: 1200
+    description: Time, in seconds, to wait when O(wait=true).
+  wait_until:
+    type: str
+    description: The lifecycle state to wait for the resource to transition into when O(wait=true). By
+      default, when O(wait=true), we wait for the resource to get into ACTIVE/ATTACHED/AVAILABLE/PROVISIONED/
+      RUNNING applicable lifecycle state during create operation and to get into DELETED/DETACHED/ TERMINATED
+      lifecycle state during delete operation.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a VCN\n  community.general.oci_vcn:\n    cidr_block: '10.0.0.0/16'\n    compartment_id:\
+  \ 'ocid1.compartment.oc1..xxxxxEXAMPLExxxxx'\n    display_name: my_vcn\n    dns_label: ansiblevcn\n\n\
+  - name: Updates the specified VCN's display name\n  community.general.oci_vcn:\n    vcn_id: ocid1.vcn.oc1.phx.xxxxxEXAMPLExxxxx\n\
+  \    display_name: ansible_vcn\n\n- name: Delete the specified VCN\n  community.general.oci_vcn:\n \
+  \   vcn_id: ocid1.vcn.oc1.phx.xxxxxEXAMPLExxxxx\n    state: absent\n"

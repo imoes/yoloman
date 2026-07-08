@@ -1,0 +1,71 @@
+name: rhn_register
+fqcn: community.general.rhn_register
+collection: community.general
+short_description: Manage Red Hat Network registration using the C(rhnreg_ks) command
+description: Manage registration to the Red Hat Network.
+options:
+  activationkey:
+    type: str
+    description: Supply an activation key for use with registration.
+  ca_cert:
+    type: path
+    aliases:
+    - sslcacert
+    description: Supply a custom ssl CA certificate file for use with registration.
+  channels:
+    type: list
+    default: []
+    description: Optionally specify a list of channels to subscribe to upon successful registration.
+  enable_eus:
+    type: bool
+    default: false
+    description: If V(false), extended update support will be requested.
+  force:
+    type: bool
+    default: false
+    description: Force registration, even if system is already registered.
+  nopackages:
+    type: bool
+    default: false
+    description: If V(true), the registered node will not upload its installed packages information to
+      Satellite server.
+  password:
+    type: str
+    description: Red Hat Network password.
+  profilename:
+    type: str
+    description: Supply an profilename for use with registration.
+  server_url:
+    type: str
+    description: Specify an alternative Red Hat Network server URL. The default is the current value of
+      C(serverURL) from C(/etc/sysconfig/rhn/up2date).
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether to register (V(present)), or unregister (V(absent)) a system.
+  systemorgid:
+    type: str
+    description: Supply an organizational id for use with registration.
+  username:
+    type: str
+    description: Red Hat Network username.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Unregister system from RHN\n  community.general.rhn_register:\n    state: absent\n\
+  \    username: joe_user\n    password: somepass\n\n- name: Register as user with password and auto-subscribe\
+  \ to available content\n  community.general.rhn_register:\n    state: present\n    username: joe_user\n\
+  \    password: somepass\n\n- name: Register with activationkey and enable extended update support\n\
+  \  community.general.rhn_register:\n    state: present\n    activationkey: 1-222333444\n    enable_eus:\
+  \ true\n\n- name: Register with activationkey and set a profilename which may differ from the hostname\n\
+  \  community.general.rhn_register:\n    state: present\n    activationkey: 1-222333444\n    profilename:\
+  \ host.example.com.custom\n\n- name: Register as user with password against a satellite server\n  community.general.rhn_register:\n\
+  \    state: present\n    username: joe_user\n    password: somepass\n    server_url: https://xmlrpc.my.satellite/XMLRPC\n\
+  \n- name: Register as user with password and enable channels\n  community.general.rhn_register:\n  \
+  \  state: present\n    username: joe_user\n    password: somepass\n    channels: rhel-x86_64-server-6-foo-1,rhel-x86_64-server-6-bar-1\n\
+  \n- name: Force-register as user with password to ensure registration is current on server\n  community.general.rhn_register:\n\
+  \    state: present\n    username: joe_user\n    password: somepass\n    server_url: https://xmlrpc.my.satellite/XMLRPC\n\
+  \    force: true\n"
