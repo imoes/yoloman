@@ -1,0 +1,115 @@
+name: zypper
+fqcn: community.general.zypper
+collection: community.general
+short_description: Manage packages on SUSE and openSUSE
+description: Manage packages on SUSE and openSUSE using the zypper and rpm tools. Also supports transactional
+  updates, by running zypper inside C(/sbin/transactional-update --continue --drop-if-no-change --quiet
+  run).
+options:
+  allow_vendor_change:
+    type: bool
+    default: false
+    description: Adds C(--allow_vendor_change) option to I(zypper) dist-upgrade command.
+  clean_deps:
+    type: bool
+    default: false
+    description: Adds C(--clean-deps) option to I(zypper) remove command.
+  disable_gpg_check:
+    type: bool
+    default: false
+    description: Whether to disable to GPG signature checking of the package signature being installed.
+      Has an effect only if O(state) is V(present) or V(latest).
+  disable_recommends:
+    type: bool
+    default: true
+    description: Corresponds to the C(--no-recommends) option for I(zypper). Default behavior (V(true))
+      modifies zypper's default behavior; V(false) does install recommended packages.
+  extra_args:
+    type: str
+    description: Add additional options to C(zypper) command. Options should be supplied in a single line
+      as if given in the command line.
+  extra_args_precommand:
+    type: str
+    description: Add additional global target options to C(zypper). Options should be supplied in a single
+      line as if given in the command line.
+  force:
+    type: bool
+    default: false
+    description: Adds C(--force) option to I(zypper). Allows to downgrade packages and change vendor or
+      architecture.
+  force_resolution:
+    type: bool
+    default: false
+    description: Adds C(--force-resolution) option to I(zypper). Allows to (un)install packages with conflicting
+      requirements (resolver will choose a solution).
+  name:
+    type: list
+    required: true
+    aliases:
+    - pkg
+    description: Package name V(name) or package specifier or a list of either. Can include a version
+      like V(name=1.0), V(name>3.4) or V(name<=2.7). If a version is given, V(oldpackage) is implied and
+      zypper is allowed to update the package within the version range given. You can also pass a url
+      or a local path to a rpm file. When using O(state=latest), this can be '*', which updates all installed
+      packages.
+  oldpackage:
+    type: bool
+    default: false
+    description: Adds C(--oldpackage) option to I(zypper). Allows to downgrade packages with less side-effects
+      than force. This is implied as soon as a version is specified as part of the package name.
+  replacefiles:
+    type: bool
+    default: false
+    description: Adds C(--replacefiles) option to I(zypper) install/update command.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - latest
+    - absent
+    - dist-upgrade
+    - installed
+    - removed
+    description: V(present) will make sure the package is installed. V(latest)  will make sure the latest
+      version of the package is installed. V(absent)  will make sure the specified package is not installed.
+      V(dist-upgrade) will make sure the latest version of all installed packages from all enabled repositories
+      is installed. When using V(dist-upgrade), O(name) should be V('*').
+  type:
+    type: str
+    default: package
+    choices:
+    - package
+    - patch
+    - pattern
+    - product
+    - srcpackage
+    - application
+    description: The type of package to be operated on.
+  update_cache:
+    type: bool
+    default: false
+    aliases:
+    - refresh
+    description: Run the equivalent of C(zypper refresh) before the operation. Disabled in check mode.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install nmap\n  community.general.zypper:\n    name: nmap\n    state: present\n\n\
+  - name: Install apache2 with recommended packages\n  community.general.zypper:\n    name: apache2\n\
+  \    state: present\n    disable_recommends: false\n\n- name: Apply a given patch\n  community.general.zypper:\n\
+  \    name: openSUSE-2016-128\n    state: present\n    type: patch\n\n- name: Remove the nmap package\n\
+  \  community.general.zypper:\n    name: nmap\n    state: absent\n\n- name: Install the nginx rpm from\
+  \ a remote repo\n  community.general.zypper:\n    name: 'http://nginx.org/packages/sles/12/x86_64/RPMS/nginx-1.8.0-1.sles12.ngx.x86_64.rpm'\n\
+  \    state: present\n\n- name: Install local rpm file\n  community.general.zypper:\n    name: /tmp/fancy-software.rpm\n\
+  \    state: present\n\n- name: Update all packages\n  community.general.zypper:\n    name: '*'\n   \
+  \ state: latest\n\n- name: Apply all available patches\n  community.general.zypper:\n    name: '*'\n\
+  \    state: latest\n    type: patch\n\n- name: Perform a dist-upgrade with additional arguments\n  community.general.zypper:\n\
+  \    name: '*'\n    state: dist-upgrade\n    allow_vendor_change: true\n    extra_args: '--allow-arch-change'\n\
+  \n- name: Perform a installation of nmap with the install option replacefiles\n  community.general.zypper:\n\
+  \    name: 'nmap'\n    state: latest\n    replacefiles: true\n\n- name: Refresh repositories and update\
+  \ package openssl\n  community.general.zypper:\n    name: openssl\n    state: present\n    update_cache:\
+  \ true\n\n- name: \"Install specific version (possible comparisons: <, >, <=, >=, =)\"\n  community.general.zypper:\n\
+  \    name: 'docker>=1.10'\n    state: present\n\n- name: Wait 20 seconds to acquire the lock before\
+  \ failing\n  community.general.zypper:\n    name: mosh\n    state: present\n  environment:\n    ZYPP_LOCK_TIMEOUT:\
+  \ 20\n"

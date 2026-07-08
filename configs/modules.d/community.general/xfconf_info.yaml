@@ -1,0 +1,25 @@
+name: xfconf_info
+fqcn: community.general.xfconf_info
+collection: community.general
+short_description: Retrieve XFCE4 configurations
+description: This module allows retrieving Xfce 4 configurations with the help of C(xfconf-query).
+options:
+  channel:
+    type: str
+    description: "A Xfconf preference channel is a top-level tree key, inside of the Xfconf repository\
+      \ that corresponds to the location for which all application properties/keys are stored.\n If not\
+      \ provided, the module will list all available channels."
+  property:
+    type: str
+    description: "A Xfce preference key is an element in the Xfconf repository that corresponds to an\
+      \ application preference.\n If provided, then O(channel) is required. If not provided and a O(channel)\
+      \ is provided, then the module will list all available properties in that O(channel)."
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Get list of all available channels\n  community.general.xfconf_info: {}\n  register:\
+  \ result\n\n- name: Get list of all properties in a specific channel\n  community.general.xfconf_info:\n\
+  \    channel: xsettings\n  register: result\n\n- name: Retrieve the DPI value\n  community.general.xfconf_info:\n\
+  \    channel: xsettings\n    property: /Xft/DPI\n  register: result\n\n- name: Get workspace names (4)\n\
+  \  community.general.xfconf_info:\n    channel: xfwm4\n    property: /general/workspace_names\n  register:\
+  \ result\n"
