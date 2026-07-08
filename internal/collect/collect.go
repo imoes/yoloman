@@ -56,7 +56,7 @@ var realFilesystems = map[string]bool{
 // canonical set of OS metrics plus derived built-in check results. statfs
 // is called once per real (non-virtual, deduplicated-by-device) mount
 // point found in /proc/mounts.
-func Sample(procRoot string, now time.Time, statfs statfsFunc) (Snapshot, error) {
+func Sample(procRoot string, now time.Time, statfs statfsFunc, overrides map[string]ThresholdOverride) (Snapshot, error) {
 	var points []store.Point
 	add := func(metric string, value float64, labels map[string]string) {
 		points = append(points, store.Point{Metric: metric, Timestamp: now, Value: value, Labels: labels})
@@ -123,14 +123,15 @@ func Sample(procRoot string, now time.Time, statfs statfsFunc) (Snapshot, error)
 
 	return Snapshot{
 		Points: points,
-		Checks: builtinChecks(now, load, cpuCount, memUsedPct, diskUsedPct, uptimeSeconds),
+		Checks: builtinChecks(now, load, cpuCount, memUsedPct, diskUsedPct, uptimeSeconds, overrides),
 	}, nil
 }
 
 // SampleDefault is Sample backed by the real statfs(2) syscall — the
-// non-test entry point (mirrors internal/checks.RunDefault).
-func SampleDefault(procRoot string, now time.Time) (Snapshot, error) {
-	return Sample(procRoot, now, defaultStatfs)
+// non-test entry point (mirrors internal/checks.RunDefault). `overrides` are
+// the pushed desired-state thresholds (nil/empty = built-in defaults).
+func SampleDefault(procRoot string, now time.Time, overrides map[string]ThresholdOverride) (Snapshot, error) {
+	return Sample(procRoot, now, defaultStatfs, overrides)
 }
 
 func parseProcFile[T any](procRoot, relPath string, parse func(r io.Reader) (T, error)) (T, error) {

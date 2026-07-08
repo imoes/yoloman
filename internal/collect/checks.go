@@ -27,6 +27,40 @@ const (
 	diskCritPct     = 90.0
 )
 
+// ThresholdOverride is one metric's pushed warn/crit override (Block
+// L4-behavioral) — the compiled desired state's monitoring.thresholds,
+// resolved by Bossman's GPO/OU precedence and pushed to the agent. A nil
+// Warn/Crit means "leave the built-in default for that level". The metric
+// keys the built-in checks honor are exactly the metric names the agent
+// emits (so they match what an operator picks in Bossman's live metric
+// search): `mem_used_pct` (Memory check, percent), `disk_used_pct` (every
+// Disk <mount> check, percent), and `cpu_load5` (CPU load check — compared as
+// the ABSOLUTE 5-min load rather than the per-core default that applies when
+// no override is set).
+type ThresholdOverride struct {
+	Warn *float64
+	Crit *float64
+}
+
+// effectiveThreshold returns the warn/crit to use for a metric: the pushed
+// override where set, otherwise the built-in default. Also reports whether an
+// override was present at all (used by the CPU check to switch from per-core
+// to absolute-load comparison).
+func effectiveThreshold(overrides map[string]ThresholdOverride, metric string, defWarn, defCrit float64) (warn, crit float64, overridden bool) {
+	warn, crit = defWarn, defCrit
+	ov, ok := overrides[metric]
+	if !ok {
+		return warn, crit, false
+	}
+	if ov.Warn != nil {
+		warn = *ov.Warn
+	}
+	if ov.Crit != nil {
+		crit = *ov.Crit
+	}
+	return warn, crit, true
+}
+
 // CheckResult is one named check's most recent outcome, cached in a
 // CheckRegistry for GET /api/v1/hosts/overview's checks[] — kept as a
 // structured Result (not just the numeric state also written to the
@@ -85,20 +119,34 @@ func thresholdStatus(value, warn, crit float64) checks.Status {
 // from an already-collected sample — pure Go threshold evaluation, not an
 // external plugin exec, so these exist out of the box on every host with
 // no nagios-plugins package installed anywhere.
-func builtinChecks(now time.Time, load *proc.LoadAvg, cpuCount int, memUsedPct *float64, diskUsedPct map[string]float64, uptimeSeconds *float64) []CheckResult {
+func builtinChecks(now time.Time, load *proc.LoadAvg, cpuCount int, memUsedPct *float64, diskUsedPct map[string]float64, uptimeSeconds *float64, overrides map[string]ThresholdOverride) []CheckResult {
 	var out []CheckResult
 
 	if load != nil {
-		perCore := load.Load5
-		if cpuCount > 0 {
-			perCore = load.Load5 / float64(cpuCount)
+		// A `cpu_load5` override is compared against the ABSOLUTE 5-min load
+		// (the metric operators see in the catalog); without one, the
+		// built-in per-core default (1.0/2.0 per logical core) applies.
+		warn, crit, overridden := effectiveThreshold(overrides, "cpu_load5", loadWarnPerCore, loadCritPerCore)
+		var value float64
+		var msg string
+		if overridden {
+			// Absolute 5-min load vs. the pushed load5 threshold.
+			value = load.Load5
+			msg = fmt.Sprintf("5min load %.2f", load.Load5)
+		} else {
+			// Per-core default basis (unchanged pre-L4 behavior).
+			value = load.Load5
+			if cpuCount > 0 {
+				value = load.Load5 / float64(cpuCount)
+			}
+			msg = fmt.Sprintf("5min load %.2f (%.2f per core, %d cores)", load.Load5, value, cpuCount)
 		}
-		status := thresholdStatus(perCore, loadWarnPerCore, loadCritPerCore)
+		status := thresholdStatus(value, warn, crit)
 		out = append(out, CheckResult{
 			Name: "CPU load", At: now,
 			Result: checks.Result{
 				Status:  status,
-				Message: fmt.Sprintf("5min load %.2f (%.2f per core, %d cores)", load.Load5, perCore, cpuCount),
+				Message: msg,
 				Perfdata: []checks.PerfDatum{
 					{Label: "load1", Value: fmt.Sprintf("%.2f", load.Load1)},
 					{Label: "load5", Value: fmt.Sprintf("%.2f", load.Load5)},
@@ -109,17 +157,22 @@ func builtinChecks(now time.Time, load *proc.LoadAvg, cpuCount int, memUsedPct *
 	}
 
 	if memUsedPct != nil {
-		status := thresholdStatus(*memUsedPct, memWarnPct, memCritPct)
+		warn, crit, _ := effectiveThreshold(overrides, "mem_used_pct", memWarnPct, memCritPct)
+		status := thresholdStatus(*memUsedPct, warn, crit)
 		out = append(out, CheckResult{
 			Name: "Memory", At: now,
 			Result: checks.Result{
 				Status:   status,
 				Message:  fmt.Sprintf("%.1f%% used", *memUsedPct),
-				Perfdata: []checks.PerfDatum{{Label: "used_pct", Value: fmt.Sprintf("%.1f", *memUsedPct), Warn: fmt.Sprintf("%.0f", memWarnPct), Crit: fmt.Sprintf("%.0f", memCritPct)}},
+				Perfdata: []checks.PerfDatum{{Label: "used_pct", Value: fmt.Sprintf("%.1f", *memUsedPct), Warn: fmt.Sprintf("%.0f", warn), Crit: fmt.Sprintf("%.0f", crit)}},
 			},
 		})
 	}
 
+	// One disk_used_pct override applies uniformly to every mount's Disk
+	// check (first-cut: label-agnostic, matching the compiler's label-agnostic
+	// resolution).
+	diskWarn, diskCrit, _ := effectiveThreshold(overrides, "disk_used_pct", diskWarnPct, diskCritPct)
 	mounts := make([]string, 0, len(diskUsedPct))
 	for m := range diskUsedPct {
 		mounts = append(mounts, m)
@@ -127,13 +180,13 @@ func builtinChecks(now time.Time, load *proc.LoadAvg, cpuCount int, memUsedPct *
 	sort.Strings(mounts)
 	for _, mount := range mounts {
 		pct := diskUsedPct[mount]
-		status := thresholdStatus(pct, diskWarnPct, diskCritPct)
+		status := thresholdStatus(pct, diskWarn, diskCrit)
 		out = append(out, CheckResult{
 			Name: "Disk " + mount, At: now,
 			Result: checks.Result{
 				Status:   status,
 				Message:  fmt.Sprintf("%.1f%% used", pct),
-				Perfdata: []checks.PerfDatum{{Label: "used_pct", Value: fmt.Sprintf("%.1f", pct), Warn: fmt.Sprintf("%.0f", diskWarnPct), Crit: fmt.Sprintf("%.0f", diskCritPct)}},
+				Perfdata: []checks.PerfDatum{{Label: "used_pct", Value: fmt.Sprintf("%.1f", pct), Warn: fmt.Sprintf("%.0f", diskWarn), Crit: fmt.Sprintf("%.0f", diskCrit)}},
 			},
 		})
 	}

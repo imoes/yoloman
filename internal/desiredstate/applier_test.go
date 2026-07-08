@@ -56,6 +56,36 @@ func TestApply_NewerRollsPreviousAndRollback(t *testing.T) {
 	}
 }
 
+func TestThresholds_ParsedFromAppliedDoc(t *testing.T) {
+	a := NewApplier(filepath.Join(t.TempDir(), "ds.json"))
+	doc := json.RawMessage(`{"monitoring":{"thresholds":{
+		"mem_used_pct":{"warn":70,"crit":85,"comparison":"gt","service_name":"Memory"},
+		"cpu_load5":{"warn":null,"crit":8,"comparison":"gt","service_name":"CPU"}}}}`)
+	if _, err := a.Apply(1, "h1", doc); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	th := a.Thresholds()
+	mem, ok := th["mem_used_pct"]
+	if !ok || mem.Warn == nil || *mem.Warn != 70 || mem.Crit == nil || *mem.Crit != 85 {
+		t.Fatalf("mem_used_pct threshold = %+v, want warn 70 / crit 85", mem)
+	}
+	// A null warn must stay nil (distinguishable from 0), crit still parsed.
+	cpu := th["cpu_load5"]
+	if cpu.Warn != nil {
+		t.Errorf("cpu_load5 warn = %v, want nil for JSON null", *cpu.Warn)
+	}
+	if cpu.Crit == nil || *cpu.Crit != 8 {
+		t.Fatalf("cpu_load5 crit = %+v, want 8", cpu.Crit)
+	}
+}
+
+func TestThresholds_EmptyWhenNoState(t *testing.T) {
+	a := NewApplier(filepath.Join(t.TempDir(), "ds.json"))
+	if got := a.Thresholds(); len(got) != 0 {
+		t.Fatalf("Thresholds() = %+v, want empty for a never-pushed applier", got)
+	}
+}
+
 func TestApply_PersistenceSurvivesRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "ds.json")
 	a1 := NewApplier(path)

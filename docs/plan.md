@@ -4035,11 +4035,37 @@ Bossman). Read-only `GET /api/v1/state` reports the applied generation/hash (dri
 applier → `{"desired_state":"unconfigured"}`).
 
 Tests: `internal/desiredstate/applier_test.go` (stores new generation, rejects stale generation,
-newer rolls previous + rollback, persistence-survives-restart) and `internal/server/state_test.go`
-(unconfigured/never-pushed reporting, push stores + state reflects, read-only agent returns 403).
-Full Go suite + build green.
+newer rolls previous + rollback, persistence-survives-restart, thresholds parsed from applied doc /
+empty when no state) and `internal/server/state_test.go` (unconfigured/never-pushed reporting, push
+stores + state reflects, read-only agent returns 403). Full Go suite + build green.
+
+### Block L4-behavioral — pushed thresholds change real check behavior (first cut, 2026-07-08)
+
+The first behavioral cut: a pushed threshold change actually flips the built-in checks, with **no
+restart** (the collect loop re-reads the applied state each tick). User-confirmed scope: (1) fold the
+**GPO-resolved check_rules** into the compiled desired state so the OU/GPO console's human-set
+thresholds reach the host; (2) first cut overrides **built-in check thresholds only** (enabling/
+disabling which check loops run is a later step).
+
+Bossman compiler: `resolve_host_thresholds(session, agent, ancestry)` resolves, per metric with an
+enabled check_rule, the single governing rule via the shared `resolve_effective_rule` (full GPO
+precedence — host > OU(deep→shallow) > group > global, enforced/block_inheritance) and emits
+`{metric: {warn, crit, comparison, service_name}}`. `_build_desired_state` folds it into
+`monitoring.thresholds`; a check_rule **wins over** a plan-authored key of the same name (deliberate
+host config over role default). Resolution is label-agnostic (a per-mount disk rule folds to one
+whole-metric override). Verified in `tests/test_compiler.py` (OU rule reaches host, host overrides
+OU, enforced higher level wins, check_rule beats plan, absent when no rules).
+
+Agent: `desiredstate.Applier.Thresholds()` parses `monitoring.thresholds` from the applied doc
+(warn/crit as pointers so JSON null ≠ 0). `collect.builtinChecks` takes a
+`map[string]ThresholdOverride` and honors the metric keys the agent actually emits: `mem_used_pct`
+(Memory), `disk_used_pct` (every Disk mount), `cpu_load5` (CPU load — compared as **absolute** 5-min
+load when overridden, vs. the per-core default otherwise). `cmd/agentic-mcpd/main.go`'s collect loop
+reads `desiredStateOverrides(dsApplier)` each tick (keeps `collect` decoupled from `desiredstate`).
+Verified in `internal/collect/collect_test.go` (override flips Memory to CRIT, absolute cpu_load5
+override flips CPU load to CRIT).
 
 **Not done (deliberately, needs its own authorization):** deploying this agent build to the real
-hosts (`duppy-docker-test`, `selecta-ansible-runner`) via SSH, and the behavioral apply (make the
-pushed monitoring config actually change which checks run, restartable check loops). Those touch
-real machines.
+hosts (`duppy-docker-test`, `selecta-ansible-runner`) via SSH, and enabling/disabling which check
+loops run from the pushed `checks[]` set (restartable loops). Those touch real machines / add
+concurrency.

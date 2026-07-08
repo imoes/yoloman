@@ -80,8 +80,15 @@ func run(args []string) error {
 	}
 	startRetentionLoop(cfg, st)
 
+	// Block L4: the desired-state store — Bossman PUSHES compiled config into
+	// it via POST /api/v1/config/apply (the agent never dials out). Created
+	// before the collect loop so that loop can read the pushed thresholds
+	// (behavioral apply) each tick. The applied state persists next to the DB
+	// file across restarts.
+	dsApplier := desiredstate.NewApplier(filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json"))
+
 	checkRegistry := collect.NewCheckRegistry()
-	startCollectLoop(cfg, st, checkRegistry)
+	startCollectLoop(cfg, st, checkRegistry, dsApplier)
 	startConfiguredCheckLoops(cfg, st, checkRegistry)
 
 	hostName, err := os.Hostname()
@@ -124,12 +131,6 @@ func run(args []string) error {
 		// no adapter needed. See docs/plan.md's Bossman "v3" Block A.
 		collector.SetEdgeSink(st)
 	}
-
-	// Block L4: the desired-state store — the target Bossman PUSHES compiled
-	// config into via POST /api/v1/config/apply (the agent never dials out).
-	// Always present so the push endpoint + GET /api/v1/state work; the
-	// applied state persists next to the DB file across restarts.
-	dsApplier := desiredstate.NewApplier(filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json"))
 
 	// Audit entries are written to stderr as JSON lines: under systemd
 	// (the packaged deployment) each line lands in the journal
@@ -310,7 +311,7 @@ func runDownsample(cfg config.Config, st store.Store) {
 // /api/v1/hosts/overview — see docs/plan.md's monitoring-cockpit
 // ergänzung. This is the fix for the agent previously writing no real
 // metric beyond the one-shot startup marker.
-func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry) {
+func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry, dsApplier *desiredstate.Applier) {
 	if !cfg.Collect.Enabled {
 		slog.Warn("metric collection disabled (collect.enabled: false) — GET /api/v1/hosts/overview will report no metrics/checks")
 		return
@@ -321,7 +322,10 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	}
 	runOnce := func() {
 		now := time.Now()
-		snap, err := collect.SampleDefault("/proc", now)
+		// Block L4-behavioral: read the pushed thresholds fresh each tick, so a
+		// new generation Bossman pushes takes effect on the next sample with no
+		// restart. Empty when nothing has been pushed yet → built-in defaults.
+		snap, err := collect.SampleDefault("/proc", now, desiredStateOverrides(dsApplier))
 		if err != nil {
 			slog.Error("metric sampling failed", "error", err)
 			return
@@ -347,6 +351,22 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 			runOnce()
 		}
 	}()
+}
+
+// desiredStateOverrides converts the applier's pushed thresholds into the
+// collect package's override type, so collect stays decoupled from
+// desiredstate. A nil applier or no applied state yields an empty map (→
+// built-in defaults). Only the fields the built-in checks use (warn/crit) are
+// carried across.
+func desiredStateOverrides(a *desiredstate.Applier) map[string]collect.ThresholdOverride {
+	if a == nil {
+		return nil
+	}
+	out := map[string]collect.ThresholdOverride{}
+	for metric, th := range a.Thresholds() {
+		out[metric] = collect.ThresholdOverride{Warn: th.Warn, Crit: th.Crit}
+	}
+	return out
 }
 
 // startConfiguredCheckLoops runs each cfg.Checks entry (an external

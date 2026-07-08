@@ -41,7 +41,7 @@ func metricValue(t *testing.T, snap Snapshot, metric string, labels map[string]s
 
 func TestSample_WritesCanonicalMetrics(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425))
+	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425), nil)
 	if err != nil {
 		t.Fatalf("Sample: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestSample_WritesCanonicalMetrics(t *testing.T) {
 
 func TestSample_OnlyRealDedupedMountsGetDiskMetrics(t *testing.T) {
 	now := time.Now()
-	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425))
+	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425), nil)
 	if err != nil {
 		t.Fatalf("Sample: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestSample_OnlyRealDedupedMountsGetDiskMetrics(t *testing.T) {
 func TestSample_BuiltinChecksReflectThresholds(t *testing.T) {
 	now := time.Now()
 	// mem_used_pct will be 50% (OK); disk at 95% (CRIT, from fakeStatfs).
-	snap, err := Sample("testdata", now, fakeStatfs(95.0, 1000, 950))
+	snap, err := Sample("testdata", now, fakeStatfs(95.0, 1000, 950), nil)
 	if err != nil {
 		t.Fatalf("Sample: %v", err)
 	}
@@ -138,9 +138,50 @@ func TestSample_BuiltinChecksReflectThresholds(t *testing.T) {
 	}
 }
 
+func TestSample_ThresholdOverrideFlipsMemoryToCritical(t *testing.T) {
+	now := time.Now()
+	// mem_used_pct is 50%. Default warn/crit are 80/90 → OK. A pushed
+	// override of warn=40/crit=45 must flip the Memory check to CRITICAL,
+	// proving the pushed desired state changes real check behavior.
+	warn, crit := 40.0, 45.0
+	overrides := map[string]ThresholdOverride{"mem_used_pct": {Warn: &warn, Crit: &crit}}
+	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425), overrides)
+	if err != nil {
+		t.Fatalf("Sample: %v", err)
+	}
+	byName := map[string]CheckResult{}
+	for _, c := range snap.Checks {
+		byName[c.Name] = c
+	}
+	if byName["Memory"].Status != checks.StatusCritical {
+		t.Errorf("Memory status = %v, want CRITICAL under override warn=40/crit=45 at 50%% used", byName["Memory"].Status)
+	}
+}
+
+func TestSample_CPULoadOverrideUsesAbsoluteLoad(t *testing.T) {
+	now := time.Now()
+	// testdata load5 = 0.75 on 2 cores → per-core 0.375, OK by default.
+	// An absolute cpu_load5 override of warn=0.5/crit=0.7 must flip CPU load
+	// to CRITICAL (0.75 >= 0.7 absolute), confirming the override switches to
+	// the absolute-load basis.
+	warn, crit := 0.5, 0.7
+	overrides := map[string]ThresholdOverride{"cpu_load5": {Warn: &warn, Crit: &crit}}
+	snap, err := Sample("testdata", now, fakeStatfs(42.5, 1000, 425), overrides)
+	if err != nil {
+		t.Fatalf("Sample: %v", err)
+	}
+	byName := map[string]CheckResult{}
+	for _, c := range snap.Checks {
+		byName[c.Name] = c
+	}
+	if byName["CPU load"].Status != checks.StatusCritical {
+		t.Errorf("CPU load status = %v, want CRITICAL under absolute override crit=0.7 at load5=0.75", byName["CPU load"].Status)
+	}
+}
+
 func TestSample_MissingProcFilesDegradeGracefully(t *testing.T) {
 	now := time.Now()
-	snap, err := Sample("testdata/does-not-exist", now, fakeStatfs(1, 1, 1))
+	snap, err := Sample("testdata/does-not-exist", now, fakeStatfs(1, 1, 1), nil)
 	if err != nil {
 		t.Fatalf("Sample should degrade gracefully, not error, on a missing procRoot: %v", err)
 	}

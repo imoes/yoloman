@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from bossman.db.models import (
     Agent,
+    CheckRule,
     CompiledHostState,
     HostGroup,
     HostGroupMember,
@@ -22,6 +23,7 @@ from bossman.services.compiler import (
     compile_host_desired_state,
     derive_generated_monitoring,
     resolve_host_group_ids,
+    resolve_host_thresholds,
     resolve_ou_ancestry,
 )
 
@@ -289,3 +291,80 @@ async def test_generation_bump_on_change(db_session):
 
 async def test_compile_missing_agent_returns_none(db_session):
     assert await compile_host_desired_state(db_session, uuid4()) is None
+
+
+# ---------------------------------------------------------------------------
+# Block L4-behavioral: GPO-resolved check_rule thresholds folded into the
+# compiled desired state's monitoring.thresholds.
+
+
+async def _check_rule(db_session, metric, *, scope_type, warn, crit, ou=None, scope_value=None,
+                      comparison="gt", enforced=False, link_order=100):
+    # NB: check_rules predate the multi-tenant L1 layer and carry no
+    # tenant_id — applicability is entirely via scope (global/group/host/ou).
+    rule = CheckRule(
+        id=uuid4(), service_name=f"{metric} check", metric=metric,
+        comparison=comparison, warn_threshold=warn, crit_threshold=crit, scope_type=scope_type,
+        scope_value=scope_value, scope_ou_id=(ou.id if ou else None), enforced=enforced,
+        link_order=link_order, enabled=True,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+    return rule
+
+
+async def test_thresholds_ou_rule_reaches_host(db_session):
+    ou = await _ou(db_session, "Prod")
+    agent = await _agent(db_session, ou=ou)
+    await _check_rule(db_session, "mem_used_pct", scope_type="ou", ou=ou, warn=70.0, crit=85.0)
+
+    result = await compile_host_desired_state(db_session, agent.id)
+    th = result.state["monitoring"]["thresholds"]["mem_used_pct"]
+    assert th["warn"] == 70.0 and th["crit"] == 85.0 and th["comparison"] == "gt"
+
+
+async def test_thresholds_host_rule_overrides_ou(db_session):
+    ou = await _ou(db_session, "Prod")
+    agent = await _agent(db_session, ou=ou)
+    # A shallower OU rule and a host-direct rule for the same metric — the
+    # closest level (host) must win, exactly like GPO precedence.
+    await _check_rule(db_session, "load5", scope_type="ou", ou=ou, warn=1.0, crit=2.0)
+    await _check_rule(db_session, "load5", scope_type="host", scope_value=agent.name, warn=4.0, crit=8.0)
+
+    thresholds = await resolve_host_thresholds(db_session, agent, await resolve_ou_ancestry(db_session, agent.ou_id))
+    assert thresholds["load5"]["warn"] == 4.0 and thresholds["load5"]["crit"] == 8.0
+
+
+async def test_thresholds_enforced_higher_level_wins(db_session):
+    parent = await _ou(db_session, "Germany")
+    child = await _ou(db_session, "Munich", parent=parent)
+    agent = await _agent(db_session, ou=child)
+    # An ENFORCED rule at the shallower OU beats a normal rule at the closer
+    # OU (enforced can't be overridden from below) — GPO semantics.
+    await _check_rule(db_session, "disk_used_pct", scope_type="ou", ou=parent, warn=60.0, crit=75.0, enforced=True)
+    await _check_rule(db_session, "disk_used_pct", scope_type="ou", ou=child, warn=90.0, crit=95.0)
+
+    result = await compile_host_desired_state(db_session, agent.id)
+    th = result.state["monitoring"]["thresholds"]["disk_used_pct"]
+    assert th["warn"] == 60.0 and th["crit"] == 75.0
+
+
+async def test_thresholds_check_rule_wins_over_plan(db_session):
+    ou = await _ou(db_session, "Prod")
+    agent = await _agent(db_session, ou=ou)
+    # A plan contributes a mem_used_pct default; a console check_rule for the
+    # same metric must win (deliberate host config over role default).
+    plan = await _plan(db_session, generated_monitoring={"checks": ["mem"], "thresholds": {"mem_used_pct": {"warn": 50}}})
+    await _link(db_session, plan, "ou", ou=ou)
+    await _check_rule(db_session, "mem_used_pct", scope_type="ou", ou=ou, warn=88.0, crit=94.0)
+
+    result = await compile_host_desired_state(db_session, agent.id)
+    th = result.state["monitoring"]["thresholds"]["mem_used_pct"]
+    assert th["warn"] == 88.0 and th["crit"] == 94.0
+
+
+async def test_thresholds_absent_when_no_rules(db_session):
+    agent = await _agent(db_session)
+    result = await compile_host_desired_state(db_session, agent.id)
+    # No check_rules and no plan thresholds → empty thresholds map, not a crash.
+    assert result.state["monitoring"]["thresholds"] == {}

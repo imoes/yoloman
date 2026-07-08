@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.db.models import (
     SYSTEM_SETTINGS_ID,
     Agent,
+    CheckRule,
     CompiledHostState,
     HostGroupMember,
     OrchestrationPlan,
@@ -306,6 +307,44 @@ def derive_generated_monitoring(assignments: list[ResolvedAssignment]) -> dict:
     }
 
 
+async def resolve_host_thresholds(
+    session: AsyncSession, agent: Agent, host_ou_ancestry: list[OUNode]
+) -> dict[str, dict]:
+    """The GPO-resolved check-rule thresholds a host must ENFORCE, keyed by
+    metric (Block L4-behavioral). For every metric that has an enabled
+    check_rule anywhere, pick the single governing rule for this host via the
+    same full GPO precedence monitoring uses (host > OU(deep→shallow) > group >
+    global, with enforced/block_inheritance) — `resolve_effective_rule`, the
+    one shared resolver — and emit `{metric: {warn, crit, comparison,
+    service_name}}`.
+
+    This is what makes the OU/GPO console's thresholds actually reach the host:
+    the compiled desired state now carries the human-set thresholds, not just
+    plan-authored defaults. Resolution is label-agnostic (label_value=None), so
+    a per-mount (disk) rule folds to one whole-metric override for the agent's
+    built-in check; label-specific rules are left to Bossman-side evaluation
+    for now (documented first cut)."""
+    # Imported here (not at module top) to mirror monitoring.py's own lazy
+    # import of this module — belt-and-suspenders against an import cycle.
+    from bossman.services.monitoring import resolve_effective_rule
+
+    rules = (await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all()  # noqa: E712
+    thresholds: dict[str, dict] = {}
+    for metric in sorted({r.metric for r in rules}):
+        rule = resolve_effective_rule(
+            list(rules), agent.name, agent.groups, metric, None, host_ou_ancestry=host_ou_ancestry
+        )
+        if rule is None or (rule.warn_threshold is None and rule.crit_threshold is None):
+            continue
+        thresholds[metric] = {
+            "warn": rule.warn_threshold,
+            "crit": rule.crit_threshold,
+            "comparison": rule.comparison,
+            "service_name": rule.service_name,
+        }
+    return thresholds
+
+
 def _canonical_hash(state: dict) -> str:
     """sha256 of the canonical JSON (sorted keys, no whitespace jitter) so
     an identical desired state always hashes identically across compiles."""
@@ -323,6 +362,14 @@ async def _build_desired_state(
     ancestry = await resolve_ou_ancestry(session, agent.ou_id)
     assignments = await resolve_orchestration_assignments(session, agent, extra_candidate_link)
     monitoring = derive_generated_monitoring(assignments)
+
+    # Block L4-behavioral: fold the GPO-resolved check_rule thresholds into
+    # monitoring.thresholds so the OU/GPO console's human-set thresholds reach
+    # the host, not just plan-authored defaults. check_rules WIN over a
+    # plan-authored key of the same name — the console is the deliberate,
+    # host-specific config; a plan's generated_monitoring is a role default.
+    check_thresholds = await resolve_host_thresholds(session, agent, ancestry)
+    monitoring["thresholds"] = {**monitoring.get("thresholds", {}), **check_thresholds}
 
     state = {
         "host": {

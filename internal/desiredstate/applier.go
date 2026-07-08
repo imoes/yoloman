@@ -9,10 +9,11 @@
 // The Applier is the local store the push handler writes into: it verifies
 // the pushed generation is newer, keeps the previous generation for
 // rollback, and persists atomically so a restart doesn't forget the applied
-// generation. This v1 is deliberately non-destructive: it stores + reports
-// the desired state but does NOT yet re-apply which checks run (that
-// behavioral step is a separate block). Payload-signature verification is a
-// documented TODO — Bossman does not sign payloads yet.
+// generation. Behavioral apply (first cut): the built-in check loop reads
+// Thresholds() each tick, so a pushed threshold change takes effect on the
+// next sample with no restart. Enabling/disabling which check LOOPS run is a
+// later step. Payload-signature verification is a documented TODO — Bossman
+// does not sign payloads yet.
 package desiredstate
 
 import (
@@ -127,4 +128,51 @@ func (a *Applier) Status() Status {
 		return Status{HasState: false}
 	}
 	return Status{HasState: true, Generation: a.current.Generation, ConfigHash: a.current.ConfigHash, AppliedAt: a.current.AppliedAt}
+}
+
+// Threshold is one metric's pushed warn/crit override, mirroring Bossman's
+// compiler.resolve_host_thresholds output ({warn, crit, comparison,
+// service_name}). Warn/Crit are pointers so "not set" (JSON null) is
+// distinguishable from a real 0.0 threshold.
+type Threshold struct {
+	Warn        *float64 `json:"warn"`
+	Crit        *float64 `json:"crit"`
+	Comparison  string   `json:"comparison"`
+	ServiceName string   `json:"service_name"`
+}
+
+// Thresholds parses monitoring.thresholds out of the currently applied
+// desired state, keyed by metric name. Returns an empty map when no state is
+// applied yet or the document has no thresholds — so a caller can always
+// range over the result without a nil check. Malformed thresholds are
+// skipped rather than failing the whole tick (defensive: a bad push must not
+// blind the built-in checks).
+func (a *Applier) Thresholds() map[string]Threshold {
+	a.mu.Lock()
+	doc := a.currentDoc()
+	a.mu.Unlock()
+	out := map[string]Threshold{}
+	if doc == nil {
+		return out
+	}
+	var envelope struct {
+		Monitoring struct {
+			Thresholds map[string]Threshold `json:"thresholds"`
+		} `json:"monitoring"`
+	}
+	if json.Unmarshal(doc, &envelope) != nil {
+		return out
+	}
+	for metric, th := range envelope.Monitoring.Thresholds {
+		out[metric] = th
+	}
+	return out
+}
+
+// currentDoc returns the applied document, or nil. Caller holds a.mu.
+func (a *Applier) currentDoc() json.RawMessage {
+	if a.current == nil {
+		return nil
+	}
+	return a.current.Doc
 }
