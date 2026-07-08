@@ -14,6 +14,7 @@
 package inventory
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -41,14 +42,14 @@ type Inventory struct {
 }
 
 type System struct {
-	Manufacturer   string `json:"manufacturer,omitempty"`    // dmi sys_vendor
-	ProductName    string `json:"product_name,omitempty"`    // dmi product_name
-	SerialNumber   string `json:"serial_number,omitempty"`   // dmi product_serial (root-only)
-	UUID           string `json:"uuid,omitempty"`            // dmi product_uuid (root-only)
-	Family         string `json:"family,omitempty"`          // dmi product_family
-	Version        string `json:"version,omitempty"`         // dmi product_version
-	ChassisType    string `json:"chassis_type,omitempty"`    // dmi chassis_type, mapped to the SMBIOS name
-	Virtualization string `json:"virtualization,omitempty"`  // derived: kvm/vmware/virtualbox/hyper-v/xen
+	Manufacturer   string `json:"manufacturer,omitempty"`   // dmi sys_vendor
+	ProductName    string `json:"product_name,omitempty"`   // dmi product_name
+	SerialNumber   string `json:"serial_number,omitempty"`  // dmi product_serial (root-only)
+	UUID           string `json:"uuid,omitempty"`           // dmi product_uuid (root-only)
+	Family         string `json:"family,omitempty"`         // dmi product_family
+	Version        string `json:"version,omitempty"`        // dmi product_version
+	ChassisType    string `json:"chassis_type,omitempty"`   // dmi chassis_type, mapped to the SMBIOS name
+	Virtualization string `json:"virtualization,omitempty"` // derived: kvm/vmware/virtualbox/hyper-v/xen
 }
 
 type Board struct {
@@ -69,10 +70,10 @@ type CPU struct {
 	Model   string `json:"model,omitempty"`  // cpuinfo "model name"
 	Vendor  string `json:"vendor,omitempty"` // cpuinfo "vendor_id"
 	Sockets int    `json:"sockets,omitempty"`
-	Cores   int    `json:"cores,omitempty"`   // physical cores across all sockets
-	Threads int    `json:"threads"`           // logical processors
-	MHz     string `json:"mhz,omitempty"`     // cpuinfo "cpu MHz" (current, informational)
-	Cache   string `json:"cache,omitempty"`   // cpuinfo "cache size"
+	Cores   int    `json:"cores,omitempty"` // physical cores across all sockets
+	Threads int    `json:"threads"`         // logical processors
+	MHz     string `json:"mhz,omitempty"`   // cpuinfo "cpu MHz" (current, informational)
+	Cache   string `json:"cache,omitempty"` // cpuinfo "cache size"
 	Arch    string `json:"architecture,omitempty"`
 }
 
@@ -95,11 +96,13 @@ type Disk struct {
 }
 
 type NIC struct {
-	Name      string `json:"name"`
-	MAC       string `json:"mac,omitempty"`
-	State     string `json:"state,omitempty"` // operstate
-	MTU       int    `json:"mtu,omitempty"`
-	SpeedMbps int    `json:"speed_mbps,omitempty"`
+	Name      string   `json:"name"`
+	MAC       string   `json:"mac,omitempty"`
+	State     string   `json:"state,omitempty"` // operstate
+	MTU       int      `json:"mtu,omitempty"`
+	SpeedMbps int      `json:"speed_mbps,omitempty"`
+	IPv4      []string `json:"ipv4,omitempty"` // assigned IPv4 addresses (no CIDR suffix)
+	IPv6      []string `json:"ipv6,omitempty"` // assigned global IPv6 (link-local fe80:: omitted)
 }
 
 // SMBIOS chassis type table (System Enclosure, type 3) — the common subset.
@@ -118,11 +121,45 @@ type Collector struct {
 	SysRoot       string // default /sys
 	OSReleasePath string // default /etc/os-release
 	HostnameFunc  func() (string, error)
+	// NICAddrs returns a NIC's assigned IPv4/IPv6 addresses. IPs live in the
+	// network stack, not under SysRoot, so this is a separate seam (default:
+	// netNICAddrs, via net.InterfaceByName); tests inject a stub. nil = skip
+	// address collection (older behavior).
+	NICAddrs func(name string) (ipv4, ipv6 []string)
 }
 
 // DefaultCollector reads the real system.
 func DefaultCollector() *Collector {
-	return &Collector{ProcRoot: "/proc", SysRoot: "/sys", OSReleasePath: "/etc/os-release", HostnameFunc: os.Hostname}
+	return &Collector{
+		ProcRoot: "/proc", SysRoot: "/sys", OSReleasePath: "/etc/os-release",
+		HostnameFunc: os.Hostname, NICAddrs: netNICAddrs,
+	}
+}
+
+// netNICAddrs reports a NIC's assigned addresses via the kernel network
+// stack. IPv6 link-local (fe80::/10) is omitted — every interface has one and
+// it carries no inventory value. CIDR suffixes are stripped to bare IPs.
+func netNICAddrs(name string) (ipv4, ipv6 []string) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return nil, nil
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, nil
+	}
+	for _, a := range addrs {
+		ipnet, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		if v4 := ipnet.IP.To4(); v4 != nil {
+			ipv4 = append(ipv4, v4.String())
+		} else if !ipnet.IP.IsLinkLocalUnicast() {
+			ipv6 = append(ipv6, ipnet.IP.String())
+		}
+	}
+	return ipv4, ipv6
 }
 
 // Collect assembles the full inventory. It never fails: unreadable
@@ -314,6 +351,9 @@ func (c *Collector) collectNICs() []NIC {
 		// drivers; only positive values are meaningful.
 		if speed, err := strconv.Atoi(readTrimmed(filepath.Join(base, "speed"))); err == nil && speed > 0 {
 			n.SpeedMbps = speed
+		}
+		if c.NICAddrs != nil {
+			n.IPv4, n.IPv6 = c.NICAddrs(name)
 		}
 		nics = append(nics, n)
 	}

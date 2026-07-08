@@ -161,6 +161,36 @@ func TestCollect_FullInventory(t *testing.T) {
 	}
 }
 
+func TestCollect_NICAddressesFromSeam(t *testing.T) {
+	// With a NICAddrs seam injected, each NIC's IPv4/IPv6 is populated;
+	// without one (the other tests), addresses stay empty — proving the
+	// address lookup is decoupled from the SysRoot-based NIC enumeration.
+	c := buildFakeSystem(t)
+	c.NICAddrs = func(name string) (ipv4, ipv6 []string) {
+		if name == "ens18" {
+			return []string{"192.0.2.48"}, []string{"2001:db8::1"}
+		}
+		return nil, nil
+	}
+	inv := c.Collect()
+
+	var ens *NIC
+	for i := range inv.NICs {
+		if inv.NICs[i].Name == "ens18" {
+			ens = &inv.NICs[i]
+		}
+	}
+	if ens == nil {
+		t.Fatalf("ens18 missing: %+v", inv.NICs)
+	}
+	if len(ens.IPv4) != 1 || ens.IPv4[0] != "192.0.2.48" {
+		t.Errorf("ens18 ipv4 = %v, want [192.0.2.48]", ens.IPv4)
+	}
+	if len(ens.IPv6) != 1 || ens.IPv6[0] != "2001:db8::1" {
+		t.Errorf("ens18 ipv6 = %v, want [2001:db8::1]", ens.IPv6)
+	}
+}
+
 func TestCollect_EmptySystemIsNotAnError(t *testing.T) {
 	// A collector pointed at empty roots must still return a usable
 	// document (arch + collected_at), never panic or error.

@@ -320,6 +320,10 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
+	// Block C2b: a stateful CPU-utilization meter — busy% needs a jiffy delta
+	// across ticks, so it lives here (not in the pure Sample()) and is primed
+	// on the first tick.
+	cpuMeter := &collect.CPUMeter{}
 	runOnce := func() {
 		now := time.Now()
 		// Block L4-behavioral: read the pushed thresholds fresh each tick, so a
@@ -338,6 +342,10 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				Timestamp: c.At,
 				Value:     collect.StatusValue(c.Status),
 			})
+		}
+		// cpu_pct: only once the meter has two readings to rate against.
+		if pct, ok := cpuMeter.Sample("/proc"); ok {
+			points = append(points, store.Point{Metric: "cpu_pct", Timestamp: now, Value: pct})
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {
 			slog.Error("writing sampled metrics failed", "error", err)
