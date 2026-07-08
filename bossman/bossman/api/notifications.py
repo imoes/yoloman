@@ -115,11 +115,13 @@ async def update_notification_rule(
 
 class NotificationRulePatch(BaseModel):
     """Partial GPO-flag update (Block L3a) — the tree console's Enforced /
-    Enabled context-menu toggles."""
+    Enabled context-menu toggles. `ou_id` re-scopes the rule to another OU
+    (the palette drag-to-link gesture, Block L3e)."""
 
     enforced: bool | None = None
     enabled: bool | None = None
     link_order: int | None = None
+    ou_id: UUID | None = None
 
 
 @router.patch("/api/v1/notification-rules/{rule_id}", response_model=NotificationRuleOut)
@@ -135,6 +137,10 @@ async def patch_notification_rule(
         rule.enabled = body.enabled
     if body.link_order is not None:
         rule.link_order = body.link_order
+    if body.ou_id is not None:
+        if await session.get(OUNode, body.ou_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+        rule.ou_id = body.ou_id
     await session.commit()
     return NotificationRuleOut.from_model(rule)
 

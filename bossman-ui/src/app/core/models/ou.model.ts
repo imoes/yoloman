@@ -28,4 +28,7 @@ export interface OUObject {
   label: string;
   enforced: boolean;
   enabled: boolean;
+  /** orchestration_link only: the underlying plan, so the palette can
+   * re-scope a link to another OU by relinking that plan. */
+  plan_id?: string | null;
 }

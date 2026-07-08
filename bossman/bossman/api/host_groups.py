@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Agent, HostGroup, HostGroupMember
+from bossman.db.models import Agent, HostGroup, HostGroupMember, OUNode
 from bossman.db.session import get_session
 
 router = APIRouter()
@@ -103,6 +103,25 @@ async def update_host_group(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status_code=409, detail=f"a host group named {body.name!r} already exists") from exc
+    return await _to_out(session, group)
+
+
+class HostGroupPatch(BaseModel):
+    # Re-scope the group to another OU (the palette drag-to-link gesture,
+    # Block L3e) — a partial update that doesn't need name/description resent.
+    ou_id: UUID | None = None
+
+
+@router.patch("/api/v1/host-groups/{group_id}", response_model=HostGroupOut)
+async def patch_host_group(
+    group_id: UUID, body: HostGroupPatch, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> HostGroupOut:
+    group = await _get_group_or_404(session, group_id)
+    if body.ou_id is not None:
+        if await session.get(OUNode, body.ou_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+        group.ou_id = body.ou_id
+    await session.commit()
     return await _to_out(session, group)
 
 

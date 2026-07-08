@@ -46,6 +46,18 @@ interface TreeRow {
   expanded?: boolean;
 }
 
+/** One entry in the "Policies" palette under the tree — every policy object
+ * of every type, plus unlinked orchestration plans. Dragging one onto an OU
+ * links/re-scopes it there (Block L3e). */
+interface PaletteItem {
+  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link' | 'plan';
+  id: string;
+  label: string;
+  ownerOuId: string | null; // where it currently lives; null = unlinked plan
+  ownerPath: string | null;
+  planId?: string; // orchestration_link / plan: the underlying plan
+}
+
 /**
  * The GPO/LDAP-browser console for the Policy & Orchestration layer
  * (Block L3, see docs/policy-orchestration-architecture.md). Left: a real
@@ -142,19 +154,19 @@ interface TreeRow {
              to link it there (Windows-GPMC "link a GPO" gesture). -->
         <div class="bm-palette">
           <div class="bm-palette-head">Policies — drag onto an OU to link</div>
-          @for (p of plans(); track p.id) {
+          @for (p of allPolicies(); track p.kind + ':' + p.id) {
             <div
               class="bm-palette-item"
               draggable="true"
-              (dragstart)="onPlanDragStart(p, $event)"
+              (dragstart)="onPolicyDragStart(p, $event)"
               (dragend)="onDragEnd()"
             >
-              <mat-icon class="bm-obj-icon">widgets</mat-icon>
-              <span class="bm-label">{{ p.display_name || p.name }}</span>
-              <span class="bm-badge bm-badge-off">{{ p.plan_type }}</span>
+              <mat-icon class="bm-obj-icon">{{ paletteIcon(p.kind) }}</mat-icon>
+              <span class="bm-label">{{ p.label }}</span>
+              <span class="bm-palette-loc">{{ p.ownerPath ?? '(unlinked)' }}</span>
             </div>
           } @empty {
-            <p class="bm-empty">No policies yet — right-click an OU → “New Orchestration Plan…”.</p>
+            <p class="bm-empty">No policies yet — right-click an OU to add one.</p>
           }
         </div>
         </div>
@@ -255,6 +267,7 @@ interface TreeRow {
       }
       .bm-palette-item:active { cursor: grabbing; }
       .bm-palette-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-palette-loc { margin-left: auto; font-size: 11px; opacity: 0.55; }
       .bm-detail {
         flex: 1 1 40%;
         border: 1px solid var(--mat-sys-outline-variant);
@@ -326,10 +339,41 @@ export class OuPolicyComponent implements OnInit {
    * and the current drop target ('__root__' = the forest root). */
   dragOuId = signal<string | null>(null);
   dropTargetId = signal<string | null>(null);
-  /** All orchestration plans (the "policies" palette under the tree) + the
-   * plan currently being dragged onto an OU to link it there. */
+  /** All orchestration plans (used to surface unlinked ones in the palette). */
   plans = signal<OrchestrationPlan[]>([]);
-  dragPlanId = signal<string | null>(null);
+  /** The palette item currently being dragged onto an OU to link/re-scope it. */
+  dragPolicy = signal<PaletteItem | null>(null);
+
+  /** The "Policies" palette: every policy object of every type across all
+   * OUs (flattened from objectsByOu), plus orchestration plans that aren't
+   * linked anywhere yet — so the whole policy set is listed under the tree
+   * and each entry can be dragged onto an OU to link/re-scope it. */
+  allPolicies = computed<PaletteItem[]>(() => {
+    const ouPath = new Map(this.ous().map((o) => [o.id, o.path] as const));
+    const items: PaletteItem[] = [];
+    const linkedPlanIds = new Set<string>();
+    for (const [ouId, objs] of this.objectsByOu()) {
+      for (const o of objs) {
+        if (o.kind === 'orchestration_link' && o.plan_id) linkedPlanIds.add(o.plan_id);
+        items.push({
+          kind: o.kind,
+          id: o.id,
+          label: o.label,
+          ownerOuId: ouId,
+          ownerPath: ouPath.get(ouId) ?? null,
+          planId: o.plan_id ?? undefined,
+        });
+      }
+    }
+    // Orchestration plans not linked to any OU yet — draggable to their first link.
+    for (const p of this.plans()) {
+      if (!linkedPlanIds.has(p.id)) {
+        items.push({ kind: 'plan', id: p.id, label: p.display_name || p.name, ownerOuId: null, ownerPath: null, planId: p.id });
+      }
+    }
+    items.sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
+    return items;
+  });
 
   private childrenByParent = computed(() => {
     const map = new Map<string | null, OUNode[]>();
@@ -453,26 +497,33 @@ export class OuPolicyComponent implements OnInit {
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 
-  /** A policy (orchestration plan) dragged from the palette. */
-  onPlanDragStart(plan: OrchestrationPlan, event: DragEvent): void {
-    this.dragPlanId.set(plan.id);
-    event.dataTransfer?.setData('text/plain', plan.id);
+  paletteIcon(kind: PaletteItem['kind']): string {
+    return {
+      check_rule: 'speed', notification: 'notifications', host_group: 'dns',
+      orchestration_link: 'widgets', plan: 'widgets',
+    }[kind];
+  }
+
+  /** A policy dragged from the palette (any type). */
+  onPolicyDragStart(item: PaletteItem, event: DragEvent): void {
+    this.dragPolicy.set(item);
+    event.dataTransfer?.setData('text/plain', item.id);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'link';
   }
 
   onDragEnd(): void {
     this.dragOuId.set(null);
-    this.dragPlanId.set(null);
+    this.dragPolicy.set(null);
     this.dropTargetId.set(null);
   }
 
   onOuDragOver(ou: OUNode, event: DragEvent): void {
     const ouMove = !!this.dragOuId() && this.dragOuId() !== ou.id && !this.wouldCycle(ou);
-    const planLink = !!this.dragPlanId();
-    if (!ouMove && !planLink) return;
+    const policyLink = !!this.dragPolicy() && this.dragPolicy()!.ownerOuId !== ou.id;
+    if (!ouMove && !policyLink) return;
     event.preventDefault(); // allow the drop
     event.stopPropagation(); // don't also mark the root zone
-    if (event.dataTransfer) event.dataTransfer.dropEffect = planLink ? 'link' : 'move';
+    if (event.dataTransfer) event.dataTransfer.dropEffect = policyLink ? 'link' : 'move';
     this.dropTargetId.set(ou.id);
   }
 
@@ -483,18 +534,16 @@ export class OuPolicyComponent implements OnInit {
   onOuDrop(ou: OUNode, event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    const planId = this.dragPlanId();
+    const policy = this.dragPolicy();
     const draggedOu = this.dragOuId();
     const cyclic = draggedOu ? this.wouldCycle(ou) : false; // compute while dragOuId still set
     this.dropTargetId.set(null);
     this.dragOuId.set(null);
-    this.dragPlanId.set(null);
-    // A policy dropped onto an OU → link it there (appears as a policy object
-    // beneath the OU, the Windows-GPMC "link a GPO" gesture).
-    if (planId) {
-      this.orchestration
-        .createLink(planId, { target_type: 'ou', ou_id: ou.id, require_approval: true })
-        .subscribe(() => this.afterObjectChange(ou.id));
+    this.dragPolicy.set(null);
+    // A policy dropped onto an OU → link/re-scope it there (the Windows-GPMC
+    // "link a GPO" gesture), dispatched by type.
+    if (policy && policy.ownerOuId !== ou.id) {
+      this.relinkPolicy(policy, ou.id);
       return;
     }
     // An OU dropped onto another OU → reparent.
@@ -506,6 +555,42 @@ export class OuPolicyComponent implements OnInit {
       },
       error: (e) => alert(e?.error?.detail ?? 'move failed'),
     });
+  }
+
+  /** Move/link one palette policy to a target OU, per type. On success the
+   * whole tree reloads so the object moves to its new OU (and the palette's
+   * owner label updates). */
+  private relinkPolicy(item: PaletteItem, ouId: string): void {
+    const done = () => {
+      this.expanded.update((e) => new Set(e).add(ouId));
+      this.reload();
+    };
+    const fail = (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'link failed');
+    switch (item.kind) {
+      case 'check_rule':
+        this.monitoring.patchCheckRule(item.id, { scope_ou_id: ouId }).subscribe({ next: done, error: fail });
+        break;
+      case 'notification':
+        this.notification.patchRule(item.id, { ou_id: ouId }).subscribe({ next: done, error: fail });
+        break;
+      case 'host_group':
+        this.hostGroup.patchOu(item.id, ouId).subscribe({ next: done, error: fail });
+        break;
+      case 'orchestration_link':
+        // Re-scope a link by relinking its plan to the new OU, then dropping
+        // the old link (delete+create — there's no link-move endpoint).
+        if (!item.planId) return;
+        this.orchestration.createLink(item.planId, { target_type: 'ou', ou_id: ouId, require_approval: true }).subscribe({
+          next: () => this.orchestration.deleteLinkById(item.id).subscribe({ next: done, error: done }),
+          error: fail,
+        });
+        break;
+      case 'plan':
+        this.orchestration
+          .createLink(item.planId!, { target_type: 'ou', ou_id: ouId, require_approval: true })
+          .subscribe({ next: done, error: fail });
+        break;
+    }
   }
 
   onRootDragOver(event: DragEvent): void {

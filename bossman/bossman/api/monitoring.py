@@ -575,11 +575,14 @@ async def update_check_rule(
 
 class CheckRulePatch(BaseModel):
     """Partial GPO-flag update (Block L3a) — powers the tree console's
-    Enforced / Enabled context-menu toggles without resending the whole rule."""
+    Enforced / Enabled context-menu toggles without resending the whole rule.
+    `scope_ou_id` re-scopes the rule to another OU (the palette drag-to-link
+    gesture, Block L3e)."""
 
     enforced: bool | None = None
     enabled: bool | None = None
     link_order: int | None = None
+    scope_ou_id: UUID | None = None
 
 
 @router.patch("/api/v1/check-rules/{rule_id}", response_model=CheckRuleOut)
@@ -603,6 +606,13 @@ async def patch_check_rule(
         rule.enabled = body.enabled
     if body.link_order is not None:
         rule.link_order = body.link_order
+    if body.scope_ou_id is not None:
+        # Re-scope to another OU (drag-link). scope_type follows so the rule
+        # actually resolves against the OU tree.
+        if await session.get(OUNode, body.scope_ou_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
+        rule.scope_ou_id = body.scope_ou_id
+        rule.scope_type = "ou"
     await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule)

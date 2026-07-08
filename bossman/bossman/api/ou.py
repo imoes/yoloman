@@ -258,6 +258,9 @@ class OUObject(BaseModel):
     label: str
     enforced: bool = False
     enabled: bool = True
+    # For orchestration_link only: the underlying plan, so the palette can
+    # re-scope a link to another OU by relinking that plan (Block L3e).
+    plan_id: UUID | None = None
 
 
 @router.get("/api/v1/ou/{ou_id}/objects", response_model=list[OUObject])
@@ -289,7 +292,10 @@ async def list_ou_objects(
         plan = await session.get(OrchestrationPlan, link.plan_id)
         label = f"{plan.display_name if plan else link.plan_id} [{link.status}]"
         out.append(
-            OUObject(kind="orchestration_link", id=link.id, label=label, enforced=link.enforced, enabled=link.enabled)
+            OUObject(
+                kind="orchestration_link", id=link.id, label=label,
+                enforced=link.enforced, enabled=link.enabled, plan_id=link.plan_id,
+            )
         )
     return out
 

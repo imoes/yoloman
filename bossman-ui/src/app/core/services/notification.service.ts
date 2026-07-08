@@ -21,7 +21,7 @@ export class NotificationService {
     return this.http.put<NotificationRule>(`${this.base}/notification-rules/${id}`, body);
   }
 
-  patchRule(id: string, patch: { enforced?: boolean; enabled?: boolean; link_order?: number }) {
+  patchRule(id: string, patch: { enforced?: boolean; enabled?: boolean; link_order?: number; ou_id?: string }) {
     return this.http.patch<NotificationRule>(`${this.base}/notification-rules/${id}`, patch);
   }
 
