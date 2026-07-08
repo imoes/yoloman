@@ -22,7 +22,7 @@ comparable user-facing features.
 - [x] Batch 6 — Ch.7e Configuration: Users/permissions, Secrets, Scheduled reports, Data export — 12 gaps found; two real security defects flagged (K14-fix RBAC not enforced, K15-fix plaintext agent tokens); no code yet, awaiting decisions
 - [x] Batch 7 — Ch.8 Service Monitoring + Ch.9 Web Monitoring + Ch.10 VM Monitoring — 9 gaps found; one correctness fix flagged (K16-fix downtime not excluded from availability); no code yet, awaiting decisions
 - [x] Batch 8 — Ch.11 Maintenance + Ch.12 Regexp + Ch.13 Ack + Ch.14 Config Export/Import — 8 gaps found; no code yet, awaiting decisions
-- [ ] Batch 9 — Ch.15 Discovery
+- [x] Batch 9 — Ch.15 Discovery — 5 gaps found; no code yet, awaiting decisions
 - [ ] Batch 10 — Ch.16 Distributed Monitoring (Proxies) + Ch.17 Encryption
 - [ ] Batch 11 — Ch.18a Web Interface: Dashboards + widgets
 - [ ] Batch 12 — Ch.18b Web Interface: Monitoring/Services/Inventory/Reports
@@ -464,3 +464,27 @@ maintenance windows** (both small, both real ergonomics); **(3)** fold in **K16-
 is SLA-correct. **Defer** "no-data-collection" maintenance mode (needs L4 push), tag-based maintenance
 selection, manual-close/severity-change/ack-thread. **Reject for now** the global regexp catalog. Any
 change to the downtime/availability/ack semantics is confirmed with the user before code.
+
+## Batch 9 — Ch.15 Discovery
+
+Read: [discovery/network_discovery](https://www.zabbix.com/documentation/7.0/en/manual/discovery/network_discovery),
+[discovery/auto_registration](https://www.zabbix.com/documentation/7.0/en/manual/discovery/auto_registration),
+[discovery/low_level_discovery](https://www.zabbix.com/documentation/7.0/en/manual/discovery/low_level_discovery).
+
+Bossman side verified file:line. Zabbix has three discovery mechanisms; Bossman covers the two that
+fit its agent-push model and hardcodes a slice of the third.
+
+| Feature (Zabbix) | Detail | yolo-man status | Disposition (recommendation) |
+|---|---|---|---|
+| **Active-agent autoregistration** | an agent announces itself → server auto-creates + configures the host (metadata matching → actions) | ✅ enrollment: `enroll_agent` validates a shared secret constant-time and creates the `Agent` with `enrollment_state="enrolled"` (`services/enrollment.py:31-50`) | — (matches baseline #17; no host-metadata→action rules, but the create-on-enroll path exists) |
+| **Proxy/satellite auto-discovery** | a proxy relays hosts it monitors up to the server | ✅ a proxy (Selecta) relaying satellites (Duppies) auto-creates their `Agent` rows (`_find_or_create_satellite`, `poller.py:176`; `satellites_discovered` counter `:51`) | — (matches baseline #17) |
+| **Network discovery** — scan an IP range with checks (ICMP/TCP/UDP port/agent/SNMP) → discovery events | actively sweep a subnet to find *unmanaged* hosts | ❌ no subnet/IP-range/port sweep anywhere (only iptables CIDR *matching*, `internal/modules/iptables.go:51`) | **reject for now** — Bossman's model is agent-push (every host runs + enrolls an agent); scanning for agentless hosts is a different paradigm with little value here. Revisit only if agentless (SNMP-only) hosts become a requirement |
+| **Discovery actions** — conditions on a discovery event → operations (add host, add to group, link template, run command, enable/disable) | rule-driven onboarding automation | ❌ none — enrollment auto-creates an agent but there's no rule/condition→operation engine on discovery | **defer** — pairs with real network discovery (rejected above) and with the notification-action engine; low priority under agent-push |
+| **Low-level discovery (LLD)** — a rule returns JSON entities (`{#FSNAME}`, `{#IFNAME}`, CPUs, SNMP OIDs, custom script) → item/trigger/graph **prototypes** fan out automatically, with LLD filters/overrides + lost-resource retention | generic per-entity metric+rule fan-out | 🟡 hardcoded to **disk-mount (+ network-iface)** fan-out only: one `disk_used_pct` rule fans out to one service per mount (`services/monitoring.py:313-327`), the "only label that fans out to distinct services" (`:324`) | **defer (real value)** — a general LLD (a check returns a JSON entity list → rule prototypes instantiate per entity: per-container, per-systemd-unit, per-process-group) is a genuinely useful, sizable feature; the disk-mount/iface fan-out is the seed to generalize. Baseline #17 tracks this |
+
+**Decisions (awaiting user).** Analysis pass only — no code. Discovery is the batch where Bossman's
+agent-push architecture diverges most from Zabbix's scan-the-network model: autoregistration + proxy
+relay (the push-native equivalents) already exist, so the only item worth building is a **general LLD**
+(generalize the existing disk-mount fan-out into a JSON-entity→rule-prototype system) — **deferred** as
+a sizable feature. **Reject for now** active network discovery + discovery-action rules (they assume
+agentless hosts Bossman doesn't have). No bugs found this batch.
