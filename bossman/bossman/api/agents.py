@@ -47,6 +47,9 @@ class AgentOut(BaseModel):
     # Block K7 (tagging): name or name:value pairs, inherited onto every
     # problem this host raises.
     tags: dict
+    # Block L3d: which OU the host is placed in (AD-style, exactly one) —
+    # NULL = unassigned. Drives the host-placement tree.
+    ou_id: UUID | None
 
     @classmethod
     def from_model(cls, agent: Agent) -> "AgentOut":
@@ -63,6 +66,7 @@ class AgentOut(BaseModel):
             facts=agent.facts or {},
             facts_updated_at=agent.facts_updated_at,
             tags=agent.tags or {},
+            ou_id=agent.ou_id,
         )
 
 

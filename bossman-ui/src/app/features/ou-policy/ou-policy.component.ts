@@ -4,12 +4,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog } from '@angular/material/dialog';
+import { Agent } from '../../core/models/agent.model';
 import { HostGroupInput } from '../../core/models/host-group.model';
 import { OUNode, OUObject } from '../../core/models/ou.model';
 import { CheckRule, CheckRuleInput } from '../../core/models/monitoring.model';
 import { NotificationRule, NotificationRuleInput } from '../../core/models/notification.model';
 import { OrchestrationPlanInput } from '../../core/models/orchestration.model';
 import { SystemSettings } from '../../core/models/system-settings.model';
+import { AgentService } from '../../core/services/agent.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -18,6 +20,10 @@ import { OuService } from '../../core/services/ou.service';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
+import {
+  HostGroupMembersDialogComponent,
+  HostGroupMembersDialogData,
+} from '../../shared/components/host-group-members-dialog/host-group-members-dialog.component';
 import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import {
@@ -177,6 +183,10 @@ interface TreeRow {
           </button>
           <div class="bm-menu-sep"></div>
         }
+        @if (ctx()?.obj?.kind === 'host_group') {
+          <button class="bm-menu-item" cdkMenuItem (click)="manageMembers(ctx()!)">Members…</button>
+          <div class="bm-menu-sep"></div>
+        }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
       </div>
     </ng-template>
@@ -244,6 +254,7 @@ export class OuPolicyComponent implements OnInit {
   private notification = inject(NotificationService);
   private hostGroup = inject(HostGroupService);
   private orchestration = inject(OrchestrationService);
+  private agentService = inject(AgentService);
   private systemSettings = inject(SystemSettingsService);
   private dialog = inject(MatDialog);
 
@@ -482,6 +493,25 @@ export class OuPolicyComponent implements OnInit {
     const done = () => this.reloadObjects(row.ownerOuId!);
     if (obj.kind === 'check_rule') this.monitoring.patchCheckRule(obj.id, { enabled: next }).subscribe(done);
     else if (obj.kind === 'notification') this.notification.patchRule(obj.id, { enabled: next }).subscribe(done);
+  }
+
+  manageMembers(row: TreeRow): void {
+    const obj = row.obj!;
+    // AD-style membership editor: load the full group + all agents, then a
+    // checkbox picker (replace-all, matching PUT /host-groups/{id}/members).
+    this.hostGroup.list().subscribe((groups) => {
+      const group = groups.find((g) => g.id === obj.id);
+      if (!group) return;
+      this.agentService.list().subscribe((agents: Agent[]) => {
+        const ref = this.dialog.open<HostGroupMembersDialogComponent, HostGroupMembersDialogData, string[]>(
+          HostGroupMembersDialogComponent, { width: '440px', data: { group, agents } },
+        );
+        ref.afterClosed().subscribe((agentIds) => {
+          if (!agentIds) return;
+          this.hostGroup.replaceMembers(group.id, agentIds).subscribe(() => this.reloadObjects(row.ownerOuId!));
+        });
+      });
+    });
   }
 
   deleteObject(row: TreeRow): void {

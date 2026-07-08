@@ -9,6 +9,8 @@ export interface Agent {
   metadata: Record<string, unknown>;
   groups: string[];
   parent_agent_id: string | null;
+  /** Block L3d: the OU this host is placed in (null = unassigned). */
+  ou_id?: string | null;
   /** The host's HW/SW inventory document (Go agent internal/inventory,
    * Block H2) — {} until the first poll after enrollment. */
   facts: InventoryFacts;
