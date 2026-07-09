@@ -191,13 +191,17 @@ async def deploy_and_enroll(
             home = (await _run(conn, "pwd", sudo_password=None)).strip()
             abs_staging = f"{home}/{staging}"
             script = _install_script(staging=abs_staging, deb_name=deb_name, use_sudo=not is_root)
-            active = await _run(
+            out = await _run(
                 conn,
                 f"{sudo_prefix}sh -c {shlex.quote(script)}",
                 sudo_password=sudo_password,
             )
-            if active.strip() != "active":
-                raise DeployError(f"service did not come back active (state: {active.strip() or 'unknown'})")
+            # The script's stdout includes dpkg's own output; the final
+            # `systemctl is-active` is the LAST non-empty line.
+            lines = [ln.strip() for ln in out.splitlines() if ln.strip()]
+            state = lines[-1] if lines else ""
+            if state != "active":
+                raise DeployError(f"service did not come back active (state: {state or 'unknown'})")
     except (asyncssh.Error, OSError) as exc:
         raise DeployError(f"SSH deploy to {host} failed: {exc}") from exc
 
