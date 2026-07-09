@@ -371,6 +371,15 @@ async def _build_desired_state(
     check_thresholds = await resolve_host_thresholds(session, agent, ancestry)
     monitoring["thresholds"] = {**monitoring.get("thresholds", {}), **check_thresholds}
 
+    # A role-type plan contributes its own name as a role; additionally any
+    # plan (a "Policy") may declare extra roles inline via
+    # generated_monitoring.roles (Block L3f — the multi-entry policy editor),
+    # so one Policy can carry several roles at once.
+    roles: set[str] = {a.plan_name for a in assignments if a.plan_type == "role"}
+    for a in assignments:
+        for r in (a.generated_monitoring or {}).get("roles", []) or []:
+            roles.add(r)
+
     state = {
         "host": {
             "name": agent.name,
@@ -378,7 +387,7 @@ async def _build_desired_state(
         },
         "monitoring": monitoring,
         "orchestration": {
-            "roles": sorted(a.plan_name for a in assignments if a.plan_type == "role"),
+            "roles": sorted(roles),
             "plans": [
                 {"name": a.plan_name, "version": a.version, "type": a.plan_type, "parameters": a.parameters}
                 for a in assignments

@@ -36,7 +36,8 @@ export interface OrchestrationPlan {
  * for now (documented v1 simplification, mirrors how far the templates
  * dialog goes for structured vs. free-form fields). */
 export interface OrchestrationPlanVersionInput {
-  generated_monitoring?: { checks?: string[]; thresholds?: Record<string, unknown> };
+  generated_monitoring?: { checks?: string[]; thresholds?: Record<string, unknown>; roles?: string[] };
+  generated_notifications?: { routes?: string[] };
 }
 
 /** Matches bossman/api/orchestration.py's PlanIn. */

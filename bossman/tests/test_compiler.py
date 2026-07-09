@@ -293,6 +293,22 @@ async def test_compile_missing_agent_returns_none(db_session):
     assert await compile_host_desired_state(db_session, uuid4()) is None
 
 
+async def test_policy_inline_roles_reach_orchestration_roles(db_session):
+    # Block L3f: a Policy (plan) can declare multiple roles inline via
+    # generated_monitoring.roles; they must surface in the compiled
+    # orchestration.roles even though the plan's own type isn't 'role'.
+    agent = await _agent(db_session)
+    plan = await _plan(
+        db_session, plan_type="deployment",
+        generated_monitoring={"checks": [], "thresholds": {}, "roles": ["docker_host", "web_server"]},
+    )
+    await _link(db_session, plan, "host", agent=agent)
+
+    result = await compile_host_desired_state(db_session, agent.id)
+    roles = result.state["orchestration"]["roles"]
+    assert "docker_host" in roles and "web_server" in roles
+
+
 # ---------------------------------------------------------------------------
 # Block L4-behavioral: GPO-resolved check_rule thresholds folded into the
 # compiled desired state's monitoring.thresholds.
