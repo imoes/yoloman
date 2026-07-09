@@ -1,6 +1,15 @@
+//go:build cgo
+
 // Package authz provides PAM-based human login, session management, and
 // ACL enforcement (per-tool enable/disable, per-principal allow rules) in
 // front of the module/task/pipeline dispatch shared with MCP and REST.
+//
+// This file (the real PAM implementation via msteinert/pam) requires CGO —
+// it links libpam. It is compiled ONLY in a CGO build. The default
+// deployment binary is built CGO-free (fully static, zero shared-library /
+// package dependencies) and uses pam_stub.go instead, which disables the
+// /api/v1/auth/login endpoint. Agents authenticate by bearer token + mTLS
+// regardless, so the static build "just runs" with no dependencies.
 package authz
 
 import (
