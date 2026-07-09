@@ -1,0 +1,30 @@
+fqcn: yoloman.network_interface
+name: network_interface
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Read (state=gathered) and configure (present/absent) host network interfaces
+options:
+  state:
+    type: str
+    choices: [gathered, present, absent]
+    description: gathered reads current interfaces/addresses/routes/DNS; present configures an interface via NetworkManager; absent deletes its connection.
+  name:
+    type: str
+    description: The interface / NetworkManager connection name (required for present/absent).
+  method:
+    type: str
+    choices: [dhcp, static, manual]
+    description: IPv4 method for state=present. Default dhcp.
+  address:
+    type: str
+    description: IPv4 address in CIDR form (e.g. 10.0.0.5/24), required for method=static/manual.
+  gateway:
+    type: str
+    description: Optional default gateway for method=static/manual.
+  dns:
+    type: list
+    description: Optional list of DNS servers for method=static/manual.
+  dry_run:
+    type: bool
+    description: When true, report what would change without applying it (check_mode).

@@ -4,6 +4,7 @@ import { HostServicesComponent } from './host-services.component';
 import { HostLogsComponent } from './host-logs.component';
 import { HostAccountsComponent } from './host-accounts.component';
 import { HostStorageComponent } from './host-storage.component';
+import { HostNetworkComponent } from './host-network.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -15,9 +16,14 @@ import { HostStorageComponent } from './host-storage.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent],
+  imports: [MatTabsModule, HostNetworkComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
+      <mat-tab label="Network">
+        <div class="bm-mgmt-pane">
+          <app-host-network [agentId]="agentId()" />
+        </div>
+      </mat-tab>
       <mat-tab label="Services">
         <div class="bm-mgmt-pane">
           <app-host-services [agentId]="agentId()" />
@@ -45,14 +51,15 @@ import { HostStorageComponent } from './host-storage.component';
 export class HostManagementComponent {
   agentId = input.required<string>();
 
+  private network = viewChild(HostNetworkComponent);
   private services = viewChild(HostServicesComponent);
   private logs = viewChild(HostLogsComponent);
   private accounts = viewChild(HostAccountsComponent);
   private storage = viewChild(HostStorageComponent);
 
-  /** First inner tab (Services) is shown by default, so kick its load once
-   * the management shell itself becomes visible; also (re)trigger per tab. */
+  /** Lazy-load each inner tab's data when it is opened. */
   onInnerTab(event: MatTabChangeEvent): void {
+    if (event.tab.textLabel === 'Network') this.network()?.loadOnce();
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
@@ -60,8 +67,8 @@ export class HostManagementComponent {
   }
 
   /** Called by host-detail when the parent Management tab is opened, so the
-   * default (Services) inner tab loads without needing a tab change first. */
+   * default (Network) inner tab loads without needing a tab change first. */
   activate(): void {
-    this.services()?.loadOnce();
+    this.network()?.loadOnce();
   }
 }

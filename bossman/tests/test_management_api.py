@@ -372,6 +372,53 @@ async def test_storage_degrades_when_zfs_absent(db_session):
     await db_session.commit()
 
 
+# ---- J4e: network ---------------------------------------------------------
+
+
+async def test_network_gathered(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    gathered = {"changed": False, "data": {
+        "interfaces": [{"name": "eth0", "state": "UP", "addresses": [{"family": "inet", "cidr": "10.0.0.5/24"}]}],
+        "routes": [{"raw": "default via 10.0.0.1 dev eth0", "dest": "default", "gateway": "10.0.0.1", "dev": "eth0"}],
+        "dns": {"nameservers": ["1.1.1.1"], "search": []},
+    }}
+    fake = CallToolFake(result=gathered)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/network", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["interfaces"][0]["name"] == "eth0"
+    assert body["dns"]["nameservers"] == ["1.1.1.1"]
+    assert fake.calls == [("yoloman.network_interface", {"state": "gathered"})]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_network_configure_forwards_params(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(result={"changed": True, "msg": "modified connection eth0 (static)"})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/network",
+            json={"name": "eth0", "state": "present", "method": "static", "address": "10.0.0.5/24", "gateway": "10.0.0.1", "dry_run": True},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200, resp.text
+    name, params = fake.calls[0]
+    assert name == "yoloman.network_interface"
+    assert params["method"] == "static" and params["address"] == "10.0.0.5/24" and params["dry_run"] is True
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
 # ---- J4a: enable/disable via service-control ------------------------------
 
 

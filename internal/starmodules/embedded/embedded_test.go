@@ -33,6 +33,7 @@ func TestEmbeddedModulesLoad(t *testing.T) {
 	// stub_ok=true, the command-driven configure modules are validated live on
 	// a host with the actual tooling.
 	for _, want := range []string{
+		"yoloman.network_interface",
 		"community.general.vdo",
 		"community.general.zfs",
 		"community.general.zfs_facts",

@@ -339,3 +339,68 @@ async def get_agent_storage(
         "vdo": data.get("vdo", {}),
         "zfs": zfs,
     }
+
+
+# ---- J4e: network (baked yoloman.network_interface) -----------------------
+
+
+class NetworkConfigRequest(BaseModel):
+    name: str
+    state: str = "present"  # present | absent
+    method: str | None = None  # dhcp | static | manual
+    address: str | None = None
+    gateway: str | None = None
+    dns: list[str] | None = None
+    dry_run: bool = False
+
+
+@router.get("/api/v1/agents/{agent_id}/network")
+async def get_agent_network(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4e — the host's current network config (interfaces/addresses/
+    routes/DNS) via the baked yoloman.network_interface module in gathered
+    mode (parses `ip` output; read-only)."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("yoloman.network_interface", {"state": "gathered"})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(result)
+    return {
+        "agent_id": str(agent.id),
+        "interfaces": data.get("interfaces", []),
+        "routes": data.get("routes", []),
+        "dns": data.get("dns", {}),
+    }
+
+
+@router.post("/api/v1/agents/{agent_id}/network")
+async def configure_agent_network(
+    agent_id: UUID,
+    body: NetworkConfigRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4e — configure or remove an interface via the write-gated baked
+    yoloman.network_interface module (NetworkManager). dry_run is honored by
+    the module (check_mode); a host without nmcli fails cleanly (502)."""
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="name must not be empty")
+    if body.state not in ("present", "absent"):
+        raise HTTPException(status_code=422, detail="state must be present or absent")
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    params = {k: v for k, v in body.model_dump().items() if v is not None}
+    try:
+        result = await client.call_tool("yoloman.network_interface", params)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "result": result}

@@ -234,3 +234,34 @@ export interface StorageResponse {
   vdo: StorageSection & { raw?: string[] };
   zfs: StorageSection & { pools?: any[] };
 }
+
+/** J4e: network overview from yoloman.network_interface (gathered). */
+export interface NetInterface {
+  name: string;
+  state: string;
+  addresses: { family: string; cidr: string }[];
+}
+
+export interface NetRoute {
+  raw: string;
+  dest: string;
+  gateway?: string;
+  dev?: string;
+}
+
+export interface NetworkResponse {
+  agent_id: string;
+  interfaces: NetInterface[];
+  routes: NetRoute[];
+  dns: { nameservers?: string[]; search?: string[] };
+}
+
+export interface NetworkConfig {
+  name: string;
+  state?: 'present' | 'absent';
+  method?: 'dhcp' | 'static' | 'manual';
+  address?: string;
+  gateway?: string;
+  dns?: string[];
+  dry_run?: boolean;
+}
