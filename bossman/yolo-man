@@ -1,0 +1,14 @@
+#!/bin/sh
+# yolo-man — NestedText/YAML playbook CLI over the plan engine (bossman/cli.py).
+#
+# The bossman project runs unpackaged (deps installed via `uv sync`, the
+# source itself imported via PYTHONPATH — see Dockerfile), so there is no
+# installed console-script entry point. This wrapper runs the CLI as a module
+# from the project directory, where `bossman` is importable.
+#
+#   ./yolo-man lint    playbook.nt
+#   ./yolo-man show    playbook.nt
+#   ./yolo-man convert playbook.yaml playbook.nt
+#   ./yolo-man run     playbook.nt --host web01 --param pkg=nginx [--check]
+cd "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)" || exit 1
+exec uv run python -m bossman.cli "$@"
