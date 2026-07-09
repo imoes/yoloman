@@ -678,14 +678,31 @@ export class OuPolicyComponent implements OnInit {
   }
 
   newNotification(ou: OUNode): void {
-    const ref = this.dialog.open<NotificationOuDialogComponent, NotificationOuDialogData, NotificationRuleInput>(
-      NotificationOuDialogComponent,
-      { width: '460px', data: { ouId: ou.id, ouPath: ou.path } },
-    );
-    ref.afterClosed().subscribe((input) => {
-      if (!input) return;
-      this.notification.createRule(input).subscribe(() => this.afterObjectChange(ou.id));
+    // Load the fleet once so the scope selector can pick a host / group /
+    // service / policy — not just this OU (Block P5).
+    this.agentService.list().subscribe((agents: Agent[]) => {
+      const data: NotificationOuDialogData = {
+        ouId: ou.id, ouPath: ou.path, scopeType: 'ou',
+        ...this.notificationPickers(agents),
+      };
+      const ref = this.dialog.open<NotificationOuDialogComponent, NotificationOuDialogData, NotificationRuleInput>(
+        NotificationOuDialogComponent, { width: '460px', data },
+      );
+      ref.afterClosed().subscribe((input) => {
+        if (!input) return;
+        this.notification.createRule(input).subscribe(() => this.afterObjectChange(ou.id));
+      });
     });
+  }
+
+  /** The scope-picker source lists for the notification dialog. */
+  private notificationPickers(agents: Agent[]) {
+    return {
+      ous: this.ous().map((o) => ({ id: o.id, path: o.path })),
+      groups: [...new Set(agents.flatMap((a) => a.groups ?? []))].sort(),
+      hosts: agents.map((a) => a.name).sort(),
+      plans: this.plans().map((p) => ({ id: p.id, label: p.display_name || p.name })),
+    };
   }
 
   newHostGroup(ou: OUNode): void {
@@ -768,12 +785,15 @@ export class OuPolicyComponent implements OnInit {
       this.notification.listRules().subscribe((rules) => {
         const rule = rules.find((r: NotificationRule) => r.id === obj.id);
         if (!rule) return;
-        const ref = this.dialog.open<NotificationOuDialogComponent, NotificationOuDialogData, NotificationRuleInput>(
-          NotificationOuDialogComponent, { width: '460px', data: { ouId: ou.id, ouPath: ou.path, rule } },
-        );
-        ref.afterClosed().subscribe((input) => {
-          if (!input) return;
-          this.notification.updateRule(rule.id, input).subscribe(() => this.afterObjectChange(ou.id));
+        this.agentService.list().subscribe((agents: Agent[]) => {
+          const ref = this.dialog.open<NotificationOuDialogComponent, NotificationOuDialogData, NotificationRuleInput>(
+            NotificationOuDialogComponent,
+            { width: '460px', data: { ouId: ou.id, ouPath: ou.path, rule, ...this.notificationPickers(agents) } },
+          );
+          ref.afterClosed().subscribe((input) => {
+            if (!input) return;
+            this.notification.updateRule(rule.id, input).subscribe(() => this.afterObjectChange(ou.id));
+          });
         });
       });
     }

@@ -18,7 +18,15 @@ export interface NotificationRule {
   ou_id?: string | null;
   enforced?: boolean;
   link_order?: number;
+  /** Block N1: the shared scope model. A notification fires (additively) for
+   * every event its scope covers. */
+  scope_type?: NotificationScope;
+  scope_value?: string | null; // group name (group) or agent (host/service)
+  scope_service_name?: string | null; // for scope_type=service
+  scope_plan_id?: string | null; // for scope_type=policy
 }
+
+export type NotificationScope = 'global' | 'ou' | 'group' | 'host' | 'service' | 'policy';
 
 export type NotificationRuleInput = Omit<NotificationRule, 'id' | 'created_at'>;
 
