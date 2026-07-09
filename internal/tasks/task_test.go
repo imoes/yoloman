@@ -563,3 +563,56 @@ params:
 		t.Errorf("expected message to be required, got %+v", required)
 	}
 }
+
+func TestParseFileNT_ModuleTaskEquivalentToYAML(t *testing.T) {
+	// NestedText tools.d task: no quoting on values (mode, state), params
+	// with a boolean `required` written as the plain string "true".
+	nt := []byte("name: restart_nginx\n" +
+		"description: restart nginx\n" +
+		"params:\n" +
+		"    svc:\n" +
+		"        type: string\n" +
+		"        required: true\n" +
+		"ansible.builtin.service:\n" +
+		"    name: nginx\n" +
+		"    state: restarted\n")
+	task, err := ParseFileNT(nt)
+	if err != nil {
+		t.Fatalf("ParseFileNT: %v", err)
+	}
+	if task.Name != "restart_nginx" || task.Module != "service" {
+		t.Fatalf("unexpected task: %+v", task)
+	}
+	if task.Body["name"] != "nginx" || task.Body["state"] != "restarted" {
+		t.Errorf("unexpected body: %+v", task.Body)
+	}
+	// boolean `required` coerced from the NestedText string "true".
+	if !task.Params["svc"].Required {
+		t.Errorf("params.svc.required: want true, got %+v", task.Params["svc"])
+	}
+}
+
+func TestParseFileNT_PipelineTask(t *testing.T) {
+	nt := []byte("name: reload_units\n" +
+		"pipeline:\n" +
+		"    -\n" +
+		"        - systemctl\n" +
+		"        - daemon-reload\n")
+	task, err := ParseFileNT(nt)
+	if err != nil {
+		t.Fatalf("ParseFileNT: %v", err)
+	}
+	if !task.IsPipeline() {
+		t.Fatalf("expected pipeline task, got %+v", task)
+	}
+	if len(task.Pipeline) != 1 || task.Pipeline[0][0] != "systemctl" || task.Pipeline[0][1] != "daemon-reload" {
+		t.Errorf("unexpected pipeline: %+v", task.Pipeline)
+	}
+}
+
+func TestParseFileNT_RejectsMissingName(t *testing.T) {
+	_, err := ParseFileNT([]byte("description: no name here\n"))
+	if err == nil {
+		t.Fatal("expected error for missing name")
+	}
+}

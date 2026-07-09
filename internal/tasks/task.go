@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/danielledeleo/nestedtext"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mutkluge/agentic-mcp/internal/checks"
@@ -55,7 +56,27 @@ func ParseFile(data []byte) (*Task, error) {
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("parsing task file: %w", err)
 	}
+	return parseRaw(raw)
+}
 
+// ParseFileNT parses one tools.d task file's NestedText content into the
+// same Task as ParseFile. NestedText is all-strings (no type inference — no
+// quoting, no "Norway problem"); the only schema field this affects is a
+// param's `required`, which parseParamSpecs coerces from "true"/"false".
+// Module-argument scalars stay strings and are coerced at the typed module
+// boundary (see boolParam in internal/modules).
+func ParseFileNT(data []byte) (*Task, error) {
+	var raw map[string]any
+	if err := nestedtext.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("parsing NestedText task file: %w", err)
+	}
+	return parseRaw(raw)
+}
+
+// parseRaw builds a Task from an already-decoded mapping, whatever front-end
+// produced it (YAML or NestedText) — the single place the task schema is
+// validated and assembled.
+func parseRaw(raw map[string]any) (*Task, error) {
 	name, _ := raw["name"].(string)
 	if name == "" {
 		return nil, fmt.Errorf("task file: missing required 'name'")
@@ -124,6 +145,24 @@ func ParseFile(data []byte) (*Task, error) {
 	}
 }
 
+// coerceBool accepts a real bool (from YAML) or a NestedText boolean string
+// ("true"/"false"/"yes"/"no"/"on"/"off"/"1"/"0", case-insensitive). The
+// second return is false for anything else, so the caller keeps its default.
+func coerceBool(v any) (bool, bool) {
+	switch x := v.(type) {
+	case bool:
+		return x, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(x)) {
+		case "true", "yes", "on", "1":
+			return true, true
+		case "false", "no", "off", "0":
+			return false, true
+		}
+	}
+	return false, false
+}
+
 func parseParamSpecs(taskName string, raw any) (map[string]ParamSpec, error) {
 	specs := map[string]ParamSpec{}
 	if raw == nil {
@@ -142,7 +181,7 @@ func parseParamSpecs(taskName string, raw any) (map[string]ParamSpec, error) {
 		if t, ok := specMap["type"].(string); ok {
 			spec.Type = t
 		}
-		if r, ok := specMap["required"].(bool); ok {
+		if r, ok := coerceBool(specMap["required"]); ok {
 			spec.Required = r
 		}
 		if p, ok := specMap["pattern"].(string); ok {
@@ -234,7 +273,7 @@ func LoadDir(dir string) ([]*Task, error) {
 		if e.IsDir() {
 			continue
 		}
-		if ext := filepath.Ext(e.Name()); ext == ".yaml" || ext == ".yml" {
+		if ext := filepath.Ext(e.Name()); ext == ".yaml" || ext == ".yml" || ext == ".nt" {
 			names = append(names, e.Name())
 		}
 	}
@@ -248,7 +287,12 @@ func LoadDir(dir string) ([]*Task, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading %q: %w", path, err)
 		}
-		task, err := ParseFile(data)
+		var task *Task
+		if filepath.Ext(name) == ".nt" {
+			task, err = ParseFileNT(data)
+		} else {
+			task, err = ParseFile(data)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
