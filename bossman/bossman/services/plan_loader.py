@@ -34,7 +34,21 @@ from typing import Any
 import yaml
 
 ANSIBLE_PREFIX = "ansible.builtin."
+# A module step key is a dotted, FQCN-shaped identifier: `ansible.builtin.file`
+# (native) OR a collection FQCN like `community.crypto.openssl_privatekey` (a
+# translated Starlark module the agent can now execute — Block G3). This
+# generalizes the former ansible.builtin-only guard (roadmap #4).
+_MODULE_KEY_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
+
+
+def _module_name(key: str) -> str:
+    """The module name to dispatch: the bare name for an ansible.builtin.*
+    key (native modules register under bare names), or the full FQCN for a
+    collection module (registered under its FQCN by the G3 loader)."""
+    if key.startswith(ANSIBLE_PREFIX):
+        return key[len(ANSIBLE_PREFIX):]
+    return key
 
 _STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "loop", "pipeline", "upload")
 
@@ -212,10 +226,10 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
     for k, v in raw.items():
         if k in _STEP_META_KEYS:
             continue
-        if not k.startswith(ANSIBLE_PREFIX):
+        if not _MODULE_KEY_RE.match(k):
             raise PlanError(f"plan {plan_name!r}, step {name!r}: unexpected key {k!r}")
         if module_key is not None:
-            raise PlanError(f"plan {plan_name!r}, step {name!r}: multiple ansible.builtin.* keys")
+            raise PlanError(f"plan {plan_name!r}, step {name!r}: multiple module keys ({module_key!r} and {k!r})")
         if not isinstance(v, dict):
             raise PlanError(f"plan {plan_name!r}, step {name!r}: {k!r} value must be a mapping")
         module_key, module_body = k, v
@@ -236,7 +250,7 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             when=when,
             register=register,
             loop=loop,
-            module=module_key[len(ANSIBLE_PREFIX) :],
+            module=_module_name(module_key),
             body=module_body or {},
         )
     if pipeline_raw is not None:

@@ -616,3 +616,19 @@ func TestParseFileNT_RejectsMissingName(t *testing.T) {
 		t.Fatal("expected error for missing name")
 	}
 }
+
+func TestParseFile_CollectionFQCNModuleKey(t *testing.T) {
+	// roadmap #4: a collection FQCN key keeps its full name (matches the
+	// agent's G3 registration); ansible.builtin.* is still stripped.
+	task, err := ParseFile([]byte("name: gen_key\n" +
+		"community.crypto.openssl_privatekey:\n  path: /k.pem\n"))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if task.Module != "community.crypto.openssl_privatekey" {
+		t.Errorf("module = %q, want full FQCN", task.Module)
+	}
+	if _, err := ParseFile([]byte("name: x\nnotamodule:\n  a: b\n")); err == nil {
+		t.Error("expected error for non-FQCN unknown key")
+	}
+}

@@ -48,6 +48,23 @@ type Task struct {
 
 const ansiblePrefix = "ansible.builtin."
 
+// moduleKeyRe matches a module step/task key: an FQCN-shaped dotted
+// identifier — `ansible.builtin.file` (native) or a collection FQCN like
+// `community.crypto.openssl_privatekey` (a translated Starlark module the
+// agent can now execute — Block G3). Generalizes the former builtin-only
+// guard (roadmap #4).
+var moduleKeyRe = regexp.MustCompile(`^[a-z0-9_]+(?:\.[a-z0-9_]+)+$`)
+
+// moduleName is the name to dispatch: the bare name for an ansible.builtin.*
+// key (native modules register bare), or the full FQCN for a collection
+// module (registered under its FQCN by the G3 loader).
+func moduleName(key string) string {
+	if strings.HasPrefix(key, ansiblePrefix) {
+		return strings.TrimPrefix(key, ansiblePrefix)
+	}
+	return key
+}
+
 var placeholderRe = regexp.MustCompile(`\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}`)
 
 // ParseFile parses one tools.d task file's YAML content.
@@ -102,11 +119,11 @@ func parseRaw(raw map[string]any) (*Task, error) {
 			checkRaw = v
 			continue
 		}
-		if !strings.HasPrefix(k, ansiblePrefix) {
-			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, check, or a single ansible.builtin.<module> key)", name, k)
+		if !moduleKeyRe.MatchString(k) {
+			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, check, or a single ansible.builtin.<module> / collection FQCN key)", name, k)
 		}
 		if moduleKey != "" {
-			return nil, fmt.Errorf("task %q: multiple ansible.builtin.* keys found (%q and %q); exactly one module task is supported per file", name, moduleKey, k)
+			return nil, fmt.Errorf("task %q: multiple module keys found (%q and %q); exactly one module task is supported per file", name, moduleKey, k)
 		}
 		body, ok := v.(map[string]any)
 		if !ok {
@@ -125,7 +142,7 @@ func parseRaw(raw map[string]any) (*Task, error) {
 			Name:        name,
 			Description: description,
 			Params:      params,
-			Module:      strings.TrimPrefix(moduleKey, ansiblePrefix),
+			Module:      moduleName(moduleKey),
 			Body:        moduleBody,
 		}, nil
 	case hasPipeline && !hasModule && !hasCheck:

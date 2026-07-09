@@ -11,6 +11,7 @@ import pytest
 from bossman.services.plan_loader import (
     Chunk,
     PlanError,
+    build_plan_from_raw,
     PlanStep,
     chunks_needing_retranslation,
     hash_source_text,
@@ -117,7 +118,7 @@ def test_parse_plan_upload_step_and_step_flags(tmp_path):
         ("name: x", "must have either 'chunks' or 'steps'"),
         (
             "name: x\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n    ansible.builtin.file: {}",
-            "multiple ansible.builtin",
+            "multiple module keys",
         ),
         ("name: x\nsteps:\n  - name: s\n    bogus_key: {}", "unexpected key"),
         (
@@ -521,3 +522,23 @@ def test_img_docker_plan_parses_and_has_expected_chunk_shape():
     assert args["docker_apt_codename"] == "bookworm"
     assert args["docker_noproxy"] == ""
     assert "docker_proxy_url" not in args  # optional, no default -> stays undefined
+
+
+# --- roadmap #4: FQCN module keys (collection modules callable) ---------
+
+def test_collection_fqcn_module_key_keeps_full_name():
+    raw = {"name": "p", "steps": [
+        {"name": "gen", "community.crypto.openssl_privatekey": {"path": "/k.pem"}},
+        {"name": "f", "ansible.builtin.file": {"path": "/x", "state": "directory"}},
+    ]}
+    plan = build_plan_from_raw(raw, Path("p"))
+    steps = plan.chunks[0].steps
+    # collection module: full FQCN kept (matches the agent's G3 registration)
+    assert steps[0].module == "community.crypto.openssl_privatekey"
+    # ansible.builtin.* still stripped to the bare native name
+    assert steps[1].module == "file"
+
+
+def test_non_dotted_unknown_key_still_rejected():
+    with pytest.raises(PlanError, match="unexpected key"):
+        build_plan_from_raw({"name": "p", "steps": [{"name": "s", "notamodule": {}}]}, Path("p"))
