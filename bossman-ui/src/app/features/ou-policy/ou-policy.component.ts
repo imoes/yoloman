@@ -203,12 +203,18 @@ interface PaletteItem {
     <ng-template #ouMenu>
       <div class="bm-menu" cdkMenu>
         <button class="bm-menu-item" cdkMenuItem (click)="createOu(ctx()!.ou!.id)">New OU…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">New Threshold…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">New Notification…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">New Host Group…</button>
-        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Link Orchestration Plan…</button>
         <div class="bm-menu-sep"></div>
-        <button class="bm-menu-item" cdkMenuItem (click)="newOrchestrationPlan(ctx()!.ou!)">New Orchestration Plan…</button>
+        <!-- The multi-entry editor (several thresholds/checks/roles/routes in
+             one policy) — the primary GPO-style "create a policy" action. -->
+        <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="newOrchestrationPlan(ctx()!.ou!)">
+          New Policy… (multiple entries)
+        </button>
+        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Link existing Policy…</button>
+        <div class="bm-menu-sep"></div>
+        <div class="bm-menu-label">Quick add (single entry)</div>
+        <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">Notification…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
@@ -314,6 +320,8 @@ interface PaletteItem {
         color: inherit; padding: 7px 12px; font: inherit; cursor: pointer; border-radius: 4px;
       }
       .bm-menu-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+      .bm-menu-strong { font-weight: 600; color: var(--bm-green); }
+      .bm-menu-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.5; padding: 4px 12px 2px; }
       .bm-danger { color: var(--bm-red); }
       .bm-menu-sep { height: 1px; background: var(--mat-sys-outline-variant); margin: 4px 0; }
     `,
