@@ -164,6 +164,14 @@ write disabled) for quick local testing.
 go test ./...
 ```
 
+## Playbooks
+
+Plans (and the agent's local `tools.d` tasks) can be written in
+[NestedText](https://nestedtext.org) instead of YAML — all-strings, no
+implicit typing, no quoting — and run with the `yolo-man` CLI
+(`lint`/`show`/`convert`/`run`). See
+[`docs/nestedtext-playbooks.md`](docs/nestedtext-playbooks.md).
+
 ## Learn more
 
 The full design — architecture, module system, security model, the three operating modes, and the
