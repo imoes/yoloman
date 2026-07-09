@@ -179,6 +179,77 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return asyncio.run(_run_plan_cli(args))
 
 
+# Map a file extension to (prefix, source_format) for `store` auto-detection.
+_EXT_ORIGIN = {
+    ".nt": ("ansible", "nestedtext"),
+    ".yaml": ("ansible", "yaml"),
+    ".yml": ("ansible", "yaml"),
+    ".json": ("ansible", "json"),
+    ".sls": ("salt", "salt"),
+    ".rb": ("chef", "chef"),
+    ".pp": ("puppet", "puppet"),
+}
+
+
+async def _store_cli(args: argparse.Namespace) -> int:
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from bossman.config import get_settings
+    from bossman.services.plan_store import store_plan
+
+    path = Path(args.file)
+    prefix_default, fmt_default = _EXT_ORIGIN.get(path.suffix.lower(), ("ansible", "yaml"))
+    prefix = args.prefix or prefix_default
+    source_format = args.format or fmt_default
+    name = args.name or path.stem
+
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with session_factory() as session:
+            try:
+                doc = await store_plan(session, prefix, name, source_format, path.read_text(encoding="utf-8"))
+            except (PlanError, OSError) as exc:
+                print(f"cannot store: {exc}", file=sys.stderr)
+                return 1
+            await session.commit()
+            print(f"stored {doc.prefix}/{doc.name}@v{doc.version} (from {source_format})")
+            return 0
+    finally:
+        await engine.dispose()
+
+
+async def _ls_cli(args: argparse.Namespace) -> int:
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from bossman.config import get_settings
+    from bossman.services.plan_store import list_plans
+
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with session_factory() as session:
+            entries = await list_plans(session, prefix=args.prefix)
+            if not entries:
+                print("(no stored plans)")
+                return 0
+            for e in sorted(entries, key=lambda x: (x["prefix"], x["name"])):
+                print(f"{e['prefix']:8} {e['name']:24} v{e['version']:<3} {e['source_format']}")
+            return 0
+    finally:
+        await engine.dispose()
+
+
+def _cmd_store(args: argparse.Namespace) -> int:
+    return asyncio.run(_store_cli(args))
+
+
+def _cmd_ls(args: argparse.Namespace) -> int:
+    return asyncio.run(_ls_cli(args))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yolo-man", description="NestedText/YAML playbook tool over the plan engine")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -204,6 +275,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--from-db", action="store_true", help="load the plan from the canonical store by name instead of a file")
     p_run.add_argument("--prefix", default="ansible", help="store prefix when --from-db (ansible|salt|puppet|chef)")
     p_run.set_defaults(func=_cmd_run)
+
+    p_store = sub.add_parser("store", help="store a plan in the canonical DB (format auto-detected by extension)")
+    p_store.add_argument("file", help="plan file (.nt/.yaml/.json/.sls/.rb/.pp)")
+    p_store.add_argument("--prefix", help="origin system (default from extension: ansible|salt|puppet|chef)")
+    p_store.add_argument("--name", help="plan name (default: file stem)")
+    p_store.add_argument("--format", help="source format override (nestedtext|yaml|json|salt|chef|puppet)")
+    p_store.set_defaults(func=_cmd_store)
+
+    p_ls = sub.add_parser("ls", help="list plans in the canonical store")
+    p_ls.add_argument("--prefix", help="filter by origin system (ansible|salt|puppet|chef)")
+    p_ls.set_defaults(func=_cmd_ls)
 
     return parser
 
