@@ -128,6 +128,25 @@ def _step_row(
     )
 
 
+def _resolve_loop_items(step: PlanStep, context: dict[str, Any]) -> list[Any]:
+    """Resolve a step's loop into the list of items to iterate. Returns
+    [None] when the step has no loop (a single iteration, no `item` in
+    scope). A literal list is used as-is; a string is a dotted path (a param
+    or registered result) that must resolve to a list at run time."""
+    if step.loop is None:
+        return [None]
+    if isinstance(step.loop, list):
+        return list(step.loop)
+    value: Any = context
+    for part in step.loop.split("."):
+        if not isinstance(value, dict) or part not in value:
+            raise PlanError(f"loop: {step.loop!r} is not defined")
+        value = value[part]
+    if not isinstance(value, list):
+        raise PlanError(f"loop: {step.loop!r} did not resolve to a list (got {type(value).__name__})")
+    return value
+
+
 async def run_plan(
     session: AsyncSession,
     agent: Agent,
@@ -233,61 +252,93 @@ async def run_plan(
             continue
 
         for step in chunk.steps:
-            started_at = datetime.now(timezone.utc)
             module_label = step.module if step.kind == "module" else step.kind
 
-            if step.when is not None:
-                try:
-                    should_run = eval_when(step.when, context)
-                except WhenError as exc:
-                    session.add(_step_row(plan_run.id, index, step.name, module_label, {}, None, None, None, str(exc), started_at))
-                    await session.flush()
-                    index += 1
-                    any_step_failed = True
-                    if step.on_failure == "abort":
-                        aborted = True
-                        break
-                    continue
-                if not should_run:
-                    session.add(
-                        _step_row(
-                            plan_run.id,
-                            index,
-                            step.name,
-                            module_label,
-                            {},
-                            {"skipped": f"when: {step.when} evaluated false"},
-                            None,
-                            None,
-                            None,
-                            started_at,
-                        )
-                    )
-                    await session.flush()
-                    index += 1
-                    continue
-
-            effective_dry_run = dry_run or step.check_mode
-            request_body, response_body, changed, http_status, error = await _execute_step(
-                step, args, client, effective_dry_run, plan, read_local_file
-            )
-
-            if step.register and response_body is not None:
-                context[step.register] = response_body
-
-            session.add(
-                _step_row(plan_run.id, index, step.name, module_label, request_body, response_body, changed, http_status, error, started_at)
-            )
-            await session.flush()
-            index += 1
-
-            if changed:
-                any_step_changed = True
-            if error is not None:
+            # Resolve the loop (a single [None] iteration when there is no
+            # loop). A loop that references an undefined/non-list path is a
+            # step failure recorded like any other, honoring on_failure.
+            try:
+                loop_items = _resolve_loop_items(step, context)
+            except PlanError as exc:
+                session.add(_step_row(plan_run.id, index, step.name, module_label, {}, None, None, None, str(exc), datetime.now(timezone.utc)))
+                await session.flush()
+                index += 1
                 any_step_failed = True
                 if step.on_failure == "abort":
                     aborted = True
                     break
+                continue
+
+            # Aggregation across iterations (only meaningful when looping).
+            iter_responses: list[dict[str, Any]] = []
+            iter_changed_any = False
+            last_response: dict[str, Any] | None = None
+            had_response = False
+
+            for loop_item in loop_items:
+                started_at = datetime.now(timezone.utc)
+                if step.loop is None:
+                    iter_context, iter_args, row_name = context, args, step.name
+                else:
+                    # Each iteration exposes the element as `item` for both
+                    # when: evaluation and {{ item }} substitution.
+                    iter_context = {**context, "item": loop_item}
+                    iter_args = {**args, "item": loop_item}
+                    row_name = f"{step.name} [item={loop_item!r}]"
+
+                if step.when is not None:
+                    try:
+                        should_run = eval_when(step.when, iter_context)
+                    except WhenError as exc:
+                        session.add(_step_row(plan_run.id, index, row_name, module_label, {}, None, None, None, str(exc), started_at))
+                        await session.flush()
+                        index += 1
+                        any_step_failed = True
+                        if step.on_failure == "abort":
+                            aborted = True
+                        break
+                    if not should_run:
+                        session.add(
+                            _step_row(plan_run.id, index, row_name, module_label, {}, {"skipped": f"when: {step.when} evaluated false"}, None, None, None, started_at)
+                        )
+                        await session.flush()
+                        index += 1
+                        continue
+
+                effective_dry_run = dry_run or step.check_mode
+                request_body, response_body, changed, http_status, error = await _execute_step(
+                    step, iter_args, client, effective_dry_run, plan, read_local_file
+                )
+
+                session.add(
+                    _step_row(plan_run.id, index, row_name, module_label, request_body, response_body, changed, http_status, error, started_at)
+                )
+                await session.flush()
+                index += 1
+
+                if response_body is not None:
+                    had_response = True
+                    last_response = response_body
+                    iter_responses.append(response_body)
+                if changed:
+                    any_step_changed = True
+                    iter_changed_any = True
+                if error is not None:
+                    any_step_failed = True
+                    if step.on_failure == "abort":
+                        aborted = True
+                    break  # stop iterating this step's remaining items
+
+            # Register once per step: the single response when not looping;
+            # Ansible-style {results: [...]} aggregate when looping.
+            if step.register and had_response:
+                if step.loop is None:
+                    context[step.register] = last_response
+                else:
+                    context[step.register] = {"results": iter_responses, "changed": iter_changed_any}
+
+            if aborted:
+                break
 
     if not aborted and any_step_changed and plan.final_handler is not None:
         handler = plan.final_handler

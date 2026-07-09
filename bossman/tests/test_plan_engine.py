@@ -544,3 +544,99 @@ async def test_run_plan_final_handler_does_not_run_when_aborted(db_session, tmp_
     assert len(steps) == 2
 
     await _cleanup(db_session, agent, plan_run)
+
+
+# --- Block NT-2: loop: support ------------------------------------------
+
+LOOP_PLAN = """
+name: loop_demo
+steps:
+  - name: install_each
+    register: pkgs
+    loop: [curl, git, htop]
+    ansible.builtin.apt:
+      name: "{{ item }}"
+      state: present
+"""
+
+
+async def test_loop_runs_step_once_per_item_with_item_substituted(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, LOOP_PLAN)
+    fake = FakeAgentClient(tool_responses={"apt": {"changed": True}})
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "succeeded"
+    # one apt call per item, with {{ item }} substituted per iteration
+    apt_bodies = [b for (n, b) in fake.tool_calls if n == "apt"]
+    assert [b["name"] for b in apt_bodies] == ["curl", "git", "htop"]
+
+    steps = (
+        await db_session.scalars(
+            select(PlanRunStep).where(PlanRunStep.plan_run_id == plan_run.id).order_by(PlanRunStep.step_index)
+        )
+    ).all()
+    assert len(steps) == 3
+    assert all(s.step_name.startswith("install_each [item=") for s in steps)
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+LOOP_OVER_REGISTERED_PLAN = """
+name: loop_registered
+steps:
+  - name: discover
+    register: found
+    ansible.builtin.command: {}
+  - name: act_on_each
+    loop: found.data.names
+    ansible.builtin.file:
+      path: "{{ item }}"
+"""
+
+
+async def test_loop_over_registered_result_list(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, LOOP_OVER_REGISTERED_PLAN)
+    fake = FakeAgentClient(
+        tool_responses={
+            "command": {"changed": False, "data": {"names": ["/a", "/b"]}},
+            "file": {"changed": True},
+        }
+    )
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "succeeded"
+    file_bodies = [b for (n, b) in fake.tool_calls if n == "file"]
+    assert [b["path"] for b in file_bodies] == ["/a", "/b"]
+
+    await _cleanup(db_session, agent, plan_run)
+
+
+LOOP_BAD_PLAN = """
+name: loop_bad
+steps:
+  - name: nope
+    loop: does.not.exist
+    ansible.builtin.file: {}
+"""
+
+
+async def test_loop_undefined_path_is_a_recorded_failure(db_session, tmp_path):
+    agent = await _make_agent(db_session)
+    plan = _plan(tmp_path, LOOP_BAD_PLAN)
+    fake = FakeAgentClient()
+
+    plan_run = await run_plan(db_session, agent, plan, host_vars={}, explicit_params={}, dry_run=False, client=fake)
+
+    assert plan_run.status == "failed"
+    steps = (
+        await db_session.scalars(select(PlanRunStep).where(PlanRunStep.plan_run_id == plan_run.id))
+    ).all()
+    assert len(steps) == 1
+    assert "is not defined" in steps[0].error
+    assert fake.tool_calls == []  # never dispatched
+
+    await _cleanup(db_session, agent, plan_run)

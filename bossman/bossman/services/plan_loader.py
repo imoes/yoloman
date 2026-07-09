@@ -36,7 +36,7 @@ import yaml
 ANSIBLE_PREFIX = "ansible.builtin."
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 
-_STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "pipeline", "upload")
+_STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "loop", "pipeline", "upload")
 
 
 class PlanError(Exception):
@@ -59,6 +59,11 @@ class PlanStep:
     on_failure: str = "abort"  # "abort" | "continue"
     when: str | None = None
     register: str | None = None
+    # Ansible-style loop: run this step once per item. Either a literal list
+    # of items, or a string naming a dotted path (a param or a registered
+    # result) that resolves to a list at run time. Each iteration exposes the
+    # current element as `item` for `when:` and `{{ item }}` substitution.
+    loop: list[Any] | str | None = None
 
     module: str | None = None
     body: dict[str, Any] = field(default_factory=dict)
@@ -78,6 +83,7 @@ class PlanStep:
             "on_failure": self.on_failure,
             "when": self.when,
             "register": self.register,
+            "loop": self.loop,
             "module": self.module,
             "body": self.body,
             "pipeline": self.pipeline,
@@ -195,6 +201,10 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
     if register is not None and not isinstance(register, str):
         raise PlanError(f"plan {plan_name!r}, step {name!r}: 'register' must be a string")
 
+    loop = raw.get("loop")
+    if loop is not None and not isinstance(loop, (list, str)):
+        raise PlanError(f"plan {plan_name!r}, step {name!r}: 'loop' must be a list or a string (a dotted path to a list)")
+
     module_key = None
     module_body = None
     pipeline_raw = raw.get("pipeline")
@@ -225,6 +235,7 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             on_failure=on_failure,
             when=when,
             register=register,
+            loop=loop,
             module=module_key[len(ANSIBLE_PREFIX) :],
             body=module_body or {},
         )
@@ -236,6 +247,7 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             on_failure=on_failure,
             when=when,
             register=register,
+            loop=loop,
             pipeline=_parse_pipeline_stages(plan_name, name, pipeline_raw),
         )
     if not isinstance(upload_raw, dict) or not upload_raw.get("local_path") or not upload_raw.get("remote_name"):
@@ -247,6 +259,7 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
         on_failure=on_failure,
         when=when,
         register=register,
+        loop=loop,
         upload_local_path=upload_raw["local_path"],
         upload_remote_name=upload_raw["remote_name"],
     )
