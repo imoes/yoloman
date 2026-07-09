@@ -88,6 +88,73 @@ func fileOptions() *syntax.FileOptions {
 	}
 }
 
+// predeclared returns the extra globals injected into every module's
+// environment beyond Starlark's own universe — IDENTICAL for validation and
+// execution so "validate ≡ execute" still holds. Today it is a small set of
+// safe Python-builtin shims that the Ansible→Starlark translations routinely
+// emit but Starlark lacks — chiefly isinstance — so a lint-clean translation
+// also runs instead of dying on an undefined name at module top level.
+func predeclared() starlark.StringDict {
+	return starlark.StringDict{
+		"isinstance": starlark.NewBuiltin("isinstance", builtinIsInstance),
+	}
+}
+
+// isinstanceTypeName maps a Starlark type-constructor builtin (str, int, …) to
+// the Value.Type() string it constructs, so isinstance(x, str) can compare
+// x.Type() to "string".
+var isinstanceTypeName = map[string]string{
+	"str": "string", "int": "int", "float": "float", "bool": "bool",
+	"list": "list", "dict": "dict", "tuple": "tuple", "bytes": "bytes",
+}
+
+// builtinIsInstance implements Python's isinstance(x, classinfo) for the
+// subset the translations use: classinfo is a type constructor (str/int/…) or
+// a tuple of them. Anything else fails with a clear message rather than
+// silently returning false.
+func builtinIsInstance(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var x, classinfo starlark.Value
+	if err := starlark.UnpackPositionalArgs("isinstance", args, kwargs, 2, &x, &classinfo); err != nil {
+		return nil, err
+	}
+	match, err := isInstanceMatch(x, classinfo)
+	if err != nil {
+		return nil, err
+	}
+	return starlark.Bool(match), nil
+}
+
+func isInstanceMatch(x, classinfo starlark.Value) (bool, error) {
+	switch c := classinfo.(type) {
+	case *starlark.Builtin:
+		want, ok := isinstanceTypeName[c.Name()]
+		if !ok {
+			return false, fmt.Errorf("isinstance: unsupported type %q", c.Name())
+		}
+		if x.Type() == want {
+			return true, nil
+		}
+		// Python treats bool as a subclass of int.
+		if want == "int" && x.Type() == "bool" {
+			return true, nil
+		}
+		return false, nil
+	case starlark.Tuple:
+		for _, e := range c {
+			m, err := isInstanceMatch(x, e)
+			if err != nil {
+				return false, err
+			}
+			if m {
+				return true, nil
+			}
+		}
+		return false, nil
+	default:
+		return false, fmt.Errorf("isinstance: second arg must be a type or tuple of types, got %s", classinfo.Type())
+	}
+}
+
 // Validate runs the full pipeline: parse → contract lint → stub runs.
 func Validate(filename string, src []byte, opts Options) Report {
 	rep := Report{}
@@ -197,7 +264,7 @@ func stubRun(fileOpts *syntax.FileOptions, filename string, src []byte, params s
 	thread := &starlark.Thread{Name: label}
 	thread.SetMaxExecutionSteps(maxSteps)
 
-	globals, err := starlark.ExecFileOptions(fileOpts, thread, filename, src, nil)
+	globals, err := starlark.ExecFileOptions(fileOpts, thread, filename, src, predeclared())
 	if err != nil {
 		return []Diagnostic{stubDiag(label+": module top-level failed", err)}
 	}
@@ -440,7 +507,7 @@ func Execute(filename string, src []byte, params map[string]any, caps Capabiliti
 		return Result{}, fmt.Errorf("params: %w", err)
 	}
 
-	globals, err := starlark.ExecFileOptions(fileOptions(), thread, filename, src, nil)
+	globals, err := starlark.ExecFileOptions(fileOptions(), thread, filename, src, predeclared())
 	if err != nil {
 		return Result{}, execError("module top-level failed", err)
 	}
