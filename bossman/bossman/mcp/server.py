@@ -400,7 +400,7 @@ def build_mcp_server(
     @mcp.tool()
     async def get_module_source(fqcn: str) -> dict[str, Any]:
         """The translation template for one Ansible module, by fully qualified
-        collection name (e.g. "ansible.posix.sysctl"): its documented options/argspec
+        collection name (e.g. "posix.sysctl"): its documented options/argspec
         (`doc.options` — mirror these in the metadata YAML), description, examples,
         and the ORIGINAL Python implementation (`source_py`) whose behavior your
         Starlark translation must reproduce (same parameters, same idempotency, same

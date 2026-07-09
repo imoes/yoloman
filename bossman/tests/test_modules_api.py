@@ -15,12 +15,12 @@ from bossman.services.auth import new_api_token
 def _library(tmp_path):
     sources = tmp_path / "module_sources"
     sources.mkdir()
-    (sources / "ansible.posix.sysctl.json").write_text(
+    (sources / "posix.sysctl.json").write_text(
         json.dumps(
             {
-                "fqcn": "ansible.posix.sysctl",
+                "fqcn": "posix.sysctl",
                 "name": "sysctl",
-                "collection": "ansible.posix",
+                "collection": "posix",
                 "short_description": "Manage sysctl",
                 "doc": {"options": {"name": {"type": "str", "required": True}}},
             }
@@ -38,12 +38,12 @@ def _library(tmp_path):
         )
     )
     modules_dir = tmp_path / "modules.d"
-    (modules_dir / "ansible.posix").mkdir(parents=True)
-    (modules_dir / "ansible.posix" / "sysctl.yaml").write_text(
-        "name: sysctl\nfqcn: ansible.posix.sysctl\ncollection: ansible.posix\n"
+    (modules_dir / "posix").mkdir(parents=True)
+    (modules_dir / "posix" / "sysctl.yaml").write_text(
+        "name: sysctl\nfqcn: posix.sysctl\ncollection: posix\n"
         "short_description: Manage sysctl\noptions: {}\nwrites: true\nruntime: starlark\n"
     )
-    (modules_dir / "ansible.posix" / "sysctl.star").write_text("def main(ctx, params):\n    return {}\n")
+    (modules_dir / "posix" / "sysctl.star").write_text("def main(ctx, params):\n    return {}\n")
     return modules_dir, sources
 
 
@@ -62,7 +62,7 @@ async def test_modules_endpoints(db_session, tmp_path):
     with TestClient(app) as client:
         unauth = client.get("/api/v1/modules")
         listing = client.get("/api/v1/modules", headers=headers)
-        translated = client.get("/api/v1/modules/ansible.posix.sysctl", headers=headers)
+        translated = client.get("/api/v1/modules/posix.sysctl", headers=headers)
         pending = client.get("/api/v1/modules/community.general.timezone", headers=headers)
         missing = client.get("/api/v1/modules/community.general.nope", headers=headers)
 
@@ -70,9 +70,9 @@ async def test_modules_endpoints(db_session, tmp_path):
     assert listing.status_code == 200
     body = listing.json()
     assert body["total"] == 2 and body["translated"] == 1
-    assert body["collections"]["ansible.posix"] == {"total": 1, "translated": 1}
+    assert body["collections"]["posix"] == {"total": 1, "translated": 1}
     by_fqcn = {m["fqcn"]: m for m in body["modules"]}
-    assert by_fqcn["ansible.posix.sysctl"]["translated"] is True
+    assert by_fqcn["posix.sysctl"]["translated"] is True
     assert by_fqcn["community.general.timezone"]["translated"] is False
 
     assert translated.status_code == 200

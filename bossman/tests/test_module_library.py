@@ -127,28 +127,28 @@ def test_submit_rejects_fqcn_mismatch(starlark_check, tmp_path):
 def test_list_and_load_modules(tmp_path):
     sources = tmp_path / "module_sources"
     sources.mkdir()
-    for fqcn, desc in [("ansible.posix.sysctl", "Manage sysctl"), ("community.general.timezone", "Set timezone")]:
+    for fqcn, desc in [("posix.sysctl", "Manage sysctl"), ("community.general.timezone", "Set timezone")]:
         (sources / f"{fqcn}.json").write_text(
             json.dumps({"fqcn": fqcn, "short_description": desc, "doc": {"options": {"name": {"type": "str"}}}})
         )
     modules_dir = tmp_path / "modules.d"
-    (modules_dir / "ansible.posix").mkdir(parents=True)
-    (modules_dir / "ansible.posix" / "sysctl.yaml").write_text(
-        "name: sysctl\nfqcn: ansible.posix.sysctl\ncollection: ansible.posix\n"
+    (modules_dir / "posix").mkdir(parents=True)
+    (modules_dir / "posix" / "sysctl.yaml").write_text(
+        "name: sysctl\nfqcn: posix.sysctl\ncollection: posix\n"
         "short_description: Manage sysctl\noptions: {}\nwrites: true\nruntime: starlark\n"
     )
-    (modules_dir / "ansible.posix" / "sysctl.star").write_text("def main(ctx, params):\n    return {}\n")
+    (modules_dir / "posix" / "sysctl.star").write_text("def main(ctx, params):\n    return {}\n")
 
     listing = module_library.list_modules(modules_dir, sources)
     assert len(listing) == 2
     by_fqcn = {m["fqcn"]: m for m in listing}
-    assert by_fqcn["ansible.posix.sysctl"]["translated"] is True
-    assert by_fqcn["ansible.posix.sysctl"]["writes"] is True
-    assert by_fqcn["ansible.posix.sysctl"]["short_description"] == "Manage sysctl"
+    assert by_fqcn["posix.sysctl"]["translated"] is True
+    assert by_fqcn["posix.sysctl"]["writes"] is True
+    assert by_fqcn["posix.sysctl"]["short_description"] == "Manage sysctl"
     assert by_fqcn["community.general.timezone"]["translated"] is False
 
-    detail = module_library.load_module(modules_dir, "ansible.posix.sysctl")
-    assert detail["metadata"]["fqcn"] == "ansible.posix.sysctl"
+    detail = module_library.load_module(modules_dir, "posix.sysctl")
+    assert detail["metadata"]["fqcn"] == "posix.sysctl"
     assert "def main" in detail["star_code"]
     with pytest.raises(module_library.ModuleLibraryError, match="not in the library"):
         module_library.load_module(modules_dir, "community.general.timezone")
@@ -157,19 +157,19 @@ def test_list_and_load_modules(tmp_path):
 def test_load_source_and_status(tmp_path):
     sources = tmp_path / "module_sources"
     sources.mkdir()
-    for fqcn in ["ansible.posix.sysctl", "community.general.timezone"]:
+    for fqcn in ["posix.sysctl", "community.general.timezone"]:
         (sources / f"{fqcn}.json").write_text(json.dumps({"fqcn": fqcn, "source_py": "..."}))
 
-    loaded = module_library.load_source(sources, "ansible.posix.sysctl")
-    assert loaded["fqcn"] == "ansible.posix.sysctl"
+    loaded = module_library.load_source(sources, "posix.sysctl")
+    assert loaded["fqcn"] == "posix.sysctl"
     with pytest.raises(module_library.ModuleLibraryError, match="no dumped source"):
         module_library.load_source(sources, "community.general.nope")
 
     # One of the two translated → status counts it and lists the other.
     modules_dir = tmp_path / "modules.d"
-    (modules_dir / "ansible.posix").mkdir(parents=True)
-    (modules_dir / "ansible.posix" / "sysctl.yaml").write_text("x")
-    (modules_dir / "ansible.posix" / "sysctl.star").write_text("y")
+    (modules_dir / "posix").mkdir(parents=True)
+    (modules_dir / "posix" / "sysctl.yaml").write_text("x")
+    (modules_dir / "posix" / "sysctl.star").write_text("y")
     st = module_library.status(modules_dir, sources)
     assert st["total"] == 2
     assert st["translated"] == 1

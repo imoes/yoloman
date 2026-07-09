@@ -31,9 +31,9 @@ def test_load_metadata_yaml_still_works(tmp_path):
 
 
 def test_metadata_path_prefers_nt_over_yaml(tmp_path):
-    base = tmp_path / "ansible.posix"
+    base = tmp_path / "posix"
     base.mkdir()
     (base / "acl.yaml").write_text("name: acl\n")
-    assert metadata_path(tmp_path, "ansible.posix.acl").name == "acl.yaml"
+    assert metadata_path(tmp_path, "posix.acl").name == "acl.yaml"
     (base / "acl.nt").write_text("name: acl\n")
-    assert metadata_path(tmp_path, "ansible.posix.acl").name == "acl.nt"
+    assert metadata_path(tmp_path, "posix.acl").name == "acl.nt"

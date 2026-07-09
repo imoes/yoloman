@@ -1,7 +1,7 @@
 """The Starlark module library (docs/plan.md Blocks G7/G8): storage,
 validation, and the authoring contract for collection modules translated
 to Starlark. The Go agent keeps `ansible.builtin` as native modules; the
-collections (ansible.posix, community.general/docker/crypto) are written
+collections (posix, community.general/docker/crypto) are written
 in Starlark — "like Ansible, but the collections run sandboxed inside the
 agent" (user decision).
 
@@ -34,7 +34,7 @@ import yaml
 
 # Collections in translation scope (the 71 ansible.builtin modules stay
 # native Go — see docs/plan.md Block G8).
-COLLECTIONS = ["ansible.posix", "community.crypto", "community.docker", "community.general"]
+COLLECTIONS = ["posix", "community.crypto", "community.docker", "community.general"]
 
 CONTRACT_MARKDOWN = """\
 # Starlark module contract v1

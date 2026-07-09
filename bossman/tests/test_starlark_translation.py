@@ -6,8 +6,8 @@ import yaml
 from bossman.services import module_library, starlark_translation
 
 RECORD = {
-    "fqcn": "ansible.posix.sysctl",
-    "collection": "ansible.posix",
+    "fqcn": "posix.sysctl",
+    "collection": "posix",
     "name": "sysctl",
     "short_description": "Manage entries in sysctl.conf.",
     "doc": {
@@ -19,7 +19,7 @@ RECORD = {
             "reload": {"type": "bool", "default": True},
         },
     },
-    "examples": "- ansible.posix.sysctl:\n    name: vm.swappiness\n    value: '5'\n",
+    "examples": "- posix.sysctl:\n    name: vm.swappiness\n    value: '5'\n",
     "source_py": "def main():\n    pass\n" * 3,
 }
 
@@ -27,7 +27,7 @@ RECORD = {
 def test_build_metadata_yaml_is_valid_and_parseable_by_library():
     meta_yaml = starlark_translation.build_metadata_yaml(RECORD)
     meta = module_library.parse_metadata(meta_yaml)  # the same gate submit_module uses
-    assert meta["fqcn"] == "ansible.posix.sysctl"
+    assert meta["fqcn"] == "posix.sysctl"
     assert meta["writes"] is True
     assert meta["options"]["name"]["required"] is True
     assert meta["options"]["state"]["choices"] == ["present", "absent"]
@@ -53,7 +53,7 @@ def test_translation_messages_embed_contract_and_source():
     msgs = starlark_translation.build_translation_messages("THE-CONTRACT", RECORD)
     assert msgs[0]["role"] == "system"
     assert "THE-CONTRACT" in msgs[0]["content"]
-    assert "ansible.posix.sysctl" in msgs[1]["content"]
+    assert "posix.sysctl" in msgs[1]["content"]
     assert "```python" in msgs[1]["content"]
 
 
