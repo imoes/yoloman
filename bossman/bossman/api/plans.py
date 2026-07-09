@@ -25,7 +25,13 @@ from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.plan_engine import run_plan
 from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans
-from bossman.services.plan_store import VALID_PREFIXES, list_plans as store_list_plans, load_plan as store_load_plan, store_plan
+from bossman.services.plan_store import (
+    VALID_PREFIXES,
+    import_plans_dir as store_import_plans_dir,
+    list_plans as store_list_plans,
+    load_plan as store_load_plan,
+    store_plan,
+)
 
 router = APIRouter()
 
@@ -116,13 +122,21 @@ class ReloadResponse(BaseModel):
 
 @router.post("/api/v1/plans/reload", response_model=ReloadResponse)
 async def reload_plans(
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
     cache: CatalogCache = Depends(get_catalog_cache),
     _identity=Depends(get_current_identity),
 ) -> ReloadResponse:
-    """Re-renders the MCP facade's static plan-catalog text from disk (see
-    services/catalog.py) — the only thing that invalidates it. Anthropic
-    prompt caching needs that text byte-identical across calls, so it is
-    never re-rendered per request, only on this explicit operator action."""
+    """Re-imports plans_dir into the canonical store (docs/zielbestimmung.md
+    #5 — keeping the store in sync with the authoring dir) and re-renders the
+    MCP facade's static plan-catalog text from disk. Anthropic prompt caching
+    needs that text byte-identical across calls, so it is never re-rendered
+    per request, only on this explicit operator action."""
+    try:
+        await store_import_plans_dir(session, settings.plans_dir)
+        await session.commit()
+    except PlanError:
+        await session.rollback()  # a malformed authoring file shouldn't block the cache refresh
     text = cache.reload()
     return ReloadResponse(reloaded=True, catalog_length=len(text))
 

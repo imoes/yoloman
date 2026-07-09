@@ -19,7 +19,7 @@ from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
-from bossman.services import keys
+from bossman.services import keys, plan_store
 from bossman.services.catalog import CatalogCache
 from bossman.services.chat_client import chat_client_for
 from bossman.services.embedding_client import embedding_client_for
@@ -78,6 +78,21 @@ async def lifespan(app: FastAPI):
     if settings.seed_default_checks:
         async with app.state.session_factory() as session:
             await seed_default_check_rules(session)
+
+    # docs/zielbestimmung.md #5: import the file-based plans_dir plans into
+    # the canonical store at startup — the store is the source of truth;
+    # plans_dir is now just an import source. Best-effort: a bad plan is
+    # skipped inside import_plans_dir, and a DB hiccup here must not stop the
+    # app from serving (the file-backed catalog below still works).
+    async with app.state.session_factory() as session:
+        try:
+            stored, failed = await plan_store.import_plans_dir(session, settings.plans_dir)
+            await session.commit()
+            if stored or failed:
+                logger.info("imported plans_dir into the store", extra={"stored": stored, "failed": failed})
+        except Exception:  # noqa: BLE001 — never let plan import break startup
+            await session.rollback()
+            logger.warning("plans_dir → store import failed at startup", exc_info=True)
 
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)

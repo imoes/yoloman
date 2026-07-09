@@ -165,6 +165,39 @@ async def load_plan(
     return build_plan_from_raw(row.body, Path(name))
 
 
+# File extension → source_format, for importing a plans_dir into the store.
+_FORMAT_BY_EXT = {".yaml": "yaml", ".yml": "yaml", ".nt": "nestedtext", ".json": "json"}
+
+
+async def import_plans_dir(
+    session: AsyncSession,
+    plans_dir: str,
+    *,
+    prefix: str = "ansible",
+    tenant_id: str | uuid.UUID = DEFAULT_TENANT_ID,
+) -> tuple[int, int]:
+    """Import every plan file under plans_dir into the store (idempotent —
+    store_plan dedups on content_hash). The file-based plans_dir becomes an
+    import source; the store is the canonical home (docs/zielbestimmung.md
+    #5). Returns (stored, failed). Caller commits."""
+    d = Path(plans_dir)
+    if not d.is_dir():
+        return (0, 0)
+    stored = failed = 0
+    for p in sorted(d.iterdir()):
+        if not p.is_file():
+            continue
+        fmt = _FORMAT_BY_EXT.get(p.suffix.lower())
+        if fmt is None:
+            continue
+        try:
+            await store_plan(session, prefix, p.stem, fmt, p.read_text(encoding="utf-8"), tenant_id=tenant_id)
+            stored += 1
+        except PlanError:
+            failed += 1
+    return (stored, failed)
+
+
 async def list_plans(
     session: AsyncSession,
     prefix: str | None = None,

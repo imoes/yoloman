@@ -27,6 +27,12 @@ def _plan_list_json(plan: Plan) -> dict:
 
 
 class CatalogCache:
+    # The MCP-facing read model: parses plans_dir once (+ on reload) and
+    # renders the prompt-cache-stable catalog markdown. plans_dir is now an
+    # IMPORT SOURCE that the app also imports into the canonical store at
+    # startup/reload (docs/zielbestimmung.md #5); this file-backed cache is
+    # kept deliberately as the byte-stable read model the MCP facade needs
+    # (and the unit of per-test isolation).
     def __init__(self, plans_dir: str):
         self._plans_dir = plans_dir
         self._rebuild()

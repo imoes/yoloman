@@ -97,8 +97,16 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
    kanonische Plan-Dict und speichern über `store_plan(prefix=…)`.
 4. **Präfix-Guard verallgemeinern** (`plan_loader.ANSIBLE_PREFIX`), sobald ein
    Runtime Fremdmodule ausführen kann.
-5. **`plans_dir` ablösen** — Katalog und Runner vollständig auf den Store
-   umstellen; Dateien nur noch Autoren-Import.
+5. **`plans_dir` ablösen** — *(erledigt, pragmatisch)* Der kanonische Store
+   ist die Wahrheit: `plans_dir` wird beim Start **und** bei
+   `POST /api/v1/plans/reload` automatisch in den Store importiert
+   (`plan_store.import_plans_dir`) — Dateien sind nur noch Autoren-Import.
+   Der MCP-Katalog (`CatalogCache`) bleibt bewusst ein datei-gespeistes
+   *Read-Model* (byte-stabiler Prompt-Cache + Pro-Test-Isolation über
+   `plans_dir`); ein vollständiges Katalog-aus-Store-Lesen ist erst nach
+   Pro-Test-DB-Isolation sinnvoll (sonst bricht die geteilte Test-DB die
+   Isolation). Der Store-Lesepfad steht bereits über `/api/v1/plans/stored`
+   + `yolo-man ls/run --from-db`.
 6. **Starlark-Runtime (Block G3)** — *(erledigt)* übersetzte Collection-Module
    werden jetzt tatsächlich **ausgeführt**: `internal/starmod.Execute` (echter
    `ctx` mit Write-Gate + check_mode), Agent-Loader `internal/starmodules`
