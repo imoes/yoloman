@@ -33,7 +33,20 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	if max <= 0 {
 		max = 512 << 20
 	}
-	tmp, err := os.CreateTemp("", "agentic-mcp-update-*.deb")
+	// Stage OUTSIDE /tmp: the service runs with PrivateTmp=true, so a .deb
+	// written to /tmp lives in this process's private namespace and is
+	// invisible to the transient systemd-run unit (host namespace) that runs
+	// dpkg below — which failed with "cannot access archive". /var/lib is not
+	// namespaced, so both sides see the same file.
+	stagingDir := cfg.UpdateStagingDir
+	if stagingDir == "" {
+		stagingDir = "/var/lib/agentic-mcp"
+	}
+	if err := os.MkdirAll(stagingDir, 0o700); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Errorf("staging dir: %w", err))
+		return
+	}
+	tmp, err := os.CreateTemp(stagingDir, "agentic-mcp-update-*.deb")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Errorf("staging update: %w", err))
 		return

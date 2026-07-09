@@ -14,7 +14,7 @@ import (
 func TestSelfUpdate_RejectsNonDeb(t *testing.T) {
 	// Write:false on purpose — proves the endpoint is NOT write-gated (a
 	// write-gated handler would 403 here regardless of the body).
-	srv := httptest.NewServer(NewRESTHandler(RESTConfig{AllowSelfUpdate: true, Write: false}))
+	srv := httptest.NewServer(NewRESTHandler(RESTConfig{AllowSelfUpdate: true, Write: false, UpdateStagingDir: t.TempDir()}))
 	defer srv.Close()
 
 	resp, err := http.Post(srv.URL+"/api/v1/agent/self-update", "application/octet-stream",

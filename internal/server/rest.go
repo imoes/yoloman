@@ -41,6 +41,14 @@ type RESTConfig struct {
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
 	AllowSelfUpdate bool
+	// UpdateStagingDir is where the pushed .deb is written before dpkg runs.
+	// It MUST NOT be under /tmp or /var/tmp: the service runs with
+	// PrivateTmp=true, so those paths are namespaced to this process and
+	// invisible to the transient systemd-run unit that actually invokes dpkg
+	// (which lives in the host namespace) — staging in /tmp made dpkg fail
+	// with "cannot access archive: No such file or directory". Empty defaults
+	// to /var/lib/agentic-mcp (created by the package, shared with the host).
+	UpdateStagingDir string
 
 	// Token is the shared, backward-compatible bearer token (also used for
 	// /mcp) — matches resolve to the fixed authz.TokenIdentity. Present
