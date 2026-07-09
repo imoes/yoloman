@@ -22,12 +22,16 @@ from bossman.services.catalog import CatalogCache
 
 
 class FakeAgentClient:
-    def __init__(self):
+    def __init__(self, tools=None):
         self.tool_calls = []
+        self._tools = tools if tools is not None else [{"name": "systemd", "kind": "module", "writes": True}]
 
     async def call_tool(self, name, body):
         self.tool_calls.append((name, body))
         return {"changed": True}
+
+    async def list_tools(self):
+        return self._tools
 
     async def upload_file(self, remote_name, data):
         return {"path": f"/staged/{remote_name}", "bytes_written": len(data)}
@@ -124,6 +128,40 @@ async def test_list_hosts_returns_real_agents(db_session, session_factory, tmp_p
 
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def test_list_agent_tools_routes_to_agent(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    settings = _settings(str(tmp_path))
+    tools = [{"name": "service_facts", "kind": "module", "writes": False}]
+    fake = FakeAgentClient(tools=tools)
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: fake)
+
+    got = await _call(mcp, "list_agent_tools", {"host": agent.name})
+
+    assert got == tools
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_call_agent_tool_forwards_params_and_dry_run(db_session, session_factory, tmp_path):
+    agent = await _make_agent(db_session)
+    settings = _settings(str(tmp_path))
+    fake = FakeAgentClient()
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: fake)
+
+    await _call(mcp, "call_agent_tool", {"host": agent.name, "tool": "systemd", "params": {"name": "nginx", "state": "restarted"}, "dry_run": True})
+
+    assert fake.tool_calls == [("systemd", {"name": "nginx", "state": "restarted", "dry_run": True})]
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_call_agent_tool_unknown_host_raises(db_session, session_factory, tmp_path):
+    settings = _settings(str(tmp_path))
+    mcp = build_mcp_server(session_factory, settings, CatalogCache(str(tmp_path)), FakeEmbeddingClient(), client_factory=lambda a, s: FakeAgentClient())
+    with pytest.raises(Exception):
+        await mcp.call_tool("call_agent_tool", {"host": "nope", "tool": "systemd", "params": {}})
 
 
 async def test_host_status_includes_metrics_and_last_run(db_session, session_factory, tmp_path):

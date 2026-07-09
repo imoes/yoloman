@@ -125,6 +125,15 @@ class AgentClient:
             params["limit"] = str(limit)
         return await self._get_json("/api/v1/processes", params)
 
+    async def list_tools(self) -> list[dict[str, Any]]:
+        """GET /api/v1/tools — every module/task/pipeline tool this agent
+        currently exposes: [{name, kind, writes}]. Write tools are only
+        present when the agent's write gate is open, so the list already
+        reflects what the caller may actually invoke. Powers Bossman's MCP
+        router (list_agent_tools) and the REST tool-listing proxy."""
+        body = await self._get_json("/api/v1/tools", {})
+        return body.get("tools", [])
+
     async def call_tool(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/tools/{name} — invoke one module/task/pipeline
         tool (see docs/plan.md's Bossman plan, section B.5's plan engine).

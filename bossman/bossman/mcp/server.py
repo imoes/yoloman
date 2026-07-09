@@ -41,7 +41,7 @@ from bossman.db.models import (
 )
 from bossman.mcp.auth import current_identity
 from bossman.services import module_library
-from bossman.services.agent_client import client_for
+from bossman.services.agent_client import AgentClientError, client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.compiler import (
     affected_agent_ids,
@@ -117,6 +117,50 @@ def build_mcp_server(
             }
             for a in agents
         ]
+
+    async def _addressed_agent_or_raise(session: AsyncSession, host: str) -> Agent:
+        agent = await session.scalar(select(Agent).where(Agent.name == host))
+        if agent is None:
+            raise ValueError(f"no such host {host!r}")
+        if not agent.address:
+            raise ValueError(f"host {host!r} has no reachable address (satellite/unenrolled)")
+        return agent
+
+    @mcp.tool()
+    async def list_agent_tools(host: str) -> list[dict[str, Any]]:
+        """Router: list the tools one managed agent currently exposes
+        ([{name, kind, writes}]), by host name. Bossman is a gateway — use
+        list_hosts to see the fleet of managed servers, this to discover a
+        given server's tools, then call_agent_tool to invoke one. Write tools
+        appear only when that agent's write gate is open."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        try:
+            return await client.list_tools()
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def call_agent_tool(
+        host: str, tool: str, params: dict[str, Any] | None = None, dry_run: bool = False
+    ) -> dict[str, Any]:
+        """Router: invoke one tool on a managed agent by host name, proxied
+        through Bossman to the agent's own tool endpoint. `params` are the
+        tool's parameters; `dry_run=true` is forwarded so write modules run in
+        check_mode. The agent's write gate + ACL + audit are the enforcement
+        point — a read-only agent rejecting a write tool raises the agent's
+        error. Discover tools first with list_agent_tools."""
+        body = dict(params or {})
+        if dry_run:
+            body["dry_run"] = True
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        try:
+            return await client.call_tool(tool, body)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
 
     @mcp.tool()
     async def host_status(host: str) -> dict[str, Any]:

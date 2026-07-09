@@ -18,9 +18,10 @@ from bossman.services.auth import new_api_token
 class CallToolFake:
     """Records call_tool invocations and returns a canned tool envelope."""
 
-    def __init__(self, result=None, raises: bool = False):
+    def __init__(self, result=None, raises: bool = False, tools=None):
         self.result = result if result is not None else {"changed": False, "data": []}
         self.raises = raises
+        self.tools = tools if tools is not None else [{"name": "systemd", "kind": "module", "writes": True}]
         self.calls: list[tuple[str, dict]] = []
 
     async def call_tool(self, name, body):
@@ -28,6 +29,11 @@ class CallToolFake:
         if self.raises:
             raise AgentClientError("10.0.0.9:8010: request failed: connection refused")
         return self.result
+
+    async def list_tools(self):
+        if self.raises:
+            raise AgentClientError("10.0.0.9:8010: request failed: connection refused")
+        return self.tools
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
@@ -123,6 +129,64 @@ async def test_services_unreachable_502(db_session):
     _override(app, fake)
     with TestClient(app) as client:
         resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+    assert resp.status_code == 502
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+# ---- MCP router: generic tool proxy (REST counterpart) --------------------
+
+
+async def test_list_agent_tools_proxies_agent(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    tools = [{"name": "service_facts", "kind": "module", "writes": False}, {"name": "systemd", "kind": "module", "writes": True}]
+    fake = CallToolFake(tools=tools)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/tools", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["tools"] == tools
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_call_agent_tool_routes_to_agent(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(result={"changed": True, "msg": "ok"})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/tools/systemd",
+            json={"params": {"name": "nginx", "state": "restarted"}},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["tool"] == "systemd"
+    assert fake.calls == [("systemd", {"name": "nginx", "state": "restarted"})]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_call_agent_tool_write_gate_502(db_session):
+    """A read-only agent's 403 (via AgentClientError) surfaces as 502."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(raises=True)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/tools/systemd",
+            json={"params": {"name": "nginx", "state": "restarted"}},
+            headers=_headers(raw),
+        )
     assert resp.status_code == 502
     await db_session.delete(api_token)
     await db_session.delete(agent)
