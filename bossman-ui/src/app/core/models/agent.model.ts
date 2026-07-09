@@ -171,3 +171,50 @@ export interface LogFilters {
   grep?: string;
   boot?: boolean;
 }
+
+/** J4c: an account (user) from the host's passwd database. */
+export interface AccountUser {
+  name: string;
+  uid: number;
+  gid: number | null;
+  gecos: string;
+  home: string;
+  shell: string;
+  system: boolean;
+}
+
+export interface AccountGroup {
+  name: string;
+  gid: number | null;
+  members: string[];
+  system: boolean;
+}
+
+export interface AccountsResponse {
+  agent_id: string;
+  users: AccountUser[];
+  groups: AccountGroup[];
+}
+
+export interface UserAction {
+  name: string;
+  state?: 'present' | 'absent';
+  uid?: string;
+  group?: string;
+  groups?: string;
+  shell?: string;
+  home?: string;
+  comment?: string;
+  system?: boolean;
+  create_home?: boolean;
+  remove?: boolean;
+  dry_run?: boolean;
+}
+
+export interface GroupAction {
+  name: string;
+  state?: 'present' | 'absent';
+  gid?: string;
+  system?: boolean;
+  dry_run?: boolean;
+}

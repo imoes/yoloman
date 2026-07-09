@@ -158,3 +158,137 @@ async def get_agent_logs(
     data = (result or {}).get("data") if isinstance(result, dict) else None
     data = data or {}
     return {"agent_id": str(agent.id), "entries": data.get("entries") or [], "count": data.get("count") or 0}
+
+
+# ---- J4c: accounts (users + groups) ---------------------------------------
+
+
+def _getent_rows(result: Any) -> list[list[str]]:
+    """Pull the raw colon-split field lists out of a getent tool envelope
+    ({changed, data:[{name, fields:[...]}]})."""
+    data = (result or {}).get("data") if isinstance(result, dict) else None
+    rows: list[list[str]] = []
+    for entry in data or []:
+        fields = entry.get("fields") if isinstance(entry, dict) else None
+        if isinstance(fields, list):
+            rows.append([str(f) for f in fields])
+    return rows
+
+
+@router.get("/api/v1/agents/{agent_id}/accounts")
+async def get_agent_accounts(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4c — the host's users and groups, via the read-only `getent`
+    module (passwd + group databases), parsed into a friendly shape. Each
+    user carries `system` (uid < 1000) so the UI can separate human accounts
+    from service accounts (shadow is not read — it needs root and isn't shown)."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        passwd = await client.call_tool("getent", {"database": "passwd"})
+        group = await client.call_tool("getent", {"database": "group"})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    users = []
+    for f in _getent_rows(passwd):
+        # name:x:uid:gid:gecos:home:shell
+        if len(f) < 7:
+            continue
+        try:
+            uid = int(f[2])
+        except ValueError:
+            continue
+        users.append({"name": f[0], "uid": uid, "gid": int(f[3]) if f[3].isdigit() else None,
+                      "gecos": f[4], "home": f[5], "shell": f[6], "system": uid < 1000})
+    groups = []
+    for f in _getent_rows(group):
+        # name:x:gid:members
+        if len(f) < 3:
+            continue
+        gid = int(f[2]) if f[2].isdigit() else None
+        members = [m for m in (f[3].split(",") if len(f) > 3 and f[3] else []) if m]
+        groups.append({"name": f[0], "gid": gid, "members": members, "system": gid is not None and gid < 1000})
+
+    return {"agent_id": str(agent.id), "users": users, "groups": groups}
+
+
+class UserActionRequest(BaseModel):
+    name: str
+    state: str = "present"  # present | absent
+    uid: str | None = None
+    group: str | None = None
+    groups: str | None = None
+    shell: str | None = None
+    home: str | None = None
+    comment: str | None = None
+    system: bool | None = None
+    create_home: bool | None = None
+    remove: bool | None = None
+    dry_run: bool = False
+
+
+class GroupActionRequest(BaseModel):
+    name: str
+    state: str = "present"  # present | absent
+    gid: str | None = None
+    system: bool | None = None
+    dry_run: bool = False
+
+
+def _clean_params(model: BaseModel) -> dict[str, Any]:
+    """Forward only the fields the caller actually set (drop Nones), so the
+    agent module applies its own defaults for the rest."""
+    return {k: v for k, v in model.model_dump().items() if v is not None}
+
+
+@router.post("/api/v1/agents/{agent_id}/accounts/user")
+async def manage_agent_user(
+    agent_id: UUID,
+    body: UserActionRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4c — create/modify/remove a user via the write-gated `user`
+    module. dry_run is honored by the module (check_mode)."""
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="name must not be empty")
+    if body.state not in ("present", "absent"):
+        raise HTTPException(status_code=422, detail="state must be present or absent")
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("user", _clean_params(body))
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "result": result}
+
+
+@router.post("/api/v1/agents/{agent_id}/accounts/group")
+async def manage_agent_group(
+    agent_id: UUID,
+    body: GroupActionRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4c — create/remove a group via the write-gated `group` module."""
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="name must not be empty")
+    if body.state not in ("present", "absent"):
+        raise HTTPException(status_code=422, detail="state must be present or absent")
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("group", _clean_params(body))
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "result": result}

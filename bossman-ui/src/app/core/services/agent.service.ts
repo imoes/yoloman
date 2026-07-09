@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { Agent, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse, UserAction } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -88,5 +88,20 @@ export class AgentService {
       if (v !== undefined && v !== null && v !== '') params = params.set(k, String(v));
     }
     return this.http.get<LogsResponse>(`${this.base}/${id}/logs`, { params });
+  }
+
+  /** Block J4c: the host's users + groups via the read-only `getent` module. */
+  accounts(id: string) {
+    return this.http.get<AccountsResponse>(`${this.base}/${id}/accounts`);
+  }
+
+  /** Block J4c: create/modify/remove a user via the write-gated `user` module. */
+  manageUser(id: string, action: UserAction) {
+    return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/accounts/user`, action);
+  }
+
+  /** Block J4c: create/remove a group via the write-gated `group` module. */
+  manageGroup(id: string, action: GroupAction) {
+    return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/accounts/group`, action);
   }
 }

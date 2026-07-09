@@ -2,6 +2,7 @@ import { Component, input, viewChild } from '@angular/core';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { HostServicesComponent } from './host-services.component';
 import { HostLogsComponent } from './host-logs.component';
+import { HostAccountsComponent } from './host-accounts.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -13,7 +14,7 @@ import { HostLogsComponent } from './host-logs.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostServicesComponent, HostLogsComponent],
+  imports: [MatTabsModule, HostServicesComponent, HostLogsComponent, HostAccountsComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Services">
@@ -26,6 +27,11 @@ import { HostLogsComponent } from './host-logs.component';
           <app-host-logs [agentId]="agentId()" />
         </div>
       </mat-tab>
+      <mat-tab label="Accounts">
+        <div class="bm-mgmt-pane">
+          <app-host-accounts [agentId]="agentId()" />
+        </div>
+      </mat-tab>
     </mat-tab-group>
   `,
   styles: [`.bm-mgmt-pane { padding: 12px 4px; }`],
@@ -35,12 +41,14 @@ export class HostManagementComponent {
 
   private services = viewChild(HostServicesComponent);
   private logs = viewChild(HostLogsComponent);
+  private accounts = viewChild(HostAccountsComponent);
 
   /** First inner tab (Services) is shown by default, so kick its load once
    * the management shell itself becomes visible; also (re)trigger per tab. */
   onInnerTab(event: MatTabChangeEvent): void {
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
+    if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
   }
 
   /** Called by host-detail when the parent Management tab is opened, so the

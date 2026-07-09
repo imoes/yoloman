@@ -235,6 +235,81 @@ async def test_logs_rejects_out_of_range_lines(db_session):
     await db_session.commit()
 
 
+# ---- J4c: accounts --------------------------------------------------------
+
+
+class AccountsFake:
+    """getent passwd/group envelopes + records user/group tool calls."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, dict]] = []
+
+    async def call_tool(self, name, body):
+        self.calls.append((name, body))
+        if name == "getent" and body.get("database") == "passwd":
+            return {"changed": False, "data": [
+                {"name": "root", "fields": ["root", "x", "0", "0", "root", "/root", "/bin/bash"]},
+                {"name": "deploy", "fields": ["deploy", "x", "1001", "1001", "Deploy User", "/home/deploy", "/bin/bash"]},
+            ]}
+        if name == "getent" and body.get("database") == "group":
+            return {"changed": False, "data": [
+                {"name": "root", "fields": ["root", "x", "0", ""]},
+                {"name": "sudo", "fields": ["sudo", "x", "27", "deploy"]},
+            ]}
+        return {"changed": True, "msg": "ok"}
+
+
+async def test_accounts_aggregates_passwd_and_group(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = AccountsFake()
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/accounts", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    users = {u["name"]: u for u in body["users"]}
+    assert users["root"]["system"] is True and users["deploy"]["system"] is False
+    assert users["deploy"]["uid"] == 1001 and users["deploy"]["home"] == "/home/deploy"
+    groups = {g["name"]: g for g in body["groups"]}
+    assert groups["sudo"]["members"] == ["deploy"] and groups["sudo"]["system"] is True
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_manage_user_create_and_delete(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = AccountsFake()
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        r1 = client.post(f"/api/v1/agents/{agent.id}/accounts/user", json={"name": "bob", "state": "present"}, headers=_headers(raw))
+        r2 = client.post(f"/api/v1/agents/{agent.id}/accounts/user", json={"name": "bob", "state": "absent", "remove": True}, headers=_headers(raw))
+    assert r1.status_code == 200 and r2.status_code == 200
+    names = [(n, b) for (n, b) in fake.calls if n == "user"]
+    assert names[0][1]["name"] == "bob" and names[0][1]["state"] == "present"
+    assert names[1][1]["state"] == "absent" and names[1][1]["remove"] is True
+    # None-valued fields (uid/shell/…) are dropped, not forwarded as null.
+    assert "uid" not in names[0][1] and "shell" not in names[0][1]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_manage_group_rejects_bad_state(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.post(f"/api/v1/agents/{agent.id}/accounts/group", json={"name": "x", "state": "weird"}, headers=_headers(raw))
+    assert resp.status_code == 422
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
 # ---- J4a: enable/disable via service-control ------------------------------
 
 
