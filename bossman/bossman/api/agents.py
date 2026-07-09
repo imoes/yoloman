@@ -8,7 +8,9 @@ itself, which is exactly the point of polling ahead of time.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -21,6 +23,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
 from bossman.db.session import get_session
+from bossman.services import module_library
 from bossman.services.agent_client import AgentClientError
 from bossman.services.metrics_query import query_series
 from bossman.services.poller import PollResult, poll_agent
@@ -298,6 +301,70 @@ async def update_agent(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "result": result}
+
+
+class SyncModulesRequest(BaseModel):
+    # None → push every translated module in the library; a list → just those.
+    fqcns: list[str] | None = None
+
+
+@router.post("/api/v1/agents/{agent_id}/modules/sync")
+async def sync_agent_modules(
+    agent_id: UUID,
+    body: SyncModulesRequest | None = None,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Push the library's translated Starlark modules (or a given subset) to
+    an enrolled host (Block G3), so it can EXECUTE them. Reads each module's
+    .star + metadata sidecar from the library and delivers them over the
+    existing mTLS channel; the agent validates, persists, and live-registers
+    them. Requires a direct address (a proxy-only satellite → 409) and the
+    agent's write gate open (the agent returns 403 otherwise, surfaced here)."""
+    agent = await _get_agent_or_404(session, agent_id)
+    if not agent.address:
+        raise HTTPException(
+            status_code=409,
+            detail="agent has no direct address (satellite/unenrolled) — cannot push modules to it directly",
+        )
+
+    entries = module_library.list_modules(settings.modules_dir, settings.module_sources_dir)
+    translated = [e for e in entries if e.get("translated")]
+    if body and body.fqcns:
+        wanted = set(body.fqcns)
+        translated = [e for e in translated if e["fqcn"] in wanted]
+
+    payload: list[dict] = []
+    for entry in translated:
+        fqcn = entry["fqcn"]
+        try:
+            mod = module_library.load_module(settings.modules_dir, fqcn)
+            meta_path = Path(module_library.metadata_path(settings.modules_dir, fqcn))
+            sidecar_text = meta_path.read_text(encoding="utf-8")
+        except (module_library.ModuleLibraryError, OSError) as exc:
+            raise HTTPException(status_code=500, detail=f"reading module {fqcn!r}: {exc}") from exc
+        star_code = mod["star_code"]
+        payload.append(
+            {
+                "fqcn": fqcn,
+                "star": star_code,
+                "sidecar": sidecar_text,
+                "sidecar_format": "nt" if meta_path.suffix == ".nt" else "yaml",
+                "sha256": hashlib.sha256(star_code.encode()).hexdigest(),
+            }
+        )
+
+    if not payload:
+        return {"pushed": 0, "result": {"applied": 0, "results": []}}
+
+    client = client_factory(agent, settings)
+    try:
+        result = await client.push_modules(payload)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"pushed": len(payload), "result": result}
 
 
 @router.post("/api/v1/agents/{agent_id}/poll-now")

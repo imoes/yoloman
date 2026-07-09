@@ -188,6 +188,25 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: self-update: decoding response: {exc}") from exc
 
+    async def push_modules(self, modules: list[dict[str, Any]]) -> dict[str, Any]:
+        """POST /api/v1/modules/apply — PUSH translated Starlark modules to the
+        agent (Block G3). Each entry is {fqcn, star, sidecar, sidecar_format,
+        sha256}; the agent verifies, validates (parse+lint), persists, and
+        live-registers each. Requires the agent's write gate open (403
+        otherwise). Controller→agent direction (the agent never dials out)."""
+        url = f"https://{self.address}/api/v1/modules/apply"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json={"modules": modules})
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: push modules: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: push modules returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: push modules: decoding response: {exc}") from exc
+
     async def upload_file(self, remote_name: str, data: bytes) -> dict[str, Any]:
         """PUT /api/v1/upload?name=<remote_name> — the raw-body,
         no-base64 large-file upload path (see docs/plan.md's "File upload

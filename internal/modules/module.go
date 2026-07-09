@@ -74,6 +74,15 @@ func (r *Registry) Register(m Module) error {
 	return nil
 }
 
+// Set adds or replaces m in the registry (unlike Register, it overwrites an
+// existing same-named module). Used for live module delivery (Block G3): a
+// re-pushed .star module updates the running registry in place.
+func (r *Registry) Set(m Module) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.modules[m.Name()] = m
+}
+
 // Get returns the module registered under name, if any.
 func (r *Registry) Get(name string) (Module, bool) {
 	r.mu.RLock()

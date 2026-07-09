@@ -165,6 +165,7 @@ func run(args []string) error {
 		DesiredState:       dsApplier,
 		Audit:              al,
 		UploadsDir:         cfg.UploadsDir,
+		ModulesDir:         cfg.ModulesDir,
 		MaxUploadSize:      cfg.MaxUploadSize,
 		AllowSelfUpdate:    cfg.AllowSelfUpdate,
 		Mode:               cfg.Mode,

@@ -109,3 +109,34 @@ async def test_missing_client_cert_raises_agent_client_error_not_bare_oserror():
     )
     with pytest.raises(AgentClientError, match="agent.example.com:8010"):
         await client.metrics_dump(None)
+
+
+async def test_push_modules_posts_payload_and_parses_response():
+    seen = {}
+
+    async def handler(request):
+        seen["url"] = str(request.url)
+        seen["method"] = request.method
+        import json as _json
+
+        seen["body"] = _json.loads(request.content)
+        return httpx.Response(200, json={"applied": 1, "results": [{"fqcn": "test.x", "ok": True}]})
+
+    client = _client(handler)
+    mods = [{"fqcn": "test.x", "star": "def main(ctx, params): return {'changed': False, 'msg': 'ok'}",
+             "sidecar": "name: x\n", "sidecar_format": "yaml", "sha256": "abc"}]
+    result = await client.push_modules(mods)
+
+    assert seen["method"] == "POST"
+    assert seen["url"] == "https://agent.example.com:8010/api/v1/modules/apply"
+    assert seen["body"] == {"modules": mods}
+    assert result == {"applied": 1, "results": [{"fqcn": "test.x", "ok": True}]}
+
+
+async def test_push_modules_raises_on_non_200():
+    async def handler(request):
+        return httpx.Response(403, text="module delivery is disabled (write=false)")
+
+    client = _client(handler)
+    with pytest.raises(AgentClientError, match="push modules returned 403"):
+        await client.push_modules([{"fqcn": "test.x", "star": "", "sidecar": "", "sidecar_format": "yaml", "sha256": ""}])

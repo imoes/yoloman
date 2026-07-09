@@ -37,6 +37,11 @@ type RESTConfig struct {
 	UploadsDir    string
 	MaxUploadSize int64
 
+	// ModulesDir is where pushed Starlark modules (POST /api/v1/modules/apply,
+	// Block G3) are persisted so they survive a restart — the same directory
+	// loadComponents loads at startup.
+	ModulesDir string
+
 	// AllowSelfUpdate gates POST /api/v1/agent/self-update — the agent-upgrade
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
@@ -301,6 +306,12 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	// Agent self-update (Block N-deploy): receives a new .deb and installs it
 	// (dpkg -> postinst restart). Deliberately NOT write-gated — a read-only
 	// agent must still be upgradable; gated by allow_self_update instead.
+	// Starlark module delivery (Block G3): Bossman PUSHES translated .star
+	// modules; the agent validates, persists, and live-registers them.
+	mux.HandleFunc("POST /api/v1/modules/apply", func(w http.ResponseWriter, r *http.Request) {
+		handleModulesApply(w, r, cfg)
+	})
+
 	mux.HandleFunc("POST /api/v1/agent/self-update", func(w http.ResponseWriter, r *http.Request) {
 		handleSelfUpdate(w, r, cfg)
 	})
