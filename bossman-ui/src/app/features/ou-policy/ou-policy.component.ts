@@ -701,10 +701,24 @@ export class OuPolicyComponent implements OnInit {
       // Create the plan AND link it to the OU it was created under, so it
       // appears immediately as a policy object beneath that OU (previously a
       // freshly-created plan was invisible until separately linked).
-      this.orchestration.createPlan(input).subscribe((plan) => {
-        this.orchestration
-          .createLink(plan.id, { target_type: 'ou', ou_id: ou.id, require_approval: true })
-          .subscribe(() => this.afterObjectChange(ou.id));
+      // Surface any failure — a duplicate policy name returns 409, which used
+      // to be swallowed silently (looking like "you can only create one
+      // policy" once a name was reused).
+      const fail = (e: { error?: { detail?: string } }) =>
+        alert(e?.error?.detail ?? 'could not create the policy');
+      this.orchestration.createPlan(input).subscribe({
+        next: (plan) => {
+          this.orchestration
+            .createLink(plan.id, { target_type: 'ou', ou_id: ou.id, require_approval: true })
+            .subscribe({
+              next: () => {
+                this.afterObjectChange(ou.id);
+                this.reload(); // refresh the palette (plans list) too
+              },
+              error: fail,
+            });
+        },
+        error: fail,
       });
     });
   }

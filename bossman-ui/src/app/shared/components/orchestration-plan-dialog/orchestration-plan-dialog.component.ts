@@ -36,12 +36,12 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
     <h2 mat-dialog-title>New policy</h2>
     <mat-dialog-content [formGroup]="form">
       <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Name</mat-label>
-        <input matInput formControlName="name" placeholder="e.g. docker_host" />
+        <mat-label>Policy name</mat-label>
+        <input matInput formControlName="display_name" placeholder="e.g. Docker Host baseline" />
       </mat-form-field>
       <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>Display name</mat-label>
-        <input matInput formControlName="display_name" placeholder="e.g. Docker Host baseline" />
+        <mat-label>Technical name (optional — auto from policy name)</mat-label>
+        <input matInput formControlName="name" placeholder="e.g. docker_host" />
       </mat-form-field>
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Description</mat-label>
@@ -181,7 +181,7 @@ export class OrchestrationPlanDialogComponent {
   comparisons = COMPARISONS;
 
   form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true }),
     display_name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     description: new FormControl('', { nonNullable: true }),
     plan_type: new FormControl<OrchestrationPlanType>('role', { nonNullable: true, validators: [Validators.required] }),
@@ -235,8 +235,15 @@ export class OrchestrationPlanDialogComponent {
       thresholds[t.metric.trim()] = { warn: t.warn, crit: t.crit, comparison: t.comparison };
     }
     const clean = (xs: string[]) => xs.map((x) => x.trim()).filter(Boolean);
+    // Technical name defaults to a slug of the policy (display) name, so the
+    // user only has to enter one name; distinct policy names yield distinct
+    // technical names (the field the server requires to be unique).
+    const name =
+      v.name.trim() ||
+      v.display_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') ||
+      'policy';
     this.dialogRef.close({
-      name: v.name,
+      name,
       display_name: v.display_name,
       description: v.description,
       plan_type: v.plan_type,
