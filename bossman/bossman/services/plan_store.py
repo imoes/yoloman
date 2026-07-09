@@ -32,14 +32,17 @@ from bossman.services.plan_loader import Plan, PlanError, build_plan_from_raw
 # all "ansible" (the Ansible-shaped native plan); the others are foreign DSLs
 # imported by deterministic parsers (roadmap).
 VALID_PREFIXES = ("ansible", "salt", "puppet", "chef")
-# Source syntaxes convertible today. Foreign DSLs land here as parsers arrive.
-SUPPORTED_FORMATS = ("nestedtext", "yaml", "json")
+# Source syntaxes convertible today. Foreign DSLs land here as parsers arrive
+# (salt done; puppet/chef on the roadmap).
+SUPPORTED_FORMATS = ("nestedtext", "yaml", "json", "salt")
 
 
-def canonical_from_source(source_format: str, source_text: str) -> dict[str, Any]:
+def canonical_from_source(source_format: str, source_text: str, *, name: str | None = None) -> dict[str, Any]:
     """Convert a plan's source text (in `source_format`) into the canonical
     raw dict, validated by building it into a Plan. Raises PlanError on any
-    malformed input or schema violation."""
+    malformed input or schema violation. `name` is required for formats whose
+    source carries no plan name (salt/puppet/chef); NestedText/YAML/JSON take
+    the name from the source itself."""
     fmt = source_format.lower()
     if fmt in ("nt", "nestedtext"):
         try:
@@ -57,6 +60,12 @@ def canonical_from_source(source_format: str, source_text: str) -> dict[str, Any
             raw = json.loads(source_text)
         except json.JSONDecodeError as exc:
             raise PlanError(f"invalid JSON: {exc}") from exc
+    elif fmt == "salt":
+        # Imported here (not at module top) so the core store has no hard
+        # dependency on any single foreign parser.
+        from bossman.services.salt_parser import parse_salt_sls
+
+        raw = parse_salt_sls(source_text, name or "salt_state")
     else:
         raise PlanError(f"unsupported source_format {source_format!r} (want one of {SUPPORTED_FORMATS})")
 
@@ -100,7 +109,7 @@ async def store_plan(
     if not name:
         raise PlanError("name must not be empty")
 
-    body = canonical_from_source(source_format, source_text)
+    body = canonical_from_source(source_format, source_text, name=name)
     plan = build_plan_from_raw(body, Path(name))
     content_hash = plan.version()
     source_hash = hashlib.sha256(source_text.encode()).hexdigest()
