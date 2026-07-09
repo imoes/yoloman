@@ -12,8 +12,16 @@ import { CheckRule, CheckRuleComparison, CheckRuleInput, MetricCatalogEntry } fr
 import { MonitoringService } from '../../../core/services/monitoring.service';
 
 export interface ThresholdDialogData {
-  ouId: string;
-  ouPath: string;
+  /** OU scope (Block L3c) — set for an OU-scoped threshold. */
+  ouId?: string;
+  ouPath?: string;
+  /** Host scope (Block N/P4) — set to create a threshold for one specific
+   * host; with `serviceName`/`metric`/`labelValue` it targets one service on
+   * that host (the "warn threshold for a service on a host" case). */
+  hostName?: string;
+  serviceName?: string;
+  metric?: string;
+  labelValue?: string;
   /** Present = edit mode (Block L3c). */
   rule?: CheckRule;
 }
@@ -36,7 +44,9 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatAutocompleteModule, MatSlideToggleModule, MatButtonModule],
   template: `
-    <h2 mat-dialog-title>{{ data.rule ? 'Edit' : 'New' }} threshold in {{ data.ouPath }}</h2>
+    <h2 mat-dialog-title>
+      {{ data.rule ? 'Edit' : 'New' }} threshold {{ data.hostName ? 'on host ' + data.hostName : 'in ' + data.ouPath }}
+    </h2>
     <mat-dialog-content [formGroup]="form">
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Metric</mat-label>
@@ -121,6 +131,13 @@ export class ThresholdDialogComponent implements OnInit {
         crit_threshold: data.rule.crit_threshold,
         enforced: data.rule.enforced,
       });
+    } else if (data.hostName) {
+      // Per-service override on a host: pre-fill the metric + a sensible
+      // service name from the service the operator clicked.
+      this.form.patchValue({
+        metric: data.metric ?? '',
+        service_name: data.serviceName ?? '',
+      });
     }
   }
 
@@ -138,18 +155,22 @@ export class ThresholdDialogComponent implements OnInit {
 
   save(): void {
     const v = this.form.getRawValue();
+    // Host scope (Block P4) vs OU scope. A host-scoped rule beats the OU
+    // default for that host via GPO precedence; a labelValue narrows it to
+    // one service (e.g. a single disk mount).
+    const hostScope = !!this.data.hostName;
     this.dialogRef.close({
       service_name: v.service_name,
       metric: v.metric,
       comparison: v.comparison,
       warn_threshold: v.warn_threshold,
       crit_threshold: v.crit_threshold,
-      scope_type: 'ou',
-      scope_value: null,
-      scope_ou_id: this.data.ouId,
+      scope_type: hostScope ? 'host' : 'ou',
+      scope_value: hostScope ? this.data.hostName! : null,
+      scope_ou_id: hostScope ? null : (this.data.ouId ?? null),
       enforced: v.enforced,
       link_order: this.data.rule?.link_order ?? 100,
-      label_value: this.data.rule?.label_value ?? null,
+      label_value: this.data.labelValue ?? this.data.rule?.label_value ?? null,
       max_attempts: this.data.rule?.max_attempts ?? null,
       enabled: this.data.rule?.enabled ?? true,
     });

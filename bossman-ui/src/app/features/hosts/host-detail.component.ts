@@ -23,6 +23,7 @@ import { TimeRangePickerComponent } from '../../shared/components/time-range-pic
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
+import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
@@ -219,6 +220,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             <button mat-button (click)="unacknowledge(svc, $event)">Unacknowledge</button>
                           }
                           <button mat-button (click)="scheduleDowntime(svc, $event)">Downtime</button>
+                          <button mat-button (click)="overrideThreshold(svc, $event)" title="Set a warn/crit threshold for this service on this host">
+                            Threshold
+                          </button>
                         </td>
                       </tr>
                       @if (selectedService()?.id === svc.id) {
@@ -1284,6 +1288,30 @@ export class HostDetailComponent implements OnInit {
 
   historyBadge(h: ServiceHistoryPoint) {
     return serviceStateBadge(h.state);
+  }
+
+  /** Block P4: set a warn/crit threshold for THIS service on THIS host — a
+   * host-scoped check_rule that beats the OU/global default (GPO precedence).
+   * The metric + label (disk mount) are derived from the service so the
+   * dialog opens pre-filled; the operator just sets warn/crit. */
+  overrideThreshold(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    const agent = this.agent();
+    if (!agent) return;
+    const spec = serviceMetricSpec(svc.name, svc.metric);
+    const ref = this.dialog.open(ThresholdDialogComponent, {
+      width: '460px',
+      data: {
+        hostName: agent.name,
+        serviceName: svc.name,
+        metric: spec?.members[0] ?? svc.metric ?? '',
+        labelValue: spec?.mount ?? null,
+      },
+    });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      this.monitoringService.createCheckRule(input).subscribe(() => this.reloadServices(svc.agent_id));
+    });
   }
 
   acknowledge(svc: ServiceState, event: Event): void {
