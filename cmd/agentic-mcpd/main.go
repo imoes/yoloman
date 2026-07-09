@@ -26,6 +26,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
+	"github.com/mutkluge/agentic-mcp/internal/starmodules"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
 	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
@@ -213,8 +214,30 @@ func loadComponents(cfg config.Config) (*components, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading tools.d: %w", err)
 	}
+	modReg := server.NewDefaultModuleRegistry()
+
+	// Block G3: register translated Starlark collection modules from
+	// modules_dir into the SAME registry the REST/MCP layers read, so they
+	// dispatch like native modules. Invalid modules are logged and skipped,
+	// never fatal (one bad module must not stop the agent).
+	starMods, warnings, err := starmodules.LoadDir(cfg.ModulesDir, cfg.Write)
+	if err != nil {
+		return nil, fmt.Errorf("loading modules.d: %w", err)
+	}
+	for _, w := range warnings {
+		slog.Warn("skipping Starlark module", "reason", w)
+	}
+	for _, m := range starMods {
+		if regErr := modReg.Register(m); regErr != nil {
+			slog.Warn("skipping Starlark module", "reason", regErr.Error())
+		}
+	}
+	if len(starMods) > 0 {
+		slog.Info("loaded Starlark modules", "count", len(starMods), "dir", cfg.ModulesDir)
+	}
+
 	return &components{
-		modReg:   server.NewDefaultModuleRegistry(),
+		modReg:   modReg,
 		taskList: taskList,
 		policy:   loadCommandPolicyOrEmpty(cfg.CommandsFile),
 	}, nil

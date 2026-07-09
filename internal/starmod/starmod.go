@@ -72,13 +72,13 @@ type Options struct {
 
 const defaultMaxSteps = 10_000_000
 
-// Validate runs the full pipeline: parse → contract lint → stub runs.
-func Validate(filename string, src []byte, opts Options) Report {
-	rep := Report{}
-
-	fileOpts := &syntax.FileOptions{
+// fileOptions is the Starlark dialect of the module contract — SHARED by
+// the validator (Validate) and the real runtime (Execute) so "validated
+// today runs unchanged" holds exactly. Do not diverge these two callers.
+func fileOptions() *syntax.FileOptions {
+	return &syntax.FileOptions{
 		// The contract deliberately allows the pragmatic conveniences the
-		// agent's real runtime will also enable: set() and reassignment.
+		// agent's real runtime also enables: set() and reassignment.
 		Set:               true,
 		GlobalReassign:    true,
 		TopLevelControl:   true,
@@ -86,6 +86,13 @@ func Validate(filename string, src []byte, opts Options) Report {
 		Recursion:         false, // no recursion: bounds every module
 		LoadBindsGlobally: false,
 	}
+}
+
+// Validate runs the full pipeline: parse → contract lint → stub runs.
+func Validate(filename string, src []byte, opts Options) Report {
+	rep := Report{}
+
+	fileOpts := fileOptions()
 
 	f, err := fileOpts.Parse(filename, src, 0)
 	if err != nil {
@@ -256,12 +263,42 @@ func (r *Recorder) record(format string, args ...any) {
 	r.Calls = append(r.Calls, fmt.Sprintf(format, args...))
 }
 
-// StubCtx builds the mocked ctx struct handed to main() during
-// validation. Same member set as the future real runtime (Block G3) —
-// only the implementations are canned.
-func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
+// RunResult is what a ctx.run implementation returns to the runtime; it maps
+// onto the Starlark `run_result` struct handed to the module.
+type RunResult struct {
+	RC      int
+	Stdout  string
+	Stderr  string
+	Skipped bool
+}
+
+// Capabilities is the system-facing backend behind the ctx builtins. The
+// validator (StubCtx) and the real runtime (RealCaps, internal/server) both
+// implement it, so ctx has ONE construction path (buildCtx) and thus an
+// identical shape — validate ≡ execute. The write gate / dry-run / timeout /
+// ok_codes are enforced INSIDE the implementation, never by the module.
+type Capabilities interface {
+	CheckMode() bool
+	// Run executes argv (no shell). mutates marks a state-changing command
+	// (skipped in check_mode). An rc outside okCodes should be reported via a
+	// returned error (fail()); a returned error aborts the module.
+	Run(argv []string, mutates bool, okCodes []int) (RunResult, error)
+	FileRead(path string) (string, error)
+	// FileWrite returns whether the content changed; mode is an octal string
+	// like "0644" or "" for none.
+	FileWrite(path, content, mode string) (changed bool, err error)
+	FileExists(path string) (bool, error)
+	// Stat returns the stat attribute dict, or nil for a missing path.
+	Stat(path string) (map[string]any, error)
+	Facts() (map[string]any, error)
+}
+
+// buildCtx assembles the ctx struct from a Capabilities backend — the single
+// place the ctx member set + signatures are defined, shared by StubCtx and
+// the real runtime. rec may be nil (no recording).
+func buildCtx(caps Capabilities, rec *Recorder) *starlarkstruct.Struct {
 	members := starlark.StringDict{
-		"check_mode": starlark.Bool(checkMode),
+		"check_mode": starlark.Bool(caps.CheckMode()),
 		"run": starlark.NewBuiltin("run", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var argv *starlark.List
 			var mutates bool
@@ -270,12 +307,15 @@ func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
 				return nil, err
 			}
 			rec.record("run(%s, mutates=%v)", argv.String(), mutates)
-			skipped := checkMode && mutates
+			rr, err := caps.Run(argvStrings(argv), mutates, okCodesInts(okCodes))
+			if err != nil {
+				return nil, err
+			}
 			return starlarkstruct.FromStringDict(starlark.String("run_result"), starlark.StringDict{
-				"rc":      starlark.MakeInt(0),
-				"stdout":  starlark.String(""),
-				"stderr":  starlark.String(""),
-				"skipped": starlark.Bool(skipped),
+				"rc":      starlark.MakeInt(rr.RC),
+				"stdout":  starlark.String(rr.Stdout),
+				"stderr":  starlark.String(rr.Stderr),
+				"skipped": starlark.Bool(rr.Skipped),
 			}), nil
 		}),
 		"file_read": starlark.NewBuiltin("file_read", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -284,7 +324,11 @@ func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
 				return nil, err
 			}
 			rec.record("file_read(%q)", path)
-			return starlark.String(""), nil
+			s, err := caps.FileRead(path)
+			if err != nil {
+				return nil, err
+			}
+			return starlark.String(s), nil
 		}),
 		"file_write": starlark.NewBuiltin("file_write", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var path, content string
@@ -292,10 +336,12 @@ func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
 			if err := starlark.UnpackArgs(b.Name(), args, kwargs, "path", &path, "content", &content, "mode?", &mode); err != nil {
 				return nil, err
 			}
-			rec.record("file_write(%q, %d bytes, check_mode=%v)", path, len(content), checkMode)
-			// The real runtime skips the write in check_mode and returns the
-			// predicted changed value; the stub predicts "would change".
-			return starlark.Bool(true), nil
+			rec.record("file_write(%q, %d bytes, check_mode=%v)", path, len(content), caps.CheckMode())
+			changed, err := caps.FileWrite(path, content, modeString(mode))
+			if err != nil {
+				return nil, err
+			}
+			return starlark.Bool(changed), nil
 		}),
 		"file_exists": starlark.NewBuiltin("file_exists", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var path string
@@ -303,7 +349,11 @@ func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
 				return nil, err
 			}
 			rec.record("file_exists(%q)", path)
-			return starlark.False, nil
+			ok, err := caps.FileExists(path)
+			if err != nil {
+				return nil, err
+			}
+			return starlark.Bool(ok), nil
 		}),
 		"stat": starlark.NewBuiltin("stat", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			var path string
@@ -311,22 +361,240 @@ func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
 				return nil, err
 			}
 			rec.record("stat(%q)", path)
-			return starlark.None, nil
+			m, err := caps.Stat(path)
+			if err != nil {
+				return nil, err
+			}
+			if m == nil {
+				return starlark.None, nil
+			}
+			return goToStarlark(m)
 		}),
 		"facts": starlark.NewBuiltin("facts", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 			if err := starlark.UnpackArgs(b.Name(), args, kwargs); err != nil {
 				return nil, err
 			}
 			rec.record("facts()")
-			facts := starlark.NewDict(4)
-			_ = facts.SetKey(starlark.String("os_family"), starlark.String("debian"))
-			_ = facts.SetKey(starlark.String("distribution"), starlark.String("debian"))
-			_ = facts.SetKey(starlark.String("hostname"), starlark.String("stub-host"))
-			_ = facts.SetKey(starlark.String("architecture"), starlark.String("x86_64"))
-			return facts, nil
+			m, err := caps.Facts()
+			if err != nil {
+				return nil, err
+			}
+			return goToStarlark(m)
 		}),
 	}
 	return starlarkstruct.FromStringDict(starlark.String("ctx"), members)
+}
+
+// StubCtx builds the mocked ctx struct handed to main() during validation —
+// buildCtx over a canned backend, so it has the exact same shape as the real
+// runtime's ctx (only the implementations are inert).
+func StubCtx(checkMode bool, rec *Recorder) *starlarkstruct.Struct {
+	return buildCtx(stubCaps{checkMode: checkMode}, rec)
+}
+
+// stubCaps is the validator's inert backend: no I/O, canned returns matching
+// the historical stub behavior (rc=0, empty output, "would change", no file,
+// canned facts).
+type stubCaps struct{ checkMode bool }
+
+func (s stubCaps) CheckMode() bool { return s.checkMode }
+func (s stubCaps) Run(_ []string, mutates bool, _ []int) (RunResult, error) {
+	return RunResult{Skipped: s.checkMode && mutates}, nil
+}
+func (s stubCaps) FileRead(string) (string, error)                { return "", nil }
+func (s stubCaps) FileWrite(string, string, string) (bool, error) { return true, nil }
+func (s stubCaps) FileExists(string) (bool, error)                { return false, nil }
+func (s stubCaps) Stat(string) (map[string]any, error)            { return nil, nil }
+func (s stubCaps) Facts() (map[string]any, error) {
+	return map[string]any{
+		"os_family":    "debian",
+		"distribution": "debian",
+		"hostname":     "stub-host",
+		"architecture": "x86_64",
+	}, nil
+}
+
+// Result is a module's validated return value, converted to Go.
+type Result struct {
+	Changed bool
+	Msg     string
+	Data    any
+}
+
+// Execute runs a module's main(ctx, params) for real against caps (Block G3).
+// It mirrors stubRun's harness exactly (same fileOptions, step bound, Call),
+// then enforces the return contract (checkResult) and converts the result to
+// Go. The caller (a StarModule) supplies caps carrying the write gate +
+// check_mode. Only parse+lint-valid modules should be Executed (the loader
+// validates at load); Execute itself does not re-lint.
+func Execute(filename string, src []byte, params map[string]any, caps Capabilities, opts Options) (Result, error) {
+	maxSteps := opts.MaxSteps
+	if maxSteps == 0 {
+		maxSteps = defaultMaxSteps
+	}
+	thread := &starlark.Thread{Name: "execute:" + filename}
+	thread.SetMaxExecutionSteps(maxSteps)
+
+	p, err := goToStarlark(anyMap(params))
+	if err != nil {
+		return Result{}, fmt.Errorf("params: %w", err)
+	}
+
+	globals, err := starlark.ExecFileOptions(fileOptions(), thread, filename, src, nil)
+	if err != nil {
+		return Result{}, execError("module top-level failed", err)
+	}
+	mainFn, ok := globals["main"]
+	if !ok {
+		return Result{}, fmt.Errorf("main not exported")
+	}
+	res, err := starlark.Call(thread, mainFn, starlark.Tuple{buildCtx(caps, nil), p}, nil)
+	if err != nil {
+		return Result{}, execError("main() failed", err)
+	}
+	if diags := checkResult("execute", res); len(diags) > 0 {
+		return Result{}, fmt.Errorf("%s", diags[0].Message)
+	}
+
+	d := res.(*starlark.Dict)
+	out := Result{}
+	if v, found, _ := d.Get(starlark.String("changed")); found {
+		out.Changed = bool(v.(starlark.Bool))
+	}
+	if v, found, _ := d.Get(starlark.String("msg")); found {
+		out.Msg = string(v.(starlark.String))
+	}
+	if v, found, _ := d.Get(starlark.String("data")); found {
+		data, err := starlarkToGo(v)
+		if err != nil {
+			return Result{}, fmt.Errorf("converting result data: %w", err)
+		}
+		out.Data = data
+	}
+	return out, nil
+}
+
+func execError(prefix string, err error) error {
+	if evalErr, ok := err.(*starlark.EvalError); ok {
+		return fmt.Errorf("%s: %s", prefix, evalErr.Backtrace())
+	}
+	return fmt.Errorf("%s: %w", prefix, err)
+}
+
+// anyMap adapts a map[string]any to the `any` goToStarlark expects.
+func anyMap(m map[string]any) any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
+// argvStrings coerces a Starlark argv list to []string. Non-string elements
+// are stringified rather than erroring, preserving the validator's tolerance
+// (real modules always pass strings).
+func argvStrings(list *starlark.List) []string {
+	if list == nil {
+		return nil
+	}
+	out := make([]string, 0, list.Len())
+	for i := 0; i < list.Len(); i++ {
+		e := list.Index(i)
+		if s, ok := starlark.AsString(e); ok {
+			out = append(out, s)
+		} else {
+			out = append(out, e.String())
+		}
+	}
+	return out
+}
+
+// okCodesInts reads the ok_codes argument: None → [0]; a list → its integer
+// elements (non-ints skipped). Never errors.
+func okCodesInts(v starlark.Value) []int {
+	if v == nil || v == starlark.None {
+		return []int{0}
+	}
+	list, ok := v.(*starlark.List)
+	if !ok {
+		return []int{0}
+	}
+	out := make([]int, 0, list.Len())
+	for i := 0; i < list.Len(); i++ {
+		if n, ok := list.Index(i).(starlark.Int); ok {
+			if v64, ok := n.Int64(); ok {
+				out = append(out, int(v64))
+			}
+		}
+	}
+	if len(out) == 0 {
+		return []int{0}
+	}
+	return out
+}
+
+// modeString reads the file_write mode argument (a string like "0644", or
+// None → "").
+func modeString(v starlark.Value) string {
+	if s, ok := starlark.AsString(v); ok {
+		return s
+	}
+	return ""
+}
+
+// starlarkToGo converts a Starlark value back to a plain Go value — the
+// inverse of goToStarlark, for a module's returned result data.
+func starlarkToGo(v starlark.Value) (any, error) {
+	switch x := v.(type) {
+	case nil, starlark.NoneType:
+		return nil, nil
+	case starlark.Bool:
+		return bool(x), nil
+	case starlark.String:
+		return string(x), nil
+	case starlark.Int:
+		if i, ok := x.Int64(); ok {
+			return i, nil
+		}
+		return x.String(), nil // bigger than int64: keep as decimal string
+	case starlark.Float:
+		return float64(x), nil
+	case *starlark.List:
+		out := make([]any, 0, x.Len())
+		for i := 0; i < x.Len(); i++ {
+			e, err := starlarkToGo(x.Index(i))
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, e)
+		}
+		return out, nil
+	case starlark.Tuple:
+		out := make([]any, 0, x.Len())
+		for i := 0; i < x.Len(); i++ {
+			e, err := starlarkToGo(x.Index(i))
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, e)
+		}
+		return out, nil
+	case *starlark.Dict:
+		out := make(map[string]any, x.Len())
+		for _, item := range x.Items() {
+			key, ok := starlark.AsString(item[0])
+			if !ok {
+				return nil, fmt.Errorf("dict key must be a string, got %s", item[0].Type())
+			}
+			val, err := starlarkToGo(item[1])
+			if err != nil {
+				return nil, err
+			}
+			out[key] = val
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("unsupported starlark value type %s", v.Type())
+	}
 }
 
 // paramsValue converts a JSON object into the starlark dict handed to

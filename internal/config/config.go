@@ -38,8 +38,12 @@ type Config struct {
 	PAM             PAM    `yaml:"pam"`
 	UI              UI     `yaml:"ui"`
 	ToolsDir        string `yaml:"tools_dir"`
-	CommandsFile    string `yaml:"commands_file"`
-	ACLPath         string `yaml:"acl_path"`
+	// ModulesDir holds translated Starlark collection modules
+	// (<collection>/<name>.star + .nt/.yaml sidecar), loaded and registered
+	// as executable tools at startup (Block G3). Optional dir like tools_dir.
+	ModulesDir   string `yaml:"modules_dir"`
+	CommandsFile string `yaml:"commands_file"`
+	ACLPath      string `yaml:"acl_path"`
 
 	// UploadsDir is the fixed staging directory the upload_file MCP tool
 	// and the PUT /api/v1/upload REST endpoint write into — never an
@@ -258,6 +262,7 @@ func Default() Config {
 		PAM:           PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
 		UI:            UI{Enabled: true},
 		ToolsDir:      "/etc/agentic-mcp/tools.d",
+		ModulesDir:    "/var/lib/agentic-mcp/modules.d",
 		CommandsFile:  "/etc/agentic-mcp/commands.yaml",
 		ACLPath:       "/var/lib/agentic-mcp/acl.db",
 		UploadsDir:    "/var/lib/agentic-mcp/uploads",
