@@ -83,13 +83,16 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
 
 1. **Kanonischer Plan-Store** — eine präfix-keyed JSONB-`plans`-Tabelle als
    Wahrheit + Cache; Importer für die bestehenden `plans_dir`-Pläne
-   (`prefix=ansible`). *(In Arbeit.)*
+   (`prefix=ansible`). *(erledigt: `services/plan_store.py`, Migration
+   `a3d7f0c2b915`, `scripts/import_plans_dir.py`.)*
 2. **JSON first-class** als Eingabeformat (eigener `source_format`, `.json` im
-   Loader).
+   Loader). *(Store akzeptiert `source_format=json`; `.json` im Datei-Loader
+   noch offen.)*
 3. **Deterministische Fremdformat-Parser** → kanonisches Plan-Dict, je ein
    neuer Präfix. Aufwandsreihenfolge: **Salt** (YAML-nah) *(erledigt:
-   `services/salt_parser.py`, prefix `salt`)* → **Chef** → **Puppet**
-   (Turing-vollständig, nur pragmatische Teilmenge).
+   `services/salt_parser.py`)* → **Chef** *(erledigt: `services/chef_parser.py`,
+   deklarative Resource-Teilmenge)* → **Puppet** (Turing-vollständig, nur
+   pragmatische Teilmenge).
 4. **Präfix-Guard verallgemeinern** (`plan_loader.ANSIBLE_PREFIX`), sobald ein
    Runtime Fremdmodule ausführen kann.
 5. **`plans_dir` ablösen** — Katalog und Runner vollständig auf den Store

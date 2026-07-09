@@ -34,7 +34,7 @@ from bossman.services.plan_loader import Plan, PlanError, build_plan_from_raw
 VALID_PREFIXES = ("ansible", "salt", "puppet", "chef")
 # Source syntaxes convertible today. Foreign DSLs land here as parsers arrive
 # (salt done; puppet/chef on the roadmap).
-SUPPORTED_FORMATS = ("nestedtext", "yaml", "json", "salt")
+SUPPORTED_FORMATS = ("nestedtext", "yaml", "json", "salt", "chef")
 
 
 def canonical_from_source(source_format: str, source_text: str, *, name: str | None = None) -> dict[str, Any]:
@@ -66,6 +66,10 @@ def canonical_from_source(source_format: str, source_text: str, *, name: str | N
         from bossman.services.salt_parser import parse_salt_sls
 
         raw = parse_salt_sls(source_text, name or "salt_state")
+    elif fmt == "chef":
+        from bossman.services.chef_parser import parse_chef_recipe
+
+        raw = parse_chef_recipe(source_text, name or "chef_recipe")
     else:
         raise PlanError(f"unsupported source_format {source_format!r} (want one of {SUPPORTED_FORMATS})")
 
