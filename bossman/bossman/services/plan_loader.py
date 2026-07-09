@@ -280,10 +280,20 @@ def _parse_chunk(plan_name: str, raw: dict[str, Any]) -> Chunk:
 
 
 def parse_plan(data: bytes, source_path: Path) -> Plan:
+    """Parse a YAML plan file. The format-specific step (YAML → dict) is the
+    only thing here; everything downstream is shared with parse_plan_nt (the
+    NestedText front-end) via build_plan_from_raw, so both syntaxes produce
+    identical Plan/Chunk/PlanStep structures."""
     raw = yaml.safe_load(data)
     if not isinstance(raw, dict):
         raise PlanError(f"{source_path}: plan file must be a YAML mapping")
+    return build_plan_from_raw(raw, source_path)
 
+
+def build_plan_from_raw(raw: dict[str, Any], source_path: Path) -> Plan:
+    """Build a Plan from an already-parsed mapping (dict of str→…), whatever
+    front-end produced it (PyYAML or NestedText). Format-agnostic: this is
+    the single place the plan schema is validated and assembled."""
     name = raw.get("name")
     if not name:
         raise PlanError(f"{source_path}: missing required 'name'")
