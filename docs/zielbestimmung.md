@@ -85,9 +85,10 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
    Wahrheit + Cache; Importer für die bestehenden `plans_dir`-Pläne
    (`prefix=ansible`). *(erledigt: `services/plan_store.py`, Migration
    `a3d7f0c2b915`, `scripts/import_plans_dir.py`.)*
-2. **JSON first-class** als Eingabeformat (eigener `source_format`, `.json` im
-   Loader). *(Store akzeptiert `source_format=json`; `.json` im Datei-Loader
-   noch offen.)*
+2. **JSON first-class** als Eingabeformat. *(erledigt: `parse_plan_json`,
+   `load_plan_file` dispatcht `.nt`/`.json`/YAML, `load_plans_dir` +
+   `yolo-man convert/lint` verstehen `.json`; Store akzeptiert
+   `source_format=json`.)*
 3. **Deterministische Fremdformat-Parser** → kanonisches Plan-Dict, je ein
    neuer Präfix. *(erledigt)* **Salt** (`services/salt_parser.py`),
    **Chef** (`services/chef_parser.py`, deklarative Resource-Teilmenge),

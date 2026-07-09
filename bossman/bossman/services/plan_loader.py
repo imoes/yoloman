@@ -348,22 +348,51 @@ def build_plan_from_raw(raw: dict[str, Any], source_path: Path) -> Plan:
     )
 
 
+def parse_plan_json(data: bytes | str, source_path: Path) -> Plan:
+    """Parse a first-class JSON plan file. JSON is the canonical internal
+    form (docs/zielbestimmung.md), so a .json plan is just that form on disk;
+    it feeds the same build_plan_from_raw as YAML/NestedText."""
+    try:
+        raw = json.loads(data)
+    except json.JSONDecodeError as exc:
+        raise PlanError(f"{source_path}: invalid JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise PlanError(f"{source_path}: plan file must be a JSON object")
+    return build_plan_from_raw(raw, source_path)
+
+
 def load_plan_file(path: str | Path) -> Plan:
+    """Load a plan file, dispatching by extension: .nt (NestedText), .json,
+    or YAML (.yaml/.yml/other). NestedText is the primary human format; all
+    three normalize to the same Plan."""
     path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix == ".nt":
+        # Lazy import: nt_plan_loader imports from this module.
+        from bossman.services.nt_plan_loader import parse_plan_nt
+
+        return parse_plan_nt(path.read_bytes(), path)
+    if suffix == ".json":
+        return parse_plan_json(path.read_bytes(), path)
     return parse_plan(path.read_bytes(), path)
 
 
+# Plan file extensions load_plans_dir recognizes (NestedText primary, then
+# YAML and first-class JSON).
+PLAN_FILE_SUFFIXES = (".nt", ".yaml", ".yml", ".json")
+
+
 def load_plans_dir(plans_dir: str | Path) -> list[Plan]:
-    """Loads every *.yaml/*.yml file directly under plans_dir (not
-    recursively — host_vars/ and files/ are conventional subdirectories,
-    not plans themselves) into a Plan, erroring on duplicate names. A
-    missing directory yields no plans rather than erroring — matches the
-    Go tools.d loader's "optional directory" behavior."""
+    """Loads every plan file (see PLAN_FILE_SUFFIXES) directly under
+    plans_dir (not recursively — host_vars/ and files/ are conventional
+    subdirectories, not plans themselves) into a Plan, erroring on duplicate
+    names. A missing directory yields no plans rather than erroring — matches
+    the Go tools.d loader's "optional directory" behavior."""
     plans_dir = Path(plans_dir)
     if not plans_dir.is_dir():
         return []
 
-    paths = sorted(p for p in plans_dir.iterdir() if p.is_file() and p.suffix in (".yaml", ".yml"))
+    paths = sorted(p for p in plans_dir.iterdir() if p.is_file() and p.suffix.lower() in PLAN_FILE_SUFFIXES)
     seen: dict[str, Path] = {}
     plans = []
     for path in paths:

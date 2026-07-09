@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,18 +26,16 @@ from typing import Any
 import nestedtext
 import yaml
 
-from bossman.services.plan_loader import Plan, PlanError, load_plan_file
-from bossman.services.nt_plan_loader import load_plan_file_nt
+from bossman.services.plan_loader import PlanError, load_plan_file
 
 
 def _is_nt(path: Path) -> bool:
     return path.suffix.lower() == ".nt"
 
 
-def load_plan_any(path: str | Path) -> Plan:
-    """Load a plan from either syntax, chosen by file extension."""
-    p = Path(path)
-    return load_plan_file_nt(p) if _is_nt(p) else load_plan_file(p)
+# load_plan_file already dispatches .nt/.json/YAML — kept as an alias so the
+# command handlers read clearly ("load a plan in any accepted format").
+load_plan_any = load_plan_file
 
 
 def _bool_to_nt(value: bool) -> str:  # NestedText is all-strings; keep bools lowercase.
@@ -80,13 +79,20 @@ def _cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_raw(path: Path) -> Any:
+    """Read a plan file into a raw dict, by extension (.nt / .json / YAML)."""
+    if _is_nt(path):
+        return nestedtext.loads(path.read_text(), top="dict")
+    if path.suffix.lower() == ".json":
+        return json.loads(path.read_text())
+    return yaml.safe_load(path.read_bytes())
+
+
 def _cmd_convert(args: argparse.Namespace) -> int:
     src, dst = Path(args.src), Path(args.dst)
     try:
-        raw: Any = (
-            nestedtext.loads(src.read_text(), top="dict") if _is_nt(src) else yaml.safe_load(src.read_bytes())
-        )
-    except (nestedtext.NestedTextError, yaml.YAMLError, OSError) as exc:
+        raw: Any = _read_raw(src)
+    except (nestedtext.NestedTextError, yaml.YAMLError, json.JSONDecodeError, OSError) as exc:
         print(f"cannot read {src}: {exc}", file=sys.stderr)
         return 1
     try:
@@ -94,9 +100,11 @@ def _cmd_convert(args: argparse.Namespace) -> int:
             # NestedText leaves must be strings: stringify scalars, keeping
             # bools lowercase so they round-trip through the boolean coercion.
             out = nestedtext.dumps(raw, converters={bool: _bool_to_nt, type(None): lambda _n: ""}, default=str)
+        elif dst.suffix.lower() == ".json":
+            out = json.dumps(raw, indent=2)
         else:
             out = yaml.safe_dump(raw, sort_keys=False, default_flow_style=False)
-    except (nestedtext.NestedTextError, yaml.YAMLError) as exc:
+    except (nestedtext.NestedTextError, yaml.YAMLError, TypeError) as exc:
         print(f"cannot convert: {exc}", file=sys.stderr)
         return 1
     dst.write_text(out if out.endswith("\n") else out + "\n")
