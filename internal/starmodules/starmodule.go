@@ -67,7 +67,11 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 			}
 		}
 	}
-	caps := NewRealCaps(dryRun, m.agentWrite, m.writes)
+	// REST and MCP both dispatch with dryRun=false, so a caller asking for a
+	// dry run does it via a params["dry_run"] flag (mirrors the native modules,
+	// e.g. systemd/command). OR it into check_mode here.
+	checkMode := dryRun || coerceBool(params["dry_run"])
+	caps := NewRealCaps(checkMode, m.agentWrite, m.writes)
 	res, err := starmod.Execute(m.shortName+".star", m.src, params, caps, starmod.Options{})
 	if err != nil {
 		return modules.Result{}, fmt.Errorf("%s: %w", m.fqcn, err)

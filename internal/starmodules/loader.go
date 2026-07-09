@@ -2,6 +2,7 @@ package starmodules
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -98,6 +99,59 @@ func LoadDir(dir string, agentWrite bool) (mods []modules.Module, warnings []str
 		mods = append(mods, m)
 	}
 	return mods, warnings, nil
+}
+
+// LoadFS is LoadDir's counterpart for an embedded (or any) fs.FS — used to
+// bake a curated built-in module set into the agent binary via go:embed, so
+// those modules are always present (no push, no on-disk modules.d needed).
+// Same rules as LoadDir: every <name>.star with a sibling .nt/.yaml sidecar
+// is built through the shared validator; per-module failures become warnings.
+func LoadFS(fsys fs.FS, agentWrite bool) (mods []modules.Module, warnings []string, err error) {
+	var starPaths []string
+	walkErr := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		if !d.IsDir() && strings.EqualFold(filepath.Ext(path), ".star") {
+			starPaths = append(starPaths, path)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return nil, nil, fmt.Errorf("scanning embedded FS: %w", walkErr)
+	}
+	sort.Strings(starPaths)
+
+	for _, starPath := range starPaths {
+		starSrc, readErr := fs.ReadFile(fsys, starPath)
+		if readErr != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: %v", starPath, readErr))
+			continue
+		}
+		sidecar, format, sErr := readSidecarFS(fsys, starPath)
+		if sErr != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: %v", starPath, sErr))
+			continue
+		}
+		m, bErr := BuildModule(starSrc, sidecar, format, agentWrite)
+		if bErr != nil {
+			warnings = append(warnings, bErr.Error())
+			continue
+		}
+		mods = append(mods, m)
+	}
+	return mods, warnings, nil
+}
+
+// readSidecarFS is readSidecar for an fs.FS (paths use forward slashes).
+func readSidecarFS(fsys fs.FS, starPath string) (data []byte, format string, err error) {
+	base := strings.TrimSuffix(starPath, filepath.Ext(starPath))
+	for _, cand := range []struct{ ext, format string }{{".nt", "nt"}, {".yaml", "yaml"}, {".yml", "yaml"}} {
+		if b, e := fs.ReadFile(fsys, base+cand.ext); e == nil {
+			return b, cand.format, nil
+		}
+	}
+	return nil, "", fmt.Errorf("no metadata sidecar (.nt/.yaml) next to %s", filepath.Base(starPath))
 }
 
 // readSidecar finds a module's metadata sidecar next to its .star, preferring

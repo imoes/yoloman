@@ -27,6 +27,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
+	"github.com/mutkluge/agentic-mcp/internal/starmodules/embedded"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
 	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
@@ -216,6 +217,30 @@ func loadComponents(cfg config.Config) (*components, error) {
 		return nil, fmt.Errorf("loading tools.d: %w", err)
 	}
 	modReg := server.NewDefaultModuleRegistry()
+
+	// Block J4 / Item 3c: register the curated built-in Starlark module set
+	// baked into the binary (go:embed) — the network module + storage stack
+	// the host-management page depends on. Always present (no push, no on-disk
+	// modules.d needed); same registry, so they dispatch like native modules.
+	if embFS, embErr := embedded.FS(); embErr != nil {
+		slog.Warn("embedded modules unavailable", "reason", embErr.Error())
+	} else {
+		embMods, embWarn, embLoadErr := starmodules.LoadFS(embFS, cfg.Write)
+		if embLoadErr != nil {
+			return nil, fmt.Errorf("loading embedded modules: %w", embLoadErr)
+		}
+		for _, w := range embWarn {
+			slog.Warn("skipping embedded module", "reason", w)
+		}
+		for _, m := range embMods {
+			if regErr := modReg.Register(m); regErr != nil {
+				slog.Warn("skipping embedded module", "reason", regErr.Error())
+			}
+		}
+		if len(embMods) > 0 {
+			slog.Info("loaded embedded Starlark modules", "count", len(embMods))
+		}
+	}
 
 	// Block G3: register translated Starlark collection modules from
 	// modules_dir into the SAME registry the REST/MCP layers read, so they
