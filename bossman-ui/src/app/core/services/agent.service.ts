@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Agent, LatestMetricsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse } from '../models/agent.model';
+import { HttpParams } from '@angular/common/http';
+import { Agent, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -77,5 +78,15 @@ export class AgentService {
    * state, via the read-only `service_facts` module (live pass-through). */
   services(id: string) {
     return this.http.get<ServicesResponse>(`${this.base}/${id}/services`);
+  }
+
+  /** Block J4b: the host's journald log via the read-only `journal` module
+   * (journalctl -o json), optionally filtered by unit/priority/since/grep. */
+  logs(id: string, filters: LogFilters = {}) {
+    let params = new HttpParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== null && v !== '') params = params.set(k, String(v));
+    }
+    return this.http.get<LogsResponse>(`${this.base}/${id}/logs`, { params });
   }
 }

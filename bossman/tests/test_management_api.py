@@ -129,6 +129,48 @@ async def test_services_unreachable_502(db_session):
     await db_session.commit()
 
 
+# ---- J4b: journald logs ---------------------------------------------------
+
+
+async def test_logs_proxies_journal_with_filters(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+
+    entries = [{"timestamp": "2023-11-14T22:13:20Z", "unit": "nginx.service", "priority": "6", "message": "started", "pid": "42", "hostname": "h1"}]
+    fake = CallToolFake(result={"changed": False, "data": {"entries": entries, "count": 1}})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(
+            f"/api/v1/agents/{agent.id}/logs",
+            params={"lines": 50, "unit": "nginx", "priority": "6"},
+            headers=_headers(raw),
+        )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["entries"] == entries
+    name, params = fake.calls[0]
+    assert name == "journal"
+    assert params["lines"] == 50 and params["unit"] == "nginx" and params["priority"] == "6"
+
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_logs_rejects_out_of_range_lines(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/logs", params={"lines": 99999}, headers=_headers(raw))
+    assert resp.status_code == 422
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
 # ---- J4a: enable/disable via service-control ------------------------------
 
 

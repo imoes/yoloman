@@ -146,3 +146,28 @@ export interface ServicesResponse {
   agent_id: string;
   services: ServiceUnit[];
 }
+
+/** One journald entry as returned by the agent's `journal` module. */
+export interface LogEntry {
+  timestamp: string;
+  unit: string;
+  priority: string;
+  message: string;
+  pid: string;
+  hostname: string;
+}
+
+export interface LogsResponse {
+  agent_id: string;
+  entries: LogEntry[];
+  count: number;
+}
+
+export interface LogFilters {
+  lines?: number;
+  unit?: string;
+  priority?: string;
+  since?: string;
+  grep?: string;
+  boot?: boolean;
+}

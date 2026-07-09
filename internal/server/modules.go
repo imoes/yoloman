@@ -37,6 +37,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewServiceFacts(),
 		modules.NewPackageFacts(),
 		modules.NewGetent(),
+		modules.NewJournal(),
 		modules.NewFile(),
 		modules.NewCopy(),
 		modules.NewLineInFile(),

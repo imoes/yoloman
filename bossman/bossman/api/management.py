@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
@@ -64,3 +64,39 @@ async def get_agent_services(
     # unit list is under data. Pass it through in a stable shape for the UI.
     services = (result or {}).get("data") if isinstance(result, dict) else None
     return {"agent_id": str(agent.id), "services": services or []}
+
+
+@router.get("/api/v1/agents/{agent_id}/logs")
+async def get_agent_logs(
+    agent_id: UUID,
+    lines: int = Query(200, ge=1, le=5000, description="Most recent N journal entries"),
+    unit: str | None = Query(None, description="Restrict to one systemd unit"),
+    priority: str | None = Query(None, description="Syslog priority (0-7 or a name like 'err')"),
+    since: str | None = Query(None, description="journalctl time spec, e.g. '-1h' or 'yesterday'"),
+    grep: str | None = Query(None, description="MESSAGE regex"),
+    boot: bool = Query(False, description="Current boot only"),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4b — the host's journald log, via the read-only `journal`
+    module (`journalctl -o json`). Filters map 1:1 to the module's params."""
+    agent = await _agent_with_address(session, agent_id)
+    params: dict[str, Any] = {"lines": lines, "boot": boot}
+    if unit:
+        params["unit"] = unit
+    if priority:
+        params["priority"] = priority
+    if since:
+        params["since"] = since
+    if grep:
+        params["grep"] = grep
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("journal", params)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = (result or {}).get("data") if isinstance(result, dict) else None
+    data = data or {}
+    return {"agent_id": str(agent.id), "entries": data.get("entries") or [], "count": data.get("count") or 0}
