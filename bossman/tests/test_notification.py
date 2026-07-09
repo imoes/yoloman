@@ -223,3 +223,42 @@ async def test_collect_and_dispatch_suppresses_dependent_service(db_session):
     await db_session.delete(dependent_rule)
     await db_session.delete(notify_rule)
     await db_session.commit()
+
+
+async def test_dispatch_scope_is_additive(db_session):
+    """Block N1: every rule whose scope covers (host, service) fires; scoped
+    rules that don't cover it stay silent. host/service scope now actually
+    applies at dispatch (previously the scope columns were ignored)."""
+    settings = Settings(notifications_enabled=True)
+    agent = Agent(name="web01", token=f"t-{uuid.uuid4().hex}", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    # Distinct targets so we can tell which rules fired from the log.
+    rules = [
+        _rule(name="g", scope_type="global", target="global@x"),
+        _rule(name="h-hit", scope_type="host", scope_value="web01", target="host-hit@x"),
+        _rule(name="h-miss", scope_type="host", scope_value="other", target="host-miss@x"),
+        _rule(name="s-hit", scope_type="service", scope_value="web01", scope_service_name="Memory", target="svc-hit@x"),
+        _rule(name="s-miss", scope_type="service", scope_value="web01", scope_service_name="CPU load", target="svc-miss@x"),
+    ]
+    for r in rules:
+        db_session.add(r)
+    await db_session.flush()
+
+    sent: list[str] = []
+    logs = await notification.dispatch(
+        db_session, settings, _ev(host="web01", service="Memory"),
+        email_sender=lambda _s, to, _sub, _b: sent.append(to),
+    )
+    fired = {n.target for n in logs}
+    assert fired == {"global@x", "host-hit@x", "svc-hit@x"}
+    assert "host-miss@x" not in fired and "svc-miss@x" not in fired
+
+    await db_session.flush()  # persist the log rows dispatch only session.add-ed
+    for n in logs:
+        await db_session.delete(n)
+    for r in rules:
+        await db_session.delete(r)
+    await db_session.delete(agent)
+    await db_session.commit()

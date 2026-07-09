@@ -14,13 +14,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Notification, NotificationRule, OUNode
+from bossman.db.models import Notification, NotificationRule, OrchestrationPlan, OUNode
 from bossman.db.session import get_session
 
 router = APIRouter()
 
 _CHANNELS = ("email", "webhook")
 _STATES = ("WARN", "CRIT", "UNKNOWN")
+_SCOPES = ("global", "ou", "group", "host", "service", "policy")
 
 
 class NotificationRuleIn(BaseModel):
@@ -42,6 +43,14 @@ class NotificationRuleIn(BaseModel):
     ou_id: UUID | None = None
     enforced: bool = False
     link_order: int = 100
+    # Block N1: the shared scope model (global|ou|group|host|service|policy).
+    # A notification is an additive filter — it fires for every event its
+    # scope covers. scope_value = group name (group) or agent (host/service);
+    # scope_service_name for service scope; scope_plan_id for policy scope.
+    scope_type: str = "global"
+    scope_value: str | None = None
+    scope_service_name: str | None = None
+    scope_plan_id: UUID | None = None
 
 
 class NotificationRuleOut(NotificationRuleIn):
@@ -66,6 +75,10 @@ class NotificationRuleOut(NotificationRuleIn):
             ou_id=r.ou_id,
             enforced=r.enforced,
             link_order=r.link_order,
+            scope_type=r.scope_type,
+            scope_value=r.scope_value,
+            scope_service_name=r.scope_service_name,
+            scope_plan_id=r.scope_plan_id,
         )
 
 
@@ -78,6 +91,20 @@ async def _validate(body: NotificationRuleIn, session: AsyncSession) -> None:
         raise HTTPException(status_code=422, detail="target is required")
     if body.ou_id is not None and await session.get(OUNode, body.ou_id) is None:
         raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+    # Block N1: validate the scope + its required companion field.
+    if body.scope_type not in _SCOPES:
+        raise HTTPException(status_code=422, detail=f"scope_type must be one of {'|'.join(_SCOPES)}")
+    if body.scope_type == "ou" and body.ou_id is None:
+        raise HTTPException(status_code=422, detail="scope_type='ou' requires ou_id")
+    if body.scope_type in ("group", "host", "service") and not (body.scope_value or "").strip():
+        raise HTTPException(status_code=422, detail=f"scope_type={body.scope_type!r} requires scope_value")
+    if body.scope_type == "service" and not (body.scope_service_name or "").strip():
+        raise HTTPException(status_code=422, detail="scope_type='service' requires scope_service_name")
+    if body.scope_type == "policy":
+        if body.scope_plan_id is None:
+            raise HTTPException(status_code=422, detail="scope_type='policy' requires scope_plan_id")
+        if await session.get(OrchestrationPlan, body.scope_plan_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such plan {body.scope_plan_id}")
 
 
 @router.get("/api/v1/notification-rules", response_model=list[NotificationRuleOut])

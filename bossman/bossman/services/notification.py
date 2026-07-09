@@ -19,7 +19,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings
-from bossman.db.models import CheckRule, Notification, NotificationRule, Service
+from bossman.db.models import Agent, CheckRule, Notification, NotificationRule, Service
+from bossman.services.scope import HostCtx, Scope, ServiceCtx, scope_covers
 
 # Severity ordering for the min_state floor.
 _SEVERITY = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
@@ -131,6 +132,43 @@ EmailSender = None
 WebhookSender = None
 
 
+def _rule_scope(rule: NotificationRule) -> Scope:
+    """Read a rule's scope columns into the shared Scope value."""
+    return Scope(
+        scope_type=rule.scope_type,
+        ou_id=str(rule.ou_id) if rule.ou_id else None,
+        value=rule.scope_value,
+        service_name=rule.scope_service_name,
+        plan_id=str(rule.scope_plan_id) if rule.scope_plan_id else None,
+    )
+
+
+async def _event_context(
+    session: AsyncSession, ev: NotifyEvent, rules: list[NotificationRule]
+) -> tuple[HostCtx, ServiceCtx]:
+    """Resolve the host (groups + OU ancestry) and service (policy
+    membership) context for one event — once per dispatch. Policy membership
+    (the plans assigned to this host) is only computed when some rule is
+    actually policy-scoped, since it's the most expensive lookup."""
+    # Lazy imports: compiler pulls in the ORM/gpo stack; keep it off module
+    # import to mirror collect_and_dispatch's own cycle-avoidance.
+    from bossman.services.compiler import resolve_orchestration_assignments, resolve_ou_ancestry
+
+    agent = await session.scalar(select(Agent).where(Agent.name == ev.agent_name))
+    groups = list(agent.groups or []) if agent is not None else []
+    ou_ids: frozenset[str] = frozenset()
+    if agent is not None:
+        ancestry = await resolve_ou_ancestry(session, agent.ou_id)
+        ou_ids = frozenset(str(n.id) for n in ancestry)
+    host_ctx = HostCtx(name=ev.agent_name, groups=groups, ou_ids=ou_ids)
+
+    policy_ids: frozenset[str] = frozenset()
+    if agent is not None and any(r.scope_type == "policy" for r in rules):
+        assignments = await resolve_orchestration_assignments(session, agent)
+        policy_ids = frozenset(str(a.plan_id) for a in assignments)
+    return host_ctx, ServiceCtx(service_name=ev.service_name, policy_ids=policy_ids)
+
+
 async def dispatch(
     session: AsyncSession,
     settings: Settings,
@@ -148,10 +186,21 @@ async def dispatch(
     if not settings.notifications_enabled:
         return []
     rules = (await session.scalars(select(NotificationRule).where(NotificationRule.enabled.is_(True)))).all()
+    if not rules:
+        return []
+
+    # Block N1: resolve the event's host + service context ONCE, then match
+    # each rule's scope against it (additive — every covering rule fires).
+    # This is also what finally makes ou/host/service/policy scope actually
+    # apply at dispatch (the scope columns were previously ignored).
+    host_ctx, svc_ctx = await _event_context(session, ev, rules)
+
     subject, body = render(ev)
     logs: list[Notification] = []
     for rule in rules:
         if not rule_matches(rule, ev):
+            continue
+        if not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
             continue
         status, error = "sent", None
         try:

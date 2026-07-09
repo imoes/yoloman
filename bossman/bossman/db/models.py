@@ -1056,10 +1056,27 @@ class NotificationRule(Base):
     ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    # Block N1: the shared scope model (services/scope.py). A notification is
+    # an ADDITIVE filter — every rule whose scope covers the event fires — so
+    # scope here is a target, not a precedence level. global (all) | ou
+    # (ou_id, subtree) | group (scope_value) | host (scope_value=agent) |
+    # service (scope_value=agent + scope_service_name) | policy
+    # (scope_plan_id = a plan assigned to the host). host_filter/service_filter
+    # remain optional extra substring filters.
+    scope_type: Mapped[str] = mapped_column(String, nullable=False, default="global")
+    scope_value: Mapped[str | None] = mapped_column(String)
+    scope_service_name: Mapped[str | None] = mapped_column(String)
+    scope_plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orchestration_plans.id", ondelete="CASCADE")
+    )
 
     __table_args__ = (
         CheckConstraint("channel IN ('email', 'webhook')", name="ck_notification_rules_channel"),
         CheckConstraint("min_state IN ('WARN', 'CRIT', 'UNKNOWN')", name="ck_notification_rules_min_state"),
+        CheckConstraint(
+            "scope_type IN ('global', 'ou', 'group', 'host', 'service', 'policy')",
+            name="ck_notification_rules_scope_type",
+        ),
     )
 
 
