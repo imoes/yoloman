@@ -5,6 +5,7 @@ import { HostLogsComponent } from './host-logs.component';
 import { HostAccountsComponent } from './host-accounts.component';
 import { HostStorageComponent } from './host-storage.component';
 import { HostNetworkComponent } from './host-network.component';
+import { HostVirtComponent } from './host-virt.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -16,7 +17,7 @@ import { HostNetworkComponent } from './host-network.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostNetworkComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent],
+  imports: [MatTabsModule, HostNetworkComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostVirtComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Network">
@@ -44,6 +45,11 @@ import { HostNetworkComponent } from './host-network.component';
           <app-host-storage [agentId]="agentId()" />
         </div>
       </mat-tab>
+      <mat-tab label="Virtualization">
+        <div class="bm-mgmt-pane">
+          <app-host-virt [agentId]="agentId()" />
+        </div>
+      </mat-tab>
     </mat-tab-group>
   `,
   styles: [`.bm-mgmt-pane { padding: 12px 4px; }`],
@@ -56,6 +62,7 @@ export class HostManagementComponent {
   private logs = viewChild(HostLogsComponent);
   private accounts = viewChild(HostAccountsComponent);
   private storage = viewChild(HostStorageComponent);
+  private virt = viewChild(HostVirtComponent);
 
   /** Lazy-load each inner tab's data when it is opened. */
   onInnerTab(event: MatTabChangeEvent): void {
@@ -64,6 +71,7 @@ export class HostManagementComponent {
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
     if (event.tab.textLabel === 'Storage') this.storage()?.loadOnce();
+    if (event.tab.textLabel === 'Virtualization') this.virt()?.loadOnce();
   }
 
   /** Called by host-detail when the parent Management tab is opened, so the

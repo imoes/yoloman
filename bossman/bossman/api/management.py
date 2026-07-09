@@ -404,3 +404,33 @@ async def configure_agent_network(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "result": result}
+
+
+# ---- Virtualization (virt_facts detect/list; qm/virsh control) ------------
+
+
+@router.get("/api/v1/agents/{agent_id}/virt")
+async def get_agent_virt(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Local virtualization overview: which hypervisor stack(s) this host runs
+    (Proxmox qm/pct, libvirt virsh) and their guests, via the read-only
+    virt_facts module. Guest control goes through the generic tool router
+    POST /agents/{id}/tools/{qm|virsh}."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("virt_facts", {})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(result)
+    return {
+        "agent_id": str(agent.id),
+        "hypervisors": data.get("hypervisors", []),
+        "proxmox": data.get("proxmox", {"available": False}),
+        "libvirt": data.get("libvirt", {"available": False}),
+    }

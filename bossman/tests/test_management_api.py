@@ -419,6 +419,33 @@ async def test_network_configure_forwards_params(db_session):
     await db_session.commit()
 
 
+# ---- Virtualization -------------------------------------------------------
+
+
+async def test_virt_overview(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    facts = {"changed": False, "data": {
+        "hypervisors": ["proxmox"],
+        "proxmox": {"available": True, "vms": [{"vmid": "100", "name": "web01", "status": "running"}], "containers": []},
+        "libvirt": {"available": False, "error": "not found"},
+    }}
+    fake = CallToolFake(result=facts)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/virt", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["hypervisors"] == ["proxmox"]
+    assert body["proxmox"]["vms"][0]["name"] == "web01"
+    assert body["libvirt"]["available"] is False
+    assert fake.calls == [("virt_facts", {})]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
 # ---- J4a: enable/disable via service-control ------------------------------
 
 

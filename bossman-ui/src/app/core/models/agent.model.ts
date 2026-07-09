@@ -265,3 +265,11 @@ export interface NetworkConfig {
   dns?: string[];
   dry_run?: boolean;
 }
+
+/** Virtualization overview from virt_facts. */
+export interface VirtResponse {
+  agent_id: string;
+  hypervisors: string[];
+  proxmox: StorageSection & { vms?: any[]; containers?: any[] };
+  libvirt: StorageSection & { domains?: any[] };
+}
