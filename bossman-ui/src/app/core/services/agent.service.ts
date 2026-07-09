@@ -59,4 +59,13 @@ export class AgentService {
     form.append('file', deb, deb.name);
     return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/update`, form);
   }
+
+  /** Block J2: restart/stop/start a systemd unit on the host through the
+   * agent's write-gated + audited `systemd` module. No raw PID-kill. */
+  serviceControl(id: string, service: string, action: 'restart' | 'stop' | 'start') {
+    return this.http.post<{ agent_id: string; service: string; action: string; result: unknown }>(
+      `${this.base}/${id}/service-control`,
+      { service, action },
+    );
+  }
 }

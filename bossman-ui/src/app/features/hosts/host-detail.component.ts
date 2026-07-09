@@ -460,6 +460,28 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="Processes">
             <div class="bm-tab-content">
+              <!-- Block J2: safe systemd service control (restart/stop/start)
+                   via the agent's write-gated + audited systemd module. -->
+              <div class="bm-svc-control">
+                <span class="bm-svc-label">Service control (systemd):</span>
+                <input
+                  class="bm-svc-input"
+                  type="text"
+                  placeholder="unit name, e.g. nginx"
+                  [value]="svcName()"
+                  (input)="svcName.set($any($event.target).value)"
+                  [disabled]="svcBusy()"
+                />
+                <button mat-stroked-button (click)="controlService('restart')" [disabled]="svcBusy() || !svcName().trim()">Restart</button>
+                <button mat-stroked-button (click)="controlService('stop')" [disabled]="svcBusy() || !svcName().trim()">Stop</button>
+                <button mat-stroked-button (click)="controlService('start')" [disabled]="svcBusy() || !svcName().trim()">Start</button>
+                @if (svcMsg()) {
+                  <span class="bm-svc-ok">{{ svcMsg() }}</span>
+                }
+                @if (svcErr()) {
+                  <span class="bm-svc-err">{{ svcErr() }}</span>
+                }
+              </div>
               <div class="bm-proc-toolbar">
                 <input
                   class="bm-proc-filter"
@@ -598,6 +620,36 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
   `,
   styles: [
     `
+      .bm-svc-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 8px;
+      }
+      .bm-svc-label {
+        font-size: 13px;
+        opacity: 0.8;
+      }
+      .bm-svc-input {
+        padding: 6px 8px;
+        border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 4px;
+        background: transparent;
+        color: inherit;
+        min-width: 200px;
+      }
+      .bm-svc-ok {
+        color: var(--bm-green);
+        font-size: 13px;
+      }
+      .bm-svc-err {
+        color: var(--bm-red);
+        font-size: 13px;
+      }
       .bm-page {
         padding: 24px;
         max-width: 1100px;
@@ -1100,6 +1152,12 @@ export class HostDetailComponent implements OnInit {
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
   /** Block J1 process list (lazy-loaded when the Processes tab opens). */
   processes = signal<Process[]>([]);
+  // Block J2: service control state.
+  svcName = signal('');
+  svcBusy = signal(false);
+  svcMsg = signal<string | null>(null);
+  svcErr = signal<string | null>(null);
+
   processFilter = signal('');
   processSort = signal<'cpu' | 'rss' | 'pid'>('cpu');
   processesLoading = signal(false);
@@ -1233,6 +1291,27 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'Processes' && !this.processesLoaded() && !this.processesLoading()) {
       this.loadProcesses();
     }
+  }
+
+  /** Block J2: restart/stop/start a systemd unit on this host. */
+  controlService(action: 'restart' | 'stop' | 'start'): void {
+    const agent = this.agent();
+    const name = this.svcName().trim();
+    if (!agent || !name || this.svcBusy()) return;
+    this.svcBusy.set(true);
+    this.svcMsg.set(null);
+    this.svcErr.set(null);
+    this.agentService.serviceControl(agent.id, name, action).subscribe({
+      next: (res) => {
+        this.svcBusy.set(false);
+        const r = res.result as { changed?: boolean; msg?: string } | undefined;
+        this.svcMsg.set(`${action} ${name}: ${r?.msg ?? 'ok'}${r?.changed === false ? ' (no change)' : ''}`);
+      },
+      error: (e) => {
+        this.svcBusy.set(false);
+        this.svcErr.set(e?.error?.detail ?? `${action} failed`);
+      },
+    });
   }
 
   loadProcesses(): void {

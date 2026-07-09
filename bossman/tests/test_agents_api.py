@@ -396,3 +396,61 @@ async def test_dns_name_falls_back_to_inventory_hostname(db_session):
 
     await _cleanup(db_session, agent=sat, api_token=api_token)
     await _cleanup(db_session, agent=addressed)
+
+
+class _CallToolFake:
+    """Records call_tool invocations for the J2 service-control test."""
+
+    def __init__(self):
+        self.calls: list = []
+
+    async def call_tool(self, name, body):
+        self.calls.append((name, body))
+        return {"changed": True, "msg": f"{body.get('state')} {body.get('name')}"}
+
+
+async def test_service_control_invokes_systemd_module(db_session):
+    """Block J2: restart maps to the systemd module with state=restarted."""
+    agent = await _make_agent(db_session, address="10.0.0.9:8010")
+    api_token, raw = await _make_api_token(db_session)
+
+    app = create_app()
+    fake = _CallToolFake()
+    app.dependency_overrides[get_client_factory] = lambda: (lambda a, s: fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/service-control",
+            json={"service": "nginx", "action": "restart"},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["action"] == "restart"
+    assert fake.calls == [("systemd", {"name": "nginx", "state": "restarted"})]
+
+    await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
+async def test_service_control_rejects_bad_action(db_session):
+    agent = await _make_agent(db_session, address="10.0.0.9:8010")
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/service-control",
+            json={"service": "nginx", "action": "kill"},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 422
+    await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
+async def test_service_control_no_address_409(db_session):
+    agent = await _make_agent(db_session)  # no address
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/service-control",
+            json={"service": "nginx", "action": "stop"},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 409
+    await _cleanup(db_session, agent=agent, api_token=api_token)

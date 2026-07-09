@@ -303,6 +303,45 @@ async def update_agent(
     return {"agent_id": str(agent.id), "result": result}
 
 
+_SERVICE_ACTION_STATE = {"restart": "restarted", "stop": "stopped", "start": "started"}
+
+
+class ServiceControlRequest(BaseModel):
+    service: str
+    action: str  # restart | stop | start
+
+
+@router.post("/api/v1/agents/{agent_id}/service-control")
+async def service_control(
+    agent_id: UUID,
+    body: ServiceControlRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Block J2 — safe service control. Restart/stop/start a systemd unit on
+    an enrolled host through the agent's idempotent `systemd` module (which
+    is write-gated + ACL-checked + audited on the agent). No raw PID-kill
+    (deliberate). A read-only agent (write=false) rejects it (surfaced as
+    502 from the agent's 403)."""
+    action = body.action.strip().lower()
+    state = _SERVICE_ACTION_STATE.get(action)
+    if state is None:
+        raise HTTPException(status_code=422, detail="action must be one of: restart, stop, start")
+    if not body.service.strip():
+        raise HTTPException(status_code=422, detail="service must not be empty")
+    agent = await _get_agent_or_404(session, agent_id)
+    if not agent.address:
+        raise HTTPException(status_code=409, detail="agent has no direct address (satellite/unenrolled)")
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("systemd", {"name": body.service.strip(), "state": state})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "service": body.service.strip(), "action": action, "result": result}
+
+
 class SyncModulesRequest(BaseModel):
     # None → push every translated module in the library; a list → just those.
     fqcns: list[str] | None = None
