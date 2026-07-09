@@ -52,7 +52,7 @@ the safety checks" part the name jokes about. Read the full model in
 
 ## What's implemented
 
-- **Full `ansible.builtin` module coverage, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
+- **A full built-in module library, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
   `command`, `raw`, `script`, `service`/`systemd`/`systemd_service`, `sysvinit`, `blockinfile`,
   `replace`, `assemble`, `tempfile`, `template`, `user`, `group`, `cron`, `hostname`, `timezone`,
   `apt_key`, `apt_repository`, `deb822_repository`, `dpkg_selections`, `debconf`, `yum`, `dnf`,
@@ -68,8 +68,8 @@ the safety checks" part the name jokes about. Read the full model in
   names its Ansible/Chef/Puppet/Salt/Terraform equivalent, so an AI can translate a task from any
   of those formats without external docs. See [docs/plan.md](docs/plan.md) for the module-by-module scope, the batches it
   was built in, and how each one was verified.
-- **`tools.d/`** — curated, named tool definitions written in literal Ansible-task YAML
-  (`ansible.builtin.<module>:` + `{{ placeholder }}` params), plus native argv command pipelines
+- **`tools.d/`** — curated, named tool definitions written in literal task YAML
+  (a bare `<module>:` key + `{{ placeholder }}` params), plus native argv command pipelines
   (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.
 - **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin, exposed as an MCP tool
   automatically.

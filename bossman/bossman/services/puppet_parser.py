@@ -209,7 +209,7 @@ def parse_puppet_manifest(source_text: str, name: str) -> dict[str, Any]:
                 f"puppet: resource type {rtype!r} is not mapped yet — supported: {', '.join(sorted(_MAPPING))}"
             )
         module, mbody = mapper(title, attrs)
-        steps.append({"name": f"{rtype}[{title}]", f"ansible.builtin.{module}": mbody})
+        steps.append({"name": f"{rtype}[{title}]", module: mbody})
 
     if not steps:
         raise PlanError("puppet: no resources found")

@@ -96,7 +96,7 @@ async def test_translate_chunk_reuses_when_similar_translated_chunk_exists(db_se
     embedding_client.register("apt install docker-ce and ca-certificates", _vec(0.99, 0.01))
 
     translated = json.dumps(
-        {"os_family": None, "steps": [{"name": "s", "ansible.builtin.apt": {"name": ["docker-ce"], "state": "present"}}]}
+        {"os_family": None, "steps": [{"name": "s", "apt": {"name": ["docker-ce"], "state": "present"}}]}
     )
     await index_chunk(
         db_session, embedding_client,

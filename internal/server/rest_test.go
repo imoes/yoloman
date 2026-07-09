@@ -32,7 +32,7 @@ func newRESTTestServer(t *testing.T, write bool) (*httptest.Server, store.Store)
 	deployTask, err := tasks.ParseFile([]byte(`
 name: deploy_motd
 description: "x"
-ansible.builtin.copy:
+copy:
   dest: ` + filepath.Join(t.TempDir(), "motd") + `
   content: "{{ message }}"
 params:

@@ -1,6 +1,6 @@
 // Package tasks parses tools.d/*.yaml files — curated, named tool
-// definitions written in Ansible-task syntax (an "ansible.builtin.<module>:"
-// key with fixed/pre-supplied parameters, optionally with {{ placeholder }}
+// definitions written in task syntax (a bare "<module>:" key, or a
+// collection FQCN, with fixed/pre-supplied parameters, optionally {{ placeholder }}
 // values filled in by the caller) or as a predefined command pipeline — and
 // resolves them against the module registry / pipeline executor at call
 // time.
@@ -48,16 +48,16 @@ type Task struct {
 
 const ansiblePrefix = "ansible.builtin."
 
-// moduleKeyRe matches a module step/task key: an FQCN-shaped dotted
-// identifier — `ansible.builtin.file` (native) or a collection FQCN like
+// moduleKeyRe matches a module step/task key: a bare native module name
+// (`file`, `copy`, `service`) or a collection FQCN like
 // `community.crypto.openssl_privatekey` (a translated Starlark module the
-// agent can now execute — Block G3). Generalizes the former builtin-only
-// guard (roadmap #4).
-var moduleKeyRe = regexp.MustCompile(`^[a-z0-9_]+(?:\.[a-z0-9_]+)+$`)
+// agent executes — Block G3). yolo-man's native modules take NO prefix; a
+// legacy `ansible.builtin.` prefix is still accepted (compat).
+var moduleKeyRe = regexp.MustCompile(`^[a-z0-9_]+(?:\.[a-z0-9_]+)*$`)
 
-// moduleName is the name to dispatch: the bare name for an ansible.builtin.*
-// key (native modules register bare), or the full FQCN for a collection
-// module (registered under its FQCN by the G3 loader).
+// moduleName is the name to dispatch: a bare native name as-is, the full
+// FQCN for a collection module, or the bare name for a legacy
+// ansible.builtin.* key (compat strip).
 func moduleName(key string) string {
 	if strings.HasPrefix(key, ansiblePrefix) {
 		return strings.TrimPrefix(key, ansiblePrefix)
@@ -120,7 +120,7 @@ func parseRaw(raw map[string]any) (*Task, error) {
 			continue
 		}
 		if !moduleKeyRe.MatchString(k) {
-			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, check, or a single ansible.builtin.<module> / collection FQCN key)", name, k)
+			return nil, fmt.Errorf("task %q: unexpected top-level key %q (want name, description, params, pipeline, check, or a single <module> / collection FQCN key)", name, k)
 		}
 		if moduleKey != "" {
 			return nil, fmt.Errorf("task %q: multiple module keys found (%q and %q); exactly one module task is supported per file", name, moduleKey, k)
@@ -158,7 +158,7 @@ func parseRaw(raw map[string]any) (*Task, error) {
 		}
 		return &Task{Name: name, Description: description, Params: params, Check: argv}, nil
 	default:
-		return nil, fmt.Errorf("task %q: exactly one of an ansible.builtin.<module> key, a 'pipeline' key, or a 'check' key is required", name)
+		return nil, fmt.Errorf("task %q: exactly one of a <module> key, a 'pipeline' key, or a 'check' key is required", name)
 	}
 }
 

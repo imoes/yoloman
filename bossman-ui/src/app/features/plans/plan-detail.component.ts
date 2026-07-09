@@ -67,7 +67,7 @@ import { RunPlanDialogComponent } from './run-plan-dialog.component';
                   <strong>{{ step.name }}</strong>
                   <span class="bm-step-kind">{{ step.kind }}</span>
                   @if (step.module) {
-                    <span class="bm-step-module">ansible.builtin.{{ step.module }}</span>
+                    <span class="bm-step-module">{{ step.module }}</span>
                   }
                   @if (step.check_mode) {
                     <span class="bm-step-flag">check_mode</span>

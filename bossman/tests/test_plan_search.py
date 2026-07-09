@@ -32,7 +32,7 @@ class FakeEmbeddingClient:
 
 
 def _plan(name, description):
-    text = f"name: {name}\ndescription: {description!r}\nsteps:\n  - name: s\n    ansible.builtin.copy: {{dest: /tmp/x}}\n"
+    text = f"name: {name}\ndescription: {description!r}\nsteps:\n  - name: s\n    copy: {{dest: /tmp/x}}\n"
     return parse_plan(text.encode(), Path(f"{name}.yaml"))
 
 

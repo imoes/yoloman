@@ -1,7 +1,7 @@
 """Deterministic Salt (.sls) → canonical plan parser (docs/zielbestimmung.md
 roadmap: Salt first, YAML-near). A Salt state file is YAML: a mapping of
 state-IDs to `<module>.<function>: [args]` blocks. Each state becomes one
-canonical plan step (`ansible.builtin.<module>: {...}`), feeding the SAME
+canonical plan step (`<module>: {...}`), feeding the SAME
 plan store as NestedText/YAML/JSON — prefix "salt".
 
 Deterministic and lossless in intent: every state function is either mapped
@@ -177,7 +177,7 @@ def parse_salt_sls(source_text: str, name: str) -> dict[str, Any]:
             params = _merge_args(args)
             params.setdefault("name", state_id)
             module, body = mapper(params, state_id)
-            steps.append({"name": state_id, f"ansible.builtin.{module}": body})
+            steps.append({"name": state_id, module: body})
 
     if not steps:
         raise PlanError("salt: no states found")

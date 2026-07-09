@@ -106,7 +106,7 @@ params:
   message: { type: string, required: true }
 steps:
   - name: write_it
-    ansible.builtin.copy:
+    copy:
       dest: /etc/motd
       content: "{{ message }}"
 """
@@ -252,7 +252,7 @@ async def test_search_plans_returns_empty_for_unrelated_query(db_session, sessio
 async def test_get_catalog_unchanged_until_explicit_reload(tmp_path):
     cache = CatalogCache(str(tmp_path))
     before = cache.catalog_markdown
-    (tmp_path / "new_plan.yaml").write_text("name: new_plan\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
+    (tmp_path / "new_plan.yaml").write_text("name: new_plan\nsteps:\n  - name: s\n    copy: {}\n")
 
     assert cache.catalog_markdown == before  # a new file on disk does not change the cached text
     after = cache.reload()

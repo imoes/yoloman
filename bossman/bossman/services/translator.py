@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.services.chat_client import ChatClient, ChatClientError
 from bossman.services.chunk_similarity import find_similar_chunks, index_chunk
 from bossman.services.embedding_client import EmbeddingClient
-from bossman.services.plan_loader import ANSIBLE_PREFIX, Chunk, PlanError, hash_source_text, parse_plan
+from bossman.services.plan_loader import Chunk, PlanError, hash_source_text, parse_plan
 
 # The exact module names implemented in internal/modules/*.go (each
 # module's own Name() method) — kept in sync by hand, the same accepted
@@ -78,7 +78,7 @@ _CHUNK_JSON_SCHEMA = {
 _SYSTEM_PROMPT = (
     "You translate one source automation-role file (e.g. an Ansible task file) into a single "
     "Bossman plan chunk: a list of module-call steps. Each step calls exactly one of Bossman's "
-    "own built-in modules (the same names and parameters as the equivalent ansible.builtin "
+    "own built-in modules (the same names and parameters as the equivalent Ansible built-in "
     "module — Bossman's modules mirror Ansible's parameter names directly, but only Ansible's "
     "primary parameter name, never a legacy alias: the apt module's package list is always "
     "\"name\", never \"pkg\"; a symlink's own path is always \"path\", never \"dest\"). Only emit "
@@ -105,11 +105,11 @@ class TranslationResult:
 def _reshape_step(step: dict) -> dict:
     """Converts one LLM-produced step ({name, module, params, when?,
     register?, check_mode?}) into the real plan-step dict parse_plan
-    expects (an ansible.builtin.<module>: params key) — done in Python
-    rather than asked of the LLM directly, since a literal dotted key is
+    expects (a bare `<module>: params` key) — done in Python
+    rather than asked of the LLM directly, since a literal step key is
     more error-prone for a model to produce reliably than a plain "module"
     string field constrained by a schema enum."""
-    out = {"name": step["name"], f"{ANSIBLE_PREFIX}{step['module']}": step["params"]}
+    out = {"name": step["name"], step["module"]: step["params"]}
     if step.get("when") is not None:
         out["when"] = step["when"]
     if step.get("register") is not None:
@@ -214,7 +214,7 @@ async def translate_chunk(
 
 
 def _raw_steps(llm_steps: list[dict]) -> list[dict]:
-    """The reshaped (ansible.builtin.<module>: params) form of every step,
+    """The reshaped (`<module>: params`) form of every step,
     for storage in translated_json — the same shape _wrap_as_plan_doc
     already builds, factored out so it's computed once from the LLM's
     already-validated output rather than re-derived from the parsed Chunk

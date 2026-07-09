@@ -214,7 +214,7 @@ def parse_chef_recipe(source_text: str, name: str) -> dict[str, Any]:
                 f"chef: resource type {cur_type!r} is not mapped yet — supported: {', '.join(sorted(_MAPPING))}"
             )
         module, body = mapper(cur_name, cur_attrs)
-        steps.append({"name": f"{cur_type}[{cur_name}]", f"ansible.builtin.{module}": body})
+        steps.append({"name": f"{cur_type}[{cur_name}]", module: body})
         cur_type = None
 
     for lineno, raw_line in enumerate(source_text.splitlines(), start=1):

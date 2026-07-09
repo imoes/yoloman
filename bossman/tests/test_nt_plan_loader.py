@@ -34,19 +34,19 @@ chunks:
         steps:
             -
                 name: make_dir
-                ansible.builtin.file:
+                file:
                     path: /etc/demo
                     state: directory
                     mode: 0755
             -
                 name: check_conf
                 register: _conf
-                ansible.builtin.stat:
+                stat:
                     path: /etc/demo/demo.conf
             -
                 name: write_conf
                 when: not _conf.data.exists
-                ansible.builtin.copy:
+                copy:
                     dest: /etc/demo/demo.conf
                     content:
                         > key = value
@@ -64,7 +64,7 @@ chunks:
                         - daemon-reload
 final_handler:
     name: restart_demo
-    ansible.builtin.systemd:
+    systemd:
         name: demo
         state: restarted
 """

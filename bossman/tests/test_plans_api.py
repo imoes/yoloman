@@ -23,7 +23,7 @@ params:
   message: {{ type: string, required: true }}
 steps:
   - name: write_it
-    ansible.builtin.copy:
+    copy:
       dest: /etc/motd
       content: "{{{{ message }}}}"
 """

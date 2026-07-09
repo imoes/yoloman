@@ -33,14 +33,14 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
     <div class="bm-page">
       <h1>Modules</h1>
       <p class="bm-subtitle">
-        The agent's vocabulary: <code>ansible.builtin</code> runs native in Go, the collections run
+        The agent's vocabulary: the <code>built-in</code> modules run native in Go, the collections run
         as sandboxed Starlark modules — held centrally by Bossman, pulled by Duppys on demand.
       </p>
 
       @if (catalog(); as cat) {
         <div class="bm-collection-row">
           <mat-card class="bm-collection-card bm-collection-card--builtin">
-            <div class="bm-collection-name">ansible.builtin</div>
+            <div class="bm-collection-name">built-in</div>
             <div class="bm-collection-count">52 native Go modules</div>
             <app-perf-o-meter [value]="100" unit="%" />
           </mat-card>

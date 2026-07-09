@@ -40,7 +40,7 @@ params:
   message: { type: string, required: true }
 steps:
   - name: write_motd
-    ansible.builtin.copy:
+    copy:
       dest: /etc/motd
       content: "{{ message }}"
 """
@@ -91,7 +91,7 @@ steps:
   - name: place_it
     check_mode: true
     on_failure: continue
-    ansible.builtin.copy:
+    copy:
       src: "/var/lib/agentic-mcp/uploads/{{ vhost_name }}.conf"
       dest: "/etc/nginx/sites-available/{{ vhost_name }}.conf"
 """
@@ -117,12 +117,12 @@ def test_parse_plan_upload_step_and_step_flags(tmp_path):
         ("name: x\nsteps: []", "'steps' must be a non-empty list"),
         ("name: x", "must have either 'chunks' or 'steps'"),
         (
-            "name: x\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n    ansible.builtin.file: {}",
+            "name: x\nsteps:\n  - name: s\n    copy: {}\n    file: {}",
             "multiple module keys",
         ),
-        ("name: x\nsteps:\n  - name: s\n    bogus_key: {}", "unexpected key"),
+        ("name: x\nsteps:\n  - name: s\n    Bad Key: {}", "unexpected key"),
         (
-            "name: x\nsteps:\n  - name: s\n    on_failure: retry\n    ansible.builtin.copy: {}",
+            "name: x\nsteps:\n  - name: s\n    on_failure: retry\n    copy: {}",
             "on_failure must be",
         ),
         ("name: x\nsteps:\n  - {}", "missing required 'name'"),
@@ -135,16 +135,16 @@ def test_parse_plan_errors(tmp_path, content, message):
 
 
 def test_load_plans_dir_sorted_and_duplicate_detection(tmp_path):
-    _write(tmp_path, "b_plan.yaml", "name: b\nsteps:\n  - name: s\n    ansible.builtin.copy: {}")
-    _write(tmp_path, "a_plan.yaml", "name: a\nsteps:\n  - name: s\n    ansible.builtin.copy: {}")
+    _write(tmp_path, "b_plan.yaml", "name: b\nsteps:\n  - name: s\n    copy: {}")
+    _write(tmp_path, "a_plan.yaml", "name: a\nsteps:\n  - name: s\n    copy: {}")
 
     plans = load_plans_dir(tmp_path)
     assert [p.name for p in plans] == ["a", "b"]
 
 
 def test_load_plans_dir_duplicate_name_errors(tmp_path):
-    _write(tmp_path, "one.yaml", "name: dup\nsteps:\n  - name: s\n    ansible.builtin.copy: {}")
-    _write(tmp_path, "two.yaml", "name: dup\nsteps:\n  - name: s\n    ansible.builtin.copy: {}")
+    _write(tmp_path, "one.yaml", "name: dup\nsteps:\n  - name: s\n    copy: {}")
+    _write(tmp_path, "two.yaml", "name: dup\nsteps:\n  - name: s\n    copy: {}")
 
     with pytest.raises(PlanError, match="duplicate plan name"):
         load_plans_dir(tmp_path)
@@ -174,7 +174,7 @@ def test_resolve_params_precedence_default_then_host_vars_then_explicit(tmp_path
         "  a: { type: string, default: from_default }\n"
         "  b: { type: string, default: from_default }\n"
         "  c: { type: string, default: from_default }\n"
-        "steps:\n  - name: s\n    ansible.builtin.copy: {}\n",
+        "steps:\n  - name: s\n    copy: {}\n",
     )
     plan = parse_plan(path.read_bytes(), path)
 
@@ -184,7 +184,7 @@ def test_resolve_params_precedence_default_then_host_vars_then_explicit(tmp_path
 
 
 def test_resolve_params_missing_required_raises(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nparams:\n  a: { required: true }\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nparams:\n  a: { required: true }\nsteps:\n  - name: s\n    copy: {}\n")
     plan = parse_plan(path.read_bytes(), path)
 
     with pytest.raises(PlanError, match="missing required parameter"):
@@ -195,7 +195,7 @@ def test_resolve_params_pattern_mismatch_raises(tmp_path):
     path = _write(
         tmp_path,
         "p.yaml",
-        "name: p\nparams:\n  a: { pattern: '^[a-z]+$' }\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n",
+        "name: p\nparams:\n  a: { pattern: '^[a-z]+$' }\nsteps:\n  - name: s\n    copy: {}\n",
     )
     plan = parse_plan(path.read_bytes(), path)
 
@@ -204,7 +204,7 @@ def test_resolve_params_pattern_mismatch_raises(tmp_path):
 
 
 def test_resolve_params_unknown_param_raises(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    copy: {}\n")
     plan = parse_plan(path.read_bytes(), path)
 
     with pytest.raises(PlanError, match="unknown parameter"):
@@ -213,7 +213,7 @@ def test_resolve_params_unknown_param_raises(tmp_path):
 
 def test_resolve_params_wrong_type_raises(tmp_path):
     path = _write(
-        tmp_path, "p.yaml", "name: p\nparams:\n  n: { type: number }\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n"
+        tmp_path, "p.yaml", "name: p\nparams:\n  n: { type: number }\nsteps:\n  - name: s\n    copy: {}\n"
     )
     plan = parse_plan(path.read_bytes(), path)
 
@@ -241,13 +241,13 @@ def test_substitute_unresolved_reference_raises():
 
 
 def test_plan_version_is_sha256_hex_and_changes_with_content(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    copy: {}\n")
     plan = parse_plan(path.read_bytes(), path)
     v1 = plan.version()
     assert len(v1) == 64
     int(v1, 16)  # must be valid hex
 
-    path.write_text("name: p\nsteps:\n  - name: s\n    ansible.builtin.file: {}\n")
+    path.write_text("name: p\nsteps:\n  - name: s\n    file: {}\n")
     plan2 = parse_plan(path.read_bytes(), path)
     assert plan2.version() != v1
 
@@ -256,7 +256,7 @@ def test_plan_version_does_not_reread_disk(tmp_path):
     """version() must be derivable from already-parsed, in-memory chunk
     data — no repeated disk read on every plan run (the original bug this
     chunk-hash design replaces)."""
-    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    copy: {}\n")
     plan = parse_plan(path.read_bytes(), path)
     v1 = plan.version()
 
@@ -265,14 +265,14 @@ def test_plan_version_does_not_reread_disk(tmp_path):
     assert plan.version() == v1
 
 
-FLAT_STEPS_PLAN = "name: p\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\n"
+FLAT_STEPS_PLAN = "name: p\nsteps:\n  - name: s\n    copy: {}\n"
 EXPLICIT_CHUNKS_PLAN = """
 name: p
 chunks:
   - name: main
     steps:
       - name: s
-        ansible.builtin.copy: {}
+        copy: {}
 """
 
 
@@ -294,7 +294,7 @@ def test_flat_steps_is_one_implicit_unconditional_chunk(tmp_path):
 
 
 def test_chunks_and_steps_together_is_an_error(tmp_path):
-    content = "name: p\nsteps:\n  - name: s\n    ansible.builtin.copy: {}\nchunks:\n  - name: c\n    steps:\n      - name: s\n        ansible.builtin.copy: {}\n"
+    content = "name: p\nsteps:\n  - name: s\n    copy: {}\nchunks:\n  - name: c\n    steps:\n      - name: s\n        copy: {}\n"
     path = _write(tmp_path, "p.yaml", content)
     with pytest.raises(PlanError, match="either 'chunks' or 'steps', not both"):
         parse_plan(path.read_bytes(), path)
@@ -305,11 +305,11 @@ name: conditional_plan
 steps:
   - name: check_dir
     register: _dir_stat
-    ansible.builtin.stat:
+    stat:
       path: /tmp/somewhere
   - name: create_if_missing
     when: not _dir_stat.data.exists
-    ansible.builtin.file:
+    file:
       path: /tmp/somewhere
       state: directory
 """
@@ -327,13 +327,13 @@ def test_parse_step_when_and_register(tmp_path):
 
 
 def test_parse_step_when_must_be_string(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    when: [1, 2]\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    when: [1, 2]\n    copy: {}\n")
     with pytest.raises(PlanError, match="'when' must be a string"):
         parse_plan(path.read_bytes(), path)
 
 
 def test_parse_step_register_must_be_string(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    register: [1, 2]\n    ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nsteps:\n  - name: s\n    register: [1, 2]\n    copy: {}\n")
     with pytest.raises(PlanError, match="'register' must be a string"):
         parse_plan(path.read_bytes(), path)
 
@@ -345,18 +345,18 @@ chunks:
     os_family: [debian]
     steps:
       - name: install_debian
-        ansible.builtin.apt:
+        apt:
           name: docker-ce
   - name: redhat_packages
     os_family: [redhat]
     steps:
       - name: install_redhat
-        ansible.builtin.package:
+        package:
           name: docker-ce
   - name: common
     steps:
       - name: enable_service
-        ansible.builtin.service:
+        service:
           name: docker
           state: started
 """
@@ -373,7 +373,7 @@ def test_parse_chunk_os_family(tmp_path):
 
 
 def test_parse_chunk_os_family_must_be_list_of_strings(tmp_path):
-    path = _write(tmp_path, "p.yaml", "name: p\nchunks:\n  - name: c\n    os_family: debian\n    steps:\n      - name: s\n        ansible.builtin.copy: {}\n")
+    path = _write(tmp_path, "p.yaml", "name: p\nchunks:\n  - name: c\n    os_family: debian\n    steps:\n      - name: s\n        copy: {}\n")
     with pytest.raises(PlanError, match="'os_family' must be a list of strings"):
         parse_plan(path.read_bytes(), path)
 
@@ -382,11 +382,11 @@ FINAL_HANDLER_PLAN = """
 name: with_handler
 steps:
   - name: install
-    ansible.builtin.apt:
+    apt:
       name: docker-ce
 final_handler:
   name: restart_docker
-  ansible.builtin.service:
+  service:
     name: docker
     state: restarted
 """
@@ -468,8 +468,8 @@ def test_render_catalog_markdown_byte_identical_and_host_independent(tmp_path):
 
 
 def test_render_catalog_markdown_sorted_and_excludes_step_bodies(tmp_path):
-    _write(tmp_path, "b_plan.yaml", "name: b\ndescription: second\nsteps:\n  - name: s\n    ansible.builtin.copy: {dest: /tmp/x}\n")
-    _write(tmp_path, "a_plan.yaml", "name: a\ndescription: first\nsteps:\n  - name: s\n    ansible.builtin.copy: {dest: /tmp/secret-path}\n")
+    _write(tmp_path, "b_plan.yaml", "name: b\ndescription: second\nsteps:\n  - name: s\n    copy: {dest: /tmp/x}\n")
+    _write(tmp_path, "a_plan.yaml", "name: a\ndescription: first\nsteps:\n  - name: s\n    copy: {dest: /tmp/secret-path}\n")
     plans = load_plans_dir(tmp_path)
 
     rendered = render_catalog_markdown(plans)
@@ -524,21 +524,24 @@ def test_img_docker_plan_parses_and_has_expected_chunk_shape():
     assert "docker_proxy_url" not in args  # optional, no default -> stays undefined
 
 
-# --- roadmap #4: FQCN module keys (collection modules callable) ---------
+# --- module keys: bare native names + collection FQCNs -----------------
 
-def test_collection_fqcn_module_key_keeps_full_name():
+def test_bare_and_fqcn_module_keys():
     raw = {"name": "p", "steps": [
         {"name": "gen", "community.crypto.openssl_privatekey": {"path": "/k.pem"}},
-        {"name": "f", "ansible.builtin.file": {"path": "/x", "state": "directory"}},
+        {"name": "f", "file": {"path": "/x", "state": "directory"}},
+        {"name": "legacy", "ansible.builtin.copy": {"dest": "/y"}},
     ]}
-    plan = build_plan_from_raw(raw, Path("p"))
-    steps = plan.chunks[0].steps
+    steps = build_plan_from_raw(raw, Path("p")).chunks[0].steps
     # collection module: full FQCN kept (matches the agent's G3 registration)
     assert steps[0].module == "community.crypto.openssl_privatekey"
-    # ansible.builtin.* still stripped to the bare native name
+    # bare native name used as-is (yolo-man takes no prefix)
     assert steps[1].module == "file"
+    # legacy ansible.builtin.* still accepted + stripped (compat)
+    assert steps[2].module == "copy"
 
 
-def test_non_dotted_unknown_key_still_rejected():
+def test_invalid_identifier_key_rejected():
+    # A key that isn't a valid module identifier (space/uppercase) is rejected.
     with pytest.raises(PlanError, match="unexpected key"):
-        build_plan_from_raw({"name": "p", "steps": [{"name": "s", "notamodule": {}}]}, Path("p"))
+        build_plan_from_raw({"name": "p", "steps": [{"name": "s", "Not A Module": {}}]}, Path("p"))

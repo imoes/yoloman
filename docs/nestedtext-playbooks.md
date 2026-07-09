@@ -46,7 +46,7 @@ removes.
 
 A plan has a `name`, optional `description` and `params`, and either a flat
 `steps:` list or named `chunks:` (each an OS-gated group of steps). Each step
-is exactly one of: an `ansible.builtin.<module>:` mapping, a `pipeline:`, or an
+is exactly one of: an `<module>:` mapping, a `pipeline:`, or an
 `upload:`. Steps may carry `when`, `register`, `loop`, `check_mode`, and
 `on_failure`.
 
@@ -72,19 +72,19 @@ chunks:
                 loop:
                     - ca-certificates
                     - curl
-                ansible.builtin.apt:
+                apt:
                     name: {item}
                     state: present
                     update_cache: true
             -
                 name: check_conf
                 register: conf
-                ansible.builtin.stat:
+                stat:
                     path: /etc/demo/demo.conf
             -
                 name: write_conf
                 when: not conf.data.exists
-                ansible.builtin.copy:
+                copy:
                     dest: /etc/demo/demo.conf
                     mode: 0644
                     content:
@@ -92,7 +92,7 @@ chunks:
                         > pkg = {pkg}
 final_handler:
     name: restart_demo
-    ansible.builtin.systemd:
+    systemd:
         name: demo
         state: restarted
 ```
@@ -128,13 +128,13 @@ Note the NestedText wins: `mode: 0644` needs no quotes, and the multiline
 
 The agent's local named tools in `tools.d/*.nt` load alongside `*.yaml`,
 parsing to the same `Task` (`internal/tasks/task.go`). One task file is one
-`name` plus exactly one of an `ansible.builtin.<module>:` mapping, a
+`name` plus exactly one of an `<module>:` mapping, a
 `pipeline:`, or a `check:`.
 
 ```nestedtext
 name: restart_nginx
 description: restart nginx
-ansible.builtin.service:
+service:
     name: nginx
     state: restarted
 ```

@@ -11,7 +11,7 @@ from bossman.services.plan_loader import PLAN_FILE_SUFFIXES, PlanError, load_pla
 
 PLAN = {
     "name": "jdemo",
-    "steps": [{"name": "s1", "ansible.builtin.file": {"path": "/etc/x", "state": "directory"}}],
+    "steps": [{"name": "s1", "file": {"path": "/etc/x", "state": "directory"}}],
 }
 
 
@@ -32,8 +32,8 @@ def test_parse_plan_json_rejects_bad():
 
 # NestedText module body: nested keys (not inline `{}`, which NestedText
 # reads as the string "{}").
-_NT = "name: {n}\nsteps:\n    -\n        name: s\n        ansible.builtin.file:\n            path: /x\n            state: directory\n"
-_YAML = "name: {n}\nsteps:\n  - name: s\n    ansible.builtin.file:\n      path: /x\n      state: directory\n"
+_NT = "name: {n}\nsteps:\n    -\n        name: s\n        file:\n            path: /x\n            state: directory\n"
+_YAML = "name: {n}\nsteps:\n  - name: s\n    file:\n      path: /x\n      state: directory\n"
 
 
 def test_load_plan_file_dispatches_by_extension(tmp_path):

@@ -39,7 +39,7 @@ genügt.
 
 5. **Modulvertrag JSON-in / JSON-out** (wie Ansible): jedes Modul bekommt ein
    JSON-Objekt an Argumenten und liefert genau ein JSON-Ergebnisobjekt
-   (`changed`, `msg`, `data`). Native Go-Module für `ansible.builtin`,
+   (`changed`, `msg`, `data`). Native Go-Module (die eingebaute Bibliothek),
    sandboxed **Starlark** für Collections (Logik als Code, nicht als Daten).
 
 6. **Monitoring ist Teil desselben Systems:** Duppys und Selectas liefern alle

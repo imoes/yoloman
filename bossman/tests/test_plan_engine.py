@@ -68,7 +68,7 @@ params:
   message: { type: string, required: true }
 steps:
   - name: write_motd
-    ansible.builtin.copy:
+    copy:
       dest: /etc/motd
       content: "{{ message }}"
 """
@@ -124,9 +124,9 @@ name: two_steps
 steps:
   - name: first
     on_failure: continue
-    ansible.builtin.copy: {}
+    copy: {}
   - name: second
-    ansible.builtin.file: {}
+    file: {}
 """
 
 
@@ -147,9 +147,9 @@ ABORT_PLAN = """
 name: abort_default
 steps:
   - name: first
-    ansible.builtin.copy: {}
+    copy: {}
   - name: second
-    ansible.builtin.file: {}
+    file: {}
 """
 
 
@@ -186,7 +186,7 @@ name: step_level_check_mode
 steps:
   - name: validate
     check_mode: true
-    ansible.builtin.command:
+    command:
       cmd: "nginx -t"
 """
 
@@ -314,11 +314,11 @@ name: register_when_plan
 steps:
   - name: check_dir
     register: _dir_stat
-    ansible.builtin.stat:
+    stat:
       path: /tmp/somewhere
   - name: create_if_missing
     when: not _dir_stat.data.exists
-    ansible.builtin.file:
+    file:
       path: /tmp/somewhere
       state: directory
 """
@@ -363,7 +363,7 @@ name: bad_when_plan
 steps:
   - name: guarded
     when: docker.proxy | default('x')
-    ansible.builtin.copy: {}
+    copy: {}
 """
 
 
@@ -390,18 +390,18 @@ chunks:
     os_family: [debian]
     steps:
       - name: install_debian
-        ansible.builtin.apt:
+        apt:
           name: docker-ce
   - name: redhat_packages
     os_family: [redhat]
     steps:
       - name: install_redhat
-        ansible.builtin.package:
+        package:
           name: docker-ce
   - name: common
     steps:
       - name: enable_service
-        ansible.builtin.service:
+        service:
           name: docker
           state: started
 """
@@ -474,11 +474,11 @@ FINAL_HANDLER_PLAN = """
 name: with_handler
 steps:
   - name: install
-    ansible.builtin.apt:
+    apt:
       name: docker-ce
 final_handler:
   name: restart_docker
-  ansible.builtin.service:
+  service:
     name: docker
     state: restarted
 """
@@ -518,14 +518,14 @@ ABORT_WITH_HANDLER_PLAN = """
 name: abort_with_handler
 steps:
   - name: first
-    ansible.builtin.apt:
+    apt:
       name: docker-ce
   - name: second
-    ansible.builtin.file:
+    file:
       path: /data1
 final_handler:
   name: restart_docker
-  ansible.builtin.service:
+  service:
     name: docker
     state: restarted
 """
@@ -554,7 +554,7 @@ steps:
   - name: install_each
     register: pkgs
     loop: [curl, git, htop]
-    ansible.builtin.apt:
+    apt:
       name: "{{ item }}"
       state: present
 """
@@ -588,10 +588,10 @@ name: loop_registered
 steps:
   - name: discover
     register: found
-    ansible.builtin.command: {}
+    command: {}
   - name: act_on_each
     loop: found.data.names
-    ansible.builtin.file:
+    file:
       path: "{{ item }}"
 """
 
@@ -620,7 +620,7 @@ name: loop_bad
 steps:
   - name: nope
     loop: does.not.exist
-    ansible.builtin.file: {}
+    file: {}
 """
 
 

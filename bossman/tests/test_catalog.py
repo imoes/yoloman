@@ -16,7 +16,7 @@ params:
   message: { type: string, required: true, pattern: '^[a-z]+$' }
 steps:
   - name: s
-    ansible.builtin.copy:
+    copy:
       dest: /etc/motd
       content: "{{ message }}"
 """
@@ -26,7 +26,7 @@ name: plan_b
 description: "second plan"
 steps:
   - name: s
-    ansible.builtin.file:
+    file:
       path: /tmp/x
       state: touch
 """

@@ -47,7 +47,7 @@ func TestRegisterTasks_ReadOnlyTaskAlwaysRegistered(t *testing.T) {
 	task := mustParseTask(t, `
 name: check_root
 description: "check /"
-ansible.builtin.stat:
+stat:
   path: /
 `)
 	modReg := modules.NewRegistry()
@@ -64,7 +64,7 @@ func TestRegisterTasks_WriteTaskHiddenWhenWriteFalse(t *testing.T) {
 	task := mustParseTask(t, `
 name: restart_nginx
 description: "restart nginx"
-ansible.builtin.systemd:
+systemd:
   name: nginx
   state: restarted
 `)
@@ -82,7 +82,7 @@ func TestRegisterTasks_WriteTaskPresentWhenWriteTrue(t *testing.T) {
 	task := mustParseTask(t, `
 name: restart_nginx
 description: "restart nginx"
-ansible.builtin.systemd:
+systemd:
   name: nginx
   state: restarted
 `)
@@ -103,7 +103,7 @@ func TestRegisterTasks_CallRoundTrip(t *testing.T) {
 	task := mustParseTask(t, `
 name: deploy_motd
 description: "set motd"
-ansible.builtin.copy:
+copy:
   dest: `+dest+`
   content: "{{ message }}"
 params:

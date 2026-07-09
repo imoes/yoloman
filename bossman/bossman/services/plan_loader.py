@@ -2,7 +2,7 @@
 plan, section B.5 and the later chunked-plan-caching + Ansible-ingestion
 plan) — a filesystem-native, multi-step extension of the Go node agent's
 own tools.d/*.yaml single-task syntax (internal/tasks/task.go): same
-`ansible.builtin.<module>:` key, `params: {type, required, pattern,
+bare `<module>:` key, `params: {type, required, pattern,
 default}`, and `{{ placeholder }}` substitution semantics (a string that
 is *entirely* one placeholder keeps the argument's native type; a
 placeholder embedded in a larger string is stringified) — deliberately
@@ -34,18 +34,20 @@ from typing import Any
 import yaml
 
 ANSIBLE_PREFIX = "ansible.builtin."
-# A module step key is a dotted, FQCN-shaped identifier: `ansible.builtin.file`
-# (native) OR a collection FQCN like `community.crypto.openssl_privatekey` (a
-# translated Starlark module the agent can now execute — Block G3). This
-# generalizes the former ansible.builtin-only guard (roadmap #4).
-_MODULE_KEY_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+# A module step key is a bare native module name (`file`, `copy`, `service`)
+# or a collection FQCN (`community.crypto.openssl_privatekey`, a translated
+# Starlark module the agent executes — Block G3). yolo-man's native modules
+# are referenced WITHOUT a prefix (the product is yolo-man, not Ansible); a
+# legacy `ansible.builtin.` prefix is still accepted and stripped for
+# backward compatibility with older/imported plans.
+_MODULE_KEY_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)*$")
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 
 
 def _module_name(key: str) -> str:
-    """The module name to dispatch: the bare name for an ansible.builtin.*
-    key (native modules register under bare names), or the full FQCN for a
-    collection module (registered under its FQCN by the G3 loader)."""
+    """The module name to dispatch: a bare native name as-is, the full FQCN
+    for a collection module (registered under its FQCN by the G3 loader), or
+    the bare name for a legacy `ansible.builtin.*` key (compat strip)."""
     if key.startswith(ANSIBLE_PREFIX):
         return key[len(ANSIBLE_PREFIX):]
     return key
@@ -237,7 +239,7 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
     kinds_present = sum(x is not None for x in (module_key, pipeline_raw, upload_raw))
     if kinds_present != 1:
         raise PlanError(
-            f"plan {plan_name!r}, step {name!r}: exactly one of an ansible.builtin.<module> key, "
+            f"plan {plan_name!r}, step {name!r}: exactly one of a <module> key, "
             "'pipeline', or 'upload' is required"
         )
 

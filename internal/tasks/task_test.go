@@ -15,7 +15,7 @@ func TestParseFile_ModuleTaskWithFixedParams(t *testing.T) {
 	task, err := ParseFile([]byte(`
 name: restart_nginx
 description: "restart nginx"
-ansible.builtin.service:
+service:
   name: nginx
   state: restarted
 `))
@@ -37,7 +37,7 @@ func TestParseFile_ModuleTaskWithPlaceholderParam(t *testing.T) {
 	task, err := ParseFile([]byte(`
 name: deploy_motd
 description: "set motd"
-ansible.builtin.copy:
+copy:
   dest: /etc/motd
   content: "{{ message }}"
 params:
@@ -110,7 +110,7 @@ func TestParseFile_BothModuleAndPipeline(t *testing.T) {
 	_, err := ParseFile([]byte(`
 name: bad
 description: "x"
-ansible.builtin.command:
+command:
   cmd: "ls"
 pipeline:
   - [ls]
@@ -124,14 +124,14 @@ func TestParseFile_MultipleModuleKeys(t *testing.T) {
 	_, err := ParseFile([]byte(`
 name: bad
 description: "x"
-ansible.builtin.command:
+command:
   cmd: "ls"
-ansible.builtin.copy:
+copy:
   dest: /tmp/x
   content: "y"
 `))
 	if err == nil {
-		t.Fatal("expected error for multiple ansible.builtin.* keys")
+		t.Fatal("expected error for multiple * keys")
 	}
 }
 
@@ -140,7 +140,7 @@ func TestParseFile_UnexpectedTopLevelKey(t *testing.T) {
 name: bad
 description: "x"
 random_key: 1
-ansible.builtin.command:
+command:
   cmd: "ls"
 `))
 	if err == nil {
@@ -152,7 +152,7 @@ func TestParseFile_InvalidParamType(t *testing.T) {
 	_, err := ParseFile([]byte(`
 name: bad
 description: "x"
-ansible.builtin.command:
+command:
   cmd: "ls"
 params:
   foo:
@@ -167,7 +167,7 @@ func TestParseFile_InvalidParamPattern(t *testing.T) {
 	_, err := ParseFile([]byte(`
 name: bad
 description: "x"
-ansible.builtin.command:
+command:
   cmd: "ls"
 params:
   foo:
@@ -186,7 +186,7 @@ func TestTask_Writes_ModuleTaskDelegatesToModule(t *testing.T) {
 	readTask, _ := ParseFile([]byte(`
 name: check_path
 description: "x"
-ansible.builtin.stat:
+stat:
   path: /tmp
 `))
 	writes, err := readTask.Writes(reg)
@@ -197,7 +197,7 @@ ansible.builtin.stat:
 	writeTask, _ := ParseFile([]byte(`
 name: run_something
 description: "x"
-ansible.builtin.command:
+command:
   cmd: "ls"
 `))
 	writes, err = writeTask.Writes(reg)
@@ -235,7 +235,7 @@ func TestTask_Writes_UnknownModule(t *testing.T) {
 	task, _ := ParseFile([]byte(`
 name: bad
 description: "x"
-ansible.builtin.nonexistent_module:
+nonexistent_module:
   foo: bar
 `))
 	if _, err := task.Writes(modules.NewRegistry()); err == nil {
@@ -253,7 +253,7 @@ func TestTask_Run_ModuleTaskWithFixedParams(t *testing.T) {
 	task, err := ParseFile([]byte(`
 name: check_it
 description: "x"
-ansible.builtin.stat:
+stat:
   path: ` + target + `
 `))
 	if err != nil {
@@ -278,7 +278,7 @@ func TestTask_Run_ModuleTaskWithPlaceholderSubstitution(t *testing.T) {
 	task, err := ParseFile([]byte(`
 name: deploy_motd
 description: "x"
-ansible.builtin.copy:
+copy:
   dest: ` + dest + `
   content: "{{ message }}"
 params:
@@ -310,7 +310,7 @@ func TestTask_Run_MissingRequiredParam(t *testing.T) {
 	task, _ := ParseFile([]byte(`
 name: deploy_motd
 description: "x"
-ansible.builtin.copy:
+copy:
   dest: /tmp/x
   content: "{{ message }}"
 params:
@@ -329,7 +329,7 @@ func TestTask_Run_UnknownParamRejected(t *testing.T) {
 	task, _ := ParseFile([]byte(`
 name: deploy_motd
 description: "x"
-ansible.builtin.copy:
+copy:
   dest: /tmp/x
   content: "fixed"
 `))
@@ -344,7 +344,7 @@ func TestTask_Run_ParamPatternValidation(t *testing.T) {
 	task, _ := ParseFile([]byte(`
 name: restart_unit
 description: "x"
-ansible.builtin.systemd:
+systemd:
   name: "{{ unit }}"
   state: restarted
 params:
@@ -503,8 +503,8 @@ func TestLoadDir_ParsesAllFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("a.yaml", "name: a\ndescription: x\nansible.builtin.command:\n  cmd: ls\n")
-	write("b.yml", "name: b\ndescription: x\nansible.builtin.command:\n  cmd: ls\n")
+	write("a.yaml", "name: a\ndescription: x\ncommand:\n  cmd: ls\n")
+	write("b.yml", "name: b\ndescription: x\ncommand:\n  cmd: ls\n")
 	write("ignored.txt", "not a task file")
 
 	list, err := LoadDir(dir)
@@ -523,8 +523,8 @@ func TestLoadDir_DuplicateNameRejected(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("a.yaml", "name: dup\ndescription: x\nansible.builtin.command:\n  cmd: ls\n")
-	write("b.yaml", "name: dup\ndescription: x\nansible.builtin.command:\n  cmd: ls\n")
+	write("a.yaml", "name: dup\ndescription: x\ncommand:\n  cmd: ls\n")
+	write("b.yaml", "name: dup\ndescription: x\ncommand:\n  cmd: ls\n")
 
 	if _, err := LoadDir(dir); err == nil {
 		t.Fatal("expected error for duplicate task name across files")
@@ -545,7 +545,7 @@ func TestTask_InputSchema(t *testing.T) {
 	task, _ := ParseFile([]byte(`
 name: deploy_motd
 description: "x"
-ansible.builtin.copy:
+copy:
   dest: /etc/motd
   content: "{{ message }}"
 params:
@@ -573,7 +573,7 @@ func TestParseFileNT_ModuleTaskEquivalentToYAML(t *testing.T) {
 		"    svc:\n" +
 		"        type: string\n" +
 		"        required: true\n" +
-		"ansible.builtin.service:\n" +
+		"service:\n" +
 		"    name: nginx\n" +
 		"    state: restarted\n")
 	task, err := ParseFileNT(nt)
@@ -618,8 +618,9 @@ func TestParseFileNT_RejectsMissingName(t *testing.T) {
 }
 
 func TestParseFile_CollectionFQCNModuleKey(t *testing.T) {
-	// roadmap #4: a collection FQCN key keeps its full name (matches the
-	// agent's G3 registration); ansible.builtin.* is still stripped.
+	// A collection FQCN key keeps its full name (matches the agent's G3
+	// registration); a bare native name is used as-is (yolo-man takes no
+	// prefix); a legacy ansible.builtin.* key is still stripped.
 	task, err := ParseFile([]byte("name: gen_key\n" +
 		"community.crypto.openssl_privatekey:\n  path: /k.pem\n"))
 	if err != nil {
@@ -628,7 +629,12 @@ func TestParseFile_CollectionFQCNModuleKey(t *testing.T) {
 	if task.Module != "community.crypto.openssl_privatekey" {
 		t.Errorf("module = %q, want full FQCN", task.Module)
 	}
-	if _, err := ParseFile([]byte("name: x\nnotamodule:\n  a: b\n")); err == nil {
-		t.Error("expected error for non-FQCN unknown key")
+	bare, err := ParseFile([]byte("name: r\nservice:\n  name: nginx\n  state: restarted\n"))
+	if err != nil || bare.Module != "service" {
+		t.Errorf("bare module: module=%q err=%v", bare.Module, err)
+	}
+	// A key that isn't a valid module identifier (space/uppercase) is rejected.
+	if _, err := ParseFile([]byte("name: x\n\"Not A Module\":\n  a: b\n")); err == nil {
+		t.Error("expected error for an invalid (non-identifier) key")
 	}
 }

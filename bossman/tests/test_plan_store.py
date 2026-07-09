@@ -21,7 +21,7 @@ description:
 steps:
     -
         name: make_dir
-        ansible.builtin.file:
+        file:
             path: /etc/demo
             state: directory
             mode: 0755
@@ -39,7 +39,7 @@ description: >
   A demo.
 steps:
   - name: make_dir
-    ansible.builtin.file:
+    file:
       path: /etc/demo
       state: directory
       mode: "0755"
@@ -60,7 +60,7 @@ def test_canonical_from_source_accepts_nt_yaml_json():
         assert body["name"] == "eqdemo"
         assert body["steps"][0]["name"] == "make_dir"
     # JSON round-trips the same structure.
-    j = canonical_from_source("json", '{"name":"j","steps":[{"name":"s","ansible.builtin.file":{"path":"/x"}}]}')
+    j = canonical_from_source("json", '{"name":"j","steps":[{"name":"s","file":{"path":"/x"}}]}')
     assert j["name"] == "j"
 
 

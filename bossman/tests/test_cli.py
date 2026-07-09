@@ -18,7 +18,7 @@ steps:
         loop:
             - curl
             - git
-        ansible.builtin.apt:
+        apt:
             name: {item}
             state: present
 """
@@ -55,7 +55,7 @@ def test_convert_yaml_to_nt_and_back_roundtrips_structure(tmp_path, capsys):
         "name: conv\n"
         "steps:\n"
         "  - name: s1\n"
-        "    ansible.builtin.file:\n"
+        "    file:\n"
         "      path: /tmp/x\n"
         "      mode: '0755'\n"
     )
