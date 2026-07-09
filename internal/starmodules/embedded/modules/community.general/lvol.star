@@ -36,11 +36,14 @@ def main(ctx, params):
     if len(parts) < 2:
         fail("Failed to parse LVM version from: " + version_line)
     ver_text = parts[1].strip()
-    # Find first three dot-separated numbers
+    # Find first three dot-separated numbers. Real `lvm version` prints e.g.
+    # "2.03.31(2) (2025-02-27)" — strip any "(...)" build suffix before the
+    # digit check, or the parens make isdigit() fail (found via live test).
     ver_nums = []
     for seg in ver_text.split():
-        if seg.replace(".", "").isdigit() and seg.count(".") == 2:
-            major, minor, patch = seg.split(".")
+        core = seg.split("(")[0]
+        if core.count(".") == 2 and core.replace(".", "").isdigit():
+            major, minor, patch = core.split(".")
             ver_nums = [int(major), int(minor), int(patch)]
             break
     if not ver_nums:
