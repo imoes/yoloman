@@ -123,18 +123,29 @@ async def _run_plan_cli(args: argparse.Namespace) -> int:
     from bossman.db.models import Agent
     from bossman.services.agent_client import client_for
     from bossman.services.plan_engine import run_plan
+    from bossman.services.plan_store import load_plan as store_load_plan
 
-    try:
-        plan = load_plan_any(args.file)
-    except (PlanError, OSError) as exc:
-        print(f"INVALID: {exc}", file=sys.stderr)
-        return 1
+    # A file plan can be parsed up front; a --from-db plan is loaded inside
+    # the session below (args.file is then the plan NAME).
+    plan = None
+    if not args.from_db:
+        try:
+            plan = load_plan_any(args.file)
+        except (PlanError, OSError) as exc:
+            print(f"INVALID: {exc}", file=sys.stderr)
+            return 1
 
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with session_factory() as session:
+            if args.from_db:
+                try:
+                    plan = await store_load_plan(session, args.prefix, args.file)
+                except PlanError as exc:
+                    print(f"no stored plan {args.prefix}/{args.file}: {exc}", file=sys.stderr)
+                    return 1
             agent = await session.scalar(select(Agent).where(Agent.name == args.host))
             if agent is None:
                 print(f"no enrolled host named {args.host!r}", file=sys.stderr)
@@ -178,10 +189,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_conv.set_defaults(func=_cmd_convert)
 
     p_run = sub.add_parser("run", help="run a playbook against an enrolled host")
-    p_run.add_argument("file")
+    p_run.add_argument("file", help="playbook file, or (with --from-db) the stored plan NAME")
     p_run.add_argument("--host", required=True, help="name of the enrolled agent to run against")
     p_run.add_argument("--param", action="append", default=[], metavar="KEY=VALUE", help="plan parameter (repeatable)")
     p_run.add_argument("--check", action="store_true", help="dry-run (check_mode) — no changes made")
+    p_run.add_argument("--from-db", action="store_true", help="load the plan from the canonical store by name instead of a file")
+    p_run.add_argument("--prefix", default="ansible", help="store prefix when --from-db (ansible|salt|puppet|chef)")
     p_run.set_defaults(func=_cmd_run)
 
     return parser

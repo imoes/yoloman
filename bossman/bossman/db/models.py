@@ -257,6 +257,47 @@ class PlanRunStep(Base):
     __table_args__ = (Index("idx_plan_run_steps_run", "plan_run_id", "step_index"),)
 
 
+class PlanDocument(Base):
+    """The canonical, prefix-keyed plan document store (docs/zielbestimmung.md
+    principle 4): ONE table holding every deployment plan as its canonical
+    JSON `body` — the (coerced) raw dict that plan_loader.build_plan_from_raw
+    consumes, i.e. "all formats converted to JSON". Keyed by `prefix` (the
+    origin system: ansible/salt/puppet/chef), `name`, and an immutable
+    `version` (mirroring OrchestrationPlanVersion's versioning). `source_text`
+    keeps the original for re-parse/diff; `source_format` records how it was
+    authored/imported (nestedtext/yaml/json/salt/puppet/chef). Content-
+    addressed like the translation caches (ChunkEmbedding.source_hash/chunk_id):
+    `source_hash` over the source text, `content_hash` over the canonical body
+    (== Plan.version()) so an unchanged re-store is a no-op."""
+
+    __tablename__ = "plans"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False,
+        server_default=text(f"'{DEFAULT_TENANT_ID}'"),
+    )
+    prefix: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    source_format: Mapped[str] = mapped_column(String, nullable=False)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    source_hash: Mapped[str] = mapped_column(String, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "prefix", "name", "version", name="uq_plans_tenant_prefix_name_version"),
+        CheckConstraint(
+            "prefix IN ('ansible', 'salt', 'puppet', 'chef')",
+            name="ck_plans_prefix",
+        ),
+        Index("idx_plans_lookup", "tenant_id", "prefix", "name", "version"),
+    )
+
+
 class Metric(Base):
     """A metrics-dump data point pulled from an agent — a TimescaleDB
     hypertable (see the Alembic migration), the direct RRD replacement."""

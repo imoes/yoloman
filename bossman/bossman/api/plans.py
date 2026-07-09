@@ -25,6 +25,7 @@ from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.plan_engine import run_plan
 from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans
+from bossman.services.plan_store import VALID_PREFIXES, list_plans as store_list_plans, load_plan as store_load_plan, store_plan
 
 router = APIRouter()
 
@@ -216,4 +217,90 @@ async def run_plan_route(
     except PlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    return RunPlanResponse(plan_run_id=plan_run.id, status=plan_run.status)
+
+
+# --- Canonical plan store (docs/zielbestimmung.md) ----------------------
+# The prefix-keyed JSONB store, addressable over HTTP. Distinct paths from
+# the file-catalog routes above so both coexist during the transition to a
+# single canonical store.
+
+
+class StorePlanRequest(BaseModel):
+    prefix: str  # ansible | salt | puppet | chef
+    name: str
+    source_format: str  # nestedtext | yaml | json (foreign DSLs as parsers land)
+    source_text: str
+
+
+class StoredPlanOut(BaseModel):
+    prefix: str
+    name: str
+    version: int
+    source_format: str
+    content_hash: str
+
+
+@router.get("/api/v1/plans/stored", response_model=list[StoredPlanOut])
+async def list_stored_plans(
+    prefix: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[StoredPlanOut]:
+    if prefix is not None and prefix not in VALID_PREFIXES:
+        raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
+    entries = await store_list_plans(session, prefix=prefix)
+    return [StoredPlanOut(**{k: e[k] for k in ("prefix", "name", "version", "source_format", "content_hash")}) for e in entries]
+
+
+@router.post("/api/v1/plans/stored", response_model=StoredPlanOut)
+async def create_stored_plan(
+    body: StorePlanRequest,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> StoredPlanOut:
+    try:
+        doc = await store_plan(
+            session, body.prefix, body.name, body.source_format, body.source_text, created_by=identity.name
+        )
+    except PlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await session.commit()
+    return StoredPlanOut(
+        prefix=doc.prefix, name=doc.name, version=doc.version, source_format=doc.source_format, content_hash=doc.content_hash
+    )
+
+
+@router.post("/api/v1/plans/stored/{prefix}/{name}/run", response_model=RunPlanResponse)
+async def run_stored_plan_route(
+    prefix: str,
+    name: str,
+    body: RunPlanRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> RunPlanResponse:
+    """Run a plan from the canonical store (any prefix) against a host — the
+    store counterpart of POST /api/v1/plans/{name}/run."""
+    try:
+        plan = await store_load_plan(session, prefix, name)
+    except PlanError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    agent = await session.scalar(select(Agent).where(Agent.name == body.agent))
+    if agent is None:
+        raise HTTPException(status_code=404, detail=f"no such agent {body.agent!r}")
+    if not agent.address:
+        raise HTTPException(status_code=422, detail=f"agent {body.agent!r} has no reachable address")
+
+    host_vars = load_host_vars(settings.plans_dir, agent.name)
+    client = client_factory(agent, settings)
+    try:
+        plan_run = await run_plan(
+            session, agent, plan, host_vars=host_vars, explicit_params=body.params,
+            dry_run=body.dry_run, client=client, requested_by=identity.name,
+        )
+    except PlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return RunPlanResponse(plan_run_id=plan_run.id, status=plan_run.status)
