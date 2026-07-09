@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
@@ -25,6 +25,7 @@ import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../share
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
+import { HostManagementComponent } from './management/host-management.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -98,6 +99,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatButtonModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
+    HostManagementComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
@@ -612,6 +614,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               } @else {
                 <p class="bm-empty">No plan runs against this host yet.</p>
               }
+            </div>
+          </mat-tab>
+
+          <!-- Block J4: Cockpit-like host management (Services/Logs/Accounts/
+               Storage/Network). Each inner section pulls its live data lazily. -->
+          <mat-tab label="Management">
+            <div class="bm-tab-content">
+              <app-host-management [agentId]="agent.id" />
             </div>
           </mat-tab>
         </mat-tab-group>
@@ -1150,6 +1160,9 @@ export class HostDetailComponent implements OnInit {
   selectedService = signal<ServiceState | null>(null);
   serviceChartSeries = signal<ChartSeries[]>([]);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
+  /** Block J4 management shell — for kicking its lazy load on tab open. */
+  management = viewChild(HostManagementComponent);
+
   /** Block J1 process list (lazy-loaded when the Processes tab opens). */
   processes = signal<Process[]>([]);
   // Block J2: service control state.
@@ -1286,10 +1299,15 @@ export class HostDetailComponent implements OnInit {
     return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
   }
 
-  /** Lazy-load the process list the first time the Processes tab is opened. */
+  /** Lazy-load a tab's live data the first time it is opened. */
   onTabChange(event: MatTabChangeEvent): void {
     if (event.tab.textLabel === 'Processes' && !this.processesLoaded() && !this.processesLoading()) {
       this.loadProcesses();
+    }
+    // Block J4: kick the management shell's default (Services) inner tab so it
+    // loads without the user having to click an inner tab first.
+    if (event.tab.textLabel === 'Management') {
+      this.management()?.activate();
     }
   }
 

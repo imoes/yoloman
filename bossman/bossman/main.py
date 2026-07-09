@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chunks, dashboard, deploy, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
+from bossman.api import admin, agents, auth, chunks, dashboard, deploy, enroll, enroll_info, graphs, health, host_groups, management, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -176,6 +176,7 @@ def create_app() -> FastAPI:
     # so there's no conditional mounting here the way enroll needs.
     app.include_router(agents.router, tags=["agents"])
     app.include_router(processes.router, tags=["processes"])
+    app.include_router(management.router, tags=["management"])
     app.include_router(relationships.router, tags=["relationships"])
     app.include_router(plans.router, tags=["plans"])
     app.include_router(runs.router, tags=["runs"])

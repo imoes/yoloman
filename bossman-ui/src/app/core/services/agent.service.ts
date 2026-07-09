@@ -1,7 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Agent, LatestMetricsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse } from '../models/agent.model';
+import { Agent, LatestMetricsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse } from '../models/agent.model';
+
+/** Block J4a — the service-control actions the agent's systemd module accepts. */
+export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -60,12 +63,19 @@ export class AgentService {
     return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/update`, form);
   }
 
-  /** Block J2: restart/stop/start a systemd unit on the host through the
-   * agent's write-gated + audited `systemd` module. No raw PID-kill. */
-  serviceControl(id: string, service: string, action: 'restart' | 'stop' | 'start') {
+  /** Block J2/J4a: restart/stop/start a systemd unit's running state, or
+   * enable/disable its start-at-boot state, through the agent's write-gated
+   * + audited `systemd` module. No raw PID-kill. */
+  serviceControl(id: string, service: string, action: ServiceAction) {
     return this.http.post<{ agent_id: string; service: string; action: string; result: unknown }>(
       `${this.base}/${id}/service-control`,
       { service, action },
     );
+  }
+
+  /** Block J4a: the host's full systemd service-unit list + load/active/sub
+   * state, via the read-only `service_facts` module (live pass-through). */
+  services(id: string) {
+    return this.http.get<ServicesResponse>(`${this.base}/${id}/services`);
   }
 }

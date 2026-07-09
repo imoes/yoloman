@@ -1,0 +1,171 @@
+"""Block J4 — tests for the Cockpit-like host-management routes
+(api/management.py) plus the J4a enable/disable extension of service-control
+(api/agents.py). A fake AgentClient is injected via get_client_factory, the
+same seam api/processes.py's tests use, so no real agent connection is made.
+"""
+
+import uuid
+
+from fastapi.testclient import TestClient
+
+from bossman.api.plans import get_client_factory
+from bossman.db.models import Agent
+from bossman.main import create_app
+from bossman.services.agent_client import AgentClientError
+from bossman.services.auth import new_api_token
+
+
+class CallToolFake:
+    """Records call_tool invocations and returns a canned tool envelope."""
+
+    def __init__(self, result=None, raises: bool = False):
+        self.result = result if result is not None else {"changed": False, "data": []}
+        self.raises = raises
+        self.calls: list[tuple[str, dict]] = []
+
+    async def call_tool(self, name, body):
+        self.calls.append((name, body))
+        if self.raises:
+            raise AgentClientError("10.0.0.9:8010: request failed: connection refused")
+        return self.result
+
+
+async def _make_agent(db_session, **overrides) -> Agent:
+    fields = {
+        "name": f"mgmt-agent-{uuid.uuid4().hex[:8]}",
+        "token": "tok",
+        "address": "10.0.0.9:8010",
+        "mode": "standalone",
+        "enrollment_state": "enrolled",
+    }
+    fields.update(overrides)
+    agent = Agent(**fields)
+    db_session.add(agent)
+    await db_session.flush()
+    await db_session.commit()
+    return agent
+
+
+async def _make_api_token(db_session):
+    row, raw = new_api_token("mgmt-caller")
+    db_session.add(row)
+    await db_session.flush()
+    await db_session.commit()
+    return row, raw
+
+
+def _headers(raw):
+    return {"Authorization": f"Bearer {raw}"}
+
+
+def _override(app, fake):
+    app.dependency_overrides[get_client_factory] = lambda: (lambda agent, settings: fake)
+
+
+# ---- J4a: services list ---------------------------------------------------
+
+
+async def test_services_requires_auth(db_session):
+    agent = await _make_agent(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services")
+    assert resp.status_code == 401
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_services_proxies_service_facts(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+
+    units = [{"unit": "nginx.service", "name": "nginx", "load": "loaded", "active": "active", "sub": "running"}]
+    fake = CallToolFake(result={"changed": False, "data": units})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["services"] == units
+    assert fake.calls == [("service_facts", {})]
+
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_services_unknown_agent_404(db_session):
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{uuid.uuid4()}/services", headers=_headers(raw))
+    assert resp.status_code == 404
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_services_no_address_422(db_session):
+    agent = await _make_agent(db_session, address=None)
+    api_token, raw = await _make_api_token(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+    assert resp.status_code == 422
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_services_unreachable_502(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(raises=True)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+    assert resp.status_code == 502
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+# ---- J4a: enable/disable via service-control ------------------------------
+
+
+async def test_service_control_enable_maps_to_enabled_true(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(result={"changed": True, "msg": "state applied"})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/service-control",
+            json={"service": "nginx", "action": "enable"},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["action"] == "enable"
+    assert fake.calls == [("systemd", {"name": "nginx", "enabled": True})]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_service_control_disable_maps_to_enabled_false(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = CallToolFake(result={"changed": True, "msg": "state applied"})
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.post(
+            f"/api/v1/agents/{agent.id}/service-control",
+            json={"service": "nginx", "action": "disable"},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200, resp.text
+    assert fake.calls == [("systemd", {"name": "nginx", "enabled": False})]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()

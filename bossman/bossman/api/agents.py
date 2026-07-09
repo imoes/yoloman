@@ -304,11 +304,14 @@ async def update_agent(
 
 
 _SERVICE_ACTION_STATE = {"restart": "restarted", "stop": "stopped", "start": "started"}
+# Block J4a — boot-state actions map to the systemd module's `enabled` param
+# (no running-state change), so they can be issued independently of start/stop.
+_SERVICE_ACTION_ENABLED = {"enable": True, "disable": False}
 
 
 class ServiceControlRequest(BaseModel):
     service: str
-    action: str  # restart | stop | start
+    action: str  # restart | stop | start | enable | disable
 
 
 @router.post("/api/v1/agents/{agent_id}/service-control")
@@ -320,15 +323,22 @@ async def service_control(
     client_factory=Depends(get_client_factory),
     _identity=Depends(get_current_identity),
 ) -> dict:
-    """Block J2 — safe service control. Restart/stop/start a systemd unit on
-    an enrolled host through the agent's idempotent `systemd` module (which
-    is write-gated + ACL-checked + audited on the agent). No raw PID-kill
+    """Block J2/J4a — safe service control. Restart/stop/start a systemd
+    unit's running state, or enable/disable its start-at-boot state, on an
+    enrolled host through the agent's idempotent `systemd` module (which is
+    write-gated + ACL-checked + audited on the agent). No raw PID-kill
     (deliberate). A read-only agent (write=false) rejects it (surfaced as
     502 from the agent's 403)."""
     action = body.action.strip().lower()
-    state = _SERVICE_ACTION_STATE.get(action)
-    if state is None:
-        raise HTTPException(status_code=422, detail="action must be one of: restart, stop, start")
+    if action in _SERVICE_ACTION_STATE:
+        tool_params: dict = {"state": _SERVICE_ACTION_STATE[action]}
+    elif action in _SERVICE_ACTION_ENABLED:
+        tool_params = {"enabled": _SERVICE_ACTION_ENABLED[action]}
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="action must be one of: restart, stop, start, enable, disable",
+        )
     if not body.service.strip():
         raise HTTPException(status_code=422, detail="service must not be empty")
     agent = await _get_agent_or_404(session, agent_id)
@@ -336,7 +346,7 @@ async def service_control(
         raise HTTPException(status_code=409, detail="agent has no direct address (satellite/unenrolled)")
     client = client_factory(agent, settings)
     try:
-        result = await client.call_tool("systemd", {"name": body.service.strip(), "state": state})
+        result = await client.call_tool("systemd", {"name": body.service.strip(), **tool_params})
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "service": body.service.strip(), "action": action, "result": result}

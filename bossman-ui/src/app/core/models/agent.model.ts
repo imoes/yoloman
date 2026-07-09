@@ -130,3 +130,19 @@ export interface ProcessesResponse {
   count: number;
   sample_window_ms: number;
 }
+
+// ---- Block J4: Cockpit-like host management ----
+
+/** One systemd service unit as reported by the agent's `service_facts`. */
+export interface ServiceUnit {
+  unit: string;
+  name: string;
+  load: string;
+  active: string;
+  sub: string;
+}
+
+export interface ServicesResponse {
+  agent_id: string;
+  services: ServiceUnit[];
+}
