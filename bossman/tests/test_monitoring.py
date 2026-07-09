@@ -5,6 +5,7 @@ evaluate_host. Mirrors tests/test_poller.py's _make_agent/cleanup pattern.
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from sqlalchemy import select
 
@@ -49,6 +50,50 @@ def test_resolve_effective_rule_host_overrides_group_and_global():
     result = resolve_effective_rule([global_rule, group_rule, host_rule], "web01", ["webservers"], "cpu_pct")
 
     assert result is host_rule
+
+
+def _ou(ou_id, block_inheritance=False):
+    """A minimal OU-ancestry node — resolve_effective_rule only reads .id and
+    .block_inheritance off ancestry entries."""
+    return SimpleNamespace(id=ou_id, block_inheritance=block_inheritance)
+
+
+def _ou_rule(ou_id, metric="cpu_pct", warn=80.0, created_at=None) -> CheckRule:
+    return CheckRule(
+        id=uuid.uuid4(), service_name="CPU load", metric=metric, comparison="gt",
+        warn_threshold=warn, crit_threshold=95.0, scope_type="ou", scope_ou_id=ou_id,
+        enabled=True, created_at=created_at or datetime.now(timezone.utc),
+    )
+
+
+def test_resolve_effective_rule_host_overrides_ou():
+    # A per-host threshold (the "own rule for this host" case) must beat the
+    # OU-scoped default for the same metric — host is the closest level.
+    ou = _ou("ou-prod")
+    ou_rule = _ou_rule("ou-prod")
+    host_rule = _rule("host", "web01")
+    result = resolve_effective_rule(
+        [ou_rule, host_rule], "web01", [], "cpu_pct", None, host_ou_ancestry=[ou]
+    )
+    assert result is host_rule
+
+
+def test_resolve_effective_rule_per_label_override():
+    # disk_used_pct fans out per mount. A rule pinned to one mount governs only
+    # that service; other mounts fall back to the label-agnostic rule.
+    agnostic = CheckRule(
+        id=uuid.uuid4(), service_name="Disk", metric="disk_used_pct", comparison="gt",
+        warn_threshold=80.0, crit_threshold=90.0, scope_type="host", scope_value="web01",
+        label_value=None, enabled=True, created_at=datetime.now(timezone.utc),
+    )
+    for_data1 = CheckRule(
+        id=uuid.uuid4(), service_name="Disk", metric="disk_used_pct", comparison="gt",
+        warn_threshold=50.0, crit_threshold=60.0, scope_type="host", scope_value="web01",
+        label_value="/data1", enabled=True, created_at=datetime.now(timezone.utc),
+    )
+    rules = [agnostic, for_data1]
+    assert resolve_effective_rule(rules, "web01", [], "disk_used_pct", "/data1") is for_data1
+    assert resolve_effective_rule(rules, "web01", [], "disk_used_pct", "/var") is agnostic
 
 
 def test_resolve_effective_rule_group_overrides_global():
