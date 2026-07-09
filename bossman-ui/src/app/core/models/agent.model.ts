@@ -218,3 +218,19 @@ export interface GroupAction {
   system?: boolean;
   dry_run?: boolean;
 }
+
+/** J4d: storage overview. Each section has an `available` flag; when false it
+ * carries an `error` instead of data (tool absent on this host). */
+export interface StorageSection {
+  available: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface StorageResponse {
+  agent_id: string;
+  block_devices: StorageSection & { devices?: any[] };
+  lvm: StorageSection & { vgs?: any[]; pvs?: any[]; lvs?: any[] };
+  vdo: StorageSection & { raw?: string[] };
+  zfs: StorageSection & { pools?: any[] };
+}

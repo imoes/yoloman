@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse, UserAction } from '../models/agent.model';
+import { AccountsResponse, Agent, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, ProcessesResponse, ServicesResponse, StorageResponse, UserAction } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -103,5 +103,20 @@ export class AgentService {
   /** Block J4c: create/remove a group via the write-gated `group` module. */
   manageGroup(id: string, action: GroupAction) {
     return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/accounts/group`, action);
+  }
+
+  /** Block J4d: read-only storage overview (block devices + LVM + VDO + ZFS). */
+  storage(id: string) {
+    return this.http.get<StorageResponse>(`${this.base}/${id}/storage`);
+  }
+
+  /** Generic fleet-router call: invoke one tool on the agent by name (fqcn for
+   * baked/collection modules, bare name for natives). Used for storage write
+   * actions (community.general.lvg/lvol/filesystem/vdo/zfs) and any MCP tool. */
+  callTool(id: string, name: string, params: Record<string, unknown>) {
+    return this.http.post<{ agent_id: string; tool: string; result: unknown }>(
+      `${this.base}/${id}/tools/${encodeURIComponent(name)}`,
+      { params },
+    );
   }
 }

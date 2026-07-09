@@ -310,6 +310,68 @@ async def test_manage_group_rejects_bad_state(db_session):
     await db_session.commit()
 
 
+# ---- J4d: storage overview ------------------------------------------------
+
+
+class StorageFake:
+    """storage_facts + zpool_facts envelopes; zpool_facts can be made absent."""
+
+    def __init__(self, zfs_absent: bool = False):
+        self.zfs_absent = zfs_absent
+        self.calls: list[str] = []
+
+    async def call_tool(self, name, body):
+        self.calls.append(name)
+        if name == "storage_facts":
+            return {"changed": False, "data": {
+                "block_devices": {"available": True, "devices": [{"name": "sda", "size": "100G", "type": "disk"}]},
+                "lvm": {"available": True, "vgs": [{"vg_name": "datavg"}], "pvs": [], "lvs": [{"lv_name": "data1"}]},
+                "vdo": {"available": False, "error": "not found"},
+            }}
+        if name == "community.general.zpool_facts":
+            if self.zfs_absent:
+                raise AgentClientError("docker-test:18051: tool 'community.general.zpool_facts' returned 422: zfs absent")
+            return {"changed": False, "data": {"pools": [{"name": "tank"}]}}
+        raise AgentClientError("unexpected " + name)
+
+
+async def test_storage_aggregates_facts_and_zfs(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = StorageFake()
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/storage", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["lvm"]["available"] is True and body["lvm"]["vgs"][0]["vg_name"] == "datavg"
+    assert body["block_devices"]["devices"][0]["name"] == "sda"
+    assert body["vdo"]["available"] is False
+    assert body["zfs"]["available"] is True and body["zfs"]["pools"][0]["name"] == "tank"
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_storage_degrades_when_zfs_absent(db_session):
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    fake = StorageFake(zfs_absent=True)
+    app = create_app()
+    _override(app, fake)
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/storage", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # storage_facts still there; zfs section degrades rather than 502-ing.
+    assert body["lvm"]["available"] is True
+    assert body["zfs"]["available"] is False and "error" in body["zfs"]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
 # ---- J4a: enable/disable via service-control ------------------------------
 
 

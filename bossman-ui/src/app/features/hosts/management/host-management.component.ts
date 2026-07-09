@@ -3,6 +3,7 @@ import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { HostServicesComponent } from './host-services.component';
 import { HostLogsComponent } from './host-logs.component';
 import { HostAccountsComponent } from './host-accounts.component';
+import { HostStorageComponent } from './host-storage.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -14,7 +15,7 @@ import { HostAccountsComponent } from './host-accounts.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostServicesComponent, HostLogsComponent, HostAccountsComponent],
+  imports: [MatTabsModule, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Services">
@@ -32,6 +33,11 @@ import { HostAccountsComponent } from './host-accounts.component';
           <app-host-accounts [agentId]="agentId()" />
         </div>
       </mat-tab>
+      <mat-tab label="Storage">
+        <div class="bm-mgmt-pane">
+          <app-host-storage [agentId]="agentId()" />
+        </div>
+      </mat-tab>
     </mat-tab-group>
   `,
   styles: [`.bm-mgmt-pane { padding: 12px 4px; }`],
@@ -42,6 +48,7 @@ export class HostManagementComponent {
   private services = viewChild(HostServicesComponent);
   private logs = viewChild(HostLogsComponent);
   private accounts = viewChild(HostAccountsComponent);
+  private storage = viewChild(HostStorageComponent);
 
   /** First inner tab (Services) is shown by default, so kick its load once
    * the management shell itself becomes visible; also (re)trigger per tab. */
@@ -49,6 +56,7 @@ export class HostManagementComponent {
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
+    if (event.tab.textLabel === 'Storage') this.storage()?.loadOnce();
   }
 
   /** Called by host-detail when the parent Management tab is opened, so the

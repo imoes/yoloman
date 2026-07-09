@@ -292,3 +292,50 @@ async def manage_agent_group(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "result": result}
+
+
+# ---- J4d: storage overview (LVM/VDO/block via storage_facts; ZFS via zpool) --
+
+
+def _tool_data(result: Any) -> dict:
+    d = (result or {}).get("data") if isinstance(result, dict) else None
+    return d if isinstance(d, dict) else {}
+
+
+@router.get("/api/v1/agents/{agent_id}/storage")
+async def get_agent_storage(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block J4d — a read-only storage overview: block devices + LVM + VDO via
+    the native storage_facts module, plus ZFS pools via the baked zpool_facts
+    module. ZFS is fetched separately and degrades on its own (a host without
+    zfs makes zpool_facts fail — reported as {available: false}, not a 502).
+    Write actions (create/remove VG/LV/filesystem/VDO/ZFS) go through the
+    generic tool router POST /agents/{id}/tools/{fqcn}."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        facts = await client.call_tool("storage_facts", {})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(facts)
+
+    # ZFS overview from the baked zpool_facts module; tolerate its absence.
+    zfs: dict[str, Any] = {"available": False}
+    try:
+        pools = await client.call_tool("community.general.zpool_facts", {})
+        zfs = {"available": True, "pools": _tool_data(pools).get("pools", [])}
+    except AgentClientError as exc:
+        zfs["error"] = str(exc)
+
+    return {
+        "agent_id": str(agent.id),
+        "block_devices": data.get("block_devices", {}),
+        "lvm": data.get("lvm", {}),
+        "vdo": data.get("vdo", {}),
+        "zfs": zfs,
+    }
