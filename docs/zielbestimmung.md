@@ -99,5 +99,10 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
    Runtime Fremdmodule ausführen kann.
 5. **`plans_dir` ablösen** — Katalog und Runner vollständig auf den Store
    umstellen; Dateien nur noch Autoren-Import.
-6. **Starlark-Runtime (Block G3)** — Voraussetzung, dass übersetzte Collection-
-   und Fremdmodule tatsächlich *laufen* (heute nur validiert).
+6. **Starlark-Runtime (Block G3)** — *(erledigt)* übersetzte Collection-Module
+   werden jetzt tatsächlich **ausgeführt**: `internal/starmod.Execute` (echter
+   `ctx` mit Write-Gate + check_mode), Agent-Loader `internal/starmodules`
+   (lädt `.star`+Sidecar aus `modules_dir` und registriert sie wie native
+   Module), und Auslieferung Bossman→Agent über `POST /api/v1/modules/apply`
+   (+ `POST /api/v1/agents/{id}/modules/sync`). Live verifiziert: laden,
+   ausführen, zur Laufzeit pushen, persistieren.
