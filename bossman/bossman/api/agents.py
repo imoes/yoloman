@@ -11,7 +11,7 @@ import asyncio
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -21,6 +21,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
 from bossman.db.session import get_session
+from bossman.services.agent_client import AgentClientError
 from bossman.services.metrics_query import query_series
 from bossman.services.poller import PollResult, poll_agent
 
@@ -264,6 +265,39 @@ async def mass_update_agent_groups(
 
     await session.commit()
     return [AgentOut.from_model(a) for a in agents]
+
+
+@router.post("/api/v1/agents/{agent_id}/update")
+async def update_agent(
+    agent_id: UUID,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Push a new agent .deb to an ENROLLED host over the existing mTLS
+    channel; the agent installs it (dpkg → postinst restart) and returns on
+    the new version — the "Update" half of the deploy button. Works even for a
+    write=false agent (the self-update carve-out). Requires a direct address +
+    that the agent trusts Bossman's client cert (a satellite reachable only via
+    its proxy has no direct address → 409; push it through its proxy or set an
+    address)."""
+    agent = await _get_agent_or_404(session, agent_id)
+    if not agent.address:
+        raise HTTPException(
+            status_code=409,
+            detail="agent has no direct address (satellite/unenrolled) — cannot push an update to it directly",
+        )
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="empty upload — select the agent .deb")
+    client = client_factory(agent, settings)
+    try:
+        result = await client.self_update(data)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "result": result}
 
 
 @router.post("/api/v1/agents/{agent_id}/poll-now")

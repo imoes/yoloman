@@ -37,6 +37,11 @@ type RESTConfig struct {
 	UploadsDir    string
 	MaxUploadSize int64
 
+	// AllowSelfUpdate gates POST /api/v1/agent/self-update — the agent-upgrade
+	// carve-out that works even when Write is false (see selfupdate.go).
+	// Default true; set allow_self_update:false to forbid remote upgrades.
+	AllowSelfUpdate bool
+
 	// Token is the shared, backward-compatible bearer token (also used for
 	// /mcp) — matches resolve to the fixed authz.TokenIdentity. Present
 	// here so REST can accept it as one of two valid credentials, the
@@ -283,6 +288,13 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	mux.HandleFunc("PUT /api/v1/upload", func(w http.ResponseWriter, r *http.Request) {
 		handleUpload(w, r, cfg)
+	})
+
+	// Agent self-update (Block N-deploy): receives a new .deb and installs it
+	// (dpkg -> postinst restart). Deliberately NOT write-gated — a read-only
+	// agent must still be upgradable; gated by allow_self_update instead.
+	mux.HandleFunc("POST /api/v1/agent/self-update", func(w http.ResponseWriter, r *http.Request) {
+		handleSelfUpdate(w, r, cfg)
 	})
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)

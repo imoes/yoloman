@@ -165,6 +165,7 @@ func run(args []string) error {
 		Audit:              al,
 		UploadsDir:         cfg.UploadsDir,
 		MaxUploadSize:      cfg.MaxUploadSize,
+		AllowSelfUpdate:    cfg.AllowSelfUpdate,
 		Mode:               cfg.Mode,
 		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM:  proxyPublicKeyPEM,

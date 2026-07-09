@@ -51,4 +51,12 @@ export class AgentService {
   delete(id: string) {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+
+  /** Push a new agent .deb to an enrolled host; the agent installs it and
+   * restarts onto the new version (works even for write=false agents). */
+  update(id: string, deb: File) {
+    const form = new FormData();
+    form.append('file', deb, deb.name);
+    return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/update`, form);
+  }
 }

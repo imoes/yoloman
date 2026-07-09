@@ -167,6 +167,27 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: config apply: decoding response: {exc}") from exc
 
+    async def self_update(self, deb: bytes) -> dict[str, Any]:
+        """POST /api/v1/agent/self-update — PUSH a new agent .deb over the
+        existing mTLS channel; the agent installs it (dpkg → postinst restart)
+        and comes back on the new version. This endpoint is the deliberate
+        write-gate carve-out: it works even against a read-only (write=false)
+        agent, since an agent must stay upgradable. Raw octet-stream body."""
+        url = f"https://{self.address}/api/v1/agent/self-update"
+        try:
+            async with self._client() as client:
+                resp = await client.post(
+                    url, content=deb, headers={"Content-Type": "application/octet-stream"}
+                )
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: self-update: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: self-update returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: self-update: decoding response: {exc}") from exc
+
     async def upload_file(self, remote_name: str, data: bytes) -> dict[str, Any]:
         """PUT /api/v1/upload?name=<remote_name> — the raw-body,
         no-base64 large-file upload path (see docs/plan.md's "File upload

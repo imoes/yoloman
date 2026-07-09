@@ -25,16 +25,21 @@ type Config struct {
 	// (e.g. a CI pipeline vs. the future Bossman) can be granted
 	// different tool scopes instead of every bearer token resolving to
 	// the same fixed principal.
-	Tokens       []NamedToken `yaml:"tokens"`
-	Write        bool         `yaml:"write"`
-	TLS          TLS          `yaml:"tls"`
-	EBPF         EBPF         `yaml:"ebpf"`
-	DB           DB           `yaml:"db"`
-	PAM          PAM          `yaml:"pam"`
-	UI           UI           `yaml:"ui"`
-	ToolsDir     string       `yaml:"tools_dir"`
-	CommandsFile string       `yaml:"commands_file"`
-	ACLPath      string       `yaml:"acl_path"`
+	Tokens []NamedToken `yaml:"tokens"`
+	Write  bool         `yaml:"write"`
+	// AllowSelfUpdate gates the agent self-update endpoint
+	// (POST /api/v1/agent/self-update), which upgrades the agent from a
+	// Bossman-pushed .deb even when Write is false. Default true (see
+	// Default()); set to false to forbid remote upgrades of this agent.
+	AllowSelfUpdate bool   `yaml:"allow_self_update"`
+	TLS             TLS    `yaml:"tls"`
+	EBPF            EBPF   `yaml:"ebpf"`
+	DB              DB     `yaml:"db"`
+	PAM             PAM    `yaml:"pam"`
+	UI              UI     `yaml:"ui"`
+	ToolsDir        string `yaml:"tools_dir"`
+	CommandsFile    string `yaml:"commands_file"`
+	ACLPath         string `yaml:"acl_path"`
 
 	// UploadsDir is the fixed staging directory the upload_file MCP tool
 	// and the PUT /api/v1/upload REST endpoint write into — never an
@@ -237,9 +242,10 @@ type UI struct {
 // Default returns a Config with safe, conservative defaults (write disabled).
 func Default() Config {
 	return Config{
-		Listen: "127.0.0.1:8010",
-		Write:  false,
-		EBPF:   EBPF{Enabled: true},
+		Listen:          "127.0.0.1:8010",
+		Write:           false,
+		AllowSelfUpdate: true,
+		EBPF:            EBPF{Enabled: true},
 		DB: DB{
 			Driver: "sqlite",
 			Path:   "/var/lib/agentic-mcp/agentic-mcp.db",

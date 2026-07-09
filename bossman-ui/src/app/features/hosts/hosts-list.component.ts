@@ -71,6 +71,15 @@ interface HostRow extends FleetHost {
                 <td class="bm-actions-cell">
                   <button
                     type="button"
+                    class="bm-icon-btn"
+                    title="Update agent — push a new .deb; the agent installs it and restarts"
+                    [disabled]="updating() === host.id"
+                    (click)="onUpdateClick(host, fileInput, $event)"
+                  >
+                    {{ updating() === host.id ? '⏳' : '⬆' }}
+                  </button>
+                  <button
+                    type="button"
                     class="bm-delete-btn"
                     title="Delete host"
                     [disabled]="deleting() === host.id"
@@ -91,6 +100,9 @@ interface HostRow extends FleetHost {
           </tbody>
         </table>
       </mat-card>
+      <!-- Hidden picker shared by every row's Update button (Block N-deploy):
+           the clicked row is remembered in pendingUpdateId. -->
+      <input #fileInput type="file" accept=".deb" hidden (change)="onFileChosen($event)" />
     </div>
   `,
   styles: [
@@ -155,7 +167,8 @@ interface HostRow extends FleetHost {
         text-align: right;
         white-space: nowrap;
       }
-      .bm-delete-btn {
+      .bm-delete-btn,
+      .bm-icon-btn {
         background: none;
         border: none;
         cursor: pointer;
@@ -164,6 +177,14 @@ interface HostRow extends FleetHost {
         padding: 4px 6px;
         border-radius: 4px;
         line-height: 1;
+      }
+      .bm-icon-btn:hover {
+        opacity: 1;
+        background: color-mix(in srgb, var(--bm-green) 18%, transparent);
+      }
+      .bm-icon-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
       }
       .bm-delete-btn:hover {
         opacity: 1;
@@ -183,6 +204,10 @@ export class HostsListComponent implements OnInit {
   /** The id currently being deleted, so its button disables (prevents a
    * double-submit); null when idle. */
   deleting = signal<string | null>(null);
+  /** The id currently being updated (agent .deb push in flight). */
+  updating = signal<string | null>(null);
+  /** The host whose Update button was clicked, awaiting the file pick. */
+  private pendingUpdateId: string | null = null;
 
   /** Top-level hosts first (in name order), each immediately followed by
    * its own satellites (also name-ordered) — a simple two-level tree
@@ -220,6 +245,36 @@ export class HostsListComponent implements OnInit {
 
   badgeOf(host: FleetHost) {
     return serviceStateBadge(host.state_rollup);
+  }
+
+  /** Update button: remember the host, then open the shared file picker.
+   * stopPropagation so the row's routerLink doesn't fire. */
+  onUpdateClick(host: FleetHost, input: HTMLInputElement, event: Event): void {
+    event.stopPropagation();
+    if (this.updating()) return;
+    this.pendingUpdateId = host.id;
+    input.value = ''; // allow re-picking the same file
+    input.click();
+  }
+
+  /** A .deb was chosen — push it to the pending host's self-update endpoint. */
+  onFileChosen(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const id = this.pendingUpdateId;
+    this.pendingUpdateId = null;
+    if (!file || !id) return;
+    this.updating.set(id);
+    this.agentService.update(id, file).subscribe({
+      next: () => {
+        this.updating.set(null);
+        alert('Agent update pushed — the host is installing it and will restart onto the new version.');
+      },
+      error: (e) => {
+        this.updating.set(null);
+        alert(e?.error?.detail ?? 'agent update failed');
+      },
+    });
   }
 
   /** Delete a host after a confirm. stopPropagation keeps the row's
