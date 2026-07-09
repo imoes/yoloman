@@ -52,8 +52,10 @@ def main(ctx, params):
     version_yesopt = (2 * 1000 * 1000) + (2 * 1000) + 99
     yesopt = "--yes" if version_found >= version_yesopt else ""
 
-    # Handle check_mode flag
-    test_opt = " --test" if ctx.check_mode else ""
+    # check_mode is handled by the runtime: mutating ctx.run(..., mutates=True)
+    # calls are skipped (returning rc=0) when ctx.check_mode is set, and are
+    # write-gated. No need for LVM's own --test flag (and threading it as a
+    # bare argv element was buggy — it was read as the VG name).
 
     # Parse size string for operators and units
     size_operator = None
@@ -218,15 +220,12 @@ def main(ctx, params):
 
             # Prepend flags
             if yesopt:
-                idx = lvcreate_cmd.index("lvcreate") + 1
-                lvcreate_cmd.insert(idx, yesopt)
-            if test_opt:
-                idx = lvcreate_cmd.index("lvcreate") + 1
-                lvcreate_cmd.insert(idx, test_opt)
+                lvcreate_cmd.insert(1, yesopt)
 
-            res = ctx.run(lvcreate_cmd)
+            res = ctx.run(lvcreate_cmd, mutates=True)
             if res.rc == 0:
                 changed = True
+                msg = "Created logical volume " + (lv or thinpool) + " in " + vg
             else:
                 fail("Creating logical volume failed: " + res.stderr)
         else:
@@ -237,9 +236,7 @@ def main(ctx, params):
             if not force:
                 fail("No removal of logical volume " + this_lv["name"] + " without force=true.")
             lvremove_cmd = ["lvremove", "--force", vg + "/" + this_lv["name"]]
-            if test_opt:
-                lvremove_cmd.insert(1, test_opt)
-            res = ctx.run(lvremove_cmd)
+            res = ctx.run(lvremove_cmd, mutates=True)
             if res.rc == 0:
                 return {"changed": True, "msg": "Removed logical volume " + this_lv["name"]}
             fail("Failed to remove logical volume " + this_lv["name"] + ": " + res.stderr)
@@ -298,8 +295,6 @@ def main(ctx, params):
 
             if tool:
                 cmd_args = [tool]
-                if test_opt:
-                    cmd_args.append(test_opt.strip())
                 if resizefs:
                     cmd_args.append("--resizefs")
                 if size_operator:
@@ -313,9 +308,10 @@ def main(ctx, params):
                 if tool == "lvreduce":
                     cmd_args.append("--force")
 
-                res = ctx.run(cmd_args)
+                res = ctx.run(cmd_args, mutates=True)
                 if res.rc == 0:
                     changed = True
+                    msg = tool + " " + vg + "/" + this_lv["name"] + " to " + size + size_unit
                 elif "matches existing size" in res.stderr or "matches existing size" in res.stdout:
                     return {"changed": False, "msg": "Size already matches"}
                 elif "not larger than existing size" in res.stderr or "not larger than existing size" in res.stdout:
@@ -335,12 +331,16 @@ def main(ctx, params):
             lvchange_cmd.append("-an")
         lvchange_cmd.append(vg + "/" + this_lv["name"])
 
-        res = ctx.run(lvchange_cmd)
+        res = ctx.run(lvchange_cmd, mutates=True)
         if res.rc != 0:
             fail("Failed to set active state for " + this_lv["name"] + ": " + res.stderr)
 
         # Determine if active state changed
         if active != this_lv["active"]:
             changed = True
+            if msg == "":
+                msg = ("activated " if active else "deactivated ") + vg + "/" + this_lv["name"]
 
+    if msg == "":
+        msg = "logical volume " + vg + "/" + (this_lv["name"] if this_lv != None else (lv or thinpool)) + " already in desired state"
     return {"changed": changed, "msg": msg}
