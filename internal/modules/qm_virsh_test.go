@@ -2,106 +2,107 @@ package modules
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
-func TestQM_IdempotentStart(t *testing.T) {
-	var calls [][]string
+func TestQM_RunsAnySubcommand(t *testing.T) {
+	var gotName string
+	var gotArgs []string
 	m := &QM{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		calls = append(calls, append([]string{name}, args...))
-		if args[0] == "status" {
-			return []byte("status: running\n"), nil
-		}
-		return nil, nil
+		gotName, gotArgs = name, args
+		return []byte("ok"), nil
 	}}
-	// Already running -> started is a no-op.
-	res, err := m.Run(context.Background(), map[string]any{"vmid": "100", "state": "started"}, false)
+	// A mutating subcommand: snapshot with full arg line.
+	res, err := m.Run(context.Background(), map[string]any{
+		"command": "snapshot",
+		"args":    []any{"100", "pre-upgrade", "--description", "before"},
+	}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if res.Changed {
-		t.Error("started on a running VM must be unchanged")
-	}
-	for _, c := range calls {
-		if len(c) >= 2 && c[1] == "start" {
-			t.Errorf("must not call qm start when already running: %v", calls)
-		}
-	}
-}
-
-func TestQM_StopsRunningVM(t *testing.T) {
-	var started bool
-	m := &QM{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		if args[0] == "status" {
-			return []byte("status: running\n"), nil
-		}
-		if args[0] == "stop" {
-			started = true
-		}
-		return nil, nil
-	}}
-	res, err := m.Run(context.Background(), map[string]any{"vmid": "100", "state": "stopped"}, false)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if !res.Changed || !started {
-		t.Errorf("stopped on a running VM must call qm stop (changed=%v, stop-called=%v)", res.Changed, started)
-	}
-}
-
-func TestQM_DryRunNoMutation(t *testing.T) {
-	var mutated bool
-	m := &QM{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		if args[0] == "status" {
-			return []byte("status: stopped\n"), nil
-		}
-		mutated = true
-		return nil, nil
-	}}
-	res, err := m.Run(context.Background(), map[string]any{"vmid": "100", "state": "started", "dry_run": true}, false)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
+	if gotName != "qm" || strings.Join(gotArgs, " ") != "snapshot 100 pre-upgrade --description before" {
+		t.Errorf("unexpected argv: %s %v", gotName, gotArgs)
 	}
 	if !res.Changed {
-		t.Error("dry-run should still report would-change")
-	}
-	if mutated {
-		t.Error("dry-run must not issue qm start")
+		t.Error("a mutating subcommand must report changed=true")
 	}
 }
 
-func TestVirsh_ShutdownRunningDomain(t *testing.T) {
-	var action string
-	m := &Virsh{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		if args[0] == "domstate" {
-			return []byte("running\n"), nil
-		}
-		action = args[0]
-		return nil, nil
+func TestQM_ReadSubcommandRunsEvenInDryRun(t *testing.T) {
+	var ran bool
+	m := &QM{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		ran = true
+		return []byte("status: running\n"), nil
 	}}
-	res, err := m.Run(context.Background(), map[string]any{"domain": "web01", "state": "shutdown"}, false)
+	res, err := m.Run(context.Background(), map[string]any{"command": "status", "args": []any{"100"}, "dry_run": true}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if !res.Changed || action != "shutdown" {
-		t.Errorf("shutdown on a running domain must call virsh shutdown (changed=%v, action=%q)", res.Changed, action)
+	if !ran {
+		t.Error("a read subcommand (status) must run even under dry_run")
+	}
+	if res.Changed {
+		t.Error("a read subcommand must report changed=false")
+	}
+	if !strings.Contains(res.Data.(map[string]any)["stdout"].(string), "running") {
+		t.Error("stdout should be surfaced for read subcommands")
 	}
 }
 
-func TestVirsh_IdempotentStopped(t *testing.T) {
-	m := &Virsh{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		if args[0] == "domstate" {
-			return []byte("shut off\n"), nil
-		}
-		t.Errorf("must not mutate an already-off domain: %s %v", name, args)
+func TestQM_DryRunSkipsMutating(t *testing.T) {
+	m := &QM{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		t.Errorf("dry_run must not execute a mutating subcommand: %s %v", name, args)
 		return nil, nil
 	}}
-	res, err := m.Run(context.Background(), map[string]any{"domain": "web01", "state": "stopped"}, false)
+	res, err := m.Run(context.Background(), map[string]any{"command": "stop", "args": []any{"100"}, "dry_run": true}, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !res.Changed || res.Data.(map[string]any)["skipped"] != true {
+		t.Errorf("dry_run on a mutating subcommand should report would-change + skipped: %+v", res.Data)
+	}
+}
+
+func TestQM_RequiresCommand(t *testing.T) {
+	m := NewQM()
+	if _, err := m.Run(context.Background(), map[string]any{}, false); err == nil {
+		t.Error("command is required")
+	}
+}
+
+func TestVirsh_RunsAnySubcommand(t *testing.T) {
+	var gotName string
+	var gotArgs []string
+	m := &Virsh{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		gotName, gotArgs = name, args
+		return nil, nil
+	}}
+	res, err := m.Run(context.Background(), map[string]any{
+		"command": "migrate",
+		"args":    []any{"--live", "web01", "qemu+ssh://node2/system"},
+	}, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if gotName != "virsh" || strings.Join(gotArgs, " ") != "migrate --live web01 qemu+ssh://node2/system" {
+		t.Errorf("unexpected argv: %s %v", gotName, gotArgs)
+	}
+	if !res.Changed {
+		t.Error("mutating subcommand must be changed=true")
+	}
+}
+
+func TestVirsh_ReadSubcommand(t *testing.T) {
+	m := &Virsh{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		return []byte("running\n"), nil
+	}}
+	res, err := m.Run(context.Background(), map[string]any{"command": "domstate", "args": []any{"web01"}}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if res.Changed {
-		t.Error("stopped on an already-off domain must be unchanged")
+		t.Error("domstate is read-only -> changed=false")
 	}
 }
 

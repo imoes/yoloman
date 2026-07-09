@@ -170,27 +170,34 @@ export class HostVirtComponent {
     });
   }
 
+  // Power actions map to qm/virsh subcommands via the generic command+args
+  // interface; they run immediately (not dry-run).
+  private static QM_POWER: Record<string, string> = { started: 'start', stopped: 'stop', shutdown: 'shutdown', rebooted: 'reboot' };
+  private static VIRSH_POWER: Record<string, string> = { started: 'start', stopped: 'destroy', shutdown: 'shutdown', rebooted: 'reboot' };
+
   qm(vmid: string, state: string): void {
-    this.control('qm', { vmid, state }, `qm ${state} ${vmid}`);
+    const sub = HostVirtComponent.QM_POWER[state];
+    this.control('qm', { command: sub, args: [vmid] }, `qm ${sub} ${vmid}`);
   }
 
   virsh(domain: string, state: string): void {
-    this.control('virsh', { domain, state }, `virsh ${state} ${domain}`);
+    const sub = HostVirtComponent.VIRSH_POWER[state];
+    this.control('virsh', { command: sub, args: [domain] }, `virsh ${sub} ${domain}`);
   }
 
   qmSnapshot(): void {
-    this.control('qm_snapshot', { vmid: this.pxId().trim(), snapname: this.pxSnap().trim(), state: 'present', dry_run: this.dryRun() }, `snapshot ${this.pxId().trim()}`);
+    this.control('qm', { command: 'snapshot', args: [this.pxId().trim(), this.pxSnap().trim()], dry_run: this.dryRun() }, `qm snapshot ${this.pxId().trim()}`);
   }
 
   qmMigrate(): void {
-    this.control('qm_migrate', { vmid: this.pxId().trim(), target: this.pxTarget().trim(), online: true, dry_run: this.dryRun() }, `migrate ${this.pxId().trim()}`);
+    this.control('qm', { command: 'migrate', args: [this.pxId().trim(), this.pxTarget().trim(), '--online'], dry_run: this.dryRun() }, `qm migrate ${this.pxId().trim()}`);
   }
 
   virshSnapshot(): void {
-    this.control('virsh_snapshot', { domain: this.lvDomain().trim(), snapname: this.lvSnap().trim(), state: 'present', dry_run: this.dryRun() }, `snapshot ${this.lvDomain().trim()}`);
+    this.control('virsh', { command: 'snapshot-create-as', args: [this.lvDomain().trim(), this.lvSnap().trim()], dry_run: this.dryRun() }, `virsh snapshot ${this.lvDomain().trim()}`);
   }
 
   virshMigrate(): void {
-    this.control('virsh_migrate', { domain: this.lvDomain().trim(), dest_uri: this.lvDest().trim(), live: true, dry_run: this.dryRun() }, `migrate ${this.lvDomain().trim()}`);
+    this.control('virsh', { command: 'migrate', args: ['--live', this.lvDomain().trim(), this.lvDest().trim()], dry_run: this.dryRun() }, `virsh migrate ${this.lvDomain().trim()}`);
   }
 }
