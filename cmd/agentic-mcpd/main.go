@@ -349,6 +349,12 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	// across ticks, so it lives here (not in the pure Sample()) and is primed
 	// on the first tick.
 	cpuMeter := &collect.CPUMeter{}
+	// Block J3: per-container Docker metrics on the same tick (nil when
+	// disabled). Degrades silently when the socket is absent.
+	var dockerCollector *collect.DockerCollector
+	if cfg.Collect.Docker {
+		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket)
+	}
 	runOnce := func() {
 		now := time.Now()
 		// Block L4-behavioral: read the pushed thresholds fresh each tick, so a
@@ -371,6 +377,13 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		// cpu_pct: only once the meter has two readings to rate against.
 		if pct, ok := cpuMeter.Sample("/proc"); ok {
 			points = append(points, store.Point{Metric: "cpu_pct", Timestamp: now, Value: pct})
+		}
+		if dockerCollector != nil {
+			if dpts, derr := dockerCollector.Sample(now); derr != nil {
+				slog.Debug("docker metric sampling failed", "error", derr)
+			} else {
+				points = append(points, dpts...)
+			}
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {
 			slog.Error("writing sampled metrics failed", "error", err)

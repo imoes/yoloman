@@ -91,6 +91,12 @@ type Config struct {
 type Collect struct {
 	Enabled  bool     `yaml:"enabled"`
 	Interval Duration `yaml:"interval"`
+	// Docker (Block J3): sample per-container CPU/RAM/running from the Docker
+	// Engine API on the same interval, emitted as docker_container_* metrics.
+	// Enabled by default but degrades silently when the socket is absent
+	// (Docker not installed), so it's safe to leave on everywhere.
+	Docker       bool   `yaml:"docker"`
+	DockerSocket string `yaml:"docker_socket"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via
@@ -269,7 +275,7 @@ func Default() Config {
 		MaxUploadSize: 512 * 1024 * 1024,
 		Mode:          "standalone",
 		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
-		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second)},
+		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock"},
 	}
 }
 
