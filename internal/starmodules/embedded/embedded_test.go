@@ -28,8 +28,21 @@ func TestEmbeddedModulesLoad(t *testing.T) {
 	for _, m := range mods {
 		byName[m.Name()] = true
 	}
-	// vdo is the first proven-runnable baked module (stub_ok=true).
-	if !byName["community.general.vdo"] {
-		t.Errorf("expected community.general.vdo among baked modules, got %v", byName)
+	// The baked storage stack (LVM/VDO/ZFS): all lint-clean + contract-correct
+	// (verified with the shim-enabled validator); the facts + vdo/zfs paths are
+	// stub_ok=true, the command-driven configure modules are validated live on
+	// a host with the actual tooling.
+	for _, want := range []string{
+		"community.general.vdo",
+		"community.general.zfs",
+		"community.general.zfs_facts",
+		"community.general.zpool_facts",
+		"community.general.lvg",
+		"community.general.lvol",
+		"community.general.filesystem",
+	} {
+		if !byName[want] {
+			t.Errorf("expected %s among baked modules, got %v", want, byName)
+		}
 	}
 }
