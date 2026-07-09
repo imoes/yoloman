@@ -89,10 +89,11 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
    Loader). *(Store akzeptiert `source_format=json`; `.json` im Datei-Loader
    noch offen.)*
 3. **Deterministische Fremdformat-Parser** → kanonisches Plan-Dict, je ein
-   neuer Präfix. Aufwandsreihenfolge: **Salt** (YAML-nah) *(erledigt:
-   `services/salt_parser.py`)* → **Chef** *(erledigt: `services/chef_parser.py`,
-   deklarative Resource-Teilmenge)* → **Puppet** (Turing-vollständig, nur
-   pragmatische Teilmenge).
+   neuer Präfix. *(erledigt)* **Salt** (`services/salt_parser.py`),
+   **Chef** (`services/chef_parser.py`, deklarative Resource-Teilmenge),
+   **Puppet** (`services/puppet_parser.py`, flache Resource-Deklarationen;
+   Klassen/Bedingungen/Variablen werden abgelehnt). Alle drei erzeugen das
+   kanonische Plan-Dict und speichern über `store_plan(prefix=…)`.
 4. **Präfix-Guard verallgemeinern** (`plan_loader.ANSIBLE_PREFIX`), sobald ein
    Runtime Fremdmodule ausführen kann.
 5. **`plans_dir` ablösen** — Katalog und Runner vollständig auf den Store
