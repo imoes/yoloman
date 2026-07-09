@@ -42,7 +42,28 @@ async def test_enroll_info_reports_not_configured(db_session, monkeypatch):
         "enroll_url": None,
         "enroll_secret": None,
         "register_command": None,
+        "deploy_configured": False,
     }
+
+    await db_session.delete(api_token)
+    await db_session.commit()
+
+
+async def test_enroll_info_reports_deploy_configured(db_session, monkeypatch):
+    """Block N-enroll: deploy_configured flips true once an SSH user AND an
+    agent .deb path are set — independently of the (now-optional) enroll
+    secret, so the UI can show the SSH-deploy field on its own."""
+    monkeypatch.delenv("BOSSMAN_ENROLL_SECRET", raising=False)
+    monkeypatch.setenv("BOSSMAN_DEPLOY_SSH_USER", "marvin")
+    monkeypatch.setenv("BOSSMAN_AGENT_DEB_PATH", "/opt/agentic-mcp.deb")
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.get("/api/v1/enroll/info", headers=_headers(raw))
+
+    body = resp.json()
+    assert body["configured"] is False  # no enroll secret
+    assert body["deploy_configured"] is True
 
     await db_session.delete(api_token)
     await db_session.commit()

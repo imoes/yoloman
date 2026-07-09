@@ -74,6 +74,41 @@ import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/comp
                 the exact command can be shown here) to allow new hosts to enroll.
               </p>
             }
+
+            @if (info.deploy_configured) {
+              <hr class="bm-sep" />
+              <p>
+                …or let Bossman deploy it for you: enter a host's IP or DNS name and Bossman will SSH
+                in with its pre-configured operator identity, install the agent, and enroll it — no
+                command to run on the host.
+              </p>
+              <div class="bm-command-row">
+                <mat-form-field appearance="outline" class="bm-deploy-field">
+                  <mat-label>Host (IP or DNS)</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="deployHost"
+                    placeholder="e.g. host.example.internal"
+                    [disabled]="deploying()"
+                    (keyup.enter)="deployNewHost()"
+                  />
+                </mat-form-field>
+                <button
+                  mat-raised-button
+                  color="primary"
+                  [disabled]="deploying() || !deployHost.trim()"
+                  (click)="deployNewHost()"
+                >
+                  {{ deploying() ? 'Deploying…' : 'Deploy & enroll' }}
+                </button>
+              </div>
+              @if (deployMessage()) {
+                <p class="bm-success">{{ deployMessage() }}</p>
+              }
+              @if (deployError()) {
+                <p class="bm-error">{{ deployError() }}</p>
+              }
+            }
           }
         </mat-card-content>
       </mat-card>
@@ -233,8 +268,19 @@ import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/comp
       .bm-success {
         color: var(--bm-green);
       }
+      .bm-error {
+        color: var(--bm-red);
+      }
       .bm-empty {
         opacity: 0.75;
+      }
+      .bm-sep {
+        border: none;
+        border-top: 1px solid var(--mat-sys-outline-variant);
+        margin: 16px 0;
+      }
+      .bm-deploy-field {
+        flex: 1;
       }
       .bm-command-row {
         display: flex;
@@ -265,6 +311,10 @@ export class SettingsComponent implements OnInit {
   reloadMessage = signal<string | null>(null);
   enrollInfo = signal<EnrollInfo | null>(null);
   copied = signal(false);
+  deployHost = '';
+  deploying = signal(false);
+  deployMessage = signal<string | null>(null);
+  deployError = signal<string | null>(null);
   checkRules = signal<CheckRule[]>([]);
   agents = signal<Agent[]>([]);
   groupsDraft: Record<string, string> = {};
@@ -328,6 +378,28 @@ export class SettingsComponent implements OnInit {
   reloadCatalog(): void {
     this.planService.reload().subscribe((res) => {
       this.reloadMessage.set(`Reloaded — catalog is now ${res.catalog_length} characters.`);
+    });
+  }
+
+  /** Block N-enroll: kick off a server-driven SSH deploy of a new host.
+   * Bossman does all the work (SSH + install + provision + enroll); we just
+   * surface progress and the result. */
+  deployNewHost(): void {
+    const host = this.deployHost.trim();
+    if (!host || this.deploying()) return;
+    this.deploying.set(true);
+    this.deployMessage.set(null);
+    this.deployError.set(null);
+    this.enrollService.deploy(host).subscribe({
+      next: (res) => {
+        this.deploying.set(false);
+        this.deployHost = '';
+        this.deployMessage.set(`Deployed and enrolled "${res.name}"${res.address ? ' (' + res.address + ')' : ''}. It will appear in Hosts shortly.`);
+      },
+      error: (e) => {
+        this.deploying.set(false);
+        this.deployError.set(e?.error?.detail ?? 'deploy failed');
+      },
     });
   }
 

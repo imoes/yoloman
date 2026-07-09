@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chunks, dashboard, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
+from bossman.api import admin, agents, auth, chunks, dashboard, deploy, enroll, enroll_info, graphs, health, host_groups, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runs, severity_labels, system_settings, templates, translate, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -187,6 +187,9 @@ def create_app() -> FastAPI:
     # Always mounted (unlike POST /api/v1/enroll below) — the Settings
     # page needs a real "not configured yet" answer, not a 404.
     app.include_router(enroll_info.router, tags=["enroll"])
+    # Always mounted too (Block N-enroll): server-driven SSH deploy reports
+    # its own "not configured" state via a 400, and needs no enroll secret.
+    app.include_router(deploy.router, tags=["enroll"])
     # Only mounted when enrollment is actually configured — an
     # unconfigured Bossman accepts no enrollments at all, matching the Go
     # Selecta's identical gating on proxy.enroll_secret.

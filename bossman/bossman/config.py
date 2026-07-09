@@ -37,6 +37,30 @@ class Settings(BaseSettings):
     client_key_path: str = "/etc/bossman/tls/bossman-client.key"
     client_cert_path: str = "/etc/bossman/tls/bossman-client.crt"
 
+    # Server-driven SSH deploy (Block N-enroll): Bossman connects to a new
+    # host over SSH with a PRE-CONFIGURED operator identity, installs the
+    # agent .deb, and provisions a complete config.yaml (token + Bossman's
+    # pinned public key + TLS) itself — so no enrollment secret is needed
+    # (the SSH channel IS the root of trust; there is nothing else to
+    # protect). All empty by default → the deploy field stays hidden until
+    # an operator configures it. deploy_ssh_key_path wins over
+    # deploy_ssh_password when both are set; deploy_sudo_password falls back
+    # to deploy_ssh_password for the `sudo -S` that installs the package.
+    deploy_ssh_user: str = ""
+    deploy_ssh_password: str = ""
+    deploy_ssh_key_path: str = ""
+    deploy_sudo_password: str = ""
+    deploy_ssh_port: int = 22
+    # Path (inside the Bossman container/host) to the agent .deb that gets
+    # copied to and installed on each freshly-deployed host.
+    agent_deb_path: str = ""
+    # The address:port the deployed agent listens on (0.0.0.0 so Bossman can
+    # reach it) and the value stored as the Agent row's address (host:port).
+    agent_listen_port: int = 18051
+    # Whether a freshly-deployed agent gets the master write gate enabled.
+    # Default false: a new host is monitor-only until an operator opts it in.
+    agent_deploy_write: bool = False
+
     # Where plan YAML files live (see docs/plan.md's plan-format design).
     plans_dir: str = "/etc/bossman/plans"
 

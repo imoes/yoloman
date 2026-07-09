@@ -64,6 +64,36 @@ def ensure_client_keypair(key_path: str, cert_path: str) -> None:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
 
 
+def self_signed_server_pair(common_name: str) -> tuple[bytes, bytes]:
+    """Generates a fresh in-memory P-256 keypair + self-signed certificate
+    for a freshly-deployed agent to present as its TLS server identity
+    (Block N-enroll). Returns (key_pem, cert_pem). Bossman polls agents with
+    verify=False (the trust runs the other way — the agent verifies
+    Bossman's client cert), so the CN and self-signed-ness are immaterial to
+    the connection; this exists only so the agent has *a* server cert to
+    satisfy tls.enabled, which the packaged default config does not ship."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(hours=1))
+        .not_valid_after(now + datetime.timedelta(days=3650))
+        .sign(key, hashes.SHA256())
+    )
+    key_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+    return key_pem, cert_pem
+
+
 def own_public_key_pem(cert_path: str) -> bytes:
     """Extracts the PEM-encoded PKIX public key from cert_path — the
     Python-side counterpart of the Go node agent's

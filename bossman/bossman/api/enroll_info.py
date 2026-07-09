@@ -28,6 +28,10 @@ class EnrollInfoResponse(BaseModel):
     enroll_url: str | None = None
     enroll_secret: str | None = None
     register_command: str | None = None
+    # Block N-enroll: whether server-driven SSH deploy is configured (SSH
+    # user + an agent .deb path). When true the Settings page shows the
+    # "deploy a new host by IP/DNS" field.
+    deploy_configured: bool = False
 
 
 @router.get("/api/v1/enroll/info", response_model=EnrollInfoResponse)
@@ -35,8 +39,10 @@ async def enroll_info(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> EnrollInfoResponse:
+    deploy_configured = bool(settings.deploy_ssh_user and settings.agent_deb_path)
+
     if not settings.enroll_secret:
-        return EnrollInfoResponse(configured=False)
+        return EnrollInfoResponse(configured=False, deploy_configured=deploy_configured)
 
     url = settings.public_url or "http://<this-bossman-host>:8000"
     command = (
@@ -48,4 +54,5 @@ async def enroll_info(
         enroll_url=url,
         enroll_secret=settings.enroll_secret,
         register_command=command,
+        deploy_configured=deploy_configured,
     )
