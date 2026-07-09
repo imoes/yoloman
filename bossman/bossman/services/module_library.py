@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import nestedtext
 import yaml
 
 # Collections in translation scope (the 71 ansible.builtin modules stay
@@ -293,10 +294,66 @@ def parse_metadata(metadata_yaml: str) -> dict[str, Any]:
 
 
 def module_paths(modules_dir: str | Path, fqcn: str) -> tuple[Path, Path]:
-    """The on-disk .yaml/.star pair for one fqcn."""
+    """The on-disk .yaml/.star pair for one fqcn. The .yaml is the metadata
+    WRITE path (submit()/G8 always write YAML); reads should use
+    metadata_path(), which prefers a NestedText sidecar when present."""
     collection, _, name = fqcn.rpartition(".")
     base = Path(modules_dir) / collection
     return base / f"{name}.yaml", base / f"{name}.star"
+
+
+def metadata_path(modules_dir: str | Path, fqcn: str) -> Path:
+    """The metadata sidecar to READ for one fqcn: a NestedText `.nt` when it
+    exists (Block NT-5's additive conversion), otherwise the `.yaml`. Returns
+    the `.yaml` path when neither exists (callers check .exists())."""
+    collection, _, name = fqcn.rpartition(".")
+    base = Path(modules_dir) / collection
+    nt = base / f"{name}.nt"
+    return nt if nt.exists() else base / f"{name}.yaml"
+
+
+def _as_bool(value: Any, default: bool = False) -> bool:
+    """Coerce a metadata boolean. YAML gives a real bool; NestedText gives a
+    string ("true"/"false"/…), so `bool("false")` would be wrongly truthy —
+    this is why NestedText metadata must never be read with a bare bool()."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("true", "yes", "on", "1"):
+            return True
+        if low in ("false", "no", "off", "0"):
+            return False
+    return default
+
+
+def _coerce_metadata(meta: dict[str, Any]) -> dict[str, Any]:
+    """Coerce the schema's boolean fields (writes, each option's required)
+    from NestedText's all-strings form. Everything else (type, default,
+    choices, descriptions) is legitimately string/list data already."""
+    if "writes" in meta:
+        meta["writes"] = _as_bool(meta["writes"], True)
+    options = meta.get("options")
+    if isinstance(options, dict):
+        for spec in options.values():
+            if isinstance(spec, dict) and "required" in spec:
+                spec["required"] = _as_bool(spec["required"])
+    return meta
+
+
+def load_metadata(path: str | Path) -> dict[str, Any]:
+    """Read a metadata sidecar in either format (chosen by extension),
+    returning a dict with the schema's booleans coerced. NestedText's
+    all-strings values are otherwise preserved verbatim."""
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    if p.suffix.lower() == ".nt":
+        try:
+            meta = nestedtext.loads(text, top="dict")
+        except nestedtext.NestedTextError as exc:
+            raise ModuleLibraryError(f"metadata is not valid NestedText: {exc}") from exc
+        return _coerce_metadata(meta if isinstance(meta, dict) else {})
+    return yaml.safe_load(text) or {}
 
 
 def submit(
@@ -352,14 +409,15 @@ def list_modules(modules_dir: str | Path, module_sources_dir: str | Path) -> lis
         fqcn = path.stem
         collection, _, name = fqcn.rpartition(".")
         entry: dict[str, Any] = {"fqcn": fqcn, "collection": collection, "name": name, "translated": False}
-        yaml_path, star_path = module_paths(modules_dir, fqcn)
-        if yaml_path.exists() and star_path.exists():
+        meta_path = metadata_path(modules_dir, fqcn)
+        _, star_path = module_paths(modules_dir, fqcn)
+        if meta_path.exists() and star_path.exists():
             entry["translated"] = True
             try:
-                meta = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+                meta = load_metadata(meta_path)
                 entry["short_description"] = meta.get("short_description", "")
-                entry["writes"] = bool(meta.get("writes", True))
-            except (OSError, yaml.YAMLError):
+                entry["writes"] = _as_bool(meta.get("writes"), True)
+            except (OSError, yaml.YAMLError, ModuleLibraryError):
                 pass
         out.append(entry)
     return out
@@ -368,11 +426,12 @@ def list_modules(modules_dir: str | Path, module_sources_dir: str | Path) -> lis
 def load_module(modules_dir: str | Path, fqcn: str) -> dict[str, Any]:
     """One translated module's stored pair: parsed metadata + the Starlark
     source. Raises for a module not (yet) in the library."""
-    yaml_path, star_path = module_paths(modules_dir, fqcn)
-    if not yaml_path.exists() or not star_path.exists():
+    meta_path = metadata_path(modules_dir, fqcn)
+    _, star_path = module_paths(modules_dir, fqcn)
+    if not meta_path.exists() or not star_path.exists():
         raise ModuleLibraryError(f"module {fqcn!r} is not in the library")
     try:
-        metadata = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+        metadata = load_metadata(meta_path)
         star_code = star_path.read_text(encoding="utf-8")
     except (OSError, yaml.YAMLError) as exc:
         raise ModuleLibraryError(f"cannot read module {fqcn!r}: {exc}") from exc
@@ -389,8 +448,8 @@ def status(modules_dir: str | Path, module_sources_dir: str | Path) -> dict[str,
         collection, _, _name = fqcn.rpartition(".")
         entry = per_collection.setdefault(collection, {"total": 0, "translated": 0, "missing": []})
         entry["total"] += 1
-        yaml_path, star_path = module_paths(modules_dir, fqcn)
-        if yaml_path.exists() and star_path.exists():
+        _, star_path = module_paths(modules_dir, fqcn)
+        if metadata_path(modules_dir, fqcn).exists() and star_path.exists():
             entry["translated"] += 1
             translated_total += 1
         else:
