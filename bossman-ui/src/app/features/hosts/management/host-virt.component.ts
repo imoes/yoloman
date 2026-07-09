@@ -15,6 +15,7 @@ import { VirtResponse } from '../../../core/models/agent.model';
     <div class="bm-mgmt-section">
       <div class="bm-mgmt-toolbar">
         <button mat-stroked-button (click)="reload()" [disabled]="loading()">Reload</button>
+        <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> dry-run</label>
         @if (data(); as v) { <span class="bm-mgmt-count">hypervisors: {{ v.hypervisors.length ? v.hypervisors.join(', ') : 'none' }}</span> }
         @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
         @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
@@ -51,6 +52,13 @@ import { VirtResponse } from '../../../core/models/agent.model';
               @for (ct of v.proxmox.containers || []; track ct.vmid) { <tr><td class="bm-mgmt-unit">{{ ct.vmid }}</td><td>{{ ct.name }}</td><td>{{ ct.status }}</td></tr> }
             </tbody></table>
           }
+          <div class="bm-acct-new">
+            <input type="text" placeholder="vmid" [value]="pxId()" (input)="pxId.set($any($event.target).value)" />
+            <input type="text" placeholder="snapshot name" [value]="pxSnap()" (input)="pxSnap.set($any($event.target).value)" />
+            <button mat-button (click)="qmSnapshot()" [disabled]="busy() || !pxId().trim() || !pxSnap().trim()">Snapshot</button>
+            <input type="text" placeholder="migrate to node" [value]="pxTarget()" (input)="pxTarget.set($any($event.target).value)" />
+            <button mat-button (click)="qmMigrate()" [disabled]="busy() || !pxId().trim() || !pxTarget().trim()">Migrate</button>
+          </div>
         }
 
         @if (v.libvirt.available) {
@@ -69,6 +77,13 @@ import { VirtResponse } from '../../../core/models/agent.model';
               </tr>
             }
           </tbody></table>
+          <div class="bm-acct-new">
+            <input type="text" placeholder="domain" [value]="lvDomain()" (input)="lvDomain.set($any($event.target).value)" />
+            <input type="text" placeholder="snapshot name" [value]="lvSnap()" (input)="lvSnap.set($any($event.target).value)" />
+            <button mat-button (click)="virshSnapshot()" [disabled]="busy() || !lvDomain().trim() || !lvSnap().trim()">Snapshot</button>
+            <input type="text" placeholder="dest URI (qemu+ssh://node2/system)" [value]="lvDest()" (input)="lvDest.set($any($event.target).value)" />
+            <button mat-button (click)="virshMigrate()" [disabled]="busy() || !lvDomain().trim() || !lvDest().trim()">Migrate</button>
+          </div>
         }
       }
     </div>
@@ -86,6 +101,9 @@ import { VirtResponse } from '../../../core/models/agent.model';
       .bm-mgmt-actions { white-space: nowrap; }
       .bm-active { color: #2e7d32; }
       .bm-empty { color: var(--bm-muted, #888); }
+      .bm-chk { font-size: 12px; color: var(--bm-muted, #888); display: flex; align-items: center; gap: 4px; }
+      .bm-acct-new { display: flex; gap: 8px; margin: 6px 0 12px; flex-wrap: wrap; align-items: center; }
+      .bm-acct-new input { padding: 6px 8px; border: 1px solid var(--bm-border, #ccc); border-radius: 4px; }
       .bm-svc-ok { color: #2e7d32; font-size: 12px; }
       .bm-svc-err { color: #c62828; font-size: 12px; }
     `,
@@ -103,6 +121,14 @@ export class HostVirtComponent {
   busy = signal(false);
   msg = signal<string | null>(null);
   err = signal<string | null>(null);
+
+  dryRun = signal(true);
+  pxId = signal('');
+  pxSnap = signal('');
+  pxTarget = signal('');
+  lvDomain = signal('');
+  lvSnap = signal('');
+  lvDest = signal('');
 
   loadOnce(): void {
     if (this.loaded() || this.loading()) return;
@@ -150,5 +176,21 @@ export class HostVirtComponent {
 
   virsh(domain: string, state: string): void {
     this.control('virsh', { domain, state }, `virsh ${state} ${domain}`);
+  }
+
+  qmSnapshot(): void {
+    this.control('qm_snapshot', { vmid: this.pxId().trim(), snapname: this.pxSnap().trim(), state: 'present', dry_run: this.dryRun() }, `snapshot ${this.pxId().trim()}`);
+  }
+
+  qmMigrate(): void {
+    this.control('qm_migrate', { vmid: this.pxId().trim(), target: this.pxTarget().trim(), online: true, dry_run: this.dryRun() }, `migrate ${this.pxId().trim()}`);
+  }
+
+  virshSnapshot(): void {
+    this.control('virsh_snapshot', { domain: this.lvDomain().trim(), snapname: this.lvSnap().trim(), state: 'present', dry_run: this.dryRun() }, `snapshot ${this.lvDomain().trim()}`);
+  }
+
+  virshMigrate(): void {
+    this.control('virsh_migrate', { domain: this.lvDomain().trim(), dest_uri: this.lvDest().trim(), live: true, dry_run: this.dryRun() }, `migrate ${this.lvDomain().trim()}`);
   }
 }
