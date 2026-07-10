@@ -162,6 +162,10 @@ class Settings(BaseSettings):
     codex_model: str = "gpt-5.5"
     claude_cli_path: str = "claude"
     claude_cli_model: str = "sonnet"
+    # Root of per-user chat home dirs (bind-mounted). Each user gets
+    # {chat_home_root}/{username}; the claude/codex CLIs store their OAuth
+    # credentials there natively, and their subprocess runs with HOME set to it.
+    chat_home_root: str = "/var/lib/bossman/chat-homes"
 
     # Notifications (Block H8): master switch + SMTP transport. Webhook
     # targets carry their own URL per rule, so need no global config. The

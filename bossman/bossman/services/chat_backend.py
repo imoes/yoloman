@@ -23,8 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
-from pathlib import Path
+import os
 from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
 
 import httpx
@@ -90,35 +89,24 @@ class HermesWebBackend:
 
 
 class CodexBackend:
-    """ChatGPT Codex Responses endpoint (SSE). Auth via a cached device-code
-    OAuth token file (established out-of-band; see chatgpt-codex-api skill)."""
+    """ChatGPT Codex Responses endpoint (SSE). The access token is supplied by
+    the caller (loaded per-user from chat_credentials, refreshed as needed) —
+    the OAuth flow that mints it lives in services/chat_oauth.py."""
 
     name = CODEX
 
-    def __init__(self, base_url: str, model: str, token_path: str = "~/.config/skills/codex_tokens.json",
+    def __init__(self, base_url: str, model: str, access_token: str = "",
                  timeout: float = 300.0, transport: httpx.AsyncBaseTransport | None = None):
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.token_path = token_path
+        self.access_token = access_token
         self._timeout = timeout
         self._transport = transport
 
     def _access_token(self) -> str:
-        p = Path(self.token_path).expanduser()
-        try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            raise ChatBackendError(
-                f"codex: no usable OAuth token at {self.token_path} — run the codex device-code login first ({exc})"
-            ) from exc
-        tok = data.get("access_token")
-        if not tok:
-            raise ChatBackendError("codex: token file has no access_token")
-        exp = data.get("expires_at") or 0
-        if exp and float(exp) < time.time():
-            # Refresh is out of scope here; the skill refreshes on its own path.
-            raise ChatBackendError("codex: access token expired — re-run the codex login/refresh")
-        return tok
+        if not self.access_token:
+            raise ChatBackendError("codex: not logged in — run the Codex device-code login first")
+        return self.access_token
 
     async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
                      model: str | None = None) -> AsyncIterator[dict[str, Any]]:
@@ -150,13 +138,14 @@ class CodexBackend:
             raise ChatBackendError(f"codex: request failed: {exc}") from exc
 
 
-# An injectable spawn: (argv, stdin_text) -> (returncode, stdout, stderr).
-SpawnFn = Callable[[list[str], str], Awaitable[tuple[int, str, str]]]
+# An injectable spawn: (argv, stdin_text, env) -> (returncode, stdout, stderr).
+SpawnFn = Callable[[list[str], str, "dict[str, str] | None"], Awaitable[tuple[int, str, str]]]
 
 
-async def _default_spawn(argv: list[str], stdin_text: str) -> tuple[int, str, str]:
+async def _default_spawn(argv: list[str], stdin_text: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     proc = await asyncio.create_subprocess_exec(
-        *argv, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *argv, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        env=env,
     )
     out, err = await proc.communicate(stdin_text.encode("utf-8"))
     return proc.returncode or 0, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
@@ -166,14 +155,18 @@ class ClaudeCliBackend:
     """The local Claude Code CLI via `claude --print --output-format json`.
     One-shot per turn (token streaming is a later refinement): the conversation
     is rendered into the prompt, the system prompt passed via --system-prompt,
-    and the JSON `.result` yielded as a single delta. Auth is ambient (the
-    logged-in CLI / CLAUDE_CODE_OAUTH_TOKEN)."""
+    and the JSON `.result` yielded as a single delta. Auth: the subprocess runs
+    with HOME set to the user's bind-mounted home dir, where the OAuth flow
+    wrote ~/.claude/.credentials.json — so the CLI reads/refreshes its own
+    per-user credential natively."""
 
     name = CLAUDE_CLI
 
-    def __init__(self, cli_path: str = "claude", model: str = "sonnet", spawn: SpawnFn | None = None):
+    def __init__(self, cli_path: str = "claude", model: str = "sonnet", home: str | None = None,
+                 spawn: SpawnFn | None = None):
         self.cli_path = cli_path
         self.model = model
+        self.home = home
         self._spawn = spawn or _default_spawn
 
     async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
@@ -185,8 +178,11 @@ class ClaudeCliBackend:
                 "--no-session-persistence", "--model", model or self.model]
         if system_prompt:
             argv += ["--system-prompt", system_prompt]
+        env = None
+        if self.home:
+            env = {**os.environ, "HOME": self.home}
         try:
-            rc, out, err = await self._spawn(argv, prompt)
+            rc, out, err = await self._spawn(argv, prompt, env)
         except (OSError, FileNotFoundError) as exc:
             raise ChatBackendError(f"claude_cli: could not run {self.cli_path!r}: {exc}") from exc
         if rc != 0:
@@ -276,4 +272,6 @@ def chat_backend_for(settings: Settings, name: str | None = None):
         return CodexBackend(settings.codex_base_url, settings.codex_model)
     if backend == CLAUDE_CLI:
         return ClaudeCliBackend(settings.claude_cli_path, settings.claude_cli_model)
+    # Note: codex/claude_cli built here carry no per-user token — the chat
+    # router constructs them with credentials loaded from chat_credentials.
     raise ChatBackendError(f"unknown chat backend {backend!r} (want one of {', '.join(BACKENDS)})")

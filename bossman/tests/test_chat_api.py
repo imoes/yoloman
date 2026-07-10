@@ -93,7 +93,11 @@ async def test_create_session_bad_backend(db_session):
 async def test_message_streams_and_persists(db_session, monkeypatch):
     api_token, raw = await _make_api_token(db_session)
     fake = FakeBackend()
-    monkeypatch.setattr(chat_api, "chat_backend_for", lambda settings, name=None: fake)
+
+    async def fake_build(settings, oauth, username, backend_name, model):
+        return fake
+
+    monkeypatch.setattr(chat_api, "_build_backend", fake_build)
 
     with TestClient(create_app()) as client:
         sid = client.post("/api/v1/chat/sessions", json={}, headers=_headers(raw)).json()["id"]

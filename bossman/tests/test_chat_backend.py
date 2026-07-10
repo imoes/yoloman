@@ -54,9 +54,7 @@ async def test_hermes_web_non200_raises():
         await _collect(b, [{"role": "user", "content": "hi"}])
 
 
-async def test_codex_streams_deltas(tmp_path):
-    tokfile = tmp_path / "codex_tokens.json"
-    tokfile.write_text(json.dumps({"access_token": "tok", "expires_at": 9999999999}))
+async def test_codex_streams_deltas():
     body = _sse(
         json.dumps({"type": "response.output_text.delta", "delta": "Hi "}),
         json.dumps({"type": "response.output_text.delta", "delta": "there"}),
@@ -69,7 +67,7 @@ async def test_codex_streams_deltas(tmp_path):
         seen["auth"] = request.headers.get("authorization")
         return httpx.Response(200, content=body)
 
-    b = CodexBackend("https://codex/api", "gpt-5.5", token_path=str(tokfile), transport=httpx.MockTransport(handler))
+    b = CodexBackend("https://codex/api", "gpt-5.5", access_token="tok", transport=httpx.MockTransport(handler))
     events = await _collect(b, [{"role": "user", "content": "hi"}], system="sys")
     assert "".join(e["text"] for e in events) == "Hi there"
     assert seen["auth"] == "Bearer tok"
@@ -77,8 +75,8 @@ async def test_codex_streams_deltas(tmp_path):
     assert seen["json"]["input"][0]["content"][0]["text"] == "hi"
 
 
-async def test_codex_missing_token_raises(tmp_path):
-    b = CodexBackend("https://codex/api", "m", token_path=str(tmp_path / "nope.json"))
+async def test_codex_missing_token_raises():
+    b = CodexBackend("https://codex/api", "m", access_token="")
     with pytest.raises(ChatBackendError):
         await _collect(b, [{"role": "user", "content": "hi"}])
 
@@ -86,20 +84,22 @@ async def test_codex_missing_token_raises(tmp_path):
 async def test_claude_cli_yields_result():
     captured = {}
 
-    async def fake_spawn(argv, stdin_text):
+    async def fake_spawn(argv, stdin_text, env=None):
         captured["argv"] = argv
         captured["stdin"] = stdin_text
+        captured["env"] = env
         return 0, json.dumps({"type": "result", "result": "Hello from claude"}), ""
 
-    b = ClaudeCliBackend("claude", "sonnet", spawn=fake_spawn)
+    b = ClaudeCliBackend("claude", "sonnet", home="/var/lib/bossman/chat-homes/alice", spawn=fake_spawn)
     events = await _collect(b, [{"role": "user", "content": "what's up"}], system="be terse")
     assert [e["text"] for e in events] == ["Hello from claude"]
     assert "--print" in captured["argv"] and "--system-prompt" in captured["argv"]
     assert captured["stdin"] == "what's up"  # lone user turn passed verbatim
+    assert captured["env"]["HOME"] == "/var/lib/bossman/chat-homes/alice"  # per-user home for the CLI
 
 
 async def test_claude_cli_nonzero_exit_raises():
-    async def fake_spawn(argv, stdin_text):
+    async def fake_spawn(argv, stdin_text, env=None):
         return 1, "", "auth error"
 
     b = ClaudeCliBackend("claude", "sonnet", spawn=fake_spawn)
@@ -108,7 +108,7 @@ async def test_claude_cli_nonzero_exit_raises():
 
 
 async def test_claude_cli_is_error_result_raises():
-    async def fake_spawn(argv, stdin_text):
+    async def fake_spawn(argv, stdin_text, env=None):
         return 0, json.dumps({"type": "result", "is_error": True, "result": "nope"}), ""
 
     b = ClaudeCliBackend("claude", "sonnet", spawn=fake_spawn)

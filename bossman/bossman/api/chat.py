@@ -25,15 +25,59 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
-from bossman.db.models import ChatMessage, ChatSession
+from bossman.db.models import ChatMessage, ChatPreference, ChatSession
 from bossman.db.session import get_session
-from bossman.services.chat_backend import BACKENDS, ChatBackendError, chat_backend_for
+from bossman.services import chat_home
+from bossman.services.chat_backend import (
+    BACKENDS,
+    CLAUDE_CLI,
+    CODEX,
+    HERMES_WEB,
+    ChatBackendError,
+    ClaudeCliBackend,
+    CodexBackend,
+    HermesWebBackend,
+)
+from bossman.services.chat_oauth import ChatOAuthError, ChatOAuthService, token_needs_refresh
 
 router = APIRouter()
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
     return request.app.state.session_factory
+
+
+def get_chat_oauth(request: Request) -> ChatOAuthService:
+    return request.app.state.chat_oauth
+
+
+async def _load_prefs(session: AsyncSession, username: str) -> ChatPreference | None:
+    return await session.scalar(select(ChatPreference).where(ChatPreference.username == username))
+
+
+async def _build_backend(settings: Settings, oauth: ChatOAuthService, username: str, backend_name: str, model: str | None):
+    """Construct the selected backend with this user's credentials from their
+    bind-mounted home dir. Codex reads its access token from the home (proactively
+    refreshed); claude runs with HOME set to it; hermes_web is server-side."""
+    if backend_name == HERMES_WEB:
+        return HermesWebBackend(settings.hermes_web_base_url, model or settings.hermes_web_model, settings.hermes_web_token)
+    home = chat_home.home_for(settings.chat_home_root, username)
+    if backend_name == CLAUDE_CLI:
+        return ClaudeCliBackend(settings.claude_cli_path, model or settings.claude_cli_model, home=str(home))
+    if backend_name == CODEX:
+        creds = chat_home.read_codex_credentials(home)
+        access = creds.get("access_token", "")
+        if access and creds.get("refresh_token") and token_needs_refresh(creds.get("expires_at") or 0):
+            try:
+                refreshed = await oauth.codex_refresh(creds["refresh_token"])
+                chat_home.write_codex_credentials(
+                    home, refreshed["access_token"], refreshed["refresh_token"], refreshed["expires_at"]
+                )
+                access = refreshed["access_token"]
+            except ChatOAuthError:
+                pass  # fall through with the (possibly stale) token; stream surfaces the error
+        return CodexBackend(settings.codex_base_url, model or settings.codex_model, access_token=access)
+    raise ChatBackendError(f"unknown chat backend {backend_name!r}")
 
 
 class CreateSessionRequest(BaseModel):
@@ -47,7 +91,17 @@ class RenameSessionRequest(BaseModel):
 
 class MessageRequest(BaseModel):
     content: str
-    backend: str | None = None  # per-message backend override
+    backend: str | None = None  # must match the session's backend if given
+
+
+class ClaudeCompleteRequest(BaseModel):
+    session_id: str
+    code: str
+
+
+class PrefsRequest(BaseModel):
+    default_backend: str | None = None
+    models: dict[str, str] | None = None
 
 
 def _session_out(s: ChatSession, msg_count: int | None = None) -> dict[str, Any]:
@@ -78,6 +132,121 @@ async def list_chat_backends(
     return {"backends": list(BACKENDS), "default": settings.chat_backend}
 
 
+# ---- OAuth login (per-user, tokens written into the user's home dir) --------
+
+
+@router.get("/api/v1/chat/oauth/status")
+async def oauth_status(
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Which backends this user is logged in for. hermes_web is server-side
+    (no per-user login)."""
+    home = chat_home.home_for(settings.chat_home_root, identity.name)
+    status = chat_home.auth_status(home)
+    status["hermes_web"] = bool(settings.hermes_web_base_url)
+    return {"authenticated": status}
+
+
+@router.post("/api/v1/chat/oauth/codex/start")
+async def codex_start(
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
+) -> dict[str, Any]:
+    try:
+        return await oauth.codex_start(identity.name)
+    except ChatOAuthError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/api/v1/chat/oauth/codex/poll/{session_id}")
+async def codex_poll(
+    session_id: str,
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
+) -> dict[str, Any]:
+    try:
+        result = await oauth.codex_poll(session_id, identity.name)
+    except ChatOAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result.get("status") == "authorized":
+        home = chat_home.home_for(settings.chat_home_root, identity.name)
+        chat_home.write_codex_credentials(
+            home, result["access_token"], result.get("refresh_token", ""), result.get("expires_at") or 0
+        )
+        return {"status": "authorized"}  # never leak tokens to the client
+    return result
+
+
+@router.post("/api/v1/chat/oauth/claude/start")
+async def claude_start(
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
+) -> dict[str, Any]:
+    try:
+        return await oauth.claude_start(identity.name)
+    except ChatOAuthError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/api/v1/chat/oauth/claude/complete")
+async def claude_complete(
+    body: ClaudeCompleteRequest,
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
+) -> dict[str, Any]:
+    try:
+        result = await oauth.claude_complete(body.session_id, identity.name, body.code)
+    except ChatOAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    home = chat_home.home_for(settings.chat_home_root, identity.name)
+    chat_home.write_claude_credentials(
+        home, result["access_token"], result.get("refresh_token", ""), result.get("expires_at") or 0
+    )
+    return {"status": "authorized"}
+
+
+# ---- Per-user console preferences ------------------------------------------
+
+
+@router.get("/api/v1/chat/prefs")
+async def get_prefs(
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    prefs = await _load_prefs(session, identity.name)
+    return {
+        "default_backend": prefs.default_backend if prefs else settings.chat_backend,
+        "models": (prefs.models if prefs else {}) or {},
+    }
+
+
+@router.patch("/api/v1/chat/prefs")
+async def set_prefs(
+    body: PrefsRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    if body.default_backend and body.default_backend not in BACKENDS:
+        raise HTTPException(status_code=422, detail=f"default_backend must be one of: {', '.join(BACKENDS)}")
+    prefs = await _load_prefs(session, identity.name)
+    if prefs is None:
+        prefs = ChatPreference(username=identity.name, default_backend=settings.chat_backend, models={})
+        session.add(prefs)
+    if body.default_backend:
+        prefs.default_backend = body.default_backend
+    if body.models is not None:
+        prefs.models = {**(prefs.models or {}), **body.models}
+    await session.commit()
+    return {"default_backend": prefs.default_backend, "models": prefs.models or {}}
+
+
 @router.post("/api/v1/chat/sessions")
 async def create_session(
     body: CreateSessionRequest,
@@ -85,7 +254,9 @@ async def create_session(
     settings: Settings = Depends(get_settings),
     identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    backend = (body.backend or settings.chat_backend).strip()
+    prefs = await _load_prefs(session, identity.name)
+    default_backend = prefs.default_backend if prefs else settings.chat_backend
+    backend = (body.backend or default_backend).strip()
     if backend not in BACKENDS:
         raise HTTPException(status_code=422, detail=f"backend must be one of: {', '.join(BACKENDS)}")
     s = ChatSession(username=identity.name, label=body.label, backend=backend)
@@ -162,13 +333,24 @@ async def send_message(
     settings: Settings = Depends(get_settings),
     identity=Depends(get_current_identity),
     session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
 ) -> StreamingResponse:
     if not body.content.strip():
         raise HTTPException(status_code=422, detail="content must not be empty")
     s = await _owned_session(session, sid, identity.name)
-    backend_name = (body.backend or s.backend).strip()
+    # The session's backend is authoritative (CentralStation lesson: never let a
+    # per-request body override a session pinned to another agent). A body
+    # backend is honored only if it matches.
+    backend_name = s.backend
+    if body.backend and body.backend != backend_name:
+        raise HTTPException(
+            status_code=409,
+            detail=f"session is pinned to backend {backend_name!r}; start a new session to use {body.backend!r}",
+        )
     if backend_name not in BACKENDS:
         raise HTTPException(status_code=422, detail=f"backend must be one of: {', '.join(BACKENDS)}")
+    prefs = await _load_prefs(session, identity.name)
+    model = (prefs.models or {}).get(backend_name) if prefs else None
 
     # Persist the user turn and load the full transcript (incl. it) up front,
     # while the request-scoped session is still open.
@@ -188,7 +370,7 @@ async def send_message(
     assistant_seq = next_seq + 1
 
     try:
-        backend = chat_backend_for(settings, backend_name)
+        backend = await _build_backend(settings, oauth, identity.name, backend_name, model)
     except ChatBackendError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

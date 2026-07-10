@@ -22,6 +22,7 @@ from bossman.mcp.server import build_mcp_server
 from bossman.services import keys, plan_store
 from bossman.services.catalog import CatalogCache
 from bossman.services.chat_client import chat_client_for
+from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
 from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import seed_default_check_rules
@@ -97,6 +98,7 @@ async def lifespan(app: FastAPI):
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)
     app.state.chat_client = chat_client_for(settings)
+    app.state.chat_oauth = ChatOAuthService()
 
     # The MCP facade (Block B8) is mounted here rather than in create_app()
     # because it needs a real session_factory to close over, and that only

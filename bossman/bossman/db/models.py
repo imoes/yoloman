@@ -1239,3 +1239,18 @@ class ChatMessage(Base):
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
 
     __table_args__ = (Index("idx_chat_messages_session", "session_id", "seq"),)
+
+
+class ChatPreference(Base):
+    """Block K — per-user chat console settings (one row per username): the
+    default backend and per-backend model choices. Every user configures their
+    own console independently; the OAuth tokens themselves live in the user's
+    bind-mounted home dir (see services/chat_home.py), not the DB."""
+
+    __tablename__ = "chat_preferences"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    default_backend: Mapped[str] = mapped_column(String, nullable=False, default="claude_cli")
+    models: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # {backend: model}
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
