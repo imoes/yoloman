@@ -18,3 +18,20 @@ export interface HostGroupInput {
   description?: string;
   ou_id?: string | null;
 }
+
+/** Matches bossman/api/host_groups.py's GroupPolicyReport (Block O3) — which
+ * orchestration policies apply to the group's members, with a per-policy
+ * count of how many members each lands on. */
+export interface GroupPolicyReportEntry {
+  name: string;
+  type: string;
+  version: number | null;
+  member_count: number;
+}
+
+export interface GroupPolicyReport {
+  group_id: string;
+  group_name: string;
+  member_count: number;
+  policies: GroupPolicyReportEntry[];
+}

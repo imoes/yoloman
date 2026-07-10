@@ -134,6 +134,54 @@ async def delete_host_group(
     await session.commit()
 
 
+class GroupPolicyReportEntry(BaseModel):
+    name: str
+    type: str
+    version: int | None
+    member_count: int  # how many of the group's members this policy applies to
+
+
+class GroupPolicyReport(BaseModel):
+    group_id: UUID
+    group_name: str
+    member_count: int
+    policies: list[GroupPolicyReportEntry]
+
+
+@router.get("/api/v1/host-groups/{group_id}/policy-report", response_model=GroupPolicyReport)
+async def host_group_policy_report(
+    group_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> GroupPolicyReport:
+    """Block O3 — which orchestration policies apply to this group's members.
+    Iterates the members, compiles each one's (read-only) desired state via
+    the same GPO resolver the host view uses, and unions the applied plans
+    with a per-plan count of how many members they land on. Read-only; never
+    persists a generation (uses the compiler's pure build half)."""
+    from bossman.services.compiler import _build_desired_state
+
+    group = await _get_group_or_404(session, group_id)
+    member_ids = await _members(session, group_id)
+
+    # plan name -> (type, version, set of member ids it applies to)
+    agg: dict[str, dict] = {}
+    for agent_id in member_ids:
+        agent = await session.get(Agent, agent_id)
+        if agent is None:
+            continue
+        state, _explain = await _build_desired_state(session, agent)
+        for p in state["orchestration"]["plans"]:
+            entry = agg.setdefault(p["name"], {"type": p["type"], "version": p["version"], "members": set()})
+            entry["members"].add(agent_id)
+
+    policies = [
+        GroupPolicyReportEntry(name=name, type=e["type"], version=e["version"], member_count=len(e["members"]))
+        for name, e in sorted(agg.items())
+    ]
+    return GroupPolicyReport(
+        group_id=group_id, group_name=group.name, member_count=len(member_ids), policies=policies
+    )
+
+
 class MembershipIn(BaseModel):
     agent_ids: list[UUID]
 

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { HostGroup, HostGroupInput } from '../models/host-group.model';
+import { GroupPolicyReport, HostGroup, HostGroupInput } from '../models/host-group.model';
 
 /** REST client for first-class host groups (Block L1) — mirrors
  * MonitoringService's shape. */
@@ -33,5 +33,10 @@ export class HostGroupService {
 
   replaceMembers(id: string, agentIds: string[]) {
     return this.http.put<HostGroup>(`${this.base}/${id}/members`, { agent_ids: agentIds });
+  }
+
+  /** Block O3: which policies apply to this group's members (read-only). */
+  policyReport(id: string) {
+    return this.http.get<GroupPolicyReport>(`${this.base}/${id}/policy-report`);
   }
 }
