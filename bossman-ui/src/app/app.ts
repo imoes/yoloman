@@ -9,6 +9,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -23,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/plans', label: 'Plans', icon: 'checklist' },
   { path: '/runs', label: 'Runs', icon: 'history' },
+  { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -35,6 +37,11 @@ const NAV_ITEMS: NavItem[] = [
 })
 export class App {
   auth = inject(AuthService);
-  navItems = NAV_ITEMS;
+  // Block M: hide admin-only entries (Users & Access) for non-admins. The
+  // route's adminGuard and the backend's require_admin are the real gates;
+  // this just keeps the nav honest.
+  navItems = computed(() =>
+    NAV_ITEMS.filter((item) => !item.adminOnly || this.auth.role() === 'admin'),
+  );
   isLoggedIn = computed(() => this.auth.isLoggedIn());
 }
