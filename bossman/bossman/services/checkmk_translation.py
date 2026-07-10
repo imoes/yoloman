@@ -47,6 +47,12 @@ Ansible module. The module must be READ-ONLY: it gathers data on the host and
 reports a verdict — it never mutates the system (never pass mutates=True,
 never call ctx.file_write).
 
+JSON IS AVAILABLE HERE (unlike the base contract's note): `json.decode(s)`
+returns the value parsed from a JSON string and `json.encode(v)` returns a
+JSON string. Checkmk checks often parse JSON agent output — use
+`json.decode(res.stdout)` instead of hand-parsing. (Still no `re`, no `os`,
+no imports.)
+
 A Checkmk check has TWO parts you must reproduce, both inside one
 `def main(ctx, params):`, selected by whether `params.get("_discover")` is set:
 

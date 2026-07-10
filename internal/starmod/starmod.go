@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"sort"
 
+	starlarkjson "go.starlark.net/lib/json"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 	"go.starlark.net/syntax"
@@ -97,6 +98,12 @@ func fileOptions() *syntax.FileOptions {
 func predeclared() starlark.StringDict {
 	return starlark.StringDict{
 		"isinstance": starlark.NewBuiltin("isinstance", builtinIsInstance),
+		// json.decode/encode/indent (go.starlark.net/lib/json): Checkmk checks
+		// routinely parse JSON agent output, so a check translation that calls
+		// json.decode must both lint-clean AND run. Shared by validation and
+		// execution (predeclared is the single source), so "validate ≡ execute"
+		// holds. Ansible action modules don't need it but it's harmless there.
+		"json": starlarkjson.Module,
 	}
 }
 
