@@ -10,7 +10,10 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
 import { ChatPlanGraphComponent } from './chat-plan-graph.component';
 
-const WIDGET_TYPES: WidgetType[] = ['top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat'];
+const WIDGET_TYPES: WidgetType[] = [
+  'top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat',
+  'bar', 'table', 'status_tiles', 'progress', 'ai_summary', 'war_room', 'log', 'callout',
+];
 // PlantUML server for the ~h hex-encoding (pure client-side, no deflate dep).
 const PLANTUML_SERVER = 'https://www.plantuml.com/plantuml/svg/~h';
 

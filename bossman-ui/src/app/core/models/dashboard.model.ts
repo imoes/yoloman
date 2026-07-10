@@ -1,7 +1,22 @@
 /** Matches bossman/api/dashboard.py's DashboardWidgetOut — one persisted
  * GridStack widget on the operator's Fleet Overview dashboard (see
  * docs/plan.md's monitoring-cockpit ergänzung Block F5). */
-export type WidgetType = 'top_hosts' | 'problems' | 'gauge' | 'timeseries' | 'donut' | 'stat';
+export type WidgetType =
+  | 'top_hosts'
+  | 'problems'
+  | 'gauge'
+  | 'timeseries'
+  | 'donut'
+  | 'stat'
+  // Block W1 — additional AI-console widget types.
+  | 'bar'
+  | 'table'
+  | 'status_tiles'
+  | 'progress'
+  | 'ai_summary'
+  | 'war_room'
+  | 'log'
+  | 'callout';
 
 export interface DashboardWidget {
   id: string;
@@ -83,13 +98,57 @@ export interface TimeseriesWidgetData {
   error?: string;
 }
 
+// ---- Block W1: additional widget data shapes ----
+export interface BarWidgetData {
+  buckets: Array<{ key: string; count: number }>;
+}
+export interface TableWidgetData {
+  columns: string[];
+  rows: Array<Array<string | number>>;
+}
+export type TileState = 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
+export interface StatusTilesWidgetData {
+  tiles: Array<{ label: string; state: TileState; sub?: string }>;
+}
+export interface ProgressWidgetData {
+  items: Array<{ label: string; value: number; max?: number; state?: TileState }>;
+}
+export interface AiSummaryWidgetData {
+  summary: string;
+  findings?: string[];
+  recommendations?: string[];
+}
+export interface WarRoomWidgetData {
+  active?: boolean;
+  severity?: TileState;
+  findings?: string[];
+  recommendations?: string[];
+  blast_radius?: string[];
+}
+export interface LogWidgetData {
+  lines?: string[];
+  entries?: Array<{ timestamp?: string; unit?: string; message: string; priority?: string | number }>;
+}
+export interface CalloutWidgetData {
+  level?: 'info' | 'warn' | 'error' | 'success';
+  text: string;
+}
+
 export type WidgetData =
   | TopHostsWidgetData
   | ProblemsWidgetData
   | DonutWidgetData
   | StatWidgetData
   | GaugeWidgetData
-  | TimeseriesWidgetData;
+  | TimeseriesWidgetData
+  | BarWidgetData
+  | TableWidgetData
+  | StatusTilesWidgetData
+  | ProgressWidgetData
+  | AiSummaryWidgetData
+  | WarRoomWidgetData
+  | LogWidgetData
+  | CalloutWidgetData;
 
 /** Mirrors bossman/services/dashboard.py's DEFAULT_SIZE — used client-side
  * only for the add-widget dialog preview; the server applies its own copy

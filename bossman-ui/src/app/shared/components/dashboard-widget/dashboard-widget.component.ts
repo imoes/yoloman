@@ -6,13 +6,21 @@ import { MatIconModule } from '@angular/material/icon';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import {
+  AiSummaryWidgetData,
+  BarWidgetData,
+  CalloutWidgetData,
   DashboardWidget,
   DonutWidgetData,
   GaugeWidgetData,
+  LogWidgetData,
   ProblemsWidgetData,
+  ProgressWidgetData,
   StatWidgetData,
+  StatusTilesWidgetData,
+  TableWidgetData,
   TimeseriesWidgetData,
   TopHostsWidgetData,
+  WarRoomWidgetData,
   WidgetData,
 } from '../../../core/models/dashboard.model';
 import { HostStatusBadgeComponent } from '../host-status-badge/host-status-badge.component';
@@ -125,6 +133,78 @@ import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
               <p class="bm-widget-empty">No data for this metric yet.</p>
             }
           }
+          @case ('bar') {
+            @if (barBuckets().length) {
+              <div echarts [options]="barOptions()" class="bm-widget-chart"></div>
+            } @else {
+              <p class="bm-widget-empty">No data.</p>
+            }
+          }
+          @case ('table') {
+            <table class="bm-widget-table">
+              <thead><tr>@for (c of tableColumns(); track $index) { <th>{{ c }}</th> }</tr></thead>
+              <tbody>
+                @for (row of tableRows(); track $index) {
+                  <tr>@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr>
+                }
+              </tbody>
+            </table>
+          }
+          @case ('status_tiles') {
+            <div class="bm-tiles">
+              @for (t of tiles(); track $index) {
+                <div class="bm-tile" [style.border-left-color]="tileColor(t.state)">
+                  <span class="bm-tile-label">{{ t.label }}</span>
+                  @if (t.sub) { <span class="bm-tile-sub">{{ t.sub }}</span> }
+                </div>
+              }
+            </div>
+          }
+          @case ('progress') {
+            <div class="bm-progress-list">
+              @for (p of progressItems(); track $index) {
+                <div class="bm-progress-row">
+                  <span class="bm-progress-label">{{ p.label }}</span>
+                  <div class="bm-progress-track"><div class="bm-progress-fill" [style.width.%]="pct(p)" [style.background]="tileColor(p.state ?? 'OK')"></div></div>
+                  <span class="bm-progress-val">{{ p.value }}{{ p.max ? '/' + p.max : '' }}</span>
+                </div>
+              }
+            </div>
+          }
+          @case ('ai_summary') {
+            <div class="bm-summary">
+              <p>{{ aiSummary().summary }}</p>
+              @if (aiSummary().findings?.length) {
+                <h5>Findings</h5><ul>@for (f of aiSummary().findings!; track $index) { <li>{{ f }}</li> }</ul>
+              }
+              @if (aiSummary().recommendations?.length) {
+                <h5>Recommendations</h5><ul>@for (r of aiSummary().recommendations!; track $index) { <li>{{ r }}</li> }</ul>
+              }
+            </div>
+          }
+          @case ('war_room') {
+            <div class="bm-warroom" [style.border-left-color]="tileColor(warRoom().severity)">
+              <div class="bm-warroom-head" [style.color]="tileColor(warRoom().severity)">
+                {{ warRoom().active ? 'ACTIVE INCIDENT' : 'Situation' }} — {{ warRoom().severity ?? '—' }}
+              </div>
+              @if (warRoom().findings?.length) {
+                <h5>Findings</h5><ul>@for (f of warRoom().findings!; track $index) { <li>{{ f }}</li> }</ul>
+              }
+              @if (warRoom().blast_radius?.length) {
+                <h5>Blast radius</h5><ul>@for (b of warRoom().blast_radius!; track $index) { <li>{{ b }}</li> }</ul>
+              }
+              @if (warRoom().recommendations?.length) {
+                <h5>Recommendations</h5><ul>@for (r of warRoom().recommendations!; track $index) { <li>{{ r }}</li> }</ul>
+              }
+            </div>
+          }
+          @case ('log') {
+            <pre class="bm-widget-log">@for (l of logLines(); track $index) {<span>{{ l }}
+</span>}</pre>
+          }
+          @case ('callout') {
+            <div class="bm-callout bm-callout-{{ callout().level ?? 'info' }}">{{ callout().text }}</div>
+          }
         }
       </div>
     </div>
@@ -204,6 +284,28 @@ import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
         text-transform: uppercase;
         letter-spacing: 0.04em;
       }
+      /* Block W1 additions */
+      .bm-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
+      .bm-tile { display: flex; flex-direction: column; padding: 4px 8px; border-left: 3px solid var(--bm-unknown); background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); border-radius: 4px; min-width: 70px; }
+      .bm-tile-label { font-size: 12px; }
+      .bm-tile-sub { font-size: 10px; opacity: 0.7; }
+      .bm-progress-list { display: flex; flex-direction: column; gap: 6px; }
+      .bm-progress-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+      .bm-progress-label { flex: 0 0 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bm-progress-track { flex: 1; height: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); border-radius: 5px; overflow: hidden; }
+      .bm-progress-fill { height: 100%; }
+      .bm-progress-val { flex: none; font-variant-numeric: tabular-nums; opacity: 0.8; }
+      .bm-summary, .bm-warroom { font-size: 13px; overflow: auto; }
+      .bm-summary h5, .bm-warroom h5 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; opacity: 0.6; }
+      .bm-summary ul, .bm-warroom ul { margin: 0; padding-left: 18px; }
+      .bm-warroom { border-left: 4px solid var(--bm-unknown); padding-left: 8px; }
+      .bm-warroom-head { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+      .bm-widget-log { margin: 0; max-height: 100%; overflow: auto; background: #1e1e1e; color: #d4d4d4; padding: 8px; border-radius: 6px; font-size: 11px; white-space: pre-wrap; word-break: break-word; }
+      .bm-callout { padding: 8px 12px; border-radius: 6px; font-size: 13px; border-left: 4px solid; }
+      .bm-callout-info { border-left-color: #569cd6; background: color-mix(in srgb, #569cd6 12%, transparent); }
+      .bm-callout-success { border-left-color: var(--bm-green); background: color-mix(in srgb, var(--bm-green) 12%, transparent); }
+      .bm-callout-warn { border-left-color: var(--bm-gold); background: color-mix(in srgb, var(--bm-gold) 14%, transparent); }
+      .bm-callout-error { border-left-color: var(--bm-red); background: color-mix(in srgb, var(--bm-red) 12%, transparent); }
     `,
   ],
 })
@@ -227,6 +329,47 @@ export class DashboardWidgetComponent {
   timeseriesPoints = computed(() => (this.data() as TimeseriesWidgetData | null)?.points ?? []);
 
   private readonly stateColors: Record<string, string> = { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN };
+
+  // ---- Block W1: additional widget accessors ----
+  barBuckets = computed(() => (this.data() as BarWidgetData | null)?.buckets ?? []);
+  tableColumns = computed(() => (this.data() as TableWidgetData | null)?.columns ?? []);
+  tableRows = computed(() => (this.data() as TableWidgetData | null)?.rows ?? []);
+  tiles = computed(() => (this.data() as StatusTilesWidgetData | null)?.tiles ?? []);
+  progressItems = computed(() => (this.data() as ProgressWidgetData | null)?.items ?? []);
+  aiSummary = computed(() => (this.data() as AiSummaryWidgetData | null) ?? { summary: '' });
+  warRoom = computed(() => (this.data() as WarRoomWidgetData | null) ?? {});
+  callout = computed(() => (this.data() as CalloutWidgetData | null) ?? { text: '' });
+  logLines = computed<string[]>(() => {
+    const d = this.data() as LogWidgetData | null;
+    if (!d) return [];
+    if (d.lines?.length) return d.lines;
+    return (d.entries ?? []).map((e) => `${e.timestamp ?? ''} ${e.unit ?? ''} ${e.message}`.trim());
+  });
+
+  tileColor(state?: string): string {
+    return this.stateColors[state ?? 'UNKNOWN'] ?? BM_UNKNOWN;
+  }
+  pct(item: { value: number; max?: number }): number {
+    const max = item.max ?? 100;
+    return max > 0 ? Math.min(100, Math.max(0, (item.value / max) * 100)) : 0;
+  }
+
+  barOptions = computed<EChartsCoreOption>(() => {
+    const buckets = this.barBuckets();
+    return {
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'axis' },
+      grid: { left: 8, right: 12, top: 12, bottom: 8, containLabel: true },
+      xAxis: { type: 'category', data: buckets.map((b) => b.key), axisLabel: { fontSize: 10 } },
+      yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+      series: [
+        {
+          type: 'bar',
+          data: buckets.map((b) => ({ value: b.count, itemStyle: { color: this.stateColors[b.key] ?? BM_GREEN } })),
+        },
+      ],
+    };
+  });
 
   donutOptions = computed<EChartsCoreOption>(() => {
     const buckets = this.donutBuckets();

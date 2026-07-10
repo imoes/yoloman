@@ -18,9 +18,18 @@ Available widget_type values and their `data` shapes:
 - gauge: {"value":72,"warn":80,"crit":90}
 - stat:  {"value":42,"label":"hosts"}
 - timeseries: {"points":[{"t":"2026-07-10T10:00:00Z","value":12}, ...]}
+- bar:   {"buckets":[{"key":"apt","count":5},{"key":"pip","count":2}]}
+- table: {"columns":["host","state"],"rows":[["vpp01","OK"],["vpp02","CRIT"]]}
+- status_tiles: {"tiles":[{"label":"vpp01","state":"OK"},{"label":"vpp02","state":"CRIT","sub":"disk"}]}
+- progress: {"items":[{"label":"vpp01","value":100,"max":100,"state":"OK"},{"label":"vpp02","value":40}]}
+- ai_summary: {"summary":"...","findings":["..."],"recommendations":["..."]}
+- war_room: {"active":true,"severity":"CRIT","findings":["..."],"blast_radius":["..."],"recommendations":["..."]}
+- log: {"lines":["...","..."]}
+- callout: {"level":"warn","text":"..."}  (level: info|success|warn|error)
 - top_hosts / problems: fleet lists (usually better fetched via tools).
 - plan_graph: a workflow/plan DAG —
-  {"data":{"nodes":[{"id":"a","label":"Step A"}],"edges":[{"from":"a","to":"b"}]}}"""
+  {"data":{"nodes":[{"id":"a","label":"Step A"}],"edges":[{"from":"a","to":"b"}]}}
+State values are OK|WARN|CRIT|UNKNOWN (drives green/gold/red/grey)."""
 
 SYSTEM_PROMPT = f"""\
 You are Bossman's fleet assistant — an AI console embedded in a fleet
