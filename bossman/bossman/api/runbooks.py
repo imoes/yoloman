@@ -17,15 +17,92 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
 from bossman.api.auth import get_current_identity
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent
+from bossman.db.models import Agent, Runbook
 from bossman.db.session import get_session
-from bossman.services import nt_compile, nt_engine, nt_runbook
+from bossman.services import nt_compile, nt_convert, nt_engine, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 
 router = APIRouter()
+
+DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+
+
+# ── Runbook CRUD (stored as canonical JSON, authored as NestedText) ────────
+
+
+class SaveRunbookBody(BaseModel):
+    nt: str | None = None
+    yaml: str | None = None  # import an existing YAML playbook
+
+
+def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
+    if body.nt is not None:
+        return nt_convert.nt_to_doc(body.nt)
+    if body.yaml is not None:
+        return nt_convert.yaml_to_doc(body.yaml)
+    raise HTTPException(status_code=422, detail="provide `nt` or `yaml`")
+
+
+@router.get("/api/v1/runbooks")
+async def list_runbooks(session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    rows = (await session.scalars(select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID).order_by(Runbook.name))).all()
+    return {"runbooks": [{"id": str(r.id), "name": r.name, "kind": r.kind,
+                          "updated_at": r.updated_at.isoformat() if r.updated_at else None} for r in rows]}
+
+
+@router.get("/api/v1/runbooks/{runbook_id}")
+async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    r = await session.get(Runbook, runbook_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="no such runbook")
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
+
+
+@router.post("/api/v1/runbooks")
+async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(get_session), identity: Identity = Depends(get_current_identity)) -> dict[str, Any]:
+    try:
+        doc = _to_doc(body)
+    except nt_runbook.NTRunbookError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    r = Runbook(tenant_id=DEFAULT_TENANT_ID, name=doc["name"], kind=doc.get("kind", "runbook"), doc=doc, created_by=identity.name)
+    session.add(r)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=f"a runbook named {doc['name']!r} already exists") from exc
+    return {"id": str(r.id), "name": r.name, "kind": r.kind}
+
+
+@router.put("/api/v1/runbooks/{runbook_id}")
+async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    r = await session.get(Runbook, runbook_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="no such runbook")
+    try:
+        doc = _to_doc(body)
+    except nt_runbook.NTRunbookError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    r.name = doc["name"]
+    r.kind = doc.get("kind", "runbook")
+    r.doc = doc
+    await session.commit()
+    return {"id": str(r.id), "name": r.name, "kind": r.kind}
+
+
+@router.delete("/api/v1/runbooks/{runbook_id}", status_code=204)
+async def delete_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> None:
+    r = await session.get(Runbook, runbook_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="no such runbook")
+    await session.delete(r)
+    await session.commit()
 
 
 class NTBody(BaseModel):

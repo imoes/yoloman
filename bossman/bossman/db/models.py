@@ -839,6 +839,30 @@ class CheckAssignment(Base):
     )
 
 
+class Runbook(Base):
+    """A NestedText runbook/role stored as its canonical JSON document
+    (Block G11). Runbooks live in the DB (unlike modules/checks, which stay on
+    the filesystem); NestedText is the authoring/display form, converted to/
+    from `doc` by services/nt_convert. `kind` mirrors doc['kind']
+    (runbook|role) for cheap listing/filtering."""
+
+    __tablename__ = "runbooks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False, default="runbook")  # runbook | role
+    doc: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_runbooks_tenant_name"),
+        CheckConstraint("kind IN ('runbook', 'role')", name="ck_runbooks_kind"),
+    )
+
+
 class SystemSettings(Base):
     """One-and-only row of Bossman-wide runtime toggles (Block L2) — DB-
     backed (not env-var) so they flip instantly via the REST API/UI without

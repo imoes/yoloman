@@ -72,6 +72,18 @@ const MAGIC_VARS = [
 
       <div class="bm-split">
         <div class="bm-left">
+          <div class="bm-toolbar">
+            <mat-form-field appearance="outline" class="bm-host">
+              <mat-label>Saved runbook</mat-label>
+              <mat-select [ngModel]="currentId()" (ngModelChange)="load($event)">
+                <mat-option [value]="''">— new —</mat-option>
+                @for (r of saved(); track r.id) { <mat-option [value]="r.id">{{ r.name }} ({{ r.kind }})</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button (click)="save()"><mat-icon>save</mat-icon> {{ currentId() ? 'Save' : 'Save as new' }}</button>
+            @if (currentId()) { <button mat-button (click)="newRunbook()">New</button> }
+            @if (saveMsg()) { <span class="bm-dim">{{ saveMsg() }}</span> }
+          </div>
           <div #editor class="bm-editor"></div>
           <div class="bm-toolbar">
             <button mat-stroked-button (click)="doLint()"><mat-icon>check_circle</mat-icon> Lint</button>
@@ -173,10 +185,44 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   lint = signal<LintResult | null>(null);
   result = signal<RunResult | null>(null);
   running = signal(false);
+  saved = signal<{ id: string; name: string; kind: string }[]>([]);
+  currentId = signal<string>('');
+  saveMsg = signal<string>('');
   magicVars = MAGIC_VARS;
 
   ngOnInit(): void {
     this.agentService.list().subscribe((a) => this.hosts.set(a));
+    this.reloadList();
+  }
+
+  private reloadList(): void {
+    this.http.get<{ runbooks: { id: string; name: string; kind: string }[] }>(`${this.base}/runbooks`)
+      .subscribe((r) => this.saved.set(r.runbooks));
+  }
+
+  load(id: string): void {
+    this.currentId.set(id);
+    this.saveMsg.set('');
+    if (!id) { this.ed?.setValue(STARTER); return; }
+    this.http.get<{ nt: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => this.ed?.setValue(r.nt || ''));
+  }
+
+  newRunbook(): void {
+    this.currentId.set('');
+    this.saveMsg.set('');
+    this.ed?.setValue(STARTER);
+  }
+
+  save(): void {
+    const nt = this.source();
+    const id = this.currentId();
+    const req = id
+      ? this.http.put<{ id: string; name: string }>(`${this.base}/runbooks/${id}`, { nt })
+      : this.http.post<{ id: string; name: string }>(`${this.base}/runbooks`, { nt });
+    req.subscribe({
+      next: (r) => { this.currentId.set(r.id); this.saveMsg.set('saved: ' + r.name); this.reloadList(); },
+      error: (e) => this.saveMsg.set('save failed: ' + (e?.error?.detail ?? 'error')),
+    });
   }
 
   ngAfterViewInit(): void {

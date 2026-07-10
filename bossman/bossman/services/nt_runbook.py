@@ -158,6 +158,13 @@ def parse_document(text: str, source: str = "<string>") -> Runbook | Role:
     except nestedtext.NestedTextError as exc:
         line = getattr(exc, "lineno", None)
         raise NTRunbookError(f"{source}: not valid NestedText: {exc}", line=line) from exc
+    return parse_data(data, source)
+
+
+def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
+    """Validate an already-parsed mapping (from NestedText, YAML, or the DB's
+    canonical JSON) into a Runbook/Role. The shape rules live here so every
+    input format shares one validator."""
     if not isinstance(data, dict):
         raise NTRunbookError(f"{source}: top level must be a mapping")
 
