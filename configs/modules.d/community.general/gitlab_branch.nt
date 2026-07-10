@@ -1,0 +1,72 @@
+name: gitlab_branch
+fqcn: community.general.gitlab_branch
+collection: community.general
+short_description: Create or delete a branch
+description: This module allows to create or delete branches.
+options:
+    api_job_token:
+        type: str
+        description: GitLab CI job token for logging in.
+    api_oauth_token:
+        type: str
+        description: GitLab OAuth token for logging in.
+    api_password:
+        type: str
+        description: The password to use for authentication against the API.
+    api_token:
+        type: str
+        description: GitLab access token with API permissions.
+    api_url:
+        type: str
+        description: The resolvable endpoint for the API.
+    api_username:
+        type: str
+        description: The username to use for authentication against the API.
+    branch:
+        type: str
+        required: true
+        description: The name of the branch that needs to be created.
+    ca_path:
+        type: str
+        description: The CA certificates bundle to use to verify GitLab server certificate.
+    project:
+        type: str
+        required: true
+        description: The path or name of the project.
+    ref_branch:
+        type: str
+        description: Reference branch to create from. This must be specified if O(state=present).
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Create or delete branch.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create branch branch2 from main
+    >   community.general.gitlab_branch:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     project: "group1/project1"
+    >     branch: branch2
+    >     ref_branch: main
+    >     state: present
+    >
+    > - name: Delete branch branch2
+    >   community.general.gitlab_branch:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     project: "group1/project1"
+    >     branch: branch2
+    >     state: absent
+    >
+    >

@@ -1,0 +1,119 @@
+name: docker_volume
+fqcn: community.docker.docker_volume
+collection: community.docker
+short_description: Manage Docker volumes
+description: Create/remove Docker volumes. Performs largely the same function as the C(docker volume) CLI subcommand.
+options:
+    api_version:
+        type: str
+        default: auto
+        aliases:
+            - docker_api_version
+        description: The version of the Docker API running on the Docker Host. Defaults to the latest version of the API supported by this collection and the docker daemon. If the value is not specified in the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the environment variable is not set, the default value will be used.
+    ca_path:
+        type: path
+        aliases:
+            - ca_cert
+            - tls_ca_cert
+            - cacert_path
+        description: Use a CA certificate when performing server verification by providing the path to a CA certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used. This option was called O(ca_cert) and got renamed to O(ca_path) in community.docker 3.6.0. The old name has been added as an alias and can still be used.
+    client_cert:
+        type: path
+        aliases:
+            - tls_client_cert
+            - cert_path
+        description: Path to the client's TLS certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+    client_key:
+        type: path
+        aliases:
+            - tls_client_key
+            - key_path
+        description: Path to the client's TLS key file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+    debug:
+        type: bool
+        default: false
+        description: Debug mode
+    docker_host:
+        type: str
+        default: unix:///var/run/docker.sock
+        aliases:
+            - docker_url
+        description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to encrypt the connection, the module will automatically replace C(tcp) in the connection URL with C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST) will be used instead. If the environment variable is not set, the default value will be used.
+    driver:
+        type: str
+        default: local
+        description: Specify the type of volume. Docker provides the V(local) driver, but 3rd party drivers can also be used.
+    driver_options:
+        type: dict
+        default:
+            {}
+        description: Dictionary of volume settings. Consult docker docs for valid options and values: U(https://docs.docker.com/engine/reference/commandline/volume_create/#driver-specific-options).
+    labels:
+        type: dict
+        description: Dictionary of label key/values to set for the volume
+    recreate:
+        type: str
+        default: never
+        choices:
+            - always
+            - never
+            - options-changed
+        description: Controls when a volume will be recreated when O(state=present). Please note that recreating an existing volume will cause B(any data in the existing volume to be lost!) The volume will be deleted and a new volume with the same name will be created. The value V(always) forces the volume to be always recreated. The value V(never) makes sure the volume will not be recreated. The value V(options-changed) makes sure the volume will be recreated if the volume already exist and the driver, driver options or labels differ.
+    ssl_version:
+        type: str
+        description: Provide a valid SSL version number. Default value determined by L(SSL Python module, https://docs.python.org/3/library/ssl.html). If the value is not specified in the task, the value of environment variable E(DOCKER_SSL_VERSION) will be used instead.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: V(absent) deletes the volume. V(present) creates the volume, if it does not already exist.
+    timeout:
+        type: int
+        default: 60
+        description: The maximum amount of time in seconds to wait on a response from the API. If the value is not specified in the task, the value of environment variable E(DOCKER_TIMEOUT) will be used instead. If the environment variable is not set, the default value will be used.
+    tls:
+        type: bool
+        default: false
+        description: Secure the connection to the API by using TLS without verifying the authenticity of the Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will be used instead. If the environment variable is not set, the default value will be used.
+    tls_hostname:
+        type: str
+        description: When verifying the authenticity of the Docker Host server, provide the expected name of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME) will be used instead. If the environment variable is not set, the default value will be used. Note that this option had a default value V(localhost) in older versions. It was removed in community.docker 3.0.0.
+    use_ssh_client:
+        type: bool
+        default: false
+        description: For SSH transports, use the C(ssh) CLI tool instead of paramiko.
+    validate_certs:
+        type: bool
+        default: false
+        aliases:
+            - tls_verify
+        description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY) will be used instead. If the environment variable is not set, the default value will be used.
+    volume_name:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: Name of the volume to operate on.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a volume
+    >   community.docker.docker_volume:
+    >     name: volume_one
+    >
+    > - name: Remove a volume
+    >   community.docker.docker_volume:
+    >     name: volume_one
+    >     state: absent
+    >
+    > - name: Create a volume with options
+    >   community.docker.docker_volume:
+    >     name: volume_two
+    >     driver_options:
+    >       type: btrfs
+    >       device: /dev/sda2
+    >

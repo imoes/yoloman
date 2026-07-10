@@ -1,0 +1,108 @@
+name: open_iscsi
+fqcn: community.general.open_iscsi
+collection: community.general
+short_description: Manage iSCSI targets with Open-iSCSI
+description: Discover targets on given portal, (dis)connect targets, mark targets to manually or auto start, return device nodes of connected targets.
+options:
+    auto_node_startup:
+        type: bool
+        aliases:
+            - automatic
+        description: Whether the target node should be automatically connected at startup.
+    auto_portal_startup:
+        type: bool
+        description: Whether the target node portal should be automatically connected at startup.
+    discover:
+        type: bool
+        default: false
+        description: Whether the list of target nodes on the portal should be (re)discovered and added to the persistent iSCSI database. Keep in mind that C(iscsiadm) discovery resets configuration, like C(node.startup) to manual, hence combined with O(auto_node_startup=true) will always return a changed state.
+    login:
+        type: bool
+        aliases:
+            - state
+        description: Whether the target node should be connected.
+    node_auth:
+        type: str
+        default: CHAP
+        description: The value for C(node.session.auth.authmethod).
+    node_pass:
+        type: str
+        description: The value for C(node.session.auth.password).
+    node_pass_in:
+        type: str
+        description: The value for C(node.session.auth.password_in).
+    node_user:
+        type: str
+        description: The value for C(node.session.auth.username).
+    node_user_in:
+        type: str
+        description: The value for C(node.session.auth.username_in).
+    port:
+        type: str
+        default: 3260
+        description: The port on which the iSCSI target process listens.
+    portal:
+        type: str
+        aliases:
+            - ip
+        description: The domain name or IP address of the iSCSI target.
+    rescan:
+        type: bool
+        default: false
+        description: Rescan an established session for discovering new targets. When O(target) is omitted, will rescan all sessions.
+    show_nodes:
+        type: bool
+        default: false
+        description: Whether the list of nodes in the persistent iSCSI database should be returned by the module.
+    target:
+        type: str
+        aliases:
+            - name
+            - targetname
+        description: The iSCSI target name.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Perform a discovery on sun.com and show available target nodes
+    >   community.general.open_iscsi:
+    >     show_nodes: true
+    >     discover: true
+    >     portal: sun.com
+    >
+    > - name: Perform a discovery on 10.1.2.3 and show available target nodes
+    >   community.general.open_iscsi:
+    >     show_nodes: true
+    >     discover: true
+    >     ip: 10.1.2.3
+    >
+    > # NOTE: Only works if exactly one target is exported to the initiator
+    > - name: Discover targets on portal and login to the one available
+    >   community.general.open_iscsi:
+    >     portal: '{{ iscsi_target }}'
+    >     login: true
+    >     discover: true
+    >
+    > - name: Connect to the named target, after updating the local persistent database (cache)
+    >   community.general.open_iscsi:
+    >     login: true
+    >     target: iqn.1986-03.com.sun:02:f8c1f9e0-c3ec-ec84-c9c9-8bfb0cd5de3d
+    >
+    > - name: Disconnect from the cached named target
+    >   community.general.open_iscsi:
+    >     login: false
+    >     target: iqn.1986-03.com.sun:02:f8c1f9e0-c3ec-ec84-c9c9-8bfb0cd5de3d
+    >
+    > - name: Override and disable automatic portal login on specific portal
+    >   community.general.open_iscsi:
+    >     login: false
+    >     portal: 10.1.1.250
+    >     auto_portal_startup: false
+    >     target: iqn.1986-03.com.sun:02:f8c1f9e0-c3ec-ec84-c9c9-8bfb0cd5de3d
+    >
+    > - name: Rescan one or all established sessions to discover new targets (omit target for all sessions)
+    >   community.general.open_iscsi:
+    >     rescan: true
+    >     target: iqn.1986-03.com.sun:02:f8c1f9e0-c3ec-ec84-c9c9-8bfb0cd5de3d
+    >

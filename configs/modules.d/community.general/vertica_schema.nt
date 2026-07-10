@@ -1,0 +1,69 @@
+name: vertica_schema
+fqcn: community.general.vertica_schema
+collection: community.general
+short_description: Adds or removes Vertica database schema and roles
+description: Adds or removes Vertica database schema and, optionally, roles with schema access privileges. A schema will not be removed until all the objects have been dropped. In such a situation, if the module tries to remove the schema it will fail and only remove roles created for the schema if they have no dependencies.
+options:
+    cluster:
+        type: str
+        default: localhost
+        description: Name of the Vertica cluster.
+    create_roles:
+        type: str
+        aliases:
+            - create_role
+        description: Comma separated list of roles to create and grant usage and create access to the schema.
+    db:
+        type: str
+        description: Name of the Vertica database.
+    login_password:
+        type: str
+        description: The password used to authenticate with.
+    login_user:
+        type: str
+        default: dbadmin
+        description: The username used to authenticate with.
+    owner:
+        type: str
+        description: Name of the user to set as owner of the schema.
+    port:
+        type: str
+        default: 5433
+        description: Vertica cluster port to connect to.
+    schema:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: Name of the schema to add or remove.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether to create V(present), or drop V(absent) a schema.
+    usage_roles:
+        type: str
+        aliases:
+            - usage_role
+        description: Comma separated list of roles to create and grant usage access to the schema.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Creating a new vertica schema
+    >   community.general.vertica_schema: name=schema_name db=db_name state=present
+    >
+    > - name: Creating a new schema with specific schema owner
+    >   community.general.vertica_schema: name=schema_name owner=dbowner db=db_name state=present
+    >
+    > - name: Creating a new schema with roles
+    >   community.general.vertica_schema:
+    >     name=schema_name
+    >     create_roles=schema_name_all
+    >     usage_roles=schema_name_ro,schema_name_rw
+    >     db=db_name
+    >     state=present
+    >

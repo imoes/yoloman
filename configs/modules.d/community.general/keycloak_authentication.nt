@@ -1,0 +1,158 @@
+name: keycloak_authentication
+fqcn: community.general.keycloak_authentication
+collection: community.general
+short_description: Configure authentication in Keycloak
+description: This module actually can only make a copy of an existing authentication flow, add an execution to it and configure it. It can also delete the flow.
+options:
+    alias:
+        type: str
+        required: true
+        description: Alias for the authentication flow.
+    auth_client_id:
+        type: str
+        default: admin-cli
+        description: OpenID Connect C(client_id) to authenticate to the API with.
+    auth_client_secret:
+        type: str
+        description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+    auth_keycloak_url:
+        type: str
+        required: true
+        aliases:
+            - url
+        description: URL to the Keycloak instance.
+    auth_password:
+        type: str
+        aliases:
+            - password
+        description: Password to authenticate for API access with.
+    auth_realm:
+        type: str
+        description: Keycloak realm name to authenticate to for API access.
+    auth_username:
+        type: str
+        aliases:
+            - username
+        description: Username to authenticate for API access with.
+    authenticationExecutions:
+        type: list
+        description: Configuration structure for the executions.
+    connection_timeout:
+        type: int
+        default: 10
+        description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+    copyFrom:
+        type: str
+        description: C(flowAlias) of the authentication flow to use for the copy.
+    description:
+        type: str
+        description: Description of the flow.
+    force:
+        type: bool
+        default: false
+        description: If V(true), allows to remove the authentication flow and recreate it.
+    http_agent:
+        type: str
+        default: Ansible
+        description: Configures the HTTP User-Agent header.
+    providerId:
+        type: str
+        choices:
+            - basic-flow
+            - client-flow
+        description: C(providerId) for the new flow when not copied from an existing flow.
+    realm:
+        type: str
+        required: true
+        description: The name of the realm in which is the authentication.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Control if the authentication flow must exists or not.
+    token:
+        type: str
+        description: Authentication token for Keycloak API.
+    validate_certs:
+        type: bool
+        default: true
+        description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create an authentication flow from first broker login and add an execution to it.
+    >   community.general.keycloak_authentication:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_realm: master
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     alias: "Copy of first broker login"
+    >     copyFrom: "first broker login"
+    >     authenticationExecutions:
+    >       - providerId: "test-execution1"
+    >         requirement: "REQUIRED"
+    >         authenticationConfig:
+    >             alias: "test.execution1.property"
+    >             config:
+    >             test1.property: "value"
+    >       - providerId: "test-execution2"
+    >         requirement: "REQUIRED"
+    >         authenticationConfig:
+    >             alias: "test.execution2.property"
+    >             config:
+    >             test2.property: "value"
+    >     state: present
+    >
+    > - name: Re-create the authentication flow
+    >   community.general.keycloak_authentication:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_realm: master
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     alias: "Copy of first broker login"
+    >     copyFrom: "first broker login"
+    >     authenticationExecutions:
+    >       - providerId: "test-provisioning"
+    >         requirement: "REQUIRED"
+    >         authenticationConfig:
+    >             alias: "test.provisioning.property"
+    >             config:
+    >             test.provisioning.property: "value"
+    >     state: present
+    >     force: true
+    >
+    > - name: Create an authentication flow with subflow containing an execution.
+    >   community.general.keycloak_authentication:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_realm: master
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     alias: "Copy of first broker login"
+    >     copyFrom: "first broker login"
+    >     authenticationExecutions:
+    >       - providerId: "test-execution1"
+    >         requirement: "REQUIRED"
+    >       - displayName: "New Subflow"
+    >         requirement: "REQUIRED"
+    >       - providerId: "auth-cookie"
+    >         requirement: "REQUIRED"
+    >         flowAlias: "New Sublow"
+    >     state: present
+    >
+    > - name: Remove authentication.
+    >   community.general.keycloak_authentication:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_realm: master
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     alias: "Copy of first broker login"
+    >     state: absent
+    >

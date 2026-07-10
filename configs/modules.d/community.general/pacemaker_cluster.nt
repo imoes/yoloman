@@ -1,0 +1,39 @@
+name: pacemaker_cluster
+fqcn: community.general.pacemaker_cluster
+collection: community.general
+short_description: Manage pacemaker clusters
+description: This module can manage a pacemaker cluster and nodes from Ansible using the pacemaker cli.
+options:
+    force:
+        type: bool
+        default: true
+        description: Force the change of the cluster state
+    node:
+        type: str
+        description: Specify which node of the cluster you want to manage. None == the cluster status itself, 'all' == check the status of all nodes.
+    state:
+        type: str
+        choices:
+            - cleanup
+            - offline
+            - online
+            - restart
+        description: Indicate desired state of the cluster
+    timeout:
+        type: int
+        default: 300
+        description: Timeout when the module should considered that the action has failed
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > ---
+    > - name: Set cluster Online
+    >   hosts: localhost
+    >   gather_facts: false
+    >   tasks:
+    >   - name: Get cluster state
+    >     community.general.pacemaker_cluster:
+    >       state: online
+    >

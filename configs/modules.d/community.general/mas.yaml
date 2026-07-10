@@ -1,0 +1,38 @@
+name: mas
+fqcn: community.general.mas
+collection: community.general
+short_description: Manage Mac App Store applications with mas-cli
+description: Installs, uninstalls and updates macOS applications from the Mac App Store using the C(mas-cli).
+options:
+  id:
+    type: list
+    description: The Mac App Store identifier of the app(s) you want to manage. This can be found by running
+      C(mas search APP_NAME) on your machine.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - latest
+    - present
+    description: Desired state of the app installation. The V(absent) value requires root permissions,
+      also see the examples.
+  upgrade_all:
+    type: bool
+    default: false
+    aliases:
+    - upgrade
+    description: Upgrade all installed Mac App Store apps.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install Keynote\n  community.general.mas:\n    id: 409183694\n    state: present\n\
+  \n- name: Install Divvy with command mas installed in /usr/local/bin\n  community.general.mas:\n   \
+  \ id: 413857545\n    state: present\n  environment:\n    PATH: /usr/local/bin:{{ ansible_facts.env.PATH\
+  \ }}\n\n- name: Install a list of apps\n  community.general.mas:\n    id:\n      - 409183694 # Keynote\n\
+  \      - 413857545 # Divvy\n    state: present\n\n- name: Ensure the latest Keynote version is installed\n\
+  \  community.general.mas:\n    id: 409183694\n    state: latest\n\n- name: Upgrade all installed Mac\
+  \ App Store apps\n  community.general.mas:\n    upgrade_all: true\n\n- name: Install specific apps and\
+  \ also upgrade all others\n  community.general.mas:\n    id:\n      - 409183694 # Keynote\n      - 413857545\
+  \ # Divvy\n    state: present\n    upgrade_all: true\n\n- name: Uninstall Divvy\n  community.general.mas:\n\
+  \    id: 413857545\n    state: absent\n  become: true # Uninstallation requires root permissions\n"

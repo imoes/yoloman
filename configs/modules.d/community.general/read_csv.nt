@@ -1,0 +1,81 @@
+name: read_csv
+fqcn: community.general.read_csv
+collection: community.general
+short_description: Read a CSV file
+description: Read a CSV file and return a list or a dictionary, containing one dictionary per row.
+options:
+    delimiter:
+        type: str
+        description: A one-character string used to separate fields. When using this parameter, you change the default value used by O(dialect). The default value depends on the dialect used.
+    dialect:
+        type: str
+        default: excel
+        description: The CSV dialect to use when parsing the CSV file. Possible values include V(excel), V(excel-tab) or V(unix).
+    fieldnames:
+        type: list
+        description: A list of field names for every column. This is needed if the CSV does not have a header.
+    key:
+        type: str
+        description: The column name used as a key for the resulting dictionary. If O(key) is unset, the module returns a list of dictionaries, where each dictionary is a row in the CSV file.
+    path:
+        type: path
+        required: true
+        aliases:
+            - filename
+        description: The CSV filename to read data from.
+    skipinitialspace:
+        type: bool
+        description: Whether to ignore any whitespaces immediately following the delimiter. When using this parameter, you change the default value used by O(dialect). The default value depends on the dialect used.
+    strict:
+        type: bool
+        description: Whether to raise an exception on bad CSV input. When using this parameter, you change the default value used by O(dialect). The default value depends on the dialect used.
+    unique:
+        type: bool
+        default: true
+        description: Whether the O(key) used is expected to be unique.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # Example CSV file with header
+    > #
+    > #   name,uid,gid
+    > #   dag,500,500
+    > #   jeroen,501,500
+    >
+    > # Read a CSV file and access user 'dag'
+    > - name: Read users from CSV file and return a dictionary
+    >   community.general.read_csv:
+    >     path: users.csv
+    >     key: name
+    >   register: users
+    >   delegate_to: localhost
+    >
+    > - ansible.builtin.debug:
+    >     msg: 'User {{ users.dict.dag.name }} has UID {{ users.dict.dag.uid }} and GID {{ users.dict.dag.gid }}'
+    >
+    > # Read a CSV file and access the first item
+    > - name: Read users from CSV file and return a list
+    >   community.general.read_csv:
+    >     path: users.csv
+    >   register: users
+    >   delegate_to: localhost
+    >
+    > - ansible.builtin.debug:
+    >     msg: 'User {{ users.list.1.name }} has UID {{ users.list.1.uid }} and GID {{ users.list.1.gid }}'
+    >
+    > # Example CSV file without header and semi-colon delimiter
+    > #
+    > #   dag;500;500
+    > #   jeroen;501;500
+    >
+    > # Read a CSV file without headers
+    > - name: Read users from CSV file and return a list
+    >   community.general.read_csv:
+    >     path: users.csv
+    >     fieldnames: name,uid,gid
+    >     delimiter: ';'
+    >   register: users
+    >   delegate_to: localhost
+    >

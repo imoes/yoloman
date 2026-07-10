@@ -1,0 +1,35 @@
+name: listen_ports_facts
+fqcn: community.general.listen_ports_facts
+collection: community.general
+short_description: Gather facts on processes listening on TCP and UDP ports
+description: Gather facts on processes listening on TCP and UDP ports using the C(netstat) or C(ss) commands.
+  This module currently supports Linux only.
+options:
+  command:
+    type: str
+    choices:
+    - netstat
+    - ss
+    description: Override which command to use for fetching listen ports. By default module will use first
+      found supported command on the system (in alphanumerical order).
+  include_non_listening:
+    type: bool
+    default: false
+    description: Show both listening and non-listening sockets (for TCP this means established connections).
+      Adds the return values RV(ansible_facts.tcp_listen[].state), RV(ansible_facts.udp_listen[].state),
+      RV(ansible_facts.tcp_listen[].foreign_address), and RV(ansible_facts.udp_listen[].foreign_address)
+      to the returned facts.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather facts on listening ports\n  community.general.listen_ports_facts:\n\n- name:\
+  \ TCP whitelist violation\n  ansible.builtin.debug:\n    msg: TCP port {{ item.port }} by pid {{ item.pid\
+  \ }} violates the whitelist\n  vars:\n    tcp_listen_violations: \"{{ ansible_facts.tcp_listen | selectattr('port',\
+  \ 'in', tcp_whitelist) | list }}\"\n    tcp_whitelist:\n      - 22\n      - 25\n  loop: \"{{ tcp_listen_violations\
+  \ }}\"\n\n- name: List TCP ports\n  ansible.builtin.debug:\n    msg: \"{{ ansible_facts.tcp_listen \
+  \ | map(attribute='port') | sort | list }}\"\n\n- name: List UDP ports\n  ansible.builtin.debug:\n \
+  \   msg: \"{{ ansible_facts.udp_listen | map(attribute='port') | sort | list }}\"\n\n- name: List all\
+  \ ports\n  ansible.builtin.debug:\n    msg: \"{{ (ansible_facts.tcp_listen + ansible_facts.udp_listen)\
+  \ | map(attribute='port') | unique | sort | list }}\"\n\n- name: Gather facts on all ports and override\
+  \ which command to use\n  community.general.listen_ports_facts:\n    command: 'netstat'\n    include_non_listening:\
+  \ true\n"

@@ -1,0 +1,43 @@
+name: portinstall
+fqcn: community.general.portinstall
+collection: community.general
+short_description: Installing packages from FreeBSD's ports system
+description: Manage packages for FreeBSD using 'portinstall'.
+options:
+    name:
+        type: str
+        required: true
+        aliases:
+            - pkg
+        description: name of package to install/remove
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: state of the package
+    use_packages:
+        type: bool
+        default: true
+        description: use packages instead of ports whenever available
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install package foo
+    >   community.general.portinstall:
+    >     name: foo
+    >     state: present
+    >
+    > - name: Install package security/cyrus-sasl2-saslauthd
+    >   community.general.portinstall:
+    >     name: security/cyrus-sasl2-saslauthd
+    >     state: present
+    >
+    > - name: Remove packages foo and bar
+    >   community.general.portinstall:
+    >     name: foo,bar
+    >     state: absent
+    >

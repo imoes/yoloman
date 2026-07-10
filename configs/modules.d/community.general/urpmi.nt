@@ -1,0 +1,65 @@
+name: urpmi
+fqcn: community.general.urpmi
+collection: community.general
+short_description: Urpmi manager
+description: Manages packages with C(urpmi) (such as for Mageia or Mandriva)
+options:
+    force:
+        type: bool
+        default: true
+        description: Assume "yes" is the answer to any question urpmi has to ask. Corresponds to the C(--force) option for C(urpmi).
+    name:
+        type: list
+        required: true
+        aliases:
+            - package
+            - pkg
+        description: A list of package names to install, upgrade or remove.
+    no_recommends:
+        type: bool
+        default: true
+        description: Corresponds to the C(--no-recommends) option for C(urpmi).
+    root:
+        type: str
+        aliases:
+            - installroot
+        description: Specifies an alternative install root, relative to which all packages will be installed. Corresponds to the C(--root) option for C(urpmi).
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+            - installed
+            - removed
+        description: Indicates the desired package state.
+    update_cache:
+        type: bool
+        default: false
+        description: Update the package database first C(urpmi.update -a).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install package foo
+    >   community.general.urpmi:
+    >     pkg: foo
+    >     state: present
+    >
+    > - name: Remove package foo
+    >   community.general.urpmi:
+    >     pkg: foo
+    >     state: absent
+    >
+    > - name: Remove packages foo and bar
+    >   community.general.urpmi:
+    >     pkg: foo,bar
+    >     state: absent
+    >
+    > - name: Update the package database (urpmi.update -a -q) and install bar (bar will be the updated if a newer version exists)
+    > - community.general.urpmi:
+    >     name: bar
+    >     state: present
+    >     update_cache: true
+    >

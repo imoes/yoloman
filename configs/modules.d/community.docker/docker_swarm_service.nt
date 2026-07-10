@@ -1,0 +1,363 @@
+name: docker_swarm_service
+fqcn: community.docker.docker_swarm_service
+collection: community.docker
+short_description: docker swarm service
+description: Manages docker services via a swarm manager node. This modules does not support updating services in a stack.
+options:
+    api_version:
+        type: str
+        default: auto
+        aliases:
+            - docker_api_version
+        description: The version of the Docker API running on the Docker Host. Defaults to the latest version of the API supported by Docker SDK for Python and the docker daemon. If the value is not specified in the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the environment variable is not set, the default value will be used.
+    args:
+        type: list
+        description: List arguments to be passed to the container. Corresponds to the C(ARG) parameter of C(docker service create).
+    ca_path:
+        type: path
+        aliases:
+            - ca_cert
+            - tls_ca_cert
+            - cacert_path
+        description: Use a CA certificate when performing server verification by providing the path to a CA certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used. This option was called O(ca_cert) and got renamed to O(ca_path) in community.docker 3.6.0. The old name has been added as an alias and can still be used.
+    cap_add:
+        type: list
+        description: List of capabilities to add to the container. Requires API version >= 1.41.
+    cap_drop:
+        type: list
+        description: List of capabilities to drop from the container. Requires API version >= 1.41.
+    client_cert:
+        type: path
+        aliases:
+            - tls_client_cert
+            - cert_path
+        description: Path to the client's TLS certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+    client_key:
+        type: path
+        aliases:
+            - tls_client_key
+            - key_path
+        description: Path to the client's TLS key file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+    command:
+        type: raw
+        description: Command to execute when the container starts. A command may be either a string or a list or a list of strings. Corresponds to the C(COMMAND) parameter of C(docker service create).
+    configs:
+        type: list
+        description: List of dictionaries describing the service configs. Corresponds to the C(--config) option of C(docker service create). Requires API version >= 1.30.
+    container_labels:
+        type: dict
+        description: Dictionary of key value pairs. Corresponds to the C(--container-label) option of C(docker service create).
+    debug:
+        type: bool
+        default: false
+        description: Debug mode
+    dns:
+        type: list
+        description: List of custom DNS servers. Corresponds to the C(--dns) option of C(docker service create).
+    dns_options:
+        type: list
+        description: List of custom DNS options. Corresponds to the C(--dns-option) option of C(docker service create).
+    dns_search:
+        type: list
+        description: List of custom DNS search domains. Corresponds to the C(--dns-search) option of C(docker service create).
+    docker_host:
+        type: str
+        default: unix:///var/run/docker.sock
+        aliases:
+            - docker_url
+        description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to encrypt the connection, the module will automatically replace C(tcp) in the connection URL with C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST) will be used instead. If the environment variable is not set, the default value will be used.
+    endpoint_mode:
+        type: str
+        choices:
+            - vip
+            - dnsrr
+        description: Service endpoint mode. Corresponds to the C(--endpoint-mode) option of C(docker service create).
+    env:
+        type: raw
+        description: List or dictionary of the service environment variables. If passed a list each items need to be in the format of C(KEY=VALUE). If passed a dictionary values which might be parsed as numbers, booleans or other types by the YAML parser must be quoted (for example V("true")) in order to avoid data loss. Corresponds to the C(--env) option of C(docker service create).
+    env_files:
+        type: list
+        description: List of paths to files, present on the target, containing environment variables C(FOO=BAR). The order of the list is significant in determining the value assigned to a variable that shows up more than once. If variable also present in O(env), then O(env) value will override.
+    force_update:
+        type: bool
+        default: false
+        description: Force update even if no changes require it. Corresponds to the C(--force) option of C(docker service update).
+    groups:
+        type: list
+        description: List of additional group names and/or IDs that the container process will run as. Corresponds to the C(--group) option of C(docker service update).
+    healthcheck:
+        type: dict
+        description: Configure a check that is run to determine whether or not containers for this service are "healthy". See the docs for the L(HEALTHCHECK Dockerfile instruction,https://docs.docker.com/engine/reference/builder/#healthcheck) for details on how healthchecks work. O(healthcheck.interval), O(healthcheck.timeout), and O(healthcheck.start_period) are specified as durations. They accept duration as a string in a format that look like: V(5h34m56s), V(1m30s), and so on. The supported units are V(us), V(ms), V(s), V(m) and V(h).
+    hostname:
+        type: str
+        description: Container hostname. Corresponds to the C(--hostname) option of C(docker service create).
+    hosts:
+        type: dict
+        description: Dict of host-to-IP mappings, where each host name is a key in the dictionary. Each host name will be added to the container's /etc/hosts file. Corresponds to the C(--host) option of C(docker service create).
+    image:
+        type: str
+        description: Service image path and tag. Corresponds to the C(IMAGE) parameter of C(docker service create).
+    init:
+        type: bool
+        description: Use an init inside each service container to forward signals and reap processes. Corresponds to the C(--init) option of C(docker service create). Requires API version >= 1.37.
+    labels:
+        type: dict
+        description: Dictionary of key value pairs. Corresponds to the C(--label) option of C(docker service create).
+    limits:
+        type: dict
+        description: Configures service resource limits.
+    logging:
+        type: dict
+        description: Logging configuration for the service.
+    mode:
+        type: str
+        default: replicated
+        choices:
+            - replicated
+            - global
+        description: Service replication mode. Service will be removed and recreated when changed. Corresponds to the C(--mode) option of C(docker service create).
+    mounts:
+        type: list
+        description: List of dictionaries describing the service mounts. Corresponds to the C(--mount) option of C(docker service create).
+    name:
+        type: str
+        required: true
+        description: Service name. Corresponds to the C(--name) option of C(docker service create).
+    networks:
+        type: list
+        description: List of the service networks names or dictionaries. When passed dictionaries valid sub-options are C(name), which is required, and C(aliases) and C(options). Prior to API version 1.29, updating and removing networks is not supported. If changes are made the service will then be removed and recreated. Corresponds to the C(--network) option of C(docker service create).
+    placement:
+        type: dict
+        description: Configures service placement preferences and constraints.
+    publish:
+        type: list
+        description: List of dictionaries describing the service published ports. Corresponds to the C(--publish) option of C(docker service create).
+    read_only:
+        type: bool
+        description: Mount the containers root filesystem as read only. Corresponds to the C(--read-only) option of C(docker service create).
+    replicas:
+        type: int
+        default: -1
+        description: Number of containers instantiated in the service. Valid only if O(mode=replicated). If set to V(-1), and service is not present, service replicas will be set to V(1). If set to V(-1), and service is present, service replicas will be unchanged. Corresponds to the C(--replicas) option of C(docker service create).
+    reservations:
+        type: dict
+        description: Configures service resource reservations.
+    resolve_image:
+        type: bool
+        default: false
+        description: If the current image digest should be resolved from registry and updated if changed. Requires API version >= 1.30.
+    restart_config:
+        type: dict
+        description: Configures if and how to restart containers when they exit.
+    rollback_config:
+        type: dict
+        description: Configures how the service should be rolled back in case of a failing update.
+    secrets:
+        type: list
+        description: List of dictionaries describing the service secrets. Corresponds to the C(--secret) option of C(docker service create).
+    ssl_version:
+        type: str
+        description: Provide a valid SSL version number. Default value determined by L(SSL Python module, https://docs.python.org/3/library/ssl.html). If the value is not specified in the task, the value of environment variable E(DOCKER_SSL_VERSION) will be used instead. B(Note:) this option is no longer supported for Docker SDK for Python 7.0.0+. Specifying it with Docker SDK for Python 7.0.0 or newer will lead to an error.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: V(absent) - A service matching the specified name will be removed and have its tasks stopped. V(present) - Asserts the existence of a service matching the name and provided configuration parameters. Unspecified configuration parameters will be set to docker defaults.
+    stop_grace_period:
+        type: str
+        description: Time to wait before force killing a container. Accepts a duration as a string in a format that look like: V(5h34m56s), V(1m30s) etc. The supported units are V(us), V(ms), V(s), V(m) and V(h). Corresponds to the C(--stop-grace-period) option of C(docker service create).
+    stop_signal:
+        type: str
+        description: Override default signal used to stop the container. Corresponds to the C(--stop-signal) option of C(docker service create).
+    timeout:
+        type: int
+        default: 60
+        description: The maximum amount of time in seconds to wait on a response from the API. If the value is not specified in the task, the value of environment variable E(DOCKER_TIMEOUT) will be used instead. If the environment variable is not set, the default value will be used.
+    tls:
+        type: bool
+        default: false
+        description: Secure the connection to the API by using TLS without verifying the authenticity of the Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will be used instead. If the environment variable is not set, the default value will be used.
+    tls_hostname:
+        type: str
+        description: When verifying the authenticity of the Docker Host server, provide the expected name of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME) will be used instead. If the environment variable is not set, the default value will be used. Note that this option had a default value V(localhost) in older versions. It was removed in community.docker 3.0.0. B(Note:) this option is no longer supported for Docker SDK for Python 7.0.0+. Specifying it with Docker SDK for Python 7.0.0 or newer will lead to an error.
+    tty:
+        type: bool
+        description: Allocate a pseudo-TTY. Corresponds to the C(--tty) option of C(docker service create).
+    update_config:
+        type: dict
+        description: Configures how the service should be updated. Useful for configuring rolling updates.
+    use_ssh_client:
+        type: bool
+        default: false
+        description: For SSH transports, use the C(ssh) CLI tool instead of paramiko. Requires Docker SDK for Python 4.4.0 or newer.
+    user:
+        type: str
+        description: Sets the username or UID used for the specified command. Before Ansible 2.8, the default value for this option was V(root). The default has been removed so that the user defined in the image is used if no user is specified here. Corresponds to the C(--user) option of C(docker service create).
+    validate_certs:
+        type: bool
+        default: false
+        aliases:
+            - tls_verify
+        description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY) will be used instead. If the environment variable is not set, the default value will be used.
+    working_dir:
+        type: str
+        description: Path to the working directory. Corresponds to the C(--workdir) option of C(docker service create).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Set command and arguments
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     command: sleep
+    >     args:
+    >       - "3600"
+    >
+    > - name: Set a bind mount
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     mounts:
+    >       - source: /tmp/
+    >         target: /remote_tmp/
+    >         type: bind
+    >
+    > - name: Set service labels
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     labels:
+    >       com.example.description: "Accounting webapp"
+    >       com.example.department: "Finance"
+    >
+    > - name: Set environment variables
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     env:
+    >       ENVVAR1: envvar1
+    >       ENVVAR2: envvar2
+    >     env_files:
+    >       - envs/common.env
+    >       - envs/apps/web.env
+    >
+    > - name: Set fluentd logging
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     logging:
+    >       driver: fluentd
+    >       options:
+    >         fluentd-address: "127.0.0.1:24224"
+    >         fluentd-async-connect: "true"
+    >         tag: myservice
+    >
+    > - name: Set restart policies
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     restart_config:
+    >       condition: on-failure
+    >       delay: 5s
+    >       max_attempts: 3
+    >       window: 120s
+    >
+    > - name: Set update config
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     update_config:
+    >       parallelism: 2
+    >       delay: 10s
+    >       order: stop-first
+    >
+    > - name: Set rollback config
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine
+    >     update_config:
+    >       failure_action: rollback
+    >     rollback_config:
+    >       parallelism: 2
+    >       delay: 10s
+    >       order: stop-first
+    >
+    > - name: Set placement preferences
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     placement:
+    >       preferences:
+    >         - spread: node.labels.mylabel
+    >       constraints:
+    >         - node.role == manager
+    >         - engine.labels.operatingsystem == ubuntu 14.04
+    >       replicas_max_per_node: 2
+    >
+    > - name: Set configs
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     configs:
+    >       - config_name: myconfig_name
+    >         filename: "/tmp/config.txt"
+    >
+    > - name: Set networks
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     networks:
+    >       - mynetwork
+    >
+    > - name: Set networks as a dictionary
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     networks:
+    >       - name: "mynetwork"
+    >         aliases:
+    >           - "mynetwork_alias"
+    >         options:
+    >           foo: bar
+    >
+    > - name: Set secrets
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     secrets:
+    >       - secret_name: mysecret_name
+    >         filename: "/run/secrets/secret.txt"
+    >
+    > - name: Start service with healthcheck
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: nginx:1.13
+    >     healthcheck:
+    >       # Check if nginx server is healthy by curl'ing the server.
+    >       # If this fails or timeouts, the healthcheck fails.
+    >       test: ["CMD", "curl", "--fail", "http://nginx.host.com"]
+    >       interval: 1m30s
+    >       timeout: 10s
+    >       retries: 3
+    >       start_period: 30s
+    >
+    > - name: Configure service resources
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     image: alpine:edge
+    >     reservations:
+    >       cpus: 0.25
+    >       memory: 20M
+    >     limits:
+    >       cpus: 0.50
+    >       memory: 50M
+    >
+    > - name: Remove service
+    >   community.docker.docker_swarm_service:
+    >     name: myservice
+    >     state: absent
+    >

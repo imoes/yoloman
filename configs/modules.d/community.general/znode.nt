@@ -1,0 +1,104 @@
+name: znode
+fqcn: community.general.znode
+collection: community.general
+short_description: Create, delete, retrieve, and update znodes using ZooKeeper
+description: Create, delete, retrieve, and update znodes using ZooKeeper.
+options:
+    auth_credential:
+        type: str
+        description: The authentication credential value. Depends on O(auth_scheme). The format for O(auth_scheme=digest) is C(user:password), and the format for O(auth_scheme=sasl) is C(user:password).
+    auth_scheme:
+        type: str
+        default: digest
+        choices:
+            - digest
+            - sasl
+        description: Authentication scheme.
+    hosts:
+        type: str
+        required: true
+        description: A list of ZooKeeper servers (format '[server]:[port]').
+    name:
+        type: str
+        required: true
+        description: The path of the znode.
+    op:
+        type: str
+        choices:
+            - get
+            - wait
+            - list
+        description: An operation to perform. Mutually exclusive with state.
+    recursive:
+        type: bool
+        default: false
+        description: Recursively delete node and all its children.
+    state:
+        type: str
+        choices:
+            - present
+            - absent
+        description: The state to enforce. Mutually exclusive with op.
+    timeout:
+        type: int
+        default: 300
+        description: The amount of time to wait for a node to appear.
+    use_tls:
+        type: bool
+        default: false
+        description: Using TLS/SSL or not.
+    value:
+        type: str
+        description: The value assigned to the znode.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Creating or updating a znode with a given value
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     name: /mypath
+    >     value: myvalue
+    >     state: present
+    >
+    > - name: Getting the value and stat structure for a znode
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     name: /mypath
+    >     op: get
+    >
+    > - name: Getting the value and stat structure for a znode using digest authentication
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     auth_credential: 'user1:s3cr3t'
+    >     name: /secretmypath
+    >     op: get
+    >
+    > - name: Listing a particular znode's children
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     name: /zookeeper
+    >     op: list
+    >
+    > - name: Waiting 20 seconds for a znode to appear at path /mypath
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     name: /mypath
+    >     op: wait
+    >     timeout: 20
+    >
+    > - name: Deleting a znode at path /mypath
+    >   community.general.znode:
+    >     hosts: 'localhost:2181'
+    >     name: /mypath
+    >     state: absent
+    >
+    > - name: Creating or updating a znode with a given value on a remote Zookeeper
+    >   community.general.znode:
+    >     hosts: 'my-zookeeper-node:2181'
+    >     name: /mypath
+    >     value: myvalue
+    >     state: present
+    >   delegate_to: 127.0.0.1
+    >

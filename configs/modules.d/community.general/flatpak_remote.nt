@@ -1,0 +1,70 @@
+name: flatpak_remote
+fqcn: community.general.flatpak_remote
+collection: community.general
+short_description: Manage flatpak repository remotes
+description: Allows users to add or remove flatpak remotes. The flatpak remotes concept is comparable to what is called repositories in other packaging formats. Currently, remote addition is only supported via C(flatpakrepo) file URLs. Existing remotes will not be updated. See the M(community.general.flatpak) module for managing flatpaks.
+options:
+    enabled:
+        type: bool
+        default: true
+        description: Indicates whether this remote is enabled.
+    executable:
+        type: str
+        default: flatpak
+        description: The path to the C(flatpak) executable to use. By default, this module looks for the C(flatpak) executable on the path.
+    flatpakrepo_url:
+        type: str
+        description: The URL to the C(flatpakrepo) file representing the repository remote to add. When used with O(state=present), the flatpak remote specified under the O(flatpakrepo_url) is added using the specified installation O(method). When used with O(state=absent), this is not required. Required when O(state=present).
+    method:
+        type: str
+        default: system
+        choices:
+            - system
+            - user
+        description: The installation method to use. Defines if the C(flatpak) is supposed to be installed globally for the whole V(system) or only for the current V(user).
+    name:
+        type: str
+        required: true
+        description: The desired name for the flatpak remote to be registered under on the managed host. When used with O(state=present), the remote will be added to the managed host under the specified O(name). When used with O(state=absent) the remote with that name will be removed.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Indicates the desired package state.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Add the Gnome flatpak remote to the system installation
+    >   community.general.flatpak_remote:
+    >     name: gnome
+    >     state: present
+    >     flatpakrepo_url: https://sdk.gnome.org/gnome-apps.flatpakrepo
+    >
+    > - name: Add the flathub flatpak repository remote to the user installation
+    >   community.general.flatpak_remote:
+    >     name: flathub
+    >     state: present
+    >     flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    >     method: user
+    >
+    > - name: Remove the Gnome flatpak remote from the user installation
+    >   community.general.flatpak_remote:
+    >     name: gnome
+    >     state: absent
+    >     method: user
+    >
+    > - name: Remove the flathub remote from the system installation
+    >   community.general.flatpak_remote:
+    >     name: flathub
+    >     state: absent
+    >
+    > - name: Disable the flathub remote in the system installation
+    >   community.general.flatpak_remote:
+    >     name: flathub
+    >     state: present
+    >     enabled: false
+    >

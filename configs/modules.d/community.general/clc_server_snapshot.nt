@@ -1,0 +1,58 @@
+name: clc_server_snapshot
+fqcn: community.general.clc_server_snapshot
+collection: community.general
+short_description: Create, Delete and Restore server snapshots in CenturyLink Cloud
+description: An Ansible module to Create, Delete and Restore server snapshots in CenturyLink Cloud.
+options:
+    expiration_days:
+        type: int
+        default: 7
+        description: The number of days to keep the server snapshot before it expires.
+    server_ids:
+        type: list
+        required: true
+        description: The list of CLC server Ids.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+            - restore
+        description: The state to insure that the provided resources are in.
+    wait:
+        type: str
+        default: True
+        description: Whether to wait for the provisioning tasks to finish before returning.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # Note - You must set the CLC_V2_API_USERNAME And CLC_V2_API_PASSWD Environment variables before running these examples
+    >
+    > - name: Create server snapshot
+    >   community.general.clc_server_snapshot:
+    >     server_ids:
+    >         - UC1TEST-SVR01
+    >         - UC1TEST-SVR02
+    >     expiration_days: 10
+    >     wait: true
+    >     state: present
+    >
+    > - name: Restore server snapshot
+    >   community.general.clc_server_snapshot:
+    >     server_ids:
+    >         - UC1TEST-SVR01
+    >         - UC1TEST-SVR02
+    >     wait: true
+    >     state: restore
+    >
+    > - name: Delete server snapshot
+    >   community.general.clc_server_snapshot:
+    >     server_ids:
+    >         - UC1TEST-SVR01
+    >         - UC1TEST-SVR02
+    >     wait: true
+    >     state: absent
+    >

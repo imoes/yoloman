@@ -1,0 +1,76 @@
+name: get_certificate
+fqcn: community.crypto.get_certificate
+collection: community.crypto
+short_description: Get a certificate from a host:port
+description: Makes a secure connection and returns information about the presented certificate The module uses the cryptography Python library. Support SNI (L(Server Name Indication,https://en.wikipedia.org/wiki/Server_Name_Indication)) only with python >= 2.7.
+options:
+    asn1_base64:
+        type: bool
+        description: Whether to encode the ASN.1 values in the RV(extensions) return value with Base64 or not. The documentation claimed for a long time that the values are Base64 encoded, but they never were. For compatibility this option is set to V(false). The default value V(false) is B(deprecated) and will change to V(true) in community.crypto 3.0.0.
+    ca_cert:
+        type: path
+        description: A PEM file containing one or more root certificates; if present, the cert will be validated against these root certs. Note that this only validates the certificate is signed by the chain; not that the cert is valid for the host presenting it.
+    ciphers:
+        type: list
+        description: SSL/TLS Ciphers to use for the request. When a list is provided, all ciphers are joined in order with V(:). See the L(OpenSSL Cipher List Format,https://www.openssl.org/docs/manmaster/man1/openssl-ciphers.html#CIPHER-LIST-FORMAT) for more details. The available ciphers is dependent on the Python and OpenSSL/LibreSSL versions.
+    host:
+        type: str
+        required: true
+        description: The host to get the cert for (IP is fine)
+    port:
+        type: int
+        required: true
+        description: The port to connect to
+    proxy_host:
+        type: str
+        description: Proxy host used when get a certificate.
+    proxy_port:
+        type: int
+        default: 8080
+        description: Proxy port used when get a certificate.
+    select_crypto_backend:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - cryptography
+        description: Determines which crypto backend to use. The default choice is V(auto), which tries to use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
+    server_name:
+        type: str
+        description: Server name used for SNI (L(Server Name Indication,https://en.wikipedia.org/wiki/Server_Name_Indication)) when hostname is an IP or is different from server name.
+    starttls:
+        type: str
+        choices:
+            - mysql
+        description: Requests a secure connection for protocols which require clients to initiate encryption. Only available for V(mysql) currently.
+    timeout:
+        type: int
+        default: 10
+        description: The timeout in seconds
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Get the cert from an RDP port
+    >   community.crypto.get_certificate:
+    >     host: "1.2.3.4"
+    >     port: 3389
+    >   delegate_to: localhost
+    >   run_once: true
+    >   register: cert
+    >
+    > - name: Get a cert from an https port
+    >   community.crypto.get_certificate:
+    >     host: "www.google.com"
+    >     port: 443
+    >   delegate_to: localhost
+    >   run_once: true
+    >   register: cert
+    >
+    > - name: How many days until cert expires
+    >   ansible.builtin.debug:
+    >     msg: "cert expires in: {{ expire_days }} days."
+    >   vars:
+    >     expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) ).days }}"
+    >

@@ -1,0 +1,70 @@
+name: librato_annotation
+fqcn: community.general.librato_annotation
+collection: community.general
+short_description: Create an annotation in librato
+description: Create an annotation event on the given annotation stream :name. If the annotation stream does not exist, it will be created automatically
+options:
+    api_key:
+        type: str
+        required: true
+        description: Librato account api key
+    description:
+        type: str
+        description: The description contains extra metadata about a particular annotation The description should contain specifics on the individual annotation e.g. Deployed 9b562b2 shipped new feature foo!
+    end_time:
+        type: int
+        description: The unix timestamp indicating the time at which the event referenced by this annotation ended For events that have a duration, this is a useful way to annotate the duration of the event
+    links:
+        type: list
+        description: See examples
+    name:
+        type: str
+        description: The annotation stream name If the annotation stream does not exist, it will be created automatically
+    source:
+        type: str
+        description: A string which describes the originating source of an annotation when that annotation is tracked across multiple members of a population
+    start_time:
+        type: int
+        description: The unix timestamp indicating the time at which the event referenced by this annotation started
+    title:
+        type: str
+        required: true
+        description: The title of an annotation is a string and may contain spaces The title should be a short, high-level summary of the annotation e.g. v45 Deployment
+    user:
+        type: str
+        required: true
+        description: Librato account username
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a simple annotation event with a source
+    >   community.general.librato_annotation:
+    >     user: user@example.com
+    >     api_key: XXXXXXXXXXXXXXXXX
+    >     title: App Config Change
+    >     source: foo.bar
+    >     description: This is a detailed description of the config change
+    >
+    > - name: Create an annotation that includes a link
+    >   community.general.librato_annotation:
+    >     user: user@example.com
+    >     api_key: XXXXXXXXXXXXXXXXXX
+    >     name: code.deploy
+    >     title: app code deploy
+    >     description: this is a detailed description of a deployment
+    >     links:
+    >       - rel: example
+    >         href: http://www.example.com/deploy
+    >
+    > - name: Create an annotation with a start_time and end_time
+    >   community.general.librato_annotation:
+    >     user: user@example.com
+    >     api_key: XXXXXXXXXXXXXXXXXX
+    >     name: maintenance
+    >     title: Maintenance window
+    >     description: This is a detailed description of maintenance
+    >     start_time: 1395940006
+    >     end_time: 1395954406
+    >

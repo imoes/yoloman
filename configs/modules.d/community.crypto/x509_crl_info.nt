@@ -1,0 +1,44 @@
+name: x509_crl_info
+fqcn: community.crypto.x509_crl_info
+collection: community.crypto
+short_description: Retrieve information on Certificate Revocation Lists (CRLs)
+description: This module allows one to retrieve information on Certificate Revocation Lists (CRLs).
+options:
+    content:
+        type: str
+        description: Content of the X.509 CRL in PEM format, or Base64-encoded X.509 CRL. Either O(path) or O(content) must be specified, but not both.
+    list_revoked_certificates:
+        type: bool
+        default: true
+        description: If set to V(false), the list of revoked certificates is not included in the result. This is useful when retrieving information on large CRL files. Enumerating all revoked certificates can take some time, including serializing the result as JSON, sending it to the Ansible controller, and decoding it again.
+    name_encoding:
+        type: str
+        default: ignore
+        choices:
+            - ignore
+            - idna
+            - unicode
+        description: How to encode names (DNS names, URIs, email addresses) in return values. V(ignore) will use the encoding returned by the backend. V(idna) will convert all labels of domain names to IDNA encoding. IDNA2008 will be preferred, and IDNA2003 will be used if IDNA2008 encoding fails. V(unicode) will convert all labels of domain names to Unicode. IDNA2008 will be preferred, and IDNA2003 will be used if IDNA2008 decoding fails. B(Note) that V(idna) and V(unicode) require the L(idna Python library,https://pypi.org/project/idna/) to be installed.
+    path:
+        type: path
+        description: Remote absolute path where the generated CRL file should be created or is already located. Either O(path) or O(content) must be specified, but not both.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Get information on CRL
+    >   community.crypto.x509_crl_info:
+    >     path: /etc/ssl/my-ca.crl
+    >   register: result
+    >
+    > - name: Print the information
+    >   ansible.builtin.debug:
+    >     msg: "{{ result }}"
+    >
+    > - name: Get information on CRL without list of revoked certificates
+    >   community.crypto.x509_crl_info:
+    >     path: /etc/ssl/very-large.crl
+    >     list_revoked_certificates: false
+    >   register: result
+    >

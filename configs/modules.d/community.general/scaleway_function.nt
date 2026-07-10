@@ -1,0 +1,137 @@
+name: scaleway_function
+fqcn: community.general.scaleway_function
+collection: community.general
+short_description: Scaleway Function management
+description: This module manages function on Scaleway account.
+options:
+    api_timeout:
+        type: int
+        default: 30
+        aliases:
+            - timeout
+        description: HTTP timeout to Scaleway API in seconds.
+    api_token:
+        type: str
+        required: true
+        aliases:
+            - oauth_token
+        description: Scaleway OAuth token.
+    api_url:
+        type: str
+        default: https://api.scaleway.com
+        aliases:
+            - base_url
+        description: Scaleway API URL.
+    description:
+        type: str
+        default:
+        description: Description of the function.
+    environment_variables:
+        type: dict
+        default:
+            {}
+        description: Environment variables of the function. Injected in function at runtime.
+    function_timeout:
+        type: str
+        description: The length of time your handler can spend processing a request before being stopped.
+    handler:
+        type: str
+        description: The C(module-name.export) value in your function.
+    max_scale:
+        type: int
+        description: Maximum number of replicas for the function.
+    memory_limit:
+        type: int
+        description: Resources define performance characteristics of your function. They are allocated to your function at runtime.
+    min_scale:
+        type: int
+        description: Minimum number of replicas for the function.
+    name:
+        type: str
+        required: true
+        description: Name of the function.
+    namespace_id:
+        type: str
+        required: true
+        description: Function namespace identifier.
+    privacy:
+        type: str
+        default: public
+        choices:
+            - public
+            - private
+        description: Privacy policies define whether a function can be executed anonymously. Choose V(public) to enable anonymous execution, or V(private) to protect your function with an authentication mechanism provided by the Scaleway API.
+    query_parameters:
+        type: dict
+        default:
+            {}
+        description: List of parameters passed to the query string.
+    redeploy:
+        type: bool
+        default: false
+        description: Redeploy the function if update is required.
+    region:
+        type: str
+        required: true
+        choices:
+            - fr-par
+            - nl-ams
+            - pl-waw
+        description: Scaleway region to use (for example V(fr-par)).
+    runtime:
+        type: str
+        required: true
+        description: Runtime of the function See U(https://www.scaleway.com/en/docs/compute/functions/reference-content/functions-lifecycle/) for all available runtimes
+    secret_environment_variables:
+        type: dict
+        default:
+            {}
+        description: Secret environment variables of the function. Updating those values will not output a C(changed) state in Ansible. Injected in function at runtime.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Indicate desired state of the function.
+    validate_certs:
+        type: bool
+        default: true
+        description: Validate SSL certs of the Scaleway API.
+    wait:
+        type: bool
+        default: true
+        description: Wait for the resource to reach its desired state before returning.
+    wait_sleep_time:
+        type: int
+        default: 3
+        description: Time to wait before every attempt to check the state of the resource.
+    wait_timeout:
+        type: int
+        default: 300
+        description: Time to wait for the resource to reach the expected state.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a function
+    >   community.general.scaleway_function:
+    >     namespace_id: '{{ scw_function_namespace }}'
+    >     region: fr-par
+    >     state: present
+    >     name: my-awesome-function
+    >     runtime: python3
+    >     environment_variables:
+    >       MY_VAR: my_value
+    >     secret_environment_variables:
+    >       MY_SECRET_VAR: my_secret_value
+    >   register: function_creation_task
+    >
+    > - name: Make sure function is deleted
+    >   community.general.scaleway_function:
+    >     namespace_id: '{{ scw_function_namespace }}'
+    >     region: fr-par
+    >     state: absent
+    >     name: my-awesome-function
+    >

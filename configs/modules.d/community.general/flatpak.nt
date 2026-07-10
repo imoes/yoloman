@@ -1,0 +1,84 @@
+name: flatpak
+fqcn: community.general.flatpak
+collection: community.general
+short_description: Manage flatpaks
+description: Allows users to add or remove flatpaks. See the M(community.general.flatpak_remote) module for managing flatpak remotes.
+options:
+    executable:
+        type: path
+        default: flatpak
+        description: The path to the C(flatpak) executable to use. By default, this module looks for the C(flatpak) executable on the path.
+    method:
+        type: str
+        default: system
+        choices:
+            - system
+            - user
+        description: The installation method to use. Defines if the C(flatpak) is supposed to be installed globally for the whole V(system) or only for the current V(user).
+    name:
+        type: list
+        required: true
+        description: The name of the flatpak to manage. To operate on several packages this can accept a list of packages. When used with O(state=present), O(name) can be specified as a URL to a C(flatpakref) file or the unique reverse DNS name that identifies a flatpak. Both C(https://) and C(http://) URLs are supported. When supplying a reverse DNS name, you can use the O(remote) option to specify on what remote to look for the flatpak. An example for a reverse DNS name is C(org.gnome.gedit). When used with O(state=absent), it is recommended to specify the name in the reverse DNS format. When supplying a URL with O(state=absent), the module will try to match the installed flatpak based on the name of the flatpakref to remove it. However, there is no guarantee that the names of the flatpakref file and the reverse DNS name of the installed flatpak do match.
+    no_dependencies:
+        type: bool
+        default: false
+        description: If installing runtime dependencies should be omitted or not This parameter is primarily implemented for integration testing this module. There might however be some use cases where you would want to have this, like when you are packaging your own flatpaks.
+    remote:
+        type: str
+        default: flathub
+        description: The flatpak remote (repository) to install the flatpak from. By default, V(flathub) is assumed, but you do need to add the flathub flatpak_remote before you can use this. See the M(community.general.flatpak_remote) module for managing flatpak remotes.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Indicates the desired package state.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install the spotify flatpak
+    >   community.general.flatpak:
+    >     name:  https://s3.amazonaws.com/alexlarsson/spotify-repo/spotify.flatpakref
+    >     state: present
+    >
+    > - name: Install the gedit flatpak package without dependencies (not recommended)
+    >   community.general.flatpak:
+    >     name: https://git.gnome.org/browse/gnome-apps-nightly/plain/gedit.flatpakref
+    >     state: present
+    >     no_dependencies: true
+    >
+    > - name: Install the gedit package from flathub for current user
+    >   community.general.flatpak:
+    >     name: org.gnome.gedit
+    >     state: present
+    >     method: user
+    >
+    > - name: Install the Gnome Calendar flatpak from the gnome remote system-wide
+    >   community.general.flatpak:
+    >     name: org.gnome.Calendar
+    >     state: present
+    >     remote: gnome
+    >
+    > - name: Install multiple packages
+    >   community.general.flatpak:
+    >     name:
+    >       - org.gimp.GIMP
+    >       - org.inkscape.Inkscape
+    >       - org.mozilla.firefox
+    >
+    > - name: Remove the gedit flatpak
+    >   community.general.flatpak:
+    >     name: org.gnome.gedit
+    >     state: absent
+    >
+    > - name: Remove multiple packages
+    >   community.general.flatpak:
+    >     name:
+    >       - org.gimp.GIMP
+    >       - org.inkscape.Inkscape
+    >       - org.mozilla.firefox
+    >     state: absent
+    >

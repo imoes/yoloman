@@ -1,0 +1,94 @@
+name: consul_auth_method
+fqcn: community.general.consul_auth_method
+collection: community.general
+short_description: Manipulate Consul auth methods
+description: Allows the addition, modification and deletion of auth methods in a consul cluster via the agent. For more details on using and configuring ACLs, see U(https://www.consul.io/docs/guides/acl.html).
+options:
+    ca_path:
+        type: str
+        description: The CA bundle to use for https connections
+    config:
+        type: dict
+        description: The raw configuration to use for the chosen auth method. Contents will vary depending upon the type chosen. Required when the auth method is created.
+    description:
+        type: str
+        description: Free form human readable description of the auth method.
+    display_name:
+        type: str
+        description: An optional name to use instead of O(name) when displaying information about this auth method.
+    host:
+        type: str
+        default: localhost
+        description: Host of the consul agent, defaults to V(localhost).
+    max_token_ttl:
+        type: str
+        description: This specifies the maximum life of any token created by this auth method. Can be specified in the form of V(60s) or V(5m) (that is, 60 seconds or 5 minutes, respectively).
+    name:
+        type: str
+        required: true
+        description: Specifies a name for the ACL auth method. The name can contain alphanumeric characters, dashes C(-), and underscores C(_).
+    port:
+        type: int
+        default: 8500
+        description: The port on which the consul agent is running.
+    scheme:
+        type: str
+        default: http
+        description: The protocol scheme on which the consul agent is running. Defaults to V(http) and can be set to V(https) for secure connections.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether the token should be present or absent.
+    token:
+        type: str
+        description: The token to use for authorization.
+    token_locality:
+        type: str
+        choices:
+            - local
+            - global
+        description: Defines the kind of token that this auth method should produce.
+    type:
+        type: str
+        choices:
+            - kubernetes
+            - jwt
+            - oidc
+            - aws-iam
+        description: The type of auth method being configured. This field is immutable. Required when the auth method is created.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether to verify the TLS certificate of the consul agent.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create an auth method
+    >   community.general.consul_auth_method:
+    >     name: test
+    >     type: jwt
+    >     config:
+    >       jwt_validation_pubkeys:
+    >         - |
+    >           -----BEGIN PUBLIC KEY-----
+    >           MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo
+    >           4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u
+    >           +qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh
+    >           kd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ
+    >           0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg
+    >           cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc
+    >           mwIDAQAB
+    >           -----END PUBLIC KEY-----
+    >     token: "{{ consul_management_token }}"
+    >
+    > - name: Delete auth method
+    >   community.general.consul_auth_method:
+    >     name: test
+    >     state: absent
+    >     token: "{{ consul_management_token }}"
+    >

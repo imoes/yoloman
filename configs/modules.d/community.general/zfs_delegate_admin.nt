@@ -1,0 +1,71 @@
+name: zfs_delegate_admin
+fqcn: community.general.zfs_delegate_admin
+collection: community.general
+short_description: Manage ZFS delegated administration (user admin privileges)
+description: Manages ZFS file system delegated administration permissions, which allow unprivileged users to perform ZFS operations normally restricted to the superuser. See the C(zfs allow) section of V(zfs(1M\)) for detailed explanations of options. This module attempts to adhere to the behavior of the command line tool as much as possible.
+options:
+    descendents:
+        type: bool
+        description: Apply permissions to O(name)'s descendents (C(zfs allow -d)).
+    everyone:
+        type: bool
+        default: false
+        description: Apply permissions to everyone.
+    groups:
+        type: list
+        description: List of groups to whom permission(s) should be granted.
+    local:
+        type: bool
+        description: Apply permissions to O(name) locally (C(zfs allow -l)).
+    name:
+        type: str
+        required: true
+        description: File system or volume name, for example V(rpool/myfs).
+    permissions:
+        type: list
+        description: The list of permission(s) to delegate (required if O(state=present)). Supported permissions depend on the ZFS version in use. See for example U(https://openzfs.github.io/openzfs-docs/man/8/zfs-allow.8.html) for OpenZFS.
+    recursive:
+        type: bool
+        default: false
+        description: Unallow permissions recursively (ignored when O(state=present)).
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Whether to allow (V(present)), or unallow (V(absent)) a permission. When set to V(present), at least one "entity" param of O(users), O(groups), or O(everyone) are required. When set to V(absent), removes permissions from the specified entities, or removes all permissions if no entity params are specified.
+    users:
+        type: list
+        description: List of users to whom permission(s) should be granted.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Grant `zfs allow` and `unallow` permission to the `adm` user with the default local+descendents scope
+    >   community.general.zfs_delegate_admin:
+    >     name: rpool/myfs
+    >     users: adm
+    >     permissions: allow,unallow
+    >
+    > - name: Grant `zfs send` to everyone, plus the group `backup`
+    >   community.general.zfs_delegate_admin:
+    >     name: rpool/myvol
+    >     groups: backup
+    >     everyone: true
+    >     permissions: send
+    >
+    > - name: Grant `zfs send,receive` to users `foo` and `bar` with local scope only
+    >   community.general.zfs_delegate_admin:
+    >     name: rpool/myfs
+    >     users: foo,bar
+    >     permissions: send,receive
+    >     local: true
+    >
+    > - name: Revoke all permissions from everyone (permissions specifically assigned to users and groups remain)
+    >   community.general.zfs_delegate_admin:
+    >     name: rpool/myfs
+    >     everyone: true
+    >     state: absent
+    >

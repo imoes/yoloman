@@ -1,0 +1,227 @@
+name: x509_certificate_pipe
+fqcn: community.crypto.x509_certificate_pipe
+collection: community.crypto
+short_description: Generate and/or check OpenSSL certificates
+description: It implements a notion of provider (one of V(selfsigned), V(ownca), V(entrust)) for your certificate. It uses the cryptography python library to interact with OpenSSL. The V(ownca) provider is intended for generating an OpenSSL certificate signed with your own CA (Certificate Authority) certificate (self-signed certificate). This module allows one to (re)generate OpenSSL certificates.
+options:
+    content:
+        type: str
+        description: The existing certificate.
+    csr_content:
+        type: str
+        description: Content of the Certificate Signing Request (CSR) used to generate this certificate. This is mutually exclusive with O(csr_path).
+    csr_path:
+        type: path
+        description: Path to the Certificate Signing Request (CSR) used to generate this certificate. This is mutually exclusive with O(csr_content).
+    entrust_api_client_cert_key_path:
+        type: path
+        description: The path to the private key of the client certificate used to authenticate to the Entrust Certificate Services (ECS) API. This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_api_client_cert_path:
+        type: path
+        description: The path to the client certificate used to authenticate to the Entrust Certificate Services (ECS) API. This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_api_key:
+        type: str
+        description: The key (password) for authentication to the Entrust Certificate Services (ECS) API. This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_api_specification_path:
+        type: path
+        default: https://cloud.entrust.net/EntrustCloud/documentation/cms-api-2.1.0.yaml
+        description: The path to the specification file defining the Entrust Certificate Services (ECS) API configuration. You can use this to keep a local copy of the specification to avoid downloading it every time the module is used. This is only used by the V(entrust) provider.
+    entrust_api_user:
+        type: str
+        description: The username for authentication to the Entrust Certificate Services (ECS) API. This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_cert_type:
+        type: str
+        default: STANDARD_SSL
+        choices:
+            - STANDARD_SSL
+            - ADVANTAGE_SSL
+            - UC_SSL
+            - EV_SSL
+            - WILDCARD_SSL
+            - PRIVATE_SSL
+            - PD_SSL
+            - CDS_ENT_LITE
+            - CDS_ENT_PRO
+            - SMIME_ENT
+        description: Specify the type of certificate requested. This is only used by the V(entrust) provider.
+    entrust_not_after:
+        type: str
+        default: +365d
+        description: The point in time at which the certificate stops being valid. Time can be specified either as relative time or as an absolute timestamp. A valid absolute time format is C(ASN.1 TIME) such as V(2019-06-18). A valid relative time format is V([+-]timespec) where timespec can be an integer + C([w | d | h | m | s]), such as V(+365d) or V(+32w1d2h)). Time will always be interpreted as UTC. Note that only the date (day, month, year) is supported for specifying the expiry date of the issued certificate. The full date-time is adjusted to EST (GMT -5:00) before issuance, which may result in a certificate with an expiration date one day earlier than expected if a relative time is used. The minimum certificate lifetime is 90 days, and maximum is three years. If this value is not specified, the certificate will stop being valid 365 days the date of issue. This is only used by the V(entrust) provider. Please note that this value is B(not) covered by the O(ignore_timestamps) option.
+    entrust_requester_email:
+        type: str
+        description: The email of the requester of the certificate (for tracking purposes). This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_requester_name:
+        type: str
+        description: The name of the requester of the certificate (for tracking purposes). This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    entrust_requester_phone:
+        type: str
+        description: The phone number of the requester of the certificate (for tracking purposes). This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+    force:
+        type: bool
+        default: false
+        description: Generate the certificate, even if it already exists.
+    ignore_timestamps:
+        type: bool
+        default: true
+        description: Whether the "not before" and "not after" timestamps should be ignored for idempotency checks. It is better to keep the default value V(true) when using relative timestamps (like V(+0s) for now).
+    ownca_content:
+        type: str
+        description: Content of the CA (Certificate Authority) certificate. This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_path).
+    ownca_create_authority_key_identifier:
+        type: bool
+        default: true
+        description: Create a Authority Key Identifier from the CA's certificate. If the CSR provided a authority key identifier, it is ignored. The Authority Key Identifier is generated from the CA certificate's Subject Key Identifier, if available. If it is not available, the CA certificate's public key will be used. This is only used by the V(ownca) provider. Note that this is only supported if the C(cryptography) backend is used!
+    ownca_create_subject_key_identifier:
+        type: str
+        default: create_if_not_provided
+        choices:
+            - create_if_not_provided
+            - always_create
+            - never_create
+        description: Whether to create the Subject Key Identifier (SKI) from the public key. A value of V(create_if_not_provided) (default) only creates a SKI when the CSR does not provide one. A value of V(always_create) always creates a SKI. If the CSR provides one, that one is ignored. A value of V(never_create) never creates a SKI. If the CSR provides one, that one is used. This is only used by the V(ownca) provider. Note that this is only supported if the C(cryptography) backend is used!
+    ownca_digest:
+        type: str
+        default: sha256
+        description: The digest algorithm to be used for the V(ownca) certificate. This is only used by the V(ownca) provider.
+    ownca_not_after:
+        type: str
+        default: +3650d
+        description: The point in time at which the certificate stops being valid. Time can be specified either as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)). If this value is not specified, the certificate will stop being valid 10 years from now. Note that this value is B(not used to determine whether an existing certificate should be regenerated). This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(ownca) provider. On macOS 10.15 and onwards, TLS server certificates must have a validity period of 825 days or fewer. Please see U(https://support.apple.com/en-us/HT210176) for more details.
+    ownca_not_before:
+        type: str
+        default: +0s
+        description: The point in time the certificate is valid from. Time can be specified either as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)). If this value is not specified, the certificate will start being valid from now. Note that this value is B(not used to determine whether an existing certificate should be regenerated). This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(ownca) provider.
+    ownca_path:
+        type: path
+        description: Remote absolute path of the CA (Certificate Authority) certificate. This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_content).
+    ownca_privatekey_content:
+        type: str
+        description: Content of the CA (Certificate Authority) private key to use when signing the certificate. This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_privatekey_path).
+    ownca_privatekey_passphrase:
+        type: str
+        description: The passphrase for the O(ownca_privatekey_path) resp. O(ownca_privatekey_content). This is only used by the V(ownca) provider.
+    ownca_privatekey_path:
+        type: path
+        description: Path to the CA (Certificate Authority) private key to use when signing the certificate. This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_privatekey_content).
+    ownca_version:
+        type: int
+        default: 3
+        description: The version of the V(ownca) certificate. Nowadays it should almost always be V(3). This is only used by the V(ownca) provider.
+    privatekey_content:
+        type: str
+        description: Content of the private key to use when signing the certificate. This is mutually exclusive with O(privatekey_path).
+    privatekey_passphrase:
+        type: str
+        description: The passphrase for the O(privatekey_path) resp. O(privatekey_content). This is required if the private key is password protected.
+    privatekey_path:
+        type: path
+        description: Path to the private key to use when signing the certificate. This is mutually exclusive with O(privatekey_content).
+    provider:
+        type: str
+        required: true
+        choices:
+            - entrust
+            - ownca
+            - selfsigned
+        description: Name of the provider to use to generate/retrieve the OpenSSL certificate. The V(entrust) provider requires credentials for the L(Entrust Certificate Services,https://www.entrustdatacard.com/products/categories/ssl-certificates) (ECS) API.
+    select_crypto_backend:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - cryptography
+        description: Determines which crypto backend to use. The default choice is V(auto), which tries to use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
+    selfsigned_create_subject_key_identifier:
+        type: str
+        default: create_if_not_provided
+        choices:
+            - create_if_not_provided
+            - always_create
+            - never_create
+        description: Whether to create the Subject Key Identifier (SKI) from the public key. A value of V(create_if_not_provided) (default) only creates a SKI when the CSR does not provide one. A value of V(always_create) always creates a SKI. If the CSR provides one, that one is ignored. A value of V(never_create) never creates a SKI. If the CSR provides one, that one is used. This is only used by the V(selfsigned) provider. Note that this is only supported if the C(cryptography) backend is used!
+    selfsigned_digest:
+        type: str
+        default: sha256
+        description: Digest algorithm to be used when self-signing the certificate. This is only used by the V(selfsigned) provider.
+    selfsigned_not_after:
+        type: str
+        default: +3650d
+        aliases:
+            - selfsigned_notAfter
+        description: The point in time at which the certificate stops being valid. Time can be specified either as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)). If this value is not specified, the certificate will stop being valid 10 years from now. Note that this value is B(not used to determine whether an existing certificate should be regenerated). This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(selfsigned) provider. On macOS 10.15 and onwards, TLS server certificates must have a validity period of 825 days or fewer. Please see U(https://support.apple.com/en-us/HT210176) for more details.
+    selfsigned_not_before:
+        type: str
+        default: +0s
+        aliases:
+            - selfsigned_notBefore
+        description: The point in time the certificate is valid from. Time can be specified either as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)). If this value is not specified, the certificate will start being valid from now. Note that this value is B(not used to determine whether an existing certificate should be regenerated). This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(selfsigned) provider.
+    selfsigned_version:
+        type: int
+        default: 3
+        description: Version of the V(selfsigned) certificate. Nowadays it should almost always be V(3). This is only used by the V(selfsigned) provider.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Generate a Self Signed OpenSSL certificate
+    >   community.crypto.x509_certificate_pipe:
+    >     provider: selfsigned
+    >     privatekey_path: /etc/ssl/private/ansible.com.pem
+    >     csr_path: /etc/ssl/csr/ansible.com.csr
+    >   register: result
+    > - name: Print the certificate
+    >   ansible.builtin.debug:
+    >     var: result.certificate
+    >
+    > # In the following example, both CSR and certificate file are stored on the
+    > # machine where ansible-playbook is executed, while the OwnCA data (certificate,
+    > # private key) are stored on the remote machine.
+    >
+    > - name: (1/2) Generate an OpenSSL Certificate with the CSR provided inline
+    >   community.crypto.x509_certificate_pipe:
+    >     provider: ownca
+    >     content: "{{ lookup('ansible.builtin.file', '/etc/ssl/csr/www.ansible.com.crt') }}"
+    >     csr_content: "{{ lookup('ansible.builtin.file', '/etc/ssl/csr/www.ansible.com.csr') }}"
+    >     ownca_cert: /path/to/ca_cert.crt
+    >     ownca_privatekey: /path/to/ca_cert.key
+    >     ownca_privatekey_passphrase: hunter2
+    >   register: result
+    >
+    > - name: (2/2) Store certificate
+    >   ansible.builtin.copy:
+    >     dest: /etc/ssl/csr/www.ansible.com.crt
+    >     content: "{{ result.certificate }}"
+    >   delegate_to: localhost
+    >   when: result is changed
+    >
+    > # In the following example, the certificate from another machine is signed by
+    > # our OwnCA whose private key and certificate are only available on this
+    > # machine (where ansible-playbook is executed), without having to write
+    > # the certificate file to disk on localhost. The CSR could have been
+    > # provided by community.crypto.openssl_csr_pipe earlier, or also have been
+    > # read from the remote machine.
+    >
+    > - name: (1/3) Read certificate's contents from remote machine
+    >   ansible.builtin.slurp:
+    >     src: /etc/ssl/csr/www.ansible.com.crt
+    >   register: certificate_content
+    >
+    > - name: (2/3) Generate an OpenSSL Certificate with the CSR provided inline
+    >   community.crypto.x509_certificate_pipe:
+    >     provider: ownca
+    >     content: "{{ certificate_content.content | b64decode }}"
+    >     csr_content: "{{ the_csr }}"
+    >     ownca_cert: /path/to/ca_cert.crt
+    >     ownca_privatekey: /path/to/ca_cert.key
+    >     ownca_privatekey_passphrase: hunter2
+    >   delegate_to: localhost
+    >   register: result
+    >
+    > - name: (3/3) Store certificate
+    >   ansible.builtin.copy:
+    >     dest: /etc/ssl/csr/www.ansible.com.crt
+    >     content: "{{ result.certificate }}"
+    >   when: result is changed
+    >

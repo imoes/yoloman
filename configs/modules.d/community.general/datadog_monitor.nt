@@ -1,0 +1,169 @@
+name: datadog_monitor
+fqcn: community.general.datadog_monitor
+collection: community.general
+short_description: Manages Datadog monitors
+description: Manages monitors within Datadog. Options as described on https://docs.datadoghq.com/api/.
+options:
+    api_host:
+        type: str
+        description: The URL to the Datadog API. Default value is V(https://api.datadoghq.com). This value can also be set with the E(DATADOG_HOST) environment variable.
+    api_key:
+        type: str
+        required: true
+        description: Your Datadog API key.
+    app_key:
+        type: str
+        required: true
+        description: Your Datadog app key.
+    escalation_message:
+        type: str
+        description: A message to include with a re-notification. Supports the '@username' notification we allow elsewhere. Not applicable if O(renotify_interval=none).
+    evaluation_delay:
+        type: str
+        description: Time to delay evaluation (in seconds). Effective for sparse values.
+    id:
+        type: str
+        description: The ID of the alert. If set, will be used instead of the name to locate the alert.
+    include_tags:
+        type: bool
+        default: true
+        description: Whether notifications from this monitor automatically inserts its triggering tags into the title.
+    locked:
+        type: bool
+        default: false
+        description: Whether changes to this monitor should be restricted to the creator or admins.
+    name:
+        type: str
+        required: true
+        description: The name of the alert.
+    new_host_delay:
+        type: str
+        description: A positive integer representing the number of seconds to wait before evaluating the monitor for new hosts. This gives the host time to fully initialize.
+    no_data_timeframe:
+        type: str
+        description: The number of minutes before a monitor will notify when data stops reporting. Must be at least 2x the monitor timeframe for metric alerts or 2 minutes for service checks. If not specified, it defaults to 2x timeframe for metric, 2 minutes for service.
+    notification_message:
+        type: str
+        description: A message to include with notifications for this monitor. Email notifications can be sent to specific users by using the same '@username' notation as events. Monitor message template variables can be accessed by using double square brackets, i.e '[[' and ']]'.
+    notification_preset_name:
+        type: str
+        choices:
+            - show_all
+            - hide_query
+            - hide_handles
+            - hide_all
+        description: Toggles the display of additional content sent in the monitor notification.
+    notify_audit:
+        type: bool
+        default: false
+        description: Whether tagged users will be notified on changes to this monitor.
+    notify_no_data:
+        type: bool
+        default: false
+        description: Whether this monitor will notify when data stops reporting.
+    priority:
+        type: int
+        description: Integer from 1 (high) to 5 (low) indicating alert severity.
+    query:
+        type: str
+        description: The monitor query to notify on. Syntax varies depending on what type of monitor you are creating.
+    renotify_interval:
+        type: str
+        description: The number of minutes after the last notification before a monitor will re-notify on the current status. It will only re-notify if it is not resolved.
+    renotify_occurrences:
+        type: int
+        description: The number of times re-notification messages should be sent on the current status at the provided re-notification interval.
+    renotify_statuses:
+        type: list
+        choices:
+            - alert
+            - warn
+            - no data
+        description: The types of monitor statuses for which re-notification messages are sent.
+    require_full_window:
+        type: bool
+        description: Whether this monitor needs a full window of data before it gets evaluated. We highly recommend you set this to False for sparse metrics, otherwise some evaluations will be skipped.
+    silenced:
+        type: dict
+        description: Dictionary of scopes to silence, with timestamps or None. Each scope will be muted until the given POSIX timestamp or forever if the value is None.
+    state:
+        type: str
+        required: true
+        choices:
+            - present
+            - absent
+            - mute
+            - unmute
+        description: The designated state of the monitor.
+    tags:
+        type: list
+        description: A list of tags to associate with your monitor when creating or updating. This can help you categorize and filter monitors.
+    thresholds:
+        type: dict
+        description: A dictionary of thresholds by status. Only available for service checks and metric alerts. Because each of them can have multiple thresholds, we do not define them directly in the query. If not specified, it defaults to: V({'ok': 1, 'critical': 1, 'warning': 1}).
+    timeout_h:
+        type: str
+        description: The number of hours of the monitor not reporting data before it will automatically resolve from a triggered state.
+    type:
+        type: str
+        choices:
+            - metric alert
+            - service check
+            - event alert
+            - event-v2 alert
+            - process alert
+            - log alert
+            - query alert
+            - trace-analytics alert
+            - rum alert
+            - composite
+        description: The type of the monitor. The types V(query alert), V(trace-analytics alert) and V(rum alert) were added in community.general 2.1.0. The type V(composite) was added in community.general 3.4.0. The type V(event-v2 alert) was added in community.general 4.8.0.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a metric monitor
+    >   community.general.datadog_monitor:
+    >     type: "metric alert"
+    >     name: "Test monitor"
+    >     state: "present"
+    >     renotify_interval: 30
+    >     renotify_occurrences: 1
+    >     renotify_statuses: ["warn"]
+    >     notification_preset_name: "show_all"
+    >     query: "datadog.agent.up.over('host:host1').last(2).count_by_status()"
+    >     notification_message: "Host [[host.name]] with IP [[host.ip]] is failing to report to datadog."
+    >     api_key: "9775a026f1ca7d1c6c5af9d94d9595a4"
+    >     app_key: "87ce4a24b5553d2e482ea8a8500e71b8ad4554ff"
+    >
+    > - name: Deletes a monitor
+    >   community.general.datadog_monitor:
+    >     name: "Test monitor"
+    >     state: "absent"
+    >     api_key: "9775a026f1ca7d1c6c5af9d94d9595a4"
+    >     app_key: "87ce4a24b5553d2e482ea8a8500e71b8ad4554ff"
+    >
+    > - name: Mutes a monitor
+    >   community.general.datadog_monitor:
+    >     name: "Test monitor"
+    >     state: "mute"
+    >     silenced: '{"*":None}'
+    >     api_key: "9775a026f1ca7d1c6c5af9d94d9595a4"
+    >     app_key: "87ce4a24b5553d2e482ea8a8500e71b8ad4554ff"
+    >
+    > - name: Unmutes a monitor
+    >   community.general.datadog_monitor:
+    >     name: "Test monitor"
+    >     state: "unmute"
+    >     api_key: "9775a026f1ca7d1c6c5af9d94d9595a4"
+    >     app_key: "87ce4a24b5553d2e482ea8a8500e71b8ad4554ff"
+    >
+    > - name: Use datadoghq.eu platform instead of datadoghq.com
+    >   community.general.datadog_monitor:
+    >     name: "Test monitor"
+    >     state: "absent"
+    >     api_host: https://api.datadoghq.eu
+    >     api_key: "9775a026f1ca7d1c6c5af9d94d9595a4"
+    >     app_key: "87ce4a24b5553d2e482ea8a8500e71b8ad4554ff"
+    >

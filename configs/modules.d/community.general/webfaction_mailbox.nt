@@ -1,0 +1,42 @@
+name: webfaction_mailbox
+fqcn: community.general.webfaction_mailbox
+collection: community.general
+short_description: Add or remove mailboxes on Webfaction
+description: Add or remove mailboxes on a Webfaction account. Further documentation at https://github.com/quentinsf/ansible-webfaction.
+options:
+    login_name:
+        type: str
+        required: true
+        description: The webfaction account to use
+    login_password:
+        type: str
+        required: true
+        description: The webfaction password to use
+    mailbox_name:
+        type: str
+        required: true
+        description: The name of the mailbox
+    mailbox_password:
+        type: str
+        required: true
+        description: The password for the mailbox
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether the mailbox should exist
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    >   - name: Create a mailbox
+    >     community.general.webfaction_mailbox:
+    >       mailbox_name="mybox"
+    >       mailbox_password="myboxpw"
+    >       state=present
+    >       login_name={{webfaction_user}}
+    >       login_password={{webfaction_passwd}}
+    >

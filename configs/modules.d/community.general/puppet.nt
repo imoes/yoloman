@@ -1,0 +1,116 @@
+name: puppet
+fqcn: community.general.puppet
+collection: community.general
+short_description: Runs puppet
+description: Runs C(puppet) agent or apply in a reliable manner.
+options:
+    certname:
+        type: str
+        description: The name to use when handling certificates.
+    confdir:
+        type: str
+        description: Path to the directory containing the puppet.conf file.
+    debug:
+        type: bool
+        default: false
+        description: Enable full debugging.
+    environment:
+        type: str
+        description: Puppet environment to be used.
+    execute:
+        type: str
+        description: Execute a specific piece of Puppet code. It has no effect with a puppetmaster.
+    facter_basename:
+        type: str
+        default: ansible
+        description: Basename of the facter output file.
+    facts:
+        type: dict
+        description: A dict of values to pass in as persistent external facter facts.
+    logdest:
+        type: str
+        default: stdout
+        choices:
+            - all
+            - stdout
+            - syslog
+        description: Where the puppet logs should go, if puppet apply is being used. V(all) will go to both C(console) and C(syslog). V(stdout) will be deprecated and replaced by C(console).
+    manifest:
+        type: str
+        description: Path to the manifest file to run puppet apply on.
+    modulepath:
+        type: str
+        description: Path to an alternate location for puppet modules.
+    noop:
+        type: bool
+        description: Override puppet.conf noop mode. When V(true), run Puppet agent with C(--noop) switch set. When V(false), run Puppet agent with C(--no-noop) switch set. When unset (default), use default or puppet.conf value if defined.
+    puppetmaster:
+        type: str
+        description: The hostname of the puppetmaster to contact.
+    show_diff:
+        type: bool
+        default: false
+        description: Whether to print file changes details
+    skip_tags:
+        type: list
+        description: A list of puppet tags to be excluded.
+    summarize:
+        type: bool
+        default: false
+        description: Whether to print a transaction summary.
+    tags:
+        type: list
+        description: A list of puppet tags to be used.
+    timeout:
+        type: str
+        default: 30m
+        description: How long to wait for C(puppet) to finish.
+    use_srv_records:
+        type: bool
+        description: Toggles use_srv_records flag
+    verbose:
+        type: bool
+        default: false
+        description: Print extra information.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Run puppet agent and fail if anything goes wrong
+    >   community.general.puppet:
+    >
+    > - name: Run puppet and timeout in 5 minutes
+    >   community.general.puppet:
+    >     timeout: 5m
+    >
+    > - name: Run puppet using a different environment
+    >   community.general.puppet:
+    >     environment: testing
+    >
+    > - name: Run puppet using a specific certname
+    >   community.general.puppet:
+    >     certname: agent01.example.com
+    >
+    > - name: Run puppet using a specific piece of Puppet code. Has no effect with a puppetmaster
+    >   community.general.puppet:
+    >     execute: include ::mymodule
+    >
+    > - name: Run puppet using a specific tags
+    >   community.general.puppet:
+    >     tags:
+    >     - update
+    >     - nginx
+    >     skip_tags:
+    >     - service
+    >
+    > - name: Run puppet agent in noop mode
+    >   community.general.puppet:
+    >     noop: true
+    >
+    > - name: Run a manifest with debug, log to both syslog and console, specify module path
+    >   community.general.puppet:
+    >     modulepath: /etc/puppet/modules:/opt/stack/puppet-modules:/usr/share/openstack-puppet/modules
+    >     logdest: all
+    >     manifest: /var/lib/example/puppet_step_config.pp
+    >

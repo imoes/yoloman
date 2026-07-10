@@ -1,0 +1,202 @@
+name: openssl_csr_pipe
+fqcn: community.crypto.openssl_csr_pipe
+collection: community.crypto
+short_description: Generate OpenSSL Certificate Signing Request (CSR)
+description: Please note that the module regenerates an existing CSR if it does not match the module's options, or if it seems to be corrupt. This module allows one to (re)generate OpenSSL certificate signing requests. This module supports the subjectAltName, keyUsage, extendedKeyUsage, basicConstraints and OCSP Must Staple extensions.
+options:
+    authority_cert_issuer:
+        type: list
+        description: Names that will be present in the authority cert issuer field of the certificate signing request. Values must be prefixed by their options. (That is, C(email), C(URI), C(DNS), C(RID), C(IP), C(dirName), C(otherName), and the ones specific to your CA) Example: V(DNS:ca.example.org) If specified, O(authority_cert_serial_number) must also be specified. Please note that commercial CAs ignore this value, respectively use a value of their own choice. Specifying this option is mostly useful for self-signed certificates or for own CAs. Note that this is only supported if the C(cryptography) backend is used! The C(AuthorityKeyIdentifier) extension will only be added if at least one of O(authority_key_identifier), O(authority_cert_issuer) and O(authority_cert_serial_number) is specified.
+    authority_cert_serial_number:
+        type: int
+        description: The authority cert serial number. If specified, O(authority_cert_issuer) must also be specified. Note that this is only supported if the C(cryptography) backend is used! Please note that commercial CAs ignore this value, respectively use a value of their own choice. Specifying this option is mostly useful for self-signed certificates or for own CAs. The C(AuthorityKeyIdentifier) extension will only be added if at least one of O(authority_key_identifier), O(authority_cert_issuer) and O(authority_cert_serial_number) is specified.
+    authority_key_identifier:
+        type: str
+        description: The authority key identifier as a hex string, where two bytes are separated by colons. Example: V(00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33) Please note that commercial CAs ignore this value, respectively use a value of their own choice. Specifying this option is mostly useful for self-signed certificates or for own CAs. Note that this is only supported if the C(cryptography) backend is used! The C(AuthorityKeyIdentifier) extension will only be added if at least one of O(authority_key_identifier), O(authority_cert_issuer) and O(authority_cert_serial_number) is specified.
+    basic_constraints:
+        type: list
+        aliases:
+            - basicConstraints
+        description: Indicates basic constraints, such as if the certificate is a CA.
+    basic_constraints_critical:
+        type: bool
+        default: false
+        aliases:
+            - basicConstraints_critical
+        description: Should the basicConstraints extension be considered as critical.
+    common_name:
+        type: str
+        aliases:
+            - CN
+            - commonName
+        description: The commonName field of the certificate signing request subject.
+    content:
+        type: str
+        description: The existing CSR.
+    country_name:
+        type: str
+        aliases:
+            - C
+            - countryName
+        description: The countryName field of the certificate signing request subject.
+    create_subject_key_identifier:
+        type: bool
+        default: false
+        description: Create the Subject Key Identifier from the public key. Please note that commercial CAs can ignore the value, respectively use a value of their own choice instead. Specifying this option is mostly useful for self-signed certificates or for own CAs. Note that this is only supported if the C(cryptography) backend is used!
+    crl_distribution_points:
+        type: list
+        description: Allows to specify one or multiple CRL distribution points. Only supported by the C(cryptography) backend.
+    digest:
+        type: str
+        default: sha256
+        description: The digest used when signing the certificate signing request with the private key.
+    email_address:
+        type: str
+        aliases:
+            - E
+            - emailAddress
+        description: The emailAddress field of the certificate signing request subject.
+    extended_key_usage:
+        type: list
+        aliases:
+            - extKeyUsage
+            - extendedKeyUsage
+        description: Additional restrictions (for example client authentication, server authentication) on the allowed purposes for which the public key may be used.
+    extended_key_usage_critical:
+        type: bool
+        default: false
+        aliases:
+            - extKeyUsage_critical
+            - extendedKeyUsage_critical
+        description: Should the extkeyUsage extension be considered as critical.
+    key_usage:
+        type: list
+        aliases:
+            - keyUsage
+        description: This defines the purpose (for example encipherment, signature, certificate signing) of the key contained in the certificate.
+    key_usage_critical:
+        type: bool
+        default: false
+        aliases:
+            - keyUsage_critical
+        description: Should the keyUsage extension be considered as critical.
+    locality_name:
+        type: str
+        aliases:
+            - L
+            - localityName
+        description: The localityName field of the certificate signing request subject.
+    name_constraints_critical:
+        type: bool
+        default: false
+        description: Should the Name Constraints extension be considered as critical.
+    name_constraints_excluded:
+        type: list
+        description: For CA certificates, this specifies a list of identifiers which describe subtrees of names that this CA is B(not) allowed to issue certificates for. Values must be prefixed by their options. (That is, C(email), C(URI), C(DNS), C(RID), C(IP), C(dirName), C(otherName), and the ones specific to your CA).
+    name_constraints_permitted:
+        type: list
+        description: For CA certificates, this specifies a list of identifiers which describe subtrees of names that this CA is allowed to issue certificates for. Values must be prefixed by their options. (That is, C(email), C(URI), C(DNS), C(RID), C(IP), C(dirName), C(otherName), and the ones specific to your CA).
+    ocsp_must_staple:
+        type: bool
+        default: false
+        aliases:
+            - ocspMustStaple
+        description: Indicates that the certificate should contain the OCSP Must Staple extension (U(https://tools.ietf.org/html/rfc7633)).
+    ocsp_must_staple_critical:
+        type: bool
+        default: false
+        aliases:
+            - ocspMustStaple_critical
+        description: Should the OCSP Must Staple extension be considered as critical. Note that according to the RFC, this extension should not be marked as critical, as old clients not knowing about OCSP Must Staple are required to reject such certificates (see U(https://tools.ietf.org/html/rfc7633#section-4)).
+    organization_name:
+        type: str
+        aliases:
+            - O
+            - organizationName
+        description: The organizationName field of the certificate signing request subject.
+    organizational_unit_name:
+        type: str
+        aliases:
+            - OU
+            - organizationalUnitName
+        description: The organizationalUnitName field of the certificate signing request subject.
+    privatekey_content:
+        type: str
+        description: The content of the private key to use when signing the certificate signing request. Either O(privatekey_path) or O(privatekey_content) must be specified, but not both.
+    privatekey_passphrase:
+        type: str
+        description: The passphrase for the private key. This is required if the private key is password protected.
+    privatekey_path:
+        type: path
+        description: The path to the private key to use when signing the certificate signing request. Either O(privatekey_path) or O(privatekey_content) must be specified, but not both.
+    select_crypto_backend:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - cryptography
+        description: Determines which crypto backend to use. The default choice is V(auto), which tries to use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
+    state_or_province_name:
+        type: str
+        aliases:
+            - ST
+            - stateOrProvinceName
+        description: The stateOrProvinceName field of the certificate signing request subject.
+    subject:
+        type: dict
+        description: Key/value pairs that will be present in the subject name field of the certificate signing request. If you need to specify more than one value with the same key, use a list as value. If the order of the components is important, use O(subject_ordered). Mutually exclusive with O(subject_ordered).
+    subject_alt_name:
+        type: list
+        aliases:
+            - subjectAltName
+        description: Subject Alternative Name (SAN) extension to attach to the certificate signing request. Values must be prefixed by their options. (These are C(email), C(URI), C(DNS), C(RID), C(IP), C(dirName), C(otherName), and the ones specific to your CA). Note that if no SAN is specified, but a common name, the common name will be added as a SAN except if O(use_common_name_for_san) is set to V(false). More at U(https://tools.ietf.org/html/rfc5280#section-4.2.1.6).
+    subject_alt_name_critical:
+        type: bool
+        default: false
+        aliases:
+            - subjectAltName_critical
+        description: Should the subjectAltName extension be considered as critical.
+    subject_key_identifier:
+        type: str
+        description: The subject key identifier as a hex string, where two bytes are separated by colons. Example: V(00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33) Please note that commercial CAs ignore this value, respectively use a value of their own choice. Specifying this option is mostly useful for self-signed certificates or for own CAs. Note that this option can only be used if O(create_subject_key_identifier) is V(false). Note that this is only supported if the C(cryptography) backend is used!
+    subject_ordered:
+        type: list
+        description: A list of dictionaries, where every dictionary must contain one key/value pair. This key/value pair will be present in the subject name field of the certificate signing request. If you want to specify more than one value with the same key in a row, you can use a list as value. Mutually exclusive with O(subject), and any other subject field option, such as O(country_name), O(state_or_province_name), O(locality_name), O(organization_name), O(organizational_unit_name), O(common_name), or O(email_address).
+    use_common_name_for_san:
+        type: bool
+        default: true
+        aliases:
+            - useCommonNameForSAN
+        description: If set to V(true), the module will fill the common name in for O(subject_alt_name) with C(DNS:) prefix if no SAN is specified.
+    version:
+        type: int
+        default: 1
+        choices:
+            - 1
+        description: The version of the certificate signing request. The only allowed value according to L(RFC 2986,https://tools.ietf.org/html/rfc2986#section-4.1) is 1. This option no longer accepts unsupported values since community.crypto 2.0.0.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Generate an OpenSSL Certificate Signing Request
+    >   community.crypto.openssl_csr_pipe:
+    >     privatekey_path: /etc/ssl/private/ansible.com.pem
+    >     common_name: www.ansible.com
+    >   register: result
+    > - name: Print CSR
+    >   ansible.builtin.debug:
+    >     var: result.csr
+    >
+    > - name: Generate an OpenSSL Certificate Signing Request with an inline CSR
+    >   community.crypto.openssl_csr:
+    >     content: "{{ lookup('ansible.builtin.file', '/etc/ssl/csr/www.ansible.com.csr') }}"
+    >     privatekey_content: "{{ private_key_content }}"
+    >     common_name: www.ansible.com
+    >   register: result
+    > - name: Store CSR
+    >   ansible.builtin.copy:
+    >     dest: /etc/ssl/csr/www.ansible.com.csr
+    >     content: "{{ result.csr }}"
+    >   when: result is changed
+    >

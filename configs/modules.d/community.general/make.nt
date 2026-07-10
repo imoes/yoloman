@@ -1,0 +1,69 @@
+name: make
+fqcn: community.general.make
+collection: community.general
+short_description: Run targets in a Makefile
+description: Run targets in a Makefile.
+options:
+    chdir:
+        type: path
+        required: true
+        description: Change to this directory before running make.
+    file:
+        type: path
+        description: Use a custom Makefile.
+    jobs:
+        type: int
+        description: Set the number of make jobs to run concurrently. Typically if set, this would be the number of processors and/or threads available to the machine. This is not supported by all make implementations.
+    make:
+        type: path
+        description: Use a specific make binary.
+    params:
+        type: dict
+        description: Any extra parameters to pass to make. If the value is empty, only the key will be used. For example, V(FOO:) will produce V(FOO), not V(FOO=).
+    target:
+        type: str
+        description: The target to run. Typically this would be something like V(install), V(test), or V(all). O(target) and O(targets) are mutually exclusive.
+    targets:
+        type: list
+        description: The list of targets to run. Typically this would be something like V(install), V(test), or V(all). O(target) and O(targets) are mutually exclusive.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Build the default target
+    >   community.general.make:
+    >     chdir: /home/ubuntu/cool-project
+    >
+    > - name: Run 'install' target as root
+    >   community.general.make:
+    >     chdir: /home/ubuntu/cool-project
+    >     target: install
+    >   become: true
+    >
+    > - name: Build 'all' target with extra arguments
+    >   community.general.make:
+    >     chdir: /home/ubuntu/cool-project
+    >     target: all
+    >     params:
+    >       NUM_THREADS: 4
+    >       BACKEND: lapack
+    >
+    > - name: Build 'all' target with a custom Makefile
+    >   community.general.make:
+    >     chdir: /home/ubuntu/cool-project
+    >     target: all
+    >     file: /some-project/Makefile
+    >
+    > - name: build arm64 kernel on FreeBSD, with 16 parallel jobs
+    >   community.general.make:
+    >     chdir: /usr/src
+    >     jobs: 16
+    >     target: buildkernel
+    >     params:
+    >       # This adds -DWITH_FDT to the command line:
+    >       -DWITH_FDT:
+    >       # The following adds TARGET=arm64 TARGET_ARCH=aarch64 to the command line:
+    >       TARGET: arm64
+    >       TARGET_ARCH: aarch64
+    >

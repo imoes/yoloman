@@ -1,0 +1,78 @@
+name: elasticsearch_plugin
+fqcn: community.general.elasticsearch_plugin
+collection: community.general
+short_description: Manage Elasticsearch plugins
+description: Manages Elasticsearch plugins.
+options:
+    force:
+        type: bool
+        default: false
+        description: Force batch mode when installing plugins. This is only necessary if a plugin requires additional permissions and console detection fails.
+    name:
+        type: str
+        required: true
+        description: Name of the plugin to install.
+    plugin_bin:
+        type: path
+        description: Location of the plugin binary. If this file is not found, the default plugin binaries will be used.
+    plugin_dir:
+        type: path
+        default: /usr/share/elasticsearch/plugins/
+        description: Your configured plugin directory specified in Elasticsearch
+    proxy_host:
+        type: str
+        description: Proxy host to use during plugin installation
+    proxy_port:
+        type: str
+        description: Proxy port to use during plugin installation
+    src:
+        type: str
+        description: Optionally set the source location to retrieve the plugin from. This can be a file:// URL to install from a local file, or a remote URL. If this is not set, the plugin location is just based on the name. The name parameter must match the descriptor in the plugin ZIP specified. Is only used if the state would change, which is solely checked based on the name parameter. If, for example, the plugin is already installed, changing this has no effect. For ES 1.x use url.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Desired state of a plugin.
+    timeout:
+        type: str
+        default: 1m
+        description: Timeout setting: 30s, 1m, 1h... Only valid for Elasticsearch < 5.0. This option is ignored for Elasticsearch > 5.0.
+    url:
+        type: str
+        description: Set exact URL to download the plugin from (Only works for ES 1.x). For ES 2.x and higher, use src.
+    version:
+        type: str
+        description: Version of the plugin to be installed. If plugin exists with previous version, it will NOT be updated
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install Elasticsearch Head plugin in Elasticsearch 2.x
+    >   community.general.elasticsearch_plugin:
+    >     name: mobz/elasticsearch-head
+    >     state: present
+    >
+    > - name: Install a specific version of Elasticsearch Head in Elasticsearch 2.x
+    >   community.general.elasticsearch_plugin:
+    >     name: mobz/elasticsearch-head
+    >     version: 2.0.0
+    >
+    > - name: Uninstall Elasticsearch head plugin in Elasticsearch 2.x
+    >   community.general.elasticsearch_plugin:
+    >     name: mobz/elasticsearch-head
+    >     state: absent
+    >
+    > - name: Install a specific plugin in Elasticsearch >= 5.0
+    >   community.general.elasticsearch_plugin:
+    >     name: analysis-icu
+    >     state: present
+    >
+    > - name: Install the ingest-geoip plugin with a forced installation
+    >   community.general.elasticsearch_plugin:
+    >     name: ingest-geoip
+    >     state: present
+    >     force: true
+    >

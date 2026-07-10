@@ -1,0 +1,47 @@
+name: easy_install
+fqcn: community.general.easy_install
+collection: community.general
+short_description: Installs Python libraries
+description: Installs Python libraries, optionally in a C(virtualenv)
+options:
+    executable:
+        type: str
+        default: easy_install
+        description: The explicit executable or a pathname to the executable to be used to run easy_install for a specific version of Python installed in the system. For example V(easy_install-3.3), if there are both Python 2.7 and 3.3 installations in the system and you want to run easy_install for the Python 3.3 installation.
+    name:
+        type: str
+        required: true
+        description: A Python library name.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - latest
+        description: The desired state of the library. V(latest) ensures that the latest version is installed.
+    virtualenv:
+        type: str
+        description: An optional O(virtualenv) directory path to install into. If the O(virtualenv) does not exist, it is created automatically.
+    virtualenv_command:
+        type: str
+        default: virtualenv
+        description: The command to create the virtual environment with. For example V(pyvenv), V(virtualenv), V(virtualenv2).
+    virtualenv_site_packages:
+        type: bool
+        default: false
+        description: Whether the virtual environment will inherit packages from the global site-packages directory.  Note that if this setting is changed on an already existing virtual environment it will not have any effect, the environment must be deleted and newly created.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install or update pip
+    >   community.general.easy_install:
+    >     name: pip
+    >     state: latest
+    >
+    > - name: Install Bottle into the specified virtualenv
+    >   community.general.easy_install:
+    >     name: bottle
+    >     virtualenv: /webapps/myapp/venv
+    >

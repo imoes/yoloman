@@ -1,0 +1,126 @@
+name: proxmox_nic
+fqcn: community.general.proxmox_nic
+collection: community.general
+short_description: Management of a NIC of a Qemu(KVM) VM in a Proxmox VE cluster
+description: Allows you to create/update/delete a NIC on Qemu(KVM) Virtual Machines in a Proxmox VE cluster.
+options:
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    bridge:
+        type: str
+        description: Add this interface to the specified bridge device. The Proxmox VE default bridge is called V(vmbr0).
+    firewall:
+        type: bool
+        default: false
+        description: Whether this interface should be protected by the firewall.
+    interface:
+        type: str
+        required: true
+        description: Name of the interface, should be V(net[n]) where C(1 ≤ n ≤ 31).
+    link_down:
+        type: bool
+        default: false
+        description: Whether this interface should be disconnected (like pulling the plug).
+    mac:
+        type: str
+        description: V(XX:XX:XX:XX:XX:XX) should be a unique MAC address. This is automatically generated if not specified. When not specified this module will keep the MAC address the same when changing an existing interface.
+    model:
+        type: str
+        default: virtio
+        choices:
+            - e1000
+            - e1000-82540em
+            - e1000-82544gc
+            - e1000-82545em
+            - i82551
+            - i82557b
+            - i82559er
+            - ne2k_isa
+            - ne2k_pci
+            - pcnet
+            - rtl8139
+            - virtio
+            - vmxnet3
+        description: The NIC emulator model.
+    mtu:
+        type: int
+        description: Force MTU, for C(virtio) model only, setting will be ignored otherwise. Set to V(1) to use the bridge MTU. Value should be C(1 ≤ n ≤ 65520).
+    name:
+        type: str
+        description: Specifies the VM name. Only used on the configuration web interface. Required only for O(state=present).
+    queues:
+        type: int
+        description: Number of packet queues to be used on the device. Value should be C(0 ≤ n ≤ 16).
+    rate:
+        type: float
+        description: Rate limit in MBps (MegaBytes per second) as floating point number.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Indicates desired state of the NIC.
+    tag:
+        type: int
+        description: VLAN tag to apply to packets on this interface. Value should be C(1 ≤ n ≤ 4094).
+    trunks:
+        type: list
+        description: List of VLAN trunks to pass through this interface.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    vmid:
+        type: int
+        description: Specifies the instance ID.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create NIC net0 targeting the vm by name
+    >   community.general.proxmox_nic:
+    >     api_user: root@pam
+    >     api_password: secret
+    >     api_host: proxmoxhost
+    >     name: my_vm
+    >     interface: net0
+    >     bridge: vmbr0
+    >     tag: 3
+    >
+    > - name: Create NIC net0 targeting the vm by id
+    >   community.general.proxmox_nic:
+    >     api_user: root@pam
+    >     api_password: secret
+    >     api_host: proxmoxhost
+    >     vmid: 103
+    >     interface: net0
+    >     bridge: vmbr0
+    >     mac: "12:34:56:C0:FF:EE"
+    >     firewall: true
+    >
+    > - name: Delete NIC net0 targeting the vm by name
+    >   community.general.proxmox_nic:
+    >     api_user: root@pam
+    >     api_password: secret
+    >     api_host: proxmoxhost
+    >     name: my_vm
+    >     interface: net0
+    >     state: absent
+    >

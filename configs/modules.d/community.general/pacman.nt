@@ -1,0 +1,157 @@
+name: pacman
+fqcn: community.general.pacman
+collection: community.general
+short_description: Manage packages with I(pacman)
+description: Manage packages with the I(pacman) package manager, which is used by Arch Linux and its variants.
+options:
+    executable:
+        type: str
+        default: pacman
+        description: Path of the binary to use. This can either be C(pacman) or a pacman compatible AUR helper. Pacman compatibility is unfortunately ill defined, in particular, this modules makes extensive use of the C(--print-format) directive which is known not to be implemented by some AUR helpers (notably, C(yay)). Beware that AUR helpers might behave unexpectedly and are therefore not recommended.
+    extra_args:
+        type: str
+        default:
+        description: Additional option to pass to pacman when enforcing O(state).
+    force:
+        type: bool
+        default: false
+        description: When removing packages, forcefully remove them, without any checks. Same as O(extra_args="--nodeps --nodeps"). When combined with O(update_cache), force a refresh of all package databases. Same as O(update_cache_extra_args="--refresh --refresh").
+    name:
+        type: list
+        aliases:
+            - package
+            - pkg
+        description: Name or list of names of the package(s) or file(s) to install, upgrade, or remove. Cannot be used in combination with O(upgrade).
+    reason:
+        type: str
+        choices:
+            - dependency
+            - explicit
+        description: The install reason to set for the packages.
+    reason_for:
+        type: str
+        default: new
+        choices:
+            - all
+            - new
+        description: Set the install reason for V(all) packages or only for V(new) packages. In case of O(state=latest) already installed packages which will be updated to a newer version are not counted as V(new).
+    remove_nosave:
+        type: bool
+        default: false
+        description: When removing packages, do not save modified configuration files as C(.pacsave) files. (passes C(--nosave) to pacman)
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - installed
+            - latest
+            - present
+            - removed
+        description: Whether to install (V(present) or V(installed), V(latest)), or remove (V(absent) or V(removed)) a package. V(present) and V(installed) will simply ensure that a desired package is installed. V(latest) will update the specified package if it is not of the latest available version. V(absent) and V(removed) will remove the specified package.
+    update_cache:
+        type: bool
+        description: Whether or not to refresh the master package lists. This can be run as part of a package installation or as a separate step. If not specified, it defaults to V(false). Please note that this option only had an influence on the module's C(changed) state if O(name) and O(upgrade) are not specified before community.general 5.0.0. See the examples for how to keep the old behavior.
+    update_cache_extra_args:
+        type: str
+        default:
+        description: Additional option to pass to pacman when enforcing O(update_cache).
+    upgrade:
+        type: bool
+        description: Whether or not to upgrade the whole system. Cannot be used in combination with O(name). If not specified, it defaults to V(false).
+    upgrade_extra_args:
+        type: str
+        default:
+        description: Additional option to pass to pacman when enforcing O(upgrade).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install package foo from repo
+    >   community.general.pacman:
+    >     name: foo
+    >     state: present
+    >
+    > - name: Install package bar from file
+    >   community.general.pacman:
+    >     name: ~/bar-1.0-1-any.pkg.tar.xz
+    >     state: present
+    >
+    > - name: Install package foo from repo and bar from file
+    >   community.general.pacman:
+    >     name:
+    >       - foo
+    >       - ~/bar-1.0-1-any.pkg.tar.xz
+    >     state: present
+    >
+    > - name: Install package from AUR using a Pacman compatible AUR helper
+    >   community.general.pacman:
+    >     name: foo
+    >     state: present
+    >     executable: yay
+    >     extra_args: --builddir /var/cache/yay
+    >
+    > - name: Upgrade package foo
+    >   # The 'changed' state of this call will indicate whether the cache was
+    >   # updated *or* whether foo was installed/upgraded.
+    >   community.general.pacman:
+    >     name: foo
+    >     state: latest
+    >     update_cache: true
+    >
+    > - name: Remove packages foo and bar
+    >   community.general.pacman:
+    >     name:
+    >       - foo
+    >       - bar
+    >     state: absent
+    >
+    > - name: Recursively remove package baz
+    >   community.general.pacman:
+    >     name: baz
+    >     state: absent
+    >     extra_args: --recursive
+    >
+    > - name: Run the equivalent of "pacman -Sy" as a separate step
+    >   community.general.pacman:
+    >     update_cache: true
+    >
+    > - name: Run the equivalent of "pacman -Su" as a separate step
+    >   community.general.pacman:
+    >     upgrade: true
+    >
+    > - name: Run the equivalent of "pacman -Syu" as a separate step
+    >   # Since community.general 5.0.0 the 'changed' state of this call
+    >   # will be 'true' in case the cache was updated, or when a package
+    >   # was updated.
+    >   #
+    >   # The previous behavior was to only indicate whether something was
+    >   # upgraded. To keep the old behavior, add the following to the task:
+    >   #
+    >   #   register: result
+    >   #   changed_when: result.packages | length > 0
+    >   community.general.pacman:
+    >     update_cache: true
+    >     upgrade: true
+    >
+    > - name: Run the equivalent of "pacman -Rdd", force remove package baz
+    >   community.general.pacman:
+    >     name: baz
+    >     state: absent
+    >     force: true
+    >
+    > - name: Install foo as dependency and leave reason untouched if already installed
+    >   community.general.pacman:
+    >     name: foo
+    >     state: present
+    >     reason: dependency
+    >     reason_for: new
+    >
+    > - name: Run the equivalent of "pacman -S --asexplicit", mark foo as explicit and install it if not present
+    >   community.general.pacman:
+    >     name: foo
+    >     state: present
+    >     reason: explicit
+    >     reason_for: all
+    >

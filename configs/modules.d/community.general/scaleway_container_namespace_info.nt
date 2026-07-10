@@ -1,0 +1,61 @@
+name: scaleway_container_namespace_info
+fqcn: community.general.scaleway_container_namespace_info
+collection: community.general
+short_description: Retrieve information on Scaleway Container namespace
+description: This module return information about a container namespace on Scaleway account.
+options:
+    api_timeout:
+        type: int
+        default: 30
+        aliases:
+            - timeout
+        description: HTTP timeout to Scaleway API in seconds.
+    api_token:
+        type: str
+        required: true
+        aliases:
+            - oauth_token
+        description: Scaleway OAuth token.
+    api_url:
+        type: str
+        default: https://api.scaleway.com
+        aliases:
+            - base_url
+        description: Scaleway API URL.
+    name:
+        type: str
+        required: true
+        description: Name of the container namespace.
+    project_id:
+        type: str
+        required: true
+        description: Project identifier.
+    query_parameters:
+        type: dict
+        default:
+            {}
+        description: List of parameters passed to the query string.
+    region:
+        type: str
+        required: true
+        choices:
+            - fr-par
+            - nl-ams
+            - pl-waw
+        description: Scaleway region to use (for example C(fr-par)).
+    validate_certs:
+        type: bool
+        default: true
+        description: Validate SSL certs of the Scaleway API.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Get a container namespace info
+    >   community.general.scaleway_container_namespace_info:
+    >     project_id: '{{ scw_project }}'
+    >     region: fr-par
+    >     name: my-awesome-container-namespace
+    >   register: container_namespace_info_task
+    >

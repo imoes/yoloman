@@ -1,0 +1,90 @@
+name: openssl_dhparam
+fqcn: community.crypto.openssl_dhparam
+collection: community.crypto
+short_description: Generate OpenSSL Diffie-Hellman Parameters
+description: This module allows one to (re)generate OpenSSL DH-params. This module uses file common arguments to specify generated file permissions. Please note that the module regenerates existing DH params if they do not match the module's options. If you are concerned that this could overwrite your existing DH params, consider using the O(backup) option. The module can use the cryptography Python library, or the C(openssl) executable. By default, it tries to detect which one is available. This can be overridden with the O(select_crypto_backend) option.
+options:
+    attributes:
+        type: str
+        aliases:
+            - attr
+        description: The attributes the resulting filesystem object should have. To get supported flags look at the man page for I(chattr) on the target system. This string should contain the attributes in the same order as the one displayed by I(lsattr). The C(=) operator is assumed as default, otherwise C(+) or C(-) operators need to be included in the string.
+    backup:
+        type: bool
+        default: false
+        description: Create a backup file including a timestamp so you can get the original DH params back if you overwrote them with new ones by accident.
+    force:
+        type: bool
+        default: false
+        description: Should the parameters be regenerated even it it already exists.
+    group:
+        type: str
+        description: Name of the group that should own the filesystem object, as would be fed to I(chown). When left unspecified, it uses the current group of the current user unless you are root, in which case it can preserve the previous ownership.
+    mode:
+        type: raw
+        description: The permissions the resulting filesystem object should have. For those used to I(/usr/bin/chmod) remember that modes are actually octal numbers. You must give Ansible enough information to parse them correctly. For consistent results, quote octal numbers (for example, V('644') or V('1777')) so Ansible receives a string and can do its own conversion from string into number. Adding a leading zero (for example, V(0755)) works sometimes, but can fail in loops and some other circumstances. Giving Ansible a number without following either of these rules will end up with a decimal number which will have unexpected results. As of Ansible 1.8, the mode may be specified as a symbolic mode (for example, V(u+rwx) or V(u=rw,g=r,o=r)). If O(mode) is not specified and the destination filesystem object B(does not) exist, the default C(umask) on the system will be used when setting the mode for the newly created filesystem object. If O(mode) is not specified and the destination filesystem object B(does) exist, the mode of the existing filesystem object will be used. Specifying O(mode) is the best way to ensure filesystem objects are created with the correct permissions. See CVE-2020-1736 for further details.
+    owner:
+        type: str
+        description: Name of the user that should own the filesystem object, as would be fed to I(chown). When left unspecified, it uses the current user unless you are root, in which case it can preserve the previous ownership. Specifying a numeric username will be assumed to be a user ID and not a username. Avoid numeric usernames to avoid this confusion.
+    path:
+        type: path
+        required: true
+        description: Name of the file in which the generated parameters will be saved.
+    return_content:
+        type: bool
+        default: false
+        description: If set to V(true), will return the (current or generated) DH parameter's content as RV(dhparams).
+    select_crypto_backend:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - cryptography
+            - openssl
+        description: Determines which crypto backend to use. The default choice is V(auto), which tries to use C(cryptography) if available, and falls back to C(openssl). If set to V(openssl), will try to use the OpenSSL C(openssl) executable. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
+    selevel:
+        type: str
+        description: The level part of the SELinux filesystem object context. This is the MLS/MCS attribute, sometimes known as the C(range). When set to V(_default), it will use the C(level) portion of the policy if available.
+    serole:
+        type: str
+        description: The role part of the SELinux filesystem object context. When set to V(_default), it will use the C(role) portion of the policy if available.
+    setype:
+        type: str
+        description: The type part of the SELinux filesystem object context. When set to V(_default), it will use the C(type) portion of the policy if available.
+    seuser:
+        type: str
+        description: The user part of the SELinux filesystem object context. By default it uses the V(system) policy, where applicable. When set to V(_default), it will use the C(user) portion of the policy if available.
+    size:
+        type: int
+        default: 4096
+        description: Size (in bits) of the generated DH-params.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Whether the parameters should exist or not, taking action if the state is different from what is stated.
+    unsafe_writes:
+        type: bool
+        default: false
+        description: Influence when to use atomic operation to prevent data corruption or inconsistent reads from the target filesystem object. By default this module uses atomic operations to prevent data corruption or inconsistent reads from the target filesystem objects, but sometimes systems are configured or just broken in ways that prevent this. One example is docker mounted filesystem objects, which cannot be updated atomically from inside the container and can only be written in an unsafe manner. This option allows Ansible to fall back to unsafe methods of updating filesystem objects when atomic operations fail (however, it doesn't force Ansible to perform unsafe writes). IMPORTANT! Unsafe writes are subject to race conditions and can lead to data corruption.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Generate Diffie-Hellman parameters with the default size (4096 bits)
+    >   community.crypto.openssl_dhparam:
+    >     path: /etc/ssl/dhparams.pem
+    >
+    > - name: Generate DH Parameters with a different size (2048 bits)
+    >   community.crypto.openssl_dhparam:
+    >     path: /etc/ssl/dhparams.pem
+    >     size: 2048
+    >
+    > - name: Force regenerate an DH parameters if they already exist
+    >   community.crypto.openssl_dhparam:
+    >     path: /etc/ssl/dhparams.pem
+    >     force: true
+    >

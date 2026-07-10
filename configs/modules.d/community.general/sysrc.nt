@@ -1,0 +1,67 @@
+name: sysrc
+fqcn: community.general.sysrc
+collection: community.general
+short_description: Manage FreeBSD using sysrc
+description: Manages C(/etc/rc.conf) for FreeBSD.
+options:
+    delim:
+        type: str
+        default:  
+        description: Delimiter to be used instead of V(" ") (space). Only used when O(state=value_present) or O(state=value_absent).
+    jail:
+        type: str
+        description: Name or ID of the jail to operate on.
+    name:
+        type: str
+        required: true
+        description: Name of variable in C(/etc/rc.conf) to manage.
+    path:
+        type: str
+        default: /etc/rc.conf
+        description: Path to file to use instead of V(/etc/rc.conf).
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+            - value_present
+            - value_absent
+        description: Use V(present) to add the variable. Use V(absent) to remove the variable. Use V(value_present) to add the value to the existing variable. Use V(value_absent) to remove the value from the existing variable.
+    value:
+        type: str
+        description: The value to set when O(state=present). The value to add when O(state=value_present). The value to remove when O(state=value_absent).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > ---
+    > # enable mysql in the /etc/rc.conf
+    > - name: Configure mysql pid file
+    >   community.general.sysrc:
+    >     name: mysql_pidfile
+    >     value: "/var/run/mysqld/mysqld.pid"
+    >
+    > # enable accf_http kld in the boot loader
+    > - name: Enable accf_http kld
+    >   community.general.sysrc:
+    >     name: accf_http_load
+    >     state: present
+    >     value: "YES"
+    >     path: /boot/loader.conf
+    >
+    > # add gif0 to cloned_interfaces
+    > - name: Add gif0 interface
+    >   community.general.sysrc:
+    >     name: cloned_interfaces
+    >     state: value_present
+    >     value: "gif0"
+    >
+    > # enable nginx on a jail
+    > - name: Enable nginx in test jail
+    >   community.general.sysrc:
+    >     name: nginx_enable
+    >     value: "YES"
+    >     jail: testjail
+    >

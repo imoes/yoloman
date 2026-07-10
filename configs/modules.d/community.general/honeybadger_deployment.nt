@@ -1,0 +1,44 @@
+name: honeybadger_deployment
+fqcn: community.general.honeybadger_deployment
+collection: community.general
+short_description: Notify Honeybadger.io about app deployments
+description: Notify Honeybadger.io about app deployments (see U(http://docs.honeybadger.io/article/188-deployment-tracking)).
+options:
+    environment:
+        type: str
+        required: true
+        description: The environment name, typically 'production', 'staging', etc.
+    repo:
+        type: str
+        description: URL of the project repository
+    revision:
+        type: str
+        description: A hash, number, tag, or other identifier showing what revision was deployed
+    token:
+        type: str
+        required: true
+        description: API token.
+    url:
+        type: str
+        default: https://api.honeybadger.io/v1/deploys
+        description: Optional URL to submit the notification to.
+    user:
+        type: str
+        description: The username of the person doing the deployment
+    validate_certs:
+        type: bool
+        default: true
+        description: If V(false), SSL certificates for the target url will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Notify Honeybadger.io about an app deployment
+    >   community.general.honeybadger_deployment:
+    >     token: AAAAAA
+    >     environment: staging
+    >     user: ansible
+    >     revision: b6826b8
+    >     repo: 'git@github.com:user/repo.git'
+    >

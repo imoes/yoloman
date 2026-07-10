@@ -1,0 +1,74 @@
+name: gitlab_instance_variable
+fqcn: community.general.gitlab_instance_variable
+collection: community.general
+short_description: Creates, updates, or deletes GitLab instance variables
+description: Creates a instance variable if it does not exist. When a instance variable does exist, its value will be updated if the values are different. Support for instance variables requires GitLab >= 13.0. Variables which are not mentioned in the modules options, but are present on the GitLab instance, will either stay (O(purge=false)) or will be deleted (O(purge=true)).
+options:
+    api_job_token:
+        type: str
+        description: GitLab CI job token for logging in.
+    api_oauth_token:
+        type: str
+        description: GitLab OAuth token for logging in.
+    api_password:
+        type: str
+        description: The password to use for authentication against the API.
+    api_token:
+        type: str
+        description: GitLab access token with API permissions.
+    api_url:
+        type: str
+        description: The resolvable endpoint for the API.
+    api_username:
+        type: str
+        description: The username to use for authentication against the API.
+    ca_path:
+        type: str
+        description: The CA certificates bundle to use to verify GitLab server certificate.
+    purge:
+        type: bool
+        default: false
+        description: When set to V(true), delete all variables which are not mentioned in the task.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Create or delete instance variable.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+    variables:
+        type: list
+        default:
+            []
+        description: A list of dictionaries that represents CI/CD variables.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Set or update some CI/CD variables
+    >   community.general.gitlab_instance_variable:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     purge: false
+    >     variables:
+    >       - name: ACCESS_KEY_ID
+    >         value: abc1312cba
+    >       - name: SECRET_ACCESS_KEY
+    >         value: 1337
+    >         masked: true
+    >         protected: true
+    >         variable_type: env_var
+    >
+    > - name: Delete one variable
+    >   community.general.gitlab_instance_variable:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     state: absent
+    >     variables:
+    >       - name: ACCESS_KEY_ID
+    >

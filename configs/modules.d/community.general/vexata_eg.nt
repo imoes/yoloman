@@ -1,0 +1,64 @@
+name: vexata_eg
+fqcn: community.general.vexata_eg
+collection: community.general
+short_description: Manage export groups on Vexata VX100 storage arrays
+description: Create or delete export groups on a Vexata VX100 array. An export group is a tuple of a volume group, initiator group and port group that allows a set of volumes to be exposed to one or more hosts through specific array ports.
+options:
+    array:
+        type: str
+        required: true
+        description: Vexata VX100 array hostname or IPv4 Address.
+    ig:
+        type: str
+        description: Initiator group name.
+    name:
+        type: str
+        required: true
+        description: Export group name.
+    password:
+        type: str
+        description: Vexata API user password. Uses the E(VEXATA_PASSWORD) environment variable as a fallback.
+    pg:
+        type: str
+        description: Port group name.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Creates export group when present or delete when absent.
+    user:
+        type: str
+        description: Vexata API user with administrative privileges. Uses the E(VEXATA_USER) environment variable as a fallback.
+    validate_certs:
+        type: bool
+        default: false
+        description: Allows connection when SSL certificates are not valid. Set to V(false) when certificates are not trusted. If set to V(true), please make sure Python >= 2.7.9 is installed on the given machine.
+    vg:
+        type: str
+        description: Volume group name.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create export group named db_export.
+    >   community.general.vexata_eg:
+    >     name: db_export
+    >     vg: dbvols
+    >     ig: dbhosts
+    >     pg: pg1
+    >     state: present
+    >     array: vx100_ultra.test.com
+    >     user: admin
+    >     password: secret
+    >
+    > - name: Delete export group named db_export
+    >   community.general.vexata_eg:
+    >     name: db_export
+    >     state: absent
+    >     array: vx100_ultra.test.com
+    >     user: admin
+    >     password: secret
+    >

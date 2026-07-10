@@ -7,237 +7,261 @@ def main(ctx, params):
     project = params["project"]
     user = params["user"]
     password = params["password"]
-    region = params.get("region", "")
+    region = params.get("region")
     timeouts = params.get("timeouts", {})
-    vpc_id = params.get("id")
 
-    # Compute timeouts (default 15 minutes)
-    def parse_timeout(timeout_str):
-        if timeout_str.endswith("m"):
-            return int(timeout_str[:-1]) * 60
-        return 60  # fallback to 60s if invalid
+    # Validate required params
+    if name == "":
+        fail("name is required")
+    if cidr == "":
+        fail("cidr is required")
+    if domain == "":
+        fail("domain is required")
+    if identity_endpoint == "":
+        fail("identity_endpoint is required")
+    if project == "":
+        fail("project is required")
+    if user == "":
+        fail("user is required")
+    if password == "":
+        fail("password is required")
 
-    create_timeout = parse_timeout(timeouts.get("create", "15m"))
-    delete_timeout = parse_timeout(timeouts.get("delete", "15m"))
+    # Get region from facts if not specified
+    if region == None or region == "":
+        facts = ctx.facts()
+        region = facts.get("region", "")
 
-    # Build auth token endpoint
-    auth_url = identity_endpoint.rstrip("/") + "/v3/auth/tokens"
-
-    # Authenticate to get token and project_id
-    auth_body = {
-        "auth": {
-            "identity": {
-                "methods": ["password"],
-                "password": {
-                    "user": {
-                        "name": user,
-                        "password": password,
-                        "domain": {"name": domain}
-                    }
-                }
-            },
-            "scope": {
-                "project": {"name": project}
-            }
-        }
-    }
-
-    # Get auth token using ctx.run (no external libraries)
-    res = ctx.run([
-        "curl", "-s", "-X", "POST", auth_url,
-        "-H", "Content-Type: application/json",
-        "-d", str(auth_body)
-    ])
+    # Build auth header: Basic base64(user:password)
+    auth_raw = user + ":" + password
+    res = ctx.run(["printf", "%s" % auth_raw, "|", "base64", "-w", "0"])
     if res.rc != 0:
-        fail("authentication failed: " + res.stderr)
+        fail("failed to base64 encode credentials: " + res.stderr)
+    auth_token = res.stdout.strip()
+    auth_header = "Basic " + auth_token
 
-    # Extract token from response headers
-    headers = res.stderr if res.stderr else ""
-    token = ""
-    for line in headers.split("\n"):
-        if line.lower().startswith("x-subject-token:"):
-            parts = line.split(":", 1)
-            if len(parts) == 2:
-                token = parts[1].strip()
-            break
+    def vpc_list_url():
+        base = identity_endpoint + "/v1/" + project + "/vpcs"
+        if region != "":
+            return base + "?region=" + region
+        return base
 
-    if not token:
-        fail("authentication failed: token not found")
+    def vpc_url(vpc_id):
+        base = identity_endpoint + "/v1/" + project + "/vpcs/" + vpc_id
+        if region != "":
+            return base + "?region=" + region
+        return base
 
-    # Determine region and build base URL
-    base_url = identity_endpoint.rstrip("/")
-    if region:
-        base_url = base_url.replace("identity", "vpc/" + region)
-    else:
-        base_url = base_url.replace("identity", "vpc")
-
-    # Build VPC endpoint
-    vpc_url = base_url + "/v1/" + project + "/vpcs"
-
-    # If id not provided, search by name
-    if not vpc_id and name:
-        # List all VPCs with pagination
-        marker = ""
-        found_ids = []
-        for _ in range(10):  # safe iteration limit
-            list_url = vpc_url
-            if marker:
-                list_url = vpc_url + "?marker=" + marker
-            res = ctx.run(["curl", "-s", "-X", "GET", list_url,
-                          "-H", "X-Auth-Token: " + token])
-            if res.rc != 0:
-                fail("failed to list VPCs: " + res.stderr)
-
-            # Parse VPC entries manually from JSON
-            data = res.stdout
-            if '"vpcs"' not in data:
-                break
-
-            # Extract vpcs array content
-            vpcs_start = data.find('"vpcs"') + 7
-            vpcs_end = data.find(']', vpcs_start)
-            if vpcs_end == -1:
-                break
-            vpcs_content = data[vpcs_start:vpcs_end+1]
-
-            # Parse individual VPC objects
-            idx = 0
-            while '"id"' in vpcs_content[idx:]:
-                obj_start = vpcs_content.find("{", idx)
-                if obj_start == -1:
+    def find_vpc_id_by_name():
+        url = vpc_list_url()
+        headers = ["-H", "Authorization: " + auth_header,
+                   "-H", "Domain-Name: " + domain,
+                   "-H", "Content-Type: application/json"]
+        res = ctx.run(["curl", "-s", "-f", "-X", "GET"] + headers + [url])
+        if res.rc != 0:
+            return None
+        stdout = res.stdout
+        key = '"vpcs"'
+        idx = stdout.find(key)
+        if idx == -1:
+            return None
+        start = stdout.find("[", idx)
+        if start == -1:
+            return None
+        depth = 0
+        end = start
+        for i in range(start, len(stdout)):
+            if stdout[i] == '[':
+                depth += 1
+            elif stdout[i] == ']':
+                depth -= 1
+                if depth == 0:
+                    end = i
                     break
-                obj_end = vpcs_content.find("}", obj_start)
-                if obj_end == -1:
-                    break
-                obj_str = vpcs_content[obj_start:obj_end+1]
-
-                # Extract name and id
-                name_key = '"name"'
-                id_key = '"id"'
-                if name_key in obj_str and id_key in obj_str:
-                    name_pos = obj_str.find(name_key) + len(name_key) + 1
-                    name_end = obj_str.find('"', name_pos)
-                    line_name = obj_str[name_pos:name_end]
-
-                    id_pos = obj_str.find(id_key) + len(id_key) + 1
-                    id_end = obj_str.find('"', id_pos)
-                    line_id = obj_str[id_pos:id_end]
-
-                    if line_name == name:
-                        found_ids.append(line_id)
-
-                idx = obj_end + 1
-
-            # Check for pagination marker
-            next_marker_key = '"markers"'
-            if next_marker_key in data:
-                next_marker_start = data.find(next_marker_key) + len(next_marker_key) + 2
-                next_marker_end = data.find('"', next_marker_start)
-                if next_marker_end != -1:
-                    marker = data[next_marker_start:next_marker_end]
-                    if not marker:
-                        break
-                else:
-                    break
-            else:
+        if depth != 0:
+            return None
+        vpcs_str = stdout[start:end+1]
+        ids = []
+        obj_start = 0
+        while True:
+            brace_start = vpcs_str.find("{", obj_start)
+            if brace_start == -1:
                 break
+            brace_end = vpcs_str.find("}", brace_start)
+            if brace_end == -1:
+                break
+            obj = vpcs_str[brace_start:brace_end+1]
+            id_key = '"id"'
+            name_key = '"name"'
+            id_idx = obj.find(id_key)
+            name_idx = obj.find(name_key)
+            if id_idx == -1 or name_idx == -1:
+                obj_start = brace_end + 1
+                continue
+            id_val_start = obj.find('"', id_idx + len(id_key))
+            if id_val_start == -1:
+                obj_start = brace_end + 1
+                continue
+            id_val_start += 1
+            id_val_end = obj.find('"', id_val_start)
+            if id_val_end == -1:
+                obj_start = brace_end + 1
+                continue
+            obj_id = obj[id_val_start:id_val_end]
+            name_val_start = obj.find('"', name_idx + len(name_key))
+            if name_val_start == -1:
+                obj_start = brace_end + 1
+                continue
+            name_val_start += 1
+            name_val_end = obj.find('"', name_val_start)
+            if name_val_end == -1:
+                obj_start = brace_end + 1
+                continue
+            obj_name = obj[name_val_start:name_val_end]
+            if obj_name == name:
+                ids.append(obj_id)
+            obj_start = brace_end + 1
+        if len(ids) == 0:
+            return None
+        if len(ids) > 1:
+            fail("Multiple VPCs named " + name + " found")
+        return ids[0]
 
-        if len(found_ids) > 1:
-            fail("multiple VPCs found with name: " + name)
-        elif len(found_ids) == 1:
-            vpc_id = found_ids[0]
+    vpc_id = params.get("id")
+    if vpc_id == None or vpc_id == "":
+        vpc_id = find_vpc_id_by_name()
+
+    def fetch_vpc(vpc_id):
+        if vpc_id == None or vpc_id == "":
+            return None
+        url = vpc_url(vpc_id)
+        headers = ["-H", "Authorization: " + auth_header,
+                   "-H", "Domain-Name: " + domain,
+                   "-H", "Content-Type: application/json"]
+        res = ctx.run(["curl", "-s", "-f", "-X", "GET"] + headers + [url])
+        if res.rc == 404 or ((res.rc == 0) == False):
+            return None
+        if res.rc != 0:
+            fail("failed to fetch VPC " + vpc_id + ": " + res.stderr)
+        stdout = res.stdout
+        vpc_key = '"vpc"'
+        idx = stdout.find(vpc_key)
+        if idx == -1:
+            return None
+        start = stdout.find("{", idx + len(vpc_key))
+        if start == -1:
+            return None
+        depth = 0
+        end = start
+        for i in range(start, len(stdout)):
+            if stdout[i] == '{':
+                depth += 1
+            elif stdout[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if depth != 0:
+            return None
+        obj_str = stdout[start:end+1]
+        def get_str(obj, key):
+            idx = obj.find('"' + key + '"')
+            if idx == -1:
+                return ""
+            start = obj.find('"', idx + len(key) + 2)
+            if start == -1:
+                return ""
+            start += 1
+            end = obj.find('"', start)
+            if end == -1:
+                return ""
+            return obj[start:end]
+        return {
+            "id": get_str(obj_str, "id"),
+            "name": get_str(obj_str, "name"),
+            "cidr": get_str(obj_str, "cidr"),
+            "status": get_str(obj_str, "status")
+        }
+
+    current = fetch_vpc(vpc_id)
+
+    if state == "present":
+        if current != None:
+            if ((current["cidr"] != cidr) or (current["name"] != name)):
+                if ctx.check_mode:
+                    return {"changed": True, "msg": "would update VPC " + vpc_id}
+                update_body = '{"vpc":{"name":"' + name + '","cidr":"' + cidr + '"}}'
+                url = vpc_url(vpc_id)
+                headers = ["-H", "Authorization: " + auth_header,
+                           "-H", "Domain-Name: " + domain,
+                           "-H", "Content-Type: application/json"]
+                res = ctx.run(["curl", "-s", "-f", "-X", "PUT",
+                               "-d", update_body] + headers + [url])
+                if res.rc != 0:
+                    fail("failed to update VPC " + vpc_id + ": " + res.stderr)
+                return {"changed": True, "id": vpc_id, "name": name, "cidr": cidr,
+                        "msg": "updated VPC " + vpc_id}
+            return {"changed": False, "id": current["id"], "name": current["name"],
+                    "cidr": current["cidr"], "msg": "VPC already exists"}
         else:
-            vpc_id = None
-
-    # Fetch existing VPC by id
-    existing = None
-    if vpc_id:
-        res = ctx.run(["curl", "-s", "-X", "GET", vpc_url + "/" + vpc_id,
-                      "-H", "X-Auth-Token: " + token])
-        if res.rc == 0 and '"vpc"' in res.stdout:
-            existing = res.stdout
-
-    changed = False
-    result = {}
-
-    if existing and state == "present":
-        # Check if cidr differs
-        if '"cidr"' in existing:
-            cidr_key_pos = existing.find('"cidr"') + 7
-            cidr_end = existing.find('"', cidr_key_pos)
-            current_cidr = existing[cidr_key_pos:cidr_end]
-            if current_cidr == cidr:
-                result = {
-                    "changed": False,
-                    "msg": "VPC already exists with correct configuration"
-                }
-                return result
-        # Update needed
+            if ctx.check_mode:
+                return {"changed": True, "msg": "would create VPC " + name}
+            create_body = '{"vpc":{"name":"' + name + '","cidr":"' + cidr + '"}}'
+            url = vpc_list_url()
+            headers = ["-H", "Authorization: " + auth_header,
+                       "-H", "Domain-Name: " + domain,
+                       "-H", "Content-Type: application/json"]
+            res = ctx.run(["curl", "-s", "-f", "-X", "POST",
+                           "-d", create_body] + headers + [url])
+            if res.rc != 0:
+                fail("failed to create VPC: " + res.stderr)
+            stdout = res.stdout
+            vpc_key = '"vpc"'
+            idx = stdout.find(vpc_key)
+            if idx == -1:
+                fail("missing 'vpc' in create response")
+            start = stdout.find("{", idx + len(vpc_key))
+            if start == -1:
+                fail("invalid JSON in create response")
+            depth = 0
+            end = start
+            for i in range(start, len(stdout)):
+                if stdout[i] == '{':
+                    depth += 1
+                elif stdout[i] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            if depth != 0:
+                fail("invalid JSON in create response")
+            obj_str = stdout[start:end+1]
+            def get_str(obj, key):
+                idx = obj.find('"' + key + '"')
+                if idx == -1:
+                    return ""
+                start = obj.find('"', idx + len(key) + 2)
+                if start == -1:
+                    return ""
+                start += 1
+                end = obj.find('"', start)
+                if end == -1:
+                    return ""
+                return obj[start:end]
+            created_id = get_str(obj_str, "id")
+            created_name = get_str(obj_str, "name")
+            created_cidr = get_str(obj_str, "cidr")
+            return {"changed": True, "id": created_id, "name": created_name,
+                    "cidr": created_cidr, "msg": "created VPC " + created_id}
+    else:
+        if current == None:
+            return {"changed": False, "msg": "VPC not found"}
         if ctx.check_mode:
-            return {"changed": True, "msg": "would update VPC " + name}
-        update_body = '{"vpc":{"cidr":"' + cidr + '"}}'
-        res = ctx.run([
-            "curl", "-s", "-X", "PUT", vpc_url + "/" + vpc_id,
-            "-H", "X-Auth-Token: " + token,
-            "-H", "Content-Type: application/json",
-            "-d", update_body
-        ])
+            return {"changed": True, "msg": "would delete VPC " + vpc_id}
+        url = vpc_url(vpc_id)
+        headers = ["-H", "Authorization: " + auth_header,
+                   "-H", "Domain-Name: " + domain,
+                   "-H", "Content-Type: application/json"]
+        res = ctx.run(["curl", "-s", "-f", "-X", "DELETE"] + headers + [url])
         if res.rc != 0:
-            fail("failed to update VPC: " + res.stderr)
-        changed = True
-        result = {
-            "changed": True,
-            "msg": "updated VPC " + name
-        }
-
-    elif not existing and state == "present":
-        if ctx.check_mode:
-            return {"changed": True, "msg": "would create VPC " + name}
-        create_body = '{"vpc":{"name":"' + name + '","cidr":"' + cidr + '"}}'
-        res = ctx.run([
-            "curl", "-s", "-X", "POST", vpc_url,
-            "-H", "X-Auth-Token: " + token,
-            "-H", "Content-Type: application/json",
-            "-d", create_body
-        ])
-        if res.rc != 0:
-            fail("failed to create VPC: " + res.stderr)
-        changed = True
-        data = res.stdout
-        if '"vpc"' in data:
-            id_pos = data.find('"id"') + 5
-            id_end = data.find('"', id_pos)
-            vpc_id = data[id_pos:id_end]
-            result["id"] = vpc_id
-        result = {
-            "changed": True,
-            "msg": "created VPC " + name
-        }
-
-    elif existing and state == "absent":
-        if ctx.check_mode:
-            return {"changed": True, "msg": "would delete VPC " + name}
-        res = ctx.run([
-            "curl", "-s", "-X", "DELETE", vpc_url + "/" + vpc_id,
-            "-H", "X-Auth-Token: " + token
-        ])
-        if res.rc != 0:
-            fail("failed to delete VPC: " + res.stderr)
-        changed = True
-        result = {
-            "changed": True,
-            "msg": "deleted VPC " + name
-        }
-
-    else:  # not existing and state == "absent"
-        result = {
-            "changed": False,
-            "msg": "VPC does not exist"
-        }
-
-    result["changed"] = changed
-    if vpc_id:
-        result["id"] = vpc_id
-    result["name"] = name
-    result["cidr"] = cidr
-    return result
+            fail("failed to delete VPC " + vpc_id + ": " + res.stderr)
+        return {"changed": True, "msg": "deleted VPC " + vpc_id}

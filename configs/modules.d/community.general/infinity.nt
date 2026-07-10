@@ -1,0 +1,89 @@
+name: infinity
+fqcn: community.general.infinity
+collection: community.general
+short_description: Manage Infinity IPAM using Rest API
+description: Manage Infinity IPAM using REST API.
+options:
+    action:
+        type: str
+        required: true
+        choices:
+            - add_network
+            - delete_network
+            - get_network
+            - get_network_id
+            - release_ip
+            - release_network
+            - reserve_network
+            - reserve_next_available_ip
+        description: Action to perform
+    ip_address:
+        type: str
+        description: IP Address for a reservation or a release.
+    network_address:
+        type: str
+        description: Network address with CIDR format (e.g., 192.168.310.0).
+    network_family:
+        type: str
+        default: 4
+        choices:
+            - 4
+            - 6
+            - dual
+        description: Network family defined by Infinity, e.g. IPv4, IPv6 and Dual stack
+    network_id:
+        type: str
+        description: Network ID.
+    network_location:
+        type: int
+        default: -1
+        description: The parent network id for a given network.
+    network_name:
+        type: str
+        description: The name of a network.
+    network_size:
+        type: str
+        description: Network bitmask (e.g. 255.255.255.220) or CIDR format (e.g., /26).
+    network_type:
+        type: str
+        default: lan
+        choices:
+            - lan
+            - shared_lan
+            - supernet
+        description: Network type defined by Infinity
+    password:
+        type: str
+        required: true
+        description: Infinity password.
+    server_ip:
+        type: str
+        required: true
+        description: Infinity server_ip with IP address.
+    username:
+        type: str
+        required: true
+        description: Username to access Infinity. The user must have REST API privileges.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > ---
+    > - hosts: localhost
+    >   connection: local
+    >   strategy: debug
+    >   tasks:
+    >     - name: Reserve network into Infinity IPAM
+    >       community.general.infinity:
+    >         server_ip: 80.75.107.12
+    >         username: username
+    >         password: password
+    >         action: reserve_network
+    >         network_name: reserve_new_ansible_network
+    >         network_family: 4
+    >         network_type: lan
+    >         network_id: 1201
+    >         network_size: /28
+    >       register: infinity
+    >

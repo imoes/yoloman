@@ -1,0 +1,71 @@
+name: oneview_fcoe_network_info
+fqcn: community.general.oneview_fcoe_network_info
+collection: community.general
+short_description: Retrieve the information about one or more of the OneView FCoE Networks
+description: Retrieve the information about one or more of the FCoE Networks from OneView.
+options:
+    api_version:
+        type: int
+        description: OneView API Version.
+    config:
+        type: path
+        description: Path to a JSON configuration file containing the OneView client configuration. The configuration file is optional and when used should be present in the host running the ansible commands. If the file path is not provided, the configuration will be loaded from environment variables. For links to example configuration files or how to use the environment variables verify the notes section.
+    hostname:
+        type: str
+        description: IP address or hostname for the appliance.
+    image_streamer_hostname:
+        type: str
+        description: IP address or hostname for the HPE Image Streamer REST API.
+    name:
+        type: str
+        description: FCoE Network name.
+    params:
+        type: dict
+        description: List of parameters to delimit, filter and sort the list of resources. Parameter keys allowed are: C(start): The first item to return, using 0-based indexing. C(count): The number of resources to return. C(filter): A general filter/query string to narrow the list of items returned. C(sort): The sort order of the returned data set.
+    password:
+        type: str
+        description: Password for API authentication.
+    username:
+        type: str
+        description: Username for API authentication.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Gather information about all FCoE Networks
+    >   community.general.oneview_fcoe_network_info:
+    >     config: /etc/oneview/oneview_config.json
+    >   delegate_to: localhost
+    >   register: result
+    >
+    > - name: Print fetched information about FCoE Networks
+    >   ansible.builtin.debug:
+    >     msg: "{{ result.fcoe_networks }}"
+    >
+    > - name: Gather paginated, filtered and sorted information about FCoE Networks
+    >   community.general.oneview_fcoe_network_info:
+    >     config: /etc/oneview/oneview_config.json
+    >     params:
+    >       start: 0
+    >       count: 3
+    >       sort: 'name:descending'
+    >       filter: 'vlanId=2'
+    >   delegate_to: localhost
+    >   register: result
+    >
+    > - name: Print fetched information about paginated, filtered and sorted list of FCoE Networks
+    >   ansible.builtin.debug:
+    >     msg: "{{ result.fcoe_networks }}"
+    >
+    > - name: Gather information about a FCoE Network by name
+    >   community.general.oneview_fcoe_network_info:
+    >     config: /etc/oneview/oneview_config.json
+    >     name: Test FCoE Network Information
+    >   delegate_to: localhost
+    >   register: result
+    >
+    > - name: Print fetched information about FCoE Network found by name
+    >   ansible.builtin.debug:
+    >     msg: "{{ result.fcoe_networks }}"
+    >

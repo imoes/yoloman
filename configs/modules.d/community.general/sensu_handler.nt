@@ -1,0 +1,110 @@
+name: sensu_handler
+fqcn: community.general.sensu_handler
+collection: community.general
+short_description: Manages Sensu handler configuration
+description: Manages Sensu handler configuration For more information, refer to the Sensu documentation: U(https://sensuapp.org/docs/latest/reference/handlers.html)
+options:
+    command:
+        type: str
+        description: The handler command to be executed. The event data is passed to the process via STDIN. NOTE: the command attribute is only required for Pipe handlers (i.e. handlers configured with "type": "pipe").
+    filter:
+        type: str
+        description: The Sensu event filter (name) to use when filtering events for the handler.
+    filters:
+        type: list
+        description: An array of Sensu event filters (names) to use when filtering events for the handler. Each array item must be a string.
+    handle_flapping:
+        type: bool
+        default: false
+        description: If events in the flapping state should be handled.
+    handle_silenced:
+        type: bool
+        default: false
+        description: If events matching one or more silence entries should be handled.
+    handlers:
+        type: list
+        description: An array of Sensu event handlers (names) to use for events using the handler set. NOTE: the handlers attribute is only required for handler sets (i.e. handlers configured with "type": "set").
+    mutator:
+        type: str
+        description: The Sensu event mutator (name) to use to mutate event data for the handler.
+    name:
+        type: str
+        required: true
+        description: A unique name for the handler. The name cannot contain special characters or spaces.
+    pipe:
+        type: dict
+        description: The pipe definition scope, used to configure the Sensu transport pipe. NOTE: the pipe attribute is only required for Transport handlers (i.e. handlers configured with "type": "transport").
+    severities:
+        type: list
+        description: An array of check result severities the handler will handle. NOTE: event resolution bypasses this filtering. Example: [ 'warning', 'critical', 'unknown' ].
+    socket:
+        type: dict
+        description: The socket definition scope, used to configure the TCP/UDP handler socket. NOTE: the socket attribute is only required for TCP/UDP handlers (i.e. handlers configured with "type": "tcp" or "type": "udp").
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether the handler should be present or not
+    timeout:
+        type: int
+        default: 10
+        description: The handler execution duration timeout in seconds (hard stop). Only used by pipe and tcp handler types.
+    type:
+        type: str
+        choices:
+            - pipe
+            - tcp
+            - udp
+            - transport
+            - set
+        description: The handler type
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # Configure a handler that sends event data as STDIN (pipe)
+    > - name: Configure IRC Sensu handler
+    >   community.general.sensu_handler:
+    >     name: "irc_handler"
+    >     type: "pipe"
+    >     command: "/usr/local/bin/notify-irc.sh"
+    >     severities:
+    >       - "ok"
+    >       - "critical"
+    >       - "warning"
+    >       - "unknown"
+    >     timeout: 15
+    >   notify:
+    >     - Restart sensu-client
+    >     - Restart sensu-server
+    >
+    > # Delete a handler
+    > - name: Delete IRC Sensu handler
+    >   community.general.sensu_handler:
+    >     name: "irc_handler"
+    >     state: "absent"
+    >
+    > # Example of a TCP handler
+    > - name: Configure TCP Sensu handler
+    >   community.general.sensu_handler:
+    >     name: "tcp_handler"
+    >     type: "tcp"
+    >     timeout: 30
+    >     socket:
+    >       host: "10.0.1.99"
+    >       port: 4444
+    >   register: handler
+    >   notify:
+    >     - Restart sensu-client
+    >     - Restart sensu-server
+    >
+    > - name: Secure Sensu handler configuration file
+    >   ansible.builtin.file:
+    >     path: "{{ handler['file'] }}"
+    >     owner: "sensu"
+    >     group: "sensu"
+    >     mode: "0600"
+    >

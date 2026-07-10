@@ -1,0 +1,87 @@
+name: keycloak_authz_custom_policy
+fqcn: community.general.keycloak_authz_custom_policy
+collection: community.general
+short_description: Allows administration of Keycloak client custom Javascript policies via Keycloak API
+description: This module allows the administration of Keycloak client custom Javascript via the Keycloak REST API. Custom Javascript policies are only available if a client has Authorization enabled and if they have been deployed to the Keycloak server as JAR files. This module requires access to the REST API via OpenID Connect; the user connecting and the realm being used must have the requisite access rights. In a default Keycloak installation, admin-cli and an admin user would work, as would a separate realm definition with the scope tailored to your needs and a user having the expected roles. The names of module options are snake_cased versions of the camelCase options used by Keycloak. The Authorization Services paths and payloads have not officially been documented by the Keycloak project. U(https://www.puppeteers.net/blog/keycloak-authorization-services-rest-api-paths-and-payload/)
+options:
+    auth_client_id:
+        type: str
+        default: admin-cli
+        description: OpenID Connect C(client_id) to authenticate to the API with.
+    auth_client_secret:
+        type: str
+        description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+    auth_keycloak_url:
+        type: str
+        required: true
+        aliases:
+            - url
+        description: URL to the Keycloak instance.
+    auth_password:
+        type: str
+        aliases:
+            - password
+        description: Password to authenticate for API access with.
+    auth_realm:
+        type: str
+        description: Keycloak realm name to authenticate to for API access.
+    auth_username:
+        type: str
+        aliases:
+            - username
+        description: Username to authenticate for API access with.
+    client_id:
+        type: str
+        required: true
+        description: The V(clientId) of the Keycloak client that should have the custom policy attached to it. This is usually a human-readable name of the Keycloak client.
+    connection_timeout:
+        type: int
+        default: 10
+        description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+    http_agent:
+        type: str
+        default: Ansible
+        description: Configures the HTTP User-Agent header.
+    name:
+        type: str
+        required: true
+        description: Name of the custom policy to create.
+    policy_type:
+        type: str
+        required: true
+        description: The type of the policy. This must match the name of the custom policy deployed to the server. Multiple policies pointing to the same policy type can be created, but their names have to differ.
+    realm:
+        type: str
+        required: true
+        description: The name of the Keycloak realm the Keycloak client is in.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: State of the custom policy. On V(present), the custom policy will be created (or updated if it exists already). On V(absent), the custom policy will be removed if it exists.
+    token:
+        type: str
+        description: Authentication token for Keycloak API.
+    validate_certs:
+        type: bool
+        default: true
+        description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Manage Keycloak custom authorization policy
+    >   community.general.keycloak_authz_custom_policy:
+    >     name: OnlyOwner
+    >     state: present
+    >     policy_type: script-policy.js
+    >     client_id: myclient
+    >     realm: myrealm
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: keycloak
+    >     auth_password: keycloak
+    >     auth_realm: master
+    >

@@ -1,0 +1,57 @@
+name: proxmox_domain_info
+fqcn: community.general.proxmox_domain_info
+collection: community.general
+short_description: Retrieve information about one or more Proxmox VE domains
+description: Retrieve information about one or more Proxmox VE domains.
+options:
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    domain:
+        type: str
+        aliases:
+            - realm
+            - name
+        description: Restrict results to a specific authentication realm.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: List existing domains
+    >   community.general.proxmox_domain_info:
+    >     api_host: helldorado
+    >     api_user: root@pam
+    >     api_password: "{{ password | default(omit) }}"
+    >     api_token_id: "{{ token_id | default(omit) }}"
+    >     api_token_secret: "{{ token_secret | default(omit) }}"
+    >   register: proxmox_domains
+    >
+    > - name: Retrieve information about the pve domain
+    >   community.general.proxmox_domain_info:
+    >     api_host: helldorado
+    >     api_user: root@pam
+    >     api_password: "{{ password | default(omit) }}"
+    >     api_token_id: "{{ token_id | default(omit) }}"
+    >     api_token_secret: "{{ token_secret | default(omit) }}"
+    >     domain: pve
+    >   register: proxmox_domain_pve
+    >

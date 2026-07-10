@@ -1,0 +1,81 @@
+name: aix_inittab
+fqcn: community.general.aix_inittab
+collection: community.general
+short_description: Manages the inittab on AIX
+description: Manages the inittab on AIX.
+options:
+    action:
+        type: str
+        choices:
+            - boot
+            - bootwait
+            - hold
+            - initdefault
+            - off
+            - once
+            - ondemand
+            - powerfail
+            - powerwait
+            - respawn
+            - sysinit
+            - wait
+        description: Action what the init has to do with this entry.
+    command:
+        type: str
+        required: true
+        description: What command has to run.
+    insertafter:
+        type: str
+        description: After which inittabline should the new entry inserted.
+    name:
+        type: str
+        required: true
+        aliases:
+            - service
+        description: Name of the inittab entry.
+    runlevel:
+        type: str
+        required: true
+        description: Runlevel of the entry.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Whether the entry should be present or absent in the inittab file.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # Add service startmyservice to the inittab, directly after service existingservice.
+    > - name: Add startmyservice to inittab
+    >   community.general.aix_inittab:
+    >     name: startmyservice
+    >     runlevel: 4
+    >     action: once
+    >     command: echo hello
+    >     insertafter: existingservice
+    >     state: present
+    >   become: true
+    >
+    > # Change inittab entry startmyservice to runlevel "2" and processaction "wait".
+    > - name: Change startmyservice to inittab
+    >   community.general.aix_inittab:
+    >     name: startmyservice
+    >     runlevel: 2
+    >     action: wait
+    >     command: echo hello
+    >     state: present
+    >   become: true
+    >
+    > - name: Remove startmyservice from inittab
+    >   community.general.aix_inittab:
+    >     name: startmyservice
+    >     runlevel: 2
+    >     action: wait
+    >     command: echo hello
+    >     state: absent
+    >   become: true
+    >

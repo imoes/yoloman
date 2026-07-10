@@ -1,0 +1,51 @@
+name: snap_alias
+fqcn: community.general.snap_alias
+collection: community.general
+short_description: Manages snap aliases
+description: Manages snaps aliases.
+options:
+    alias:
+        type: list
+        aliases:
+            - aliases
+        description: Aliases to be created or removed.
+    name:
+        type: str
+        description: Name of the snap.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Desired state of the alias.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # Install "foo" and "bar" snap
+    > - name: Create snap alias
+    >   community.general.snap_alias:
+    >     name: hello-world
+    >     alias: hw
+    >
+    > - name: Create multiple aliases
+    >   community.general.snap_alias:
+    >     name: hello-world
+    >     aliases:
+    >       - hw
+    >       - hw2
+    >       - hw3
+    >     state: present   # optional
+    >
+    > - name: Remove one specific aliases
+    >   community.general.snap_alias:
+    >     name: hw
+    >     state: absent
+    >
+    > - name: Remove all aliases for snap
+    >   community.general.snap_alias:
+    >     name: hello-world
+    >     state: absent
+    >

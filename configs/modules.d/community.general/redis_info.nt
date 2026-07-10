@@ -1,0 +1,44 @@
+name: redis_info
+fqcn: community.general.redis_info
+collection: community.general
+short_description: Gather information about Redis servers
+description: Gathers information and statistics about Redis servers.
+options:
+    ca_certs:
+        type: str
+        description: Path to root certificates file. If not set and O(tls) is set to V(true), certifi ca-certificates will be used.
+    login_host:
+        type: str
+        default: localhost
+        description: Specify the target host running the database.
+    login_password:
+        type: str
+        description: Specify the password to authenticate with. Usually not used when target is localhost.
+    login_port:
+        type: int
+        default: 6379
+        description: Specify the port to connect to.
+    login_user:
+        type: str
+        description: Specify the user to authenticate with. Requires L(redis,https://pypi.org/project/redis) >= 3.4.0.
+    tls:
+        type: bool
+        default: false
+        description: Specify whether or not to use TLS for the connection.
+    validate_certs:
+        type: bool
+        default: true
+        description: Specify whether or not to validate TLS certificates. This should only be turned off for personally controlled sites or with C(localhost) as target.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Get server information
+    >   community.general.redis_info:
+    >   register: result
+    >
+    > - name: Print server information
+    >   ansible.builtin.debug:
+    >     var: result.info
+    >

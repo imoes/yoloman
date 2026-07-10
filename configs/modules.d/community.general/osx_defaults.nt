@@ -1,0 +1,105 @@
+name: osx_defaults
+fqcn: community.general.osx_defaults
+collection: community.general
+short_description: Manage macOS user defaults
+description: osx_defaults allows users to read, write, and delete macOS user defaults from Ansible scripts. macOS applications and other programs use the defaults system to record user preferences and other information that must be maintained when the applications are not running (such as default font for new documents, or the position of an Info panel).
+options:
+    array_add:
+        type: bool
+        default: false
+        description: Add new elements to the array for a key which has an array as its value.
+    domain:
+        type: str
+        default: NSGlobalDomain
+        description: The domain is a domain name of the form C(com.companyname.appname).
+    host:
+        type: str
+        description: The host on which the preference should apply. The special value V(currentHost) corresponds to the C(-currentHost) switch of the defaults commandline tool.
+    key:
+        type: str
+        description: The key of the user preference.
+    path:
+        type: str
+        default: /usr/bin:/usr/local/bin
+        description: The path in which to search for C(defaults).
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - list
+            - present
+        description: The state of the user defaults. If set to V(list) will query the given parameter specified by O(key). Returns V(null) is nothing found or mis-spelled.
+    type:
+        type: str
+        default: string
+        choices:
+            - array
+            - bool
+            - boolean
+            - date
+            - float
+            - int
+            - integer
+            - string
+        description: The type of value to write.
+    value:
+        type: raw
+        description: The value to write. Only required when O(state=present).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Set boolean valued key for application domain
+    >   community.general.osx_defaults:
+    >     domain: com.apple.Safari
+    >     key: IncludeInternalDebugMenu
+    >     type: bool
+    >     value: true
+    >     state: present
+    >
+    > - name: Set string valued key for global domain
+    >   community.general.osx_defaults:
+    >     domain: NSGlobalDomain
+    >     key: AppleMeasurementUnits
+    >     type: string
+    >     value: Centimeters
+    >     state: present
+    >
+    > - name: Set int valued key for arbitrary plist
+    >   community.general.osx_defaults:
+    >     domain: /Library/Preferences/com.apple.SoftwareUpdate
+    >     key: AutomaticCheckEnabled
+    >     type: int
+    >     value: 1
+    >   become: true
+    >
+    > - name: Set int valued key only for the current host
+    >   community.general.osx_defaults:
+    >     domain: com.apple.screensaver
+    >     host: currentHost
+    >     key: showClock
+    >     type: int
+    >     value: 1
+    >
+    > - name: Defaults to global domain and setting value
+    >   community.general.osx_defaults:
+    >     key: AppleMeasurementUnits
+    >     type: string
+    >     value: Centimeters
+    >
+    > - name: Setting an array valued key
+    >   community.general.osx_defaults:
+    >     key: AppleLanguages
+    >     type: array
+    >     value:
+    >       - en
+    >       - nl
+    >
+    > - name: Removing a key
+    >   community.general.osx_defaults:
+    >     domain: com.geekchimp.macable
+    >     key: ExampleKeyToRemove
+    >     state: absent
+    >

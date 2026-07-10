@@ -1,0 +1,162 @@
+name: haproxy
+fqcn: community.general.haproxy
+collection: community.general
+short_description: Enable, disable, and set weights for HAProxy backend servers using socket commands
+description: Enable, disable, drain and set weights for HAProxy backend servers using socket commands.
+options:
+    agent:
+        type: bool
+        default: false
+        description: Disable/enable agent checks (depending on O(state) value).
+    backend:
+        type: str
+        description: Name of the HAProxy backend pool. If this parameter is unset, it will be auto-detected.
+    drain:
+        type: bool
+        default: false
+        description: Wait until the server has no active connections or until the timeout determined by wait_interval and wait_retries is reached. Continue only after the status changes to C(MAINT). This overrides the shutdown_sessions option.
+    fail_on_not_found:
+        type: bool
+        default: false
+        description: Fail whenever trying to enable/disable a backend host that does not exist.
+    health:
+        type: bool
+        default: false
+        description: Disable/enable health checks (depending on O(state) value).
+    host:
+        type: str
+        required: true
+        description: Name of the backend host to change.
+    shutdown_sessions:
+        type: bool
+        default: false
+        description: When disabling a server, immediately terminate all the sessions attached to the specified server. This can be used to terminate long-running sessions after a server is put into maintenance mode. Overridden by the drain option.
+    socket:
+        type: path
+        default: /var/run/haproxy.sock
+        description: Path to the HAProxy socket file.
+    state:
+        type: str
+        required: true
+        choices:
+            - disabled
+            - drain
+            - enabled
+        description: Desired state of the provided backend host. Note that V(drain) state was added in version 2.4. It is supported only by HAProxy version 1.5 or later, When used on versions < 1.5, it will be ignored.
+    wait:
+        type: bool
+        default: false
+        description: Wait until the server reports a status of C(UP) when O(state=enabled), status of C(MAINT) when O(state=disabled) or status of C(DRAIN) when O(state=drain).
+    wait_interval:
+        type: int
+        default: 5
+        description: Number of seconds to wait between retries.
+    wait_retries:
+        type: int
+        default: 25
+        description: Number of times to check for status after changing the state.
+    weight:
+        type: str
+        description: The value passed in argument. If the value ends with the V(%) sign, then the new weight will be relative to the initially configured weight. Relative weights are only permitted between 0 and 100% and absolute weights are permitted between 0 and 256.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Disable server in 'www' backend pool
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     backend: www
+    >
+    > - name: Disable server in 'www' backend pool, also stop health/agent checks
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     health: true
+    >     agent: true
+    >
+    > - name: Disable server without backend pool name (apply to all available backend pool)
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >
+    > - name: Disable server, provide socket file
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     socket: /var/run/haproxy.sock
+    >     backend: www
+    >
+    > - name: Disable server, provide socket file, wait until status reports in maintenance
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     socket: /var/run/haproxy.sock
+    >     backend: www
+    >     wait: true
+    >
+    > # Place server in drain mode, providing a socket file.  Then check the server's
+    > # status every minute to see if it changes to maintenance mode, continuing if it
+    > # does in an hour and failing otherwise.
+    > - community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     socket: /var/run/haproxy.sock
+    >     backend: www
+    >     wait: true
+    >     drain: true
+    >     wait_interval: 60
+    >     wait_retries: 60
+    >
+    > - name: Disable backend server in 'www' backend pool and drop open sessions to it
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     backend: www
+    >     socket: /var/run/haproxy.sock
+    >     shutdown_sessions: true
+    >
+    > - name: Disable server without backend pool name (apply to all available backend pool) but fail when the backend host is not found
+    >   community.general.haproxy:
+    >     state: disabled
+    >     host: '{{ inventory_hostname }}'
+    >     fail_on_not_found: true
+    >
+    > - name: Enable server in 'www' backend pool
+    >   community.general.haproxy:
+    >     state: enabled
+    >     host: '{{ inventory_hostname }}'
+    >     backend: www
+    >
+    > - name: Enable server in 'www' backend pool wait until healthy
+    >   community.general.haproxy:
+    >     state: enabled
+    >     host: '{{ inventory_hostname }}'
+    >     backend: www
+    >     wait: true
+    >
+    > - name: Enable server in 'www' backend pool wait until healthy. Retry 10 times with intervals of 5 seconds to retrieve the health
+    >   community.general.haproxy:
+    >     state: enabled
+    >     host: '{{ inventory_hostname }}'
+    >     backend: www
+    >     wait: true
+    >     wait_retries: 10
+    >     wait_interval: 5
+    >
+    > - name: Enable server in 'www' backend pool with change server(s) weight
+    >   community.general.haproxy:
+    >     state: enabled
+    >     host: '{{ inventory_hostname }}'
+    >     socket: /var/run/haproxy.sock
+    >     weight: 10
+    >     backend: www
+    >
+    > - name: Set the server in 'www' backend pool to drain mode
+    >   community.general.haproxy:
+    >     state: drain
+    >     host: '{{ inventory_hostname }}'
+    >     socket: /var/run/haproxy.sock
+    >     backend: www
+    >

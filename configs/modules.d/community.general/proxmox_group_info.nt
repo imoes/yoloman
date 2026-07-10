@@ -1,0 +1,57 @@
+name: proxmox_group_info
+fqcn: community.general.proxmox_group_info
+collection: community.general
+short_description: Retrieve information about one or more Proxmox VE groups
+description: Retrieve information about one or more Proxmox VE groups
+options:
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    group:
+        type: str
+        aliases:
+            - groupid
+            - name
+        description: Restrict results to a specific group.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: List existing groups
+    >   community.general.proxmox_group_info:
+    >     api_host: helldorado
+    >     api_user: root@pam
+    >     api_password: "{{ password | default(omit) }}"
+    >     api_token_id: "{{ token_id | default(omit) }}"
+    >     api_token_secret: "{{ token_secret | default(omit) }}"
+    >   register: proxmox_groups
+    >
+    > - name: Retrieve information about the admin group
+    >   community.general.proxmox_group_info:
+    >     api_host: helldorado
+    >     api_user: root@pam
+    >     api_password: "{{ password | default(omit) }}"
+    >     api_token_id: "{{ token_id | default(omit) }}"
+    >     api_token_secret: "{{ token_secret | default(omit) }}"
+    >     group: admin
+    >   register: proxmox_group_admin
+    >

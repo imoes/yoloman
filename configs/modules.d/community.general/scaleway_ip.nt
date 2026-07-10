@@ -1,0 +1,84 @@
+name: scaleway_ip
+fqcn: community.general.scaleway_ip
+collection: community.general
+short_description: Scaleway IP management module
+description: This module manages IP on Scaleway account U(https://developer.scaleway.com)
+options:
+    api_timeout:
+        type: int
+        default: 30
+        aliases:
+            - timeout
+        description: HTTP timeout to Scaleway API in seconds.
+    api_token:
+        type: str
+        required: true
+        aliases:
+            - oauth_token
+        description: Scaleway OAuth token.
+    api_url:
+        type: str
+        default: https://api.scaleway.com
+        aliases:
+            - base_url
+        description: Scaleway API URL.
+    id:
+        type: str
+        description: id of the Scaleway IP (UUID)
+    organization:
+        type: str
+        required: true
+        description: Scaleway organization identifier
+    query_parameters:
+        type: dict
+        default:
+            {}
+        description: List of parameters passed to the query string.
+    region:
+        type: str
+        required: true
+        choices:
+            - ams1
+            - EMEA-NL-EVS
+            - par1
+            - EMEA-FR-PAR1
+            - par2
+            - EMEA-FR-PAR2
+            - waw1
+            - EMEA-PL-WAW1
+        description: Scaleway region to use (for example par1).
+    reverse:
+        type: str
+        description: Reverse to assign to the IP
+    server:
+        type: str
+        description: id of the server you want to attach an IP to. To unattach an IP don't specify this option
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Indicate desired state of the IP.
+    validate_certs:
+        type: bool
+        default: true
+        description: Validate SSL certs of the Scaleway API.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create an IP
+    >   community.general.scaleway_ip:
+    >     organization: '{{ scw_org }}'
+    >     state: present
+    >     region: par1
+    >   register: ip_creation_task
+    >
+    > - name: Make sure IP deleted
+    >   community.general.scaleway_ip:
+    >     id: '{{ ip_creation_task.scaleway_ip.id }}'
+    >     state: absent
+    >     region: par1
+    >

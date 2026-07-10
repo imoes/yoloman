@@ -1,0 +1,51 @@
+name: rhsm_repository
+fqcn: community.general.rhsm_repository
+collection: community.general
+short_description: Manage RHSM repositories using the subscription-manager command
+description: Manage (Enable/Disable) RHSM repositories to the Red Hat Subscription Management entitlement platform using the C(subscription-manager) command.
+options:
+    name:
+        type: list
+        required: true
+        description: The ID of repositories to enable. To operate on several repositories this can accept a comma separated list or a YAML list.
+    purge:
+        type: bool
+        default: false
+        description: Disable all currently enabled repositories that are not not specified in O(name). Only set this to V(true) if passing in a list of repositories to the O(name) field. Using this with C(loop) will most likely not have the desired result.
+    state:
+        type: str
+        default: enabled
+        choices:
+            - present
+            - enabled
+            - absent
+            - disabled
+        description:
+            > If state is equal to present or disabled, indicates the desired repository state. Please note that V(present) and V(absent) are deprecated, and will be
+            > removed in community.general 10.0.0; please use V(enabled) and
+            > V(disabled) instead.
+            >
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Enable a RHSM repository
+    >   community.general.rhsm_repository:
+    >     name: rhel-7-server-rpms
+    >
+    > - name: Disable all RHSM repositories
+    >   community.general.rhsm_repository:
+    >     name: '*'
+    >     state: disabled
+    >
+    > - name: Enable all repositories starting with rhel-6-server
+    >   community.general.rhsm_repository:
+    >     name: rhel-6-server*
+    >     state: enabled
+    >
+    > - name: Disable all repositories except rhel-7-server-rpms
+    >   community.general.rhsm_repository:
+    >     name: rhel-7-server-rpms
+    >     purge: true
+    >

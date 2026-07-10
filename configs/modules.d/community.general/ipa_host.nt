@@ -1,0 +1,156 @@
+name: ipa_host
+fqcn: community.general.ipa_host
+collection: community.general
+short_description: Manage FreeIPA host
+description: Add, modify and delete an IPA host using IPA API.
+options:
+    description:
+        type: str
+        description: A description of this host.
+    force:
+        type: bool
+        description: Force host name even if not in DNS.
+    fqdn:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: Full qualified domain name. Can not be changed as it is the unique identifier.
+    ip_address:
+        type: str
+        description: Add the host to DNS with this IP address.
+    ipa_host:
+        type: str
+        default: ipa.example.com
+        description: IP or hostname of IPA server. If the value is not specified in the task, the value of environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST) and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor the environment E(IPA_HOST), nor the value are available in the task, then the default value will be used.
+    ipa_pass:
+        type: str
+        description: Password of administrative user. If the value is not specified in the task, the value of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME) is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the usage of O(ipa_pass) is required.
+    ipa_port:
+        type: int
+        default: 443
+        description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT) and the value are not specified in the task, then default value is set.
+    ipa_prot:
+        type: str
+        default: https
+        choices:
+            - http
+            - https
+        description: Protocol used by IPA server. If the value is not specified in the task, the value of environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT) and the value are not specified in the task, then default value is set.
+    ipa_timeout:
+        type: int
+        default: 10
+        description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may want to increase this in order to avoid timeout from IPA server. If the value is not specified in the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+    ipa_user:
+        type: str
+        default: admin
+        description: Administrative account used on IPA server. If the value is not specified in the task, the value of environment variable E(IPA_USER) will be used instead. If both the environment variable E(IPA_USER) and the value are not specified in the task, then default value is set.
+    mac_address:
+        type: list
+        aliases:
+            - macaddress
+        description: List of Hardware MAC address(es) off this host. If option is omitted MAC addresses will not be checked or changed. If an empty list is passed all assigned MAC addresses will be removed. MAC addresses that are already assigned but not passed will be removed.
+    ns_hardware_platform:
+        type: str
+        aliases:
+            - nshardwareplatform
+        description: Host hardware platform (e.g. "Lenovo T61")
+    ns_host_location:
+        type: str
+        aliases:
+            - nshostlocation
+        description: Host location (e.g. "Lab 2")
+    ns_os_version:
+        type: str
+        aliases:
+            - nsosversion
+        description: Host operating system and version (e.g. "Fedora 9")
+    random_password:
+        type: bool
+        description: Generate a random password to be used in bulk enrollment.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - disabled
+            - enabled
+            - present
+        description: State to ensure.
+    update_dns:
+        type: bool
+        description: If set V(true) with O(state=absent), then removes DNS records of the host managed by FreeIPA DNS. This option has no effect for states other than "absent".
+    user_certificate:
+        type: list
+        aliases:
+            - usercertificate
+        description: List of Base-64 encoded server certificates. If option is omitted certificates will not be checked or changed. If an empty list is passed all assigned certificates will be removed. Certificates already assigned but not passed will be removed.
+    validate_certs:
+        type: bool
+        default: true
+        description: This only applies if O(ipa_prot) is V(https). If set to V(false), the SSL certificates will not be validated. This should only set to V(false) used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Ensure host is present
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     description: Example host
+    >     ip_address: 192.168.0.123
+    >     ns_host_location: Lab
+    >     ns_os_version: CentOS 7
+    >     ns_hardware_platform: Lenovo T61
+    >     mac_address:
+    >     - "08:00:27:E3:B1:2D"
+    >     - "52:54:00:BD:97:1E"
+    >     state: present
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >
+    > - name: Generate a random password for bulk enrolment
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     description: Example host
+    >     ip_address: 192.168.0.123
+    >     state: present
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >     random_password: true
+    >
+    > - name: Ensure host is disabled
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     state: disabled
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >
+    > - name: Ensure that all user certificates are removed
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     user_certificate: []
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >
+    > - name: Ensure host is absent
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     state: absent
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >
+    > - name: Ensure host and its DNS record is absent
+    >   community.general.ipa_host:
+    >     name: host01.example.com
+    >     state: absent
+    >     ipa_host: ipa.example.com
+    >     ipa_user: admin
+    >     ipa_pass: topsecret
+    >     update_dns: true
+    >

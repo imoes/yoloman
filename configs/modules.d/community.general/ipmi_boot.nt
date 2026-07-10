@@ -1,0 +1,73 @@
+name: ipmi_boot
+fqcn: community.general.ipmi_boot
+collection: community.general
+short_description: Management of order of boot devices
+description: Use this module to manage order of boot devices
+options:
+    bootdev:
+        type: str
+        required: true
+        choices:
+            - network
+            - floppy
+            - hd
+            - safe
+            - optical
+            - setup
+            - default
+        description: Set boot device to use on next reboot The choices for the device are: - network -- Request network boot - floppy -- Boot from floppy - hd -- Boot from hard drive - safe -- Boot from hard drive, requesting 'safe mode' - optical -- boot from CD/DVD/BD drive - setup -- Boot into setup utility - default -- remove any IPMI directed boot device request
+    key:
+        type: str
+        description: Encryption key to connect to the BMC in hex format.
+    name:
+        type: str
+        required: true
+        description: Hostname or ip address of the BMC.
+    password:
+        type: str
+        required: true
+        description: Password to connect to the BMC.
+    persistent:
+        type: bool
+        default: false
+        description: If set, ask that system firmware uses this device beyond next boot. Be aware many systems do not honor this.
+    port:
+        type: int
+        default: 623
+        description: Remote RMCP port.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether to ensure that boot devices is desired. The choices for the state are: - present -- Request system turn on - absent -- Request system turn on
+    uefiboot:
+        type: bool
+        default: false
+        description: If set, request UEFI boot explicitly. Strictly speaking, the spec suggests that if not set, the system should BIOS boot and offers no "don't care" option. In practice, this flag not being set does not preclude UEFI boot on any system I've encountered.
+    user:
+        type: str
+        required: true
+        description: Username to use to connect to the BMC.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Ensure bootdevice is HD
+    >   community.general.ipmi_boot:
+    >     name: test.testdomain.com
+    >     user: admin
+    >     password: password
+    >     bootdev: hd
+    >
+    > - name: Ensure bootdevice is not Network
+    >   community.general.ipmi_boot:
+    >     name: test.testdomain.com
+    >     user: admin
+    >     password: password
+    >     key: 1234567890AABBCCDEFF000000EEEE12
+    >     bootdev: network
+    >     state: absent
+    >

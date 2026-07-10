@@ -1,0 +1,123 @@
+name: gitlab_hook
+fqcn: community.general.gitlab_hook
+collection: community.general
+short_description: Manages GitLab project hooks
+description: Adds, updates and removes project hook
+options:
+    api_job_token:
+        type: str
+        description: GitLab CI job token for logging in.
+    api_oauth_token:
+        type: str
+        description: GitLab OAuth token for logging in.
+    api_password:
+        type: str
+        description: The password to use for authentication against the API.
+    api_token:
+        type: str
+        description: GitLab access token with API permissions.
+    api_url:
+        type: str
+        description: The resolvable endpoint for the API.
+    api_username:
+        type: str
+        description: The username to use for authentication against the API.
+    ca_path:
+        type: str
+        description: The CA certificates bundle to use to verify GitLab server certificate.
+    hook_url:
+        type: str
+        required: true
+        description: The url that you want GitLab to post to, this is used as the primary key for updates and deletion.
+    hook_validate_certs:
+        type: bool
+        default: false
+        aliases:
+            - enable_ssl_verification
+        description: Whether GitLab will do SSL verification when triggering the hook.
+    issues_events:
+        type: bool
+        default: false
+        description: Trigger hook on issues events.
+    job_events:
+        type: bool
+        default: false
+        description: Trigger hook on job events.
+    merge_requests_events:
+        type: bool
+        default: false
+        description: Trigger hook on merge requests events.
+    note_events:
+        type: bool
+        default: false
+        description: Trigger hook on note events or when someone adds a comment.
+    pipeline_events:
+        type: bool
+        default: false
+        description: Trigger hook on pipeline events.
+    project:
+        type: str
+        required: true
+        description: Id or Full path of the project in the form of group/name.
+    push_events:
+        type: bool
+        default: true
+        description: Trigger hook on push events.
+    push_events_branch_filter:
+        type: str
+        default:
+        description: Branch name of wildcard to trigger hook on push events
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: When V(present) the hook will be updated to match the input or created if it doesn't exist. When V(absent) hook will be deleted if it exists.
+    tag_push_events:
+        type: bool
+        default: false
+        description: Trigger hook on tag push events.
+    token:
+        type: str
+        description: Secret token to validate hook messages at the receiver. If this is present it will always result in a change as it cannot be retrieved from GitLab. Will show up in the X-GitLab-Token HTTP request header.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+    wiki_page_events:
+        type: bool
+        default: false
+        description: Trigger hook on wiki events.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: "Adding a project hook"
+    >   community.general.gitlab_hook:
+    >     api_url: https://gitlab.example.com/
+    >     api_token: "{{ access_token }}"
+    >     project: "my_group/my_project"
+    >     hook_url: "https://my-ci-server.example.com/gitlab-hook"
+    >     state: present
+    >     push_events: true
+    >     tag_push_events: true
+    >     token: "my-super-secret-token-that-my-ci-server-will-check"
+    >
+    > - name: "Delete the previous hook"
+    >   community.general.gitlab_hook:
+    >     api_url: https://gitlab.example.com/
+    >     api_token: "{{ access_token }}"
+    >     project: "my_group/my_project"
+    >     hook_url: "https://my-ci-server.example.com/gitlab-hook"
+    >     state: absent
+    >
+    > - name: "Delete a hook by numeric project id"
+    >   community.general.gitlab_hook:
+    >     api_url: https://gitlab.example.com/
+    >     api_token: "{{ access_token }}"
+    >     project: 10
+    >     hook_url: "https://my-ci-server.example.com/gitlab-hook"
+    >     state: absent
+    >

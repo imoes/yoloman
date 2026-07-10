@@ -1,0 +1,77 @@
+name: apache2_module
+fqcn: community.general.apache2_module
+collection: community.general
+short_description: Enables/disables a module of the Apache2 webserver
+description: Enables or disables a specified module of the Apache2 webserver.
+options:
+    force:
+        type: bool
+        default: false
+        description: Force disabling of default modules and override Debian warnings.
+    identifier:
+        type: str
+        description: Identifier of the module as listed by C(apache2ctl -M). This is optional and usually determined automatically by the common convention of appending V(_module) to O(name) as well as custom exception for popular modules.
+    ignore_configcheck:
+        type: bool
+        default: false
+        description: Ignore configuration checks about inconsistent module configuration. Especially for mpm_* modules.
+    name:
+        type: str
+        required: true
+        description: Name of the module to enable/disable as given to C(a2enmod/a2dismod).
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Desired state of the module.
+    warn_mpm_absent:
+        type: bool
+        default: true
+        description: Control the behavior of the warning process for MPM modules.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Enable the Apache2 module wsgi
+    >   community.general.apache2_module:
+    >     state: present
+    >     name: wsgi
+    >
+    > - name: Disables the Apache2 module wsgi
+    >   community.general.apache2_module:
+    >     state: absent
+    >     name: wsgi
+    >
+    > - name: Disable default modules for Debian
+    >   community.general.apache2_module:
+    >     state: absent
+    >     name: autoindex
+    >     force: true
+    >
+    > - name: Disable mpm_worker and ignore warnings about missing mpm module
+    >   community.general.apache2_module:
+    >     state: absent
+    >     name: mpm_worker
+    >     ignore_configcheck: true
+    >
+    > - name: Disable mpm_event, enable mpm_prefork and ignore warnings about missing mpm module
+    >   community.general.apache2_module:
+    >     name: "{{ item.module }}"
+    >     state: "{{ item.state }}"
+    >     warn_mpm_absent: false
+    >     ignore_configcheck: true
+    >   loop:
+    >   - module: mpm_event
+    >     state: absent
+    >   - module: mpm_prefork
+    >     state: present
+    >
+    > - name: Enable dump_io module, which is identified as dumpio_module inside apache2
+    >   community.general.apache2_module:
+    >     state: present
+    >     name: dump_io
+    >     identifier: dumpio_module
+    >

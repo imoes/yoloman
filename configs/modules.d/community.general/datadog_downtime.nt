@@ -1,0 +1,75 @@
+name: datadog_downtime
+fqcn: community.general.datadog_downtime
+collection: community.general
+short_description: Manages Datadog downtimes
+description: Manages downtimes within Datadog. Options as described on U(https://docs.datadoghq.com/api/v1/downtimes/).
+options:
+    api_host:
+        type: str
+        default: https://api.datadoghq.com
+        description: The URL to the Datadog API. This value can also be set with the E(DATADOG_HOST) environment variable.
+    api_key:
+        type: str
+        required: true
+        description: Your Datadog API key.
+    app_key:
+        type: str
+        required: true
+        description: Your Datadog app key.
+    downtime_message:
+        type: str
+        description: A message to include with notifications for this downtime. Email notifications can be sent to specific users by using the same "@username" notation as events.
+    end:
+        type: int
+        description: POSIX timestamp to end the downtime. If not provided, the downtime is in effect until you cancel it.
+    id:
+        type: int
+        description: The identifier of the downtime. If empty, a new downtime gets created, otherwise it is either updated or deleted depending of the O(state). To keep your playbook idempotent, you should save the identifier in a file and read it in a lookup.
+    monitor_id:
+        type: int
+        description: The ID of the monitor to mute. If not provided, the downtime applies to all monitors.
+    monitor_tags:
+        type: list
+        description: A list of monitor tags to which the downtime applies. The resulting downtime applies to monitors that match ALL provided monitor tags.
+    rrule:
+        type: str
+        description: The C(RRULE) standard for defining recurring events. For example, to have a recurring event on the first day of each month, select a type of rrule and set the C(FREQ) to C(MONTHLY) and C(BYMONTHDAY) to C(1). Most common rrule options from the iCalendar Spec are supported. Attributes specifying the duration in C(RRULE) are not supported (for example C(DTSTART), C(DTEND), C(DURATION)).
+    scope:
+        type: list
+        description: A list of scopes to which the downtime applies. The resulting downtime applies to sources that matches ALL provided scopes.
+    start:
+        type: int
+        description: POSIX timestamp to start the downtime. If not provided, the downtime starts the moment it is created.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: The designated state of the downtime.
+    timezone:
+        type: str
+        description: The timezone for the downtime.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    >   - name: Create a downtime
+    >     register: downtime_var
+    >     community.general.datadog_downtime:
+    >       state: present
+    >       monitor_tags:
+    >         - "foo:bar"
+    >       downtime_message: "Downtime for foo:bar"
+    >       scope: "test"
+    >       api_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    >       app_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    >       # Lookup the id in the file and ignore errors if the file doesn't exits, so downtime gets created
+    >       id: "{{ lookup('file', inventory_hostname ~ '_downtime_id.txt', errors='ignore') }}"
+    >   - name: Save downtime id to file for later updates and idempotence
+    >     delegate_to: localhost
+    >     copy:
+    >       content: "{{ downtime.downtime.id }}"
+    >       dest: "{{ inventory_hostname ~ '_downtime_id.txt' }}"
+    >

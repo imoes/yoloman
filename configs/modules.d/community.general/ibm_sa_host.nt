@@ -1,0 +1,62 @@
+name: ibm_sa_host
+fqcn: community.general.ibm_sa_host
+collection: community.general
+short_description: Adds hosts to or removes them from IBM Spectrum Accelerate Family storage systems
+description: This module adds hosts to or removes them from IBM Spectrum Accelerate Family storage systems.
+options:
+    cluster:
+        type: str
+        description: The name of the cluster to include the host.
+    domain:
+        type: str
+        description: The domains the cluster will be attached to. To include more than one domain, separate domain names with commas. To include all existing domains, use an asterisk ("*").
+    endpoints:
+        type: str
+        required: true
+        description: The hostname or management IP of Spectrum Accelerate storage system.
+    host:
+        type: str
+        required: true
+        description: Host name.
+    iscsi_chap_name:
+        type: str
+        description: The host's CHAP name identifier
+    iscsi_chap_secret:
+        type: str
+        description: The password of the initiator used to authenticate to the system when CHAP is enable
+    password:
+        type: str
+        required: true
+        description: Password for username on the spectrum accelerate storage system.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Host state.
+    username:
+        type: str
+        required: true
+        description: Management user on the spectrum accelerate storage system.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Define new host.
+    >   community.general.ibm_sa_host:
+    >     host: host_name
+    >     state: present
+    >     username: admin
+    >     password: secret
+    >     endpoints: hostdev-system
+    >
+    > - name: Delete host.
+    >   community.general.ibm_sa_host:
+    >     host: host_name
+    >     state: absent
+    >     username: admin
+    >     password: secret
+    >     endpoints: hostdev-system
+    >

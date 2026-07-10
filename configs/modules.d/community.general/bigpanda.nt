@@ -1,0 +1,95 @@
+name: bigpanda
+fqcn: community.general.bigpanda
+collection: community.general
+short_description: Notify BigPanda about deployments
+description: Notify BigPanda when deployments start and end (successfully or not). Returns a deployment object containing all the parameters for future module calls.
+options:
+    component:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: The name of the component being deployed. Ex: billing
+    deployment_message:
+        type: str
+        description: Message about the deployment.
+    description:
+        type: str
+        description: Free text description of the deployment.
+    env:
+        type: str
+        description: The environment name, typically 'production', 'staging', etc.
+    hosts:
+        type: str
+        aliases:
+            - host
+        description: Name of affected host name. Can be a list. If not specified, it defaults to the remote system's hostname.
+    owner:
+        type: str
+        description: The person responsible for the deployment.
+    source_system:
+        type: str
+        default: ansible
+        description: Source system used in the requests to the API
+    state:
+        type: str
+        required: true
+        choices:
+            - started
+            - finished
+            - failed
+        description: State of the deployment.
+    token:
+        type: str
+        required: true
+        description: API token.
+    url:
+        type: str
+        default: https://api.bigpanda.io
+        description: Base URL of the API server.
+    validate_certs:
+        type: bool
+        default: true
+        description: If V(false), SSL certificates for the target url will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    version:
+        type: str
+        required: true
+        description: The deployment version.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Notify BigPanda about a deployment
+    >   community.general.bigpanda:
+    >     component: myapp
+    >     version: '1.3'
+    >     token: '{{ bigpanda_token }}'
+    >     state: started
+    >
+    > - name: Notify BigPanda about a deployment
+    >   community.general.bigpanda:
+    >     component: myapp
+    >     version: '1.3'
+    >     token: '{{ bigpanda_token }}'
+    >     state: finished
+    >
+    > # If outside servers aren't reachable from your machine, use delegate_to and override hosts:
+    > - name: Notify BigPanda about a deployment
+    >   community.general.bigpanda:
+    >     component: myapp
+    >     version: '1.3'
+    >     token: '{{ bigpanda_token }}'
+    >     hosts: '{{ ansible_hostname }}'
+    >     state: started
+    >   delegate_to: localhost
+    >   register: deployment
+    >
+    > - name: Notify BigPanda about a deployment
+    >   community.general.bigpanda:
+    >     component: '{{ deployment.component }}'
+    >     version: '{{ deployment.version }}'
+    >     token: '{{ deployment.token }}'
+    >     state: finished
+    >   delegate_to: localhost
+    >

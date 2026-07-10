@@ -1,0 +1,111 @@
+name: rocketchat
+fqcn: community.general.rocketchat
+collection: community.general
+short_description: Send notifications to Rocket Chat
+description: The C(rocketchat) module sends notifications to Rocket Chat via the Incoming WebHook integration
+options:
+    attachments:
+        type: list
+        description: Define a list of attachments.
+    channel:
+        type: str
+        description: Channel to send the message to. If absent, the message goes to the channel selected for the O(token) specified during the creation of webhook.
+    color:
+        type: str
+        default: normal
+        choices:
+            - normal
+            - good
+            - warning
+            - danger
+        description: Allow text to use default colors - use the default of 'normal' to not send a custom color bar at the start of the message
+    domain:
+        type: str
+        required: true
+        description: The domain for your environment without protocol. (For example V(example.com) or V(chat.example.com).)
+    icon_emoji:
+        type: str
+        description: Emoji for the message sender. The representation for the available emojis can be got from Rocket Chat. For example V(:thumbsup:). If O(icon_emoji) is set, O(icon_url) will not be used.
+    icon_url:
+        type: str
+        default: https://docs.ansible.com/favicon.ico
+        description: URL for the message sender's icon.
+    link_names:
+        type: int
+        default: 1
+        choices:
+            - 1
+            - 0
+        description: Automatically create links for channels and usernames in O(msg).
+    msg:
+        type: str
+        description: Message to be sent.
+    protocol:
+        type: str
+        default: https
+        choices:
+            - http
+            - https
+        description: Specify the protocol used to send notification messages before the webhook URL (that is, V(http) or V(https)).
+    token:
+        type: str
+        required: true
+        description: Rocket Chat Incoming Webhook integration token.  This provides authentication to Rocket Chat's Incoming webhook for posting messages.
+    username:
+        type: str
+        default: Ansible
+        description: This is the sender of the message.
+    validate_certs:
+        type: bool
+        default: true
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Send notification message via Rocket Chat
+    >   community.general.rocketchat:
+    >     token: thetoken/generatedby/rocketchat
+    >     domain: chat.example.com
+    >     msg: '{{ inventory_hostname }} completed'
+    >   delegate_to: localhost
+    >
+    > - name: Send notification message via Rocket Chat all options
+    >   community.general.rocketchat:
+    >     domain: chat.example.com
+    >     token: thetoken/generatedby/rocketchat
+    >     msg: '{{ inventory_hostname }} completed'
+    >     channel: #ansible
+    >     username: 'Ansible on {{ inventory_hostname }}'
+    >     icon_url: http://www.example.com/some-image-file.png
+    >     link_names: 0
+    >   delegate_to: localhost
+    >
+    > - name: Insert a color bar in front of the message for visibility purposes and use the default webhook icon and name configured in rocketchat
+    >   community.general.rocketchat:
+    >     token: thetoken/generatedby/rocketchat
+    >     domain: chat.example.com
+    >     msg: '{{ inventory_hostname }} is alive!'
+    >     color: good
+    >     username: ''
+    >     icon_url: ''
+    >   delegate_to: localhost
+    >
+    > - name: Use the attachments API
+    >   community.general.rocketchat:
+    >     token: thetoken/generatedby/rocketchat
+    >     domain: chat.example.com
+    >     attachments:
+    >       - text: Display my system load on host A and B
+    >         color: #ff00dd
+    >         title: System load
+    >         fields:
+    >           - title: System A
+    >             value: 'load average: 0,74, 0,66, 0,63'
+    >             short: true
+    >           - title: System B
+    >             value: 'load average: 5,16, 4,64, 2,43'
+    >             short: true
+    >   delegate_to: localhost
+    >

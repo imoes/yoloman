@@ -1,0 +1,49 @@
+name: openssl_signature
+fqcn: community.crypto.openssl_signature
+collection: community.crypto
+short_description: Sign data with openssl
+description: This module allows one to sign data using a private key. The module uses the cryptography Python library.
+options:
+    path:
+        type: path
+        required: true
+        description: The file to sign. This file will only be read and not modified.
+    privatekey_content:
+        type: str
+        description: The content of the private key to use when signing the certificate signing request. Either O(privatekey_path) or O(privatekey_content) must be specified, but not both.
+    privatekey_passphrase:
+        type: str
+        description: The passphrase for the private key. This is required if the private key is password protected.
+    privatekey_path:
+        type: path
+        description: The path to the private key to use when signing. Either O(privatekey_path) or O(privatekey_content) must be specified, but not both.
+    select_crypto_backend:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - cryptography
+        description: Determines which crypto backend to use. The default choice is V(auto), which tries to use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Sign example file
+    >   community.crypto.openssl_signature:
+    >     privatekey_path: private.key
+    >     path: /tmp/example_file
+    >   register: sig
+    >
+    > - name: Verify signature of example file
+    >   community.crypto.openssl_signature_info:
+    >     certificate_path: cert.pem
+    >     path: /tmp/example_file
+    >     signature: "{{ sig.signature }}"
+    >   register: verify
+    >
+    > - name: Make sure the signature is valid
+    >   ansible.builtin.assert:
+    >     that:
+    >       - verify.valid
+    >

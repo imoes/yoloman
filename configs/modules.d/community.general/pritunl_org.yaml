@@ -1,0 +1,51 @@
+name: pritunl_org
+fqcn: community.general.pritunl_org
+collection: community.general
+short_description: Manages Pritunl Organizations using the Pritunl API
+description: A module to manage Pritunl organizations using the Pritunl API.
+options:
+  force:
+    type: bool
+    default: false
+    description: If O(force) is V(true) and O(state) is V(absent), the module will delete the organization,
+      no matter if it contains users or not. By default O(force) is V(false), which will cause the module
+      to fail the deletion of the organization when it contains users.
+  name:
+    type: str
+    required: true
+    aliases:
+    - org
+    description: The name of the organization to manage in Pritunl.
+  pritunl_api_secret:
+    type: str
+    required: true
+    description: API Secret found in Administrators > USERNAME > API Secret.
+  pritunl_api_token:
+    type: str
+    required: true
+    description: API Token of a Pritunl admin user. It needs to be enabled in Administrators > USERNAME
+      > Enable Token Authentication.
+  pritunl_url:
+    type: str
+    required: true
+    description: URL and port of the Pritunl server on which the API is enabled.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: If V(present), the module adds organization O(name) to Pritunl. If V(absent), attempt
+      to delete the organization from Pritunl (please read about O(force) usage).
+  validate_certs:
+    type: bool
+    default: true
+    description: If certificates should be validated or not. This should never be set to V(false), except
+      if you are very sure that your connection to the server can not be subject to a Man In The Middle
+      attack.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Ensure the organization named MyOrg exists\n  community.general.pritunl_org:\n  \
+  \  state: present\n    name: MyOrg\n\n- name: Ensure the organization named MyOrg does not exist\n \
+  \ community.general.pritunl_org:\n    state: absent\n    name: MyOrg\n"

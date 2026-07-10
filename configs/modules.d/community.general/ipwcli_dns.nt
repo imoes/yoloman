@@ -1,0 +1,113 @@
+name: ipwcli_dns
+fqcn: community.general.ipwcli_dns
+collection: community.general
+short_description: Manage DNS Records for Ericsson IPWorks via ipwcli
+description: Manage DNS records for the Ericsson IPWorks DNS server. The module will use the ipwcli to deploy the DNS records.
+options:
+    address:
+        type: str
+        description: The IP address for the A or AAAA record. Required for O(type=A) or O(type=AAAA).
+    container:
+        type: str
+        required: true
+        description: Sets the container zone for the record.
+    dnsname:
+        type: str
+        required: true
+        description: Name of the record.
+    flags:
+        type: str
+        choices:
+            - S
+            - A
+            - U
+            - P
+        description: Sets one of the possible flags of NAPTR record. Required for O(type=NAPTR).
+    order:
+        type: int
+        description: Sets the order of the NAPTR record. Required for O(type=NAPTR).
+    password:
+        type: str
+        required: true
+        description: Password to login on ipwcli.
+    port:
+        type: int
+        description: Sets the port of the SRV record. Required for O(type=SRV).
+    preference:
+        type: int
+        description: Sets the preference of the NAPTR record. Required for O(type=NAPTR).
+    priority:
+        type: int
+        default: 10
+        description: Sets the priority of the SRV record.
+    replacement:
+        type: str
+        description: Sets the replacement of the NAPTR record. Required for O(type=NAPTR).
+    service:
+        type: str
+        description: Sets the service of the NAPTR record. Required for O(type=NAPTR).
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Whether the record should exist or not.
+    target:
+        type: str
+        description: Sets the target of the SRV record. Required for O(type=SRV).
+    ttl:
+        type: int
+        default: 3600
+        description: Sets the TTL of the record.
+    type:
+        type: str
+        required: true
+        choices:
+            - NAPTR
+            - SRV
+            - A
+            - AAAA
+        description: Type of the record.
+    username:
+        type: str
+        required: true
+        description: Username to login on ipwcli.
+    weight:
+        type: int
+        default: 10
+        description: Sets the weight of the SRV record.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create A record
+    >   community.general.ipwcli_dns:
+    >     dnsname: example.com
+    >     type: A
+    >     container: ZoneOne
+    >     address: 127.0.0.1
+    >
+    > - name: Remove SRV record if exists
+    >   community.general.ipwcli_dns:
+    >     dnsname: _sip._tcp.test.example.com
+    >     type: SRV
+    >     container: ZoneOne
+    >     ttl: 100
+    >     state: absent
+    >     target: example.com
+    >     port: 5060
+    >
+    > - name: Create NAPTR record
+    >   community.general.ipwcli_dns:
+    >     dnsname: test.example.com
+    >     type: NAPTR
+    >     preference: 10
+    >     container: ZoneOne
+    >     ttl: 100
+    >     order: 10
+    >     service: 'SIP+D2T'
+    >     replacement: '_sip._tcp.test.example.com.'
+    >     flags: S
+    >

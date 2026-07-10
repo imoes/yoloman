@@ -1,0 +1,220 @@
+name: rax_files_objects
+fqcn: community.general.rax_files_objects
+collection: community.general
+short_description: Upload, download, and delete objects in Rackspace Cloud Files
+description: Upload, download, and delete objects in Rackspace Cloud Files.
+options:
+    api_key:
+        type: str
+        aliases:
+            - password
+        description: Rackspace API key, overrides O(credentials).
+    auth_endpoint:
+        type: str
+        description: The URI of the authentication service. If not specified will be set to U(https://identity.api.rackspacecloud.com/v2.0/).
+    clear_meta:
+        type: bool
+        default: false
+        description: Optionally clear existing metadata when applying metadata to existing objects. Selecting this option is only appropriate when setting O(type=meta).
+    container:
+        type: str
+        required: true
+        description: The container to use for file object operations.
+    credentials:
+        type: path
+        aliases:
+            - creds_file
+        description: File to find the Rackspace credentials in. Ignored if O(api_key) and O(username) are provided.
+    dest:
+        type: str
+        description: The destination of a C(get) operation; i.e. a local directory, C(/home/user/myfolder). Used to specify the destination of an operation on a remote object; i.e. a file name, V(file1), or a comma-separated list of remote objects, V(file1,file2,file17).
+    env:
+        type: str
+        description: Environment as configured in C(~/.pyrax.cfg), see U(https://github.com/rackspace/pyrax/blob/master/docs/getting_started.md#pyrax-configuration).
+    expires:
+        type: int
+        description: Used to set an expiration in seconds on an uploaded file or folder.
+    identity_type:
+        type: str
+        default: rackspace
+        description: Authentication mechanism to use, such as rackspace or keystone.
+    meta:
+        type: dict
+        default:
+            {}
+        description: Items to set as metadata values on an uploaded file or folder.
+    method:
+        type: str
+        default: get
+        choices:
+            - get
+            - put
+            - delete
+        description:
+            > The method of operation to be performed: V(put) to upload files, V(get) to download files or V(delete) to remove remote objects in Cloud Files.
+            >
+    region:
+        type: str
+        description: Region to create an instance in.
+    src:
+        type: str
+        description: Source from which to upload files.  Used to specify a remote object as a source for an operation, i.e. a file name, V(file1), or a comma-separated list of remote objects, V(file1,file2,file17). Parameters O(src) and O(dest) are mutually exclusive on remote-only object operations
+    structure:
+        type: bool
+        default: true
+        description: Used to specify whether to maintain nested directory structure when downloading objects from Cloud Files.  Setting to false downloads the contents of a container to a single, flat directory
+    tenant_id:
+        type: str
+        description: The tenant ID used for authentication.
+    tenant_name:
+        type: str
+        description: The tenant name used for authentication.
+    type:
+        type: str
+        default: file
+        choices:
+            - file
+            - meta
+        description: Type of object to do work on Metadata object or a file object
+    username:
+        type: str
+        description: Rackspace username, overrides O(credentials).
+    validate_certs:
+        type: bool
+        aliases:
+            - verify_ssl
+        description: Whether or not to require SSL validation of API endpoints.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: "Test Cloud Files Objects"
+    >   hosts: local
+    >   gather_facts: false
+    >   tasks:
+    >     - name: "Get objects from test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         dest: ~/Downloads/testcont
+    >
+    >     - name: "Get single object from test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         src: file1
+    >         dest: ~/Downloads/testcont
+    >
+    >     - name: "Get several objects from test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         src: file1,file2,file3
+    >         dest: ~/Downloads/testcont
+    >
+    >     - name: "Delete one object in test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: delete
+    >         dest: file1
+    >
+    >     - name: "Delete several objects in test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: delete
+    >         dest: file2,file3,file4
+    >
+    >     - name: "Delete all objects in test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: delete
+    >
+    >     - name: "Upload all files to test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: put
+    >         src: ~/Downloads/onehundred
+    >
+    >     - name: "Upload one file to test container"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: put
+    >         src: ~/Downloads/testcont/file1
+    >
+    >     - name: "Upload one file to test container with metadata"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         src: ~/Downloads/testcont/file2
+    >         method: put
+    >         meta:
+    >           testkey: testdata
+    >           who_uploaded_this: someuser@example.com
+    >
+    >     - name: "Upload one file to test container with TTL of 60 seconds"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: put
+    >         src: ~/Downloads/testcont/file3
+    >         expires: 60
+    >
+    >     - name: "Attempt to get remote object that does not exist"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: get
+    >         src: FileThatDoesNotExist.jpg
+    >         dest: ~/Downloads/testcont
+    >       ignore_errors: true
+    >
+    >     - name: "Attempt to delete remote object that does not exist"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         method: delete
+    >         dest: FileThatDoesNotExist.jpg
+    >       ignore_errors: true
+    >
+    > - name: "Test Cloud Files Objects Metadata"
+    >   hosts: local
+    >   gather_facts: false
+    >   tasks:
+    >     - name: "Get metadata on one object"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >         dest: file2
+    >
+    >     - name: "Get metadata on several objects"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >         src: file2,file1
+    >
+    >     - name: "Set metadata on an object"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >         dest: file17
+    >         method: put
+    >         meta:
+    >           key1: value1
+    >           key2: value2
+    >         clear_meta: true
+    >
+    >     - name: "Verify metadata is set"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >         src: file17
+    >
+    >     - name: "Delete metadata"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >         dest: file17
+    >         method: delete
+    >         meta:
+    >           key1: ''
+    >           key2: ''
+    >
+    >     - name: "Get metadata on all objects"
+    >       community.general.rax_files_objects:
+    >         container: testcont
+    >         type: meta
+    >

@@ -1,0 +1,71 @@
+name: hipchat
+fqcn: community.general.hipchat
+collection: community.general
+short_description: Send a message to Hipchat
+description: Send a message to a Hipchat room, with options to control the formatting.
+options:
+    api:
+        type: str
+        default: https://api.hipchat.com/v1
+        description: API url if using a self-hosted hipchat server. For Hipchat API version 2 use the default URI with C(/v2) instead of C(/v1).
+    color:
+        type: str
+        default: yellow
+        choices:
+            - yellow
+            - red
+            - green
+            - purple
+            - gray
+            - random
+        description: Background color for the message.
+    msg:
+        type: str
+        required: true
+        description: The message body.
+    msg_format:
+        type: str
+        default: text
+        choices:
+            - text
+            - html
+        description: Message format.
+    msg_from:
+        type: str
+        default: Ansible
+        aliases:
+            - from
+        description: Name the message will appear to be sent from. Max length is 15 characters - above this it will be truncated.
+    notify:
+        type: bool
+        default: true
+        description: If true, a notification will be triggered for users in the room.
+    room:
+        type: str
+        required: true
+        description: ID or name of the room.
+    token:
+        type: str
+        required: true
+        description: API token.
+    validate_certs:
+        type: bool
+        default: true
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Send a message to a Hipchat room
+    >   community.general.hipchat:
+    >     room: notif
+    >     msg: Ansible task finished
+    >
+    > - name: Send a message to a Hipchat room using Hipchat API version 2
+    >   community.general.hipchat:
+    >     api: https://api.hipchat.com/v2/
+    >     token: OAUTH2_TOKEN
+    >     room: notify
+    >     msg: Ansible task finished
+    >

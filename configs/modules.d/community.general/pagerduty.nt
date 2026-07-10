@@ -1,0 +1,114 @@
+name: pagerduty
+fqcn: community.general.pagerduty
+collection: community.general
+short_description: Create PagerDuty maintenance windows
+description: This module will let you create PagerDuty maintenance windows
+options:
+    desc:
+        type: str
+        default: Created by Ansible
+        description: Short description of maintenance window.
+    hours:
+        type: str
+        default: 1
+        description: Length of maintenance window in hours.
+    minutes:
+        type: str
+        default: 0
+        description: Maintenance window in minutes (this is added to the hours).
+    name:
+        type: str
+        description: PagerDuty unique subdomain. Obsolete. It is not used with PagerDuty REST v2 API.
+    requester_id:
+        type: str
+        description: ID of user making the request. Only needed when creating a maintenance_window.
+    service:
+        type: list
+        aliases:
+            - services
+        description: A comma separated list of PagerDuty service IDs.
+    state:
+        type: str
+        required: true
+        choices:
+            - running
+            - started
+            - ongoing
+            - absent
+        description: Create a maintenance window or get a list of ongoing windows.
+    token:
+        type: str
+        required: true
+        description: A pagerduty token, generated on the pagerduty site. It is used for authorization.
+    user:
+        type: str
+        description: PagerDuty user ID. Obsolete. Please, use O(token) for authorization.
+    validate_certs:
+        type: bool
+        default: true
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    window_id:
+        type: str
+        description: ID of maintenance window. Only needed when absent a maintenance_window.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: List ongoing maintenance windows using a token
+    >   community.general.pagerduty:
+    >     name: companyabc
+    >     token: xxxxxxxxxxxxxx
+    >     state: ongoing
+    >
+    > - name: Create a 1 hour maintenance window for service FOO123
+    >   community.general.pagerduty:
+    >     name: companyabc
+    >     user: example@example.com
+    >     token: yourtoken
+    >     state: running
+    >     service: FOO123
+    >
+    > - name: Create a 5 minute maintenance window for service FOO123
+    >   community.general.pagerduty:
+    >     name: companyabc
+    >     token: xxxxxxxxxxxxxx
+    >     hours: 0
+    >     minutes: 5
+    >     state: running
+    >     service: FOO123
+    >
+    >
+    > - name: Create a 4 hour maintenance window for service FOO123 with the description "deployment"
+    >   community.general.pagerduty:
+    >     name: companyabc
+    >     user: example@example.com
+    >     state: running
+    >     service: FOO123
+    >     hours: 4
+    >     desc: deployment
+    >   register: pd_window
+    >
+    > - name: Delete the previous maintenance window
+    >   community.general.pagerduty:
+    >     name: companyabc
+    >     user: example@example.com
+    >     state: absent
+    >     window_id: '{{ pd_window.result.maintenance_window.id }}'
+    >
+    > # Delete a maintenance window from a separate playbook than its creation,
+    > # and if it is the only existing maintenance window
+    > - name: Check
+    >   community.general.pagerduty:
+    >     requester_id: XXXXXXX
+    >     token: yourtoken
+    >     state: ongoing
+    >   register: pd_window
+    >
+    > - name: Delete
+    >   community.general.pagerduty:
+    >     requester_id: XXXXXXX
+    >     token: yourtoken
+    >     state: absent
+    >     window_id: "{{ pd_window.result.maintenance_windows[0].id }}"
+    >

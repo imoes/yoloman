@@ -1,0 +1,60 @@
+name: bitbucket_pipeline_key_pair
+fqcn: community.general.bitbucket_pipeline_key_pair
+collection: community.general
+short_description: Manages Bitbucket pipeline SSH key pair
+description: Manages Bitbucket pipeline SSH key pair.
+options:
+    client_id:
+        type: str
+        description: The OAuth consumer key. If not set the environment variable E(BITBUCKET_CLIENT_ID) will be used.
+    client_secret:
+        type: str
+        description: The OAuth consumer secret. If not set the environment variable E(BITBUCKET_CLIENT_SECRET) will be used.
+    password:
+        type: str
+        description: The App password. If not set the environment variable E(BITBUCKET_PASSWORD) will be used.
+    private_key:
+        type: str
+        description: The private key.
+    public_key:
+        type: str
+        description: The public key.
+    repository:
+        type: str
+        required: true
+        description: The repository name.
+    state:
+        type: str
+        required: true
+        choices:
+            - absent
+            - present
+        description: Indicates desired state of the key pair.
+    user:
+        type: str
+        aliases:
+            - username
+        description: The username. If not set the environment variable E(BITBUCKET_USERNAME) will be used. O(ignore:username) is an alias of O(user) since community.general 6.0.0. It was an alias of O(workspace) before.
+    workspace:
+        type: str
+        required: true
+        description: The repository owner. B(Note:) O(ignore:username) used to be an alias of this option. Since community.general 6.0.0 it is an alias of O(user).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create or update SSH key pair
+    >   community.general.bitbucket_pipeline_key_pair:
+    >     repository: 'bitbucket-repo'
+    >     workspace: bitbucket_workspace
+    >     public_key: '{{lookup("file", "bitbucket.pub") }}'
+    >     private_key: '{{lookup("file", "bitbucket") }}'
+    >     state: present
+    >
+    > - name: Remove SSH key pair
+    >   community.general.bitbucket_pipeline_key_pair:
+    >     repository: bitbucket-repo
+    >     workspace: bitbucket_workspace
+    >     state: absent
+    >

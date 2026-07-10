@@ -1,0 +1,81 @@
+name: apt_rpm
+fqcn: community.general.apt_rpm
+collection: community.general
+short_description: APT-RPM package manager
+description: Manages packages with C(apt-rpm). Both low-level (C(rpm)) and high-level (C(apt-get)) package manager binaries required.
+options:
+    clean:
+        type: bool
+        default: false
+        description: Run the equivalent of C(apt-get clean) to clear out the local repository of retrieved package files. It removes everything but the lock file from C(/var/cache/apt/archives/) and C(/var/cache/apt/archives/partial/). Can be run as part of the package installation (clean runs before install) or as a separate step.
+    dist_upgrade:
+        type: bool
+        default: false
+        description: If true performs an C(apt-get dist-upgrade) to upgrade system.
+    package:
+        type: list
+        aliases:
+            - name
+            - pkg
+        description: List of packages to install, upgrade, or remove. Since community.general 8.0.0, may include paths to local C(.rpm) files if O(state=installed) or O(state=present), requires C(rpm) python module.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+            - installed
+            - removed
+        description: Indicates the desired package state.
+    update_cache:
+        type: bool
+        default: false
+        description: Run the equivalent of C(apt-get update) before the operation. Can be run as part of the package installation or as a separate step. Default is not to update the cache.
+    update_kernel:
+        type: bool
+        default: false
+        description: If true performs an C(update-kernel) to upgrade kernel packages.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install package foo
+    >   community.general.apt_rpm:
+    >     pkg: foo
+    >     state: present
+    >
+    > - name: Install packages foo and bar
+    >   community.general.apt_rpm:
+    >     pkg:
+    >       - foo
+    >       - bar
+    >     state: present
+    >
+    > - name: Remove package foo
+    >   community.general.apt_rpm:
+    >     pkg: foo
+    >     state: absent
+    >
+    > - name: Remove packages foo and bar
+    >   community.general.apt_rpm:
+    >     pkg: foo,bar
+    >     state: absent
+    >
+    > # bar will be the updated if a newer version exists
+    > - name: Update the package database and install bar
+    >   community.general.apt_rpm:
+    >     name: bar
+    >     state: present
+    >     update_cache: true
+    >
+    > - name: Run the equivalent of "apt-get clean" as a separate step
+    >   community.general.apt_rpm:
+    >     clean: true
+    >
+    > - name: Perform cache update and complete system upgrade (includes kernel)
+    >   community.general.apt_rpm:
+    >     update_cache: true
+    >     dist_upgrade: true
+    >     update_kernel: true
+    >

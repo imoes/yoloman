@@ -1,0 +1,254 @@
+name: keycloak_user
+fqcn: community.general.keycloak_user
+collection: community.general
+short_description: Create and configure a user in Keycloak
+description: This module creates, removes, or updates Keycloak users.
+options:
+    access:
+        type: dict
+        description: list user access.
+    attributes:
+        type: list
+        description: List of user attributes.
+    auth_client_id:
+        type: str
+        default: admin-cli
+        description: OpenID Connect C(client_id) to authenticate to the API with.
+    auth_client_secret:
+        type: str
+        description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+    auth_keycloak_url:
+        type: str
+        required: true
+        aliases:
+            - url
+        description: URL to the Keycloak instance.
+    auth_password:
+        type: str
+        aliases:
+            - password
+        description: Password to authenticate for API access with.
+    auth_realm:
+        type: str
+        description: Keycloak realm name to authenticate to for API access.
+    auth_username:
+        type: str
+        description: Username to authenticate for API access with.
+    client_consents:
+        type: list
+        default:
+            []
+        aliases:
+            - clientConsents
+        description: Client Authenticator Type.
+    connection_timeout:
+        type: int
+        default: 10
+        description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+    credentials:
+        type: list
+        default:
+            []
+        description: User credentials.
+    disableable_credential_types:
+        type: list
+        default:
+            []
+        aliases:
+            - disableableCredentialTypes
+        description: list user Credential Type.
+    email:
+        type: str
+        description: User email.
+    email_verified:
+        type: bool
+        default: false
+        aliases:
+            - emailVerified
+        description: Check the validity of user email.
+    enabled:
+        type: bool
+        description: Enabled user.
+    federated_identities:
+        type: list
+        default:
+            []
+        aliases:
+            - federatedIdentities
+        description: List of IDPs of user.
+    federation_link:
+        type: str
+        aliases:
+            - federationLink
+        description: Federation Link.
+    first_name:
+        type: str
+        aliases:
+            - firstName
+        description: The user's first name.
+    force:
+        type: bool
+        default: false
+        description: If V(true), allows to remove user and recreate it.
+    groups:
+        type: list
+        default:
+            []
+        description: List of groups for the user.
+    http_agent:
+        type: str
+        default: Ansible
+        description: Configures the HTTP User-Agent header.
+    id:
+        type: str
+        description: ID of the user on the Keycloak server if known.
+    last_name:
+        type: str
+        aliases:
+            - lastName
+        description: The user's last name.
+    origin:
+        type: str
+        description: user origin.
+    realm:
+        type: str
+        default: master
+        description: The name of the realm in which is the client.
+    required_actions:
+        type: list
+        default:
+            []
+        aliases:
+            - requiredActions
+        description: RequiredActions user Auth.
+    self:
+        type: str
+        description: user self administration.
+    service_account_client_id:
+        type: str
+        aliases:
+            - serviceAccountClientId
+        description: Description of the client Application.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Control whether the user should exists or not.
+    token:
+        type: str
+        description: Authentication token for Keycloak API.
+    username:
+        type: str
+        required: true
+        description: Username for the user.
+    validate_certs:
+        type: bool
+        default: true
+        description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a user user1
+    >   community.general.keycloak_user:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     username: user1
+    >     firstName: user1
+    >     lastName: user1
+    >     email: user1
+    >     enabled: true
+    >     emailVerified: false
+    >     credentials:
+    >         - type: password
+    >           value: password
+    >           temporary: false
+    >     attributes:
+    >         - name: attr1
+    >           values:
+    >             - value1
+    >           state: present
+    >         - name: attr2
+    >           values:
+    >             - value2
+    >           state: absent
+    >     groups:
+    >         - name: group1
+    >           state: present
+    >     state: present
+    >
+    > - name: Re-create a User
+    >   community.general.keycloak_user:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     username: user1
+    >     firstName: user1
+    >     lastName: user1
+    >     email: user1
+    >     enabled: true
+    >     emailVerified: false
+    >     credentials:
+    >         - type: password
+    >           value: password
+    >           temporary: false
+    >     attributes:
+    >         - name: attr1
+    >           values:
+    >             - value1
+    >           state: present
+    >         - name: attr2
+    >           values:
+    >             - value2
+    >           state: absent
+    >     groups:
+    >         - name: group1
+    >           state: present
+    >     state: present
+    >
+    > - name: Re-create a User
+    >   community.general.keycloak_user:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     username: user1
+    >     firstName: user1
+    >     lastName: user1
+    >     email: user1
+    >     enabled: true
+    >     emailVerified: false
+    >     credentials:
+    >         - type: password
+    >           value: password
+    >           temporary: false
+    >     attributes:
+    >         - name: attr1
+    >           values:
+    >             - value1
+    >           state: present
+    >         - name: attr2
+    >           values:
+    >             - value2
+    >           state: absent
+    >     groups:
+    >         - name: group1
+    >           state: present
+    >     state: present
+    >     force: true
+    >
+    > - name: Remove User
+    >   community.general.keycloak_user:
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: admin
+    >     auth_password: password
+    >     realm: master
+    >     username: user1
+    >     state: absent
+    >

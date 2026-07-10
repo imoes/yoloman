@@ -1,0 +1,84 @@
+name: scaleway_private_network
+fqcn: community.general.scaleway_private_network
+collection: community.general
+short_description: Scaleway private network management
+description: This module manages private network on Scaleway account (U(https://developer.scaleway.com)).
+options:
+    api_timeout:
+        type: int
+        default: 30
+        aliases:
+            - timeout
+        description: HTTP timeout to Scaleway API in seconds.
+    api_token:
+        type: str
+        required: true
+        aliases:
+            - oauth_token
+        description: Scaleway OAuth token.
+    api_url:
+        type: str
+        default: https://api.scaleway.com
+        aliases:
+            - base_url
+        description: Scaleway API URL.
+    name:
+        type: str
+        description: Name of the VPC.
+    project:
+        type: str
+        required: true
+        description: Project identifier.
+    query_parameters:
+        type: dict
+        default:
+            {}
+        description: List of parameters passed to the query string.
+    region:
+        type: str
+        required: true
+        choices:
+            - ams1
+            - EMEA-NL-EVS
+            - par1
+            - EMEA-FR-PAR1
+            - par2
+            - EMEA-FR-PAR2
+            - waw1
+            - EMEA-PL-WAW1
+        description: Scaleway region to use (for example V(par1)).
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Indicate desired state of the VPC.
+    tags:
+        type: list
+        default:
+            []
+        description: List of tags to apply to the instance.
+    validate_certs:
+        type: bool
+        default: true
+        description: Validate SSL certs of the Scaleway API.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create an private network
+    >   community.general.scaleway_vpc:
+    >     project: '{{ scw_project }}'
+    >     name: 'vpc_one'
+    >     state: present
+    >     region: par1
+    >   register: vpc_creation_task
+    >
+    > - name: Make sure private network with name 'foo' is deleted in region par1
+    >   community.general.scaleway_vpc:
+    >     name: 'foo'
+    >     state: absent
+    >     region: par1
+    >

@@ -1,0 +1,365 @@
+name: proxmox_disk
+fqcn: community.general.proxmox_disk
+collection: community.general
+short_description: Management of a disk of a Qemu(KVM) VM in a Proxmox VE cluster
+description: Allows you to perform some supported operations on a disk in Qemu(KVM) Virtual Machines in a Proxmox VE cluster.
+options:
+    aio:
+        type: str
+        choices:
+            - native
+            - threads
+            - io_uring
+        description: AIO type to use.
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    backup:
+        type: bool
+        description: Whether the drive should be included when making backups.
+    bps_max_length:
+        type: int
+        description: Maximum length of total r/w I/O bursts in seconds.
+    bps_rd_max_length:
+        type: int
+        description: Maximum length of read I/O bursts in seconds.
+    bps_wr_max_length:
+        type: int
+        description: Maximum length of write I/O bursts in seconds.
+    bwlimit:
+        type: int
+        description: Override I/O bandwidth limit (in KB/s). Used only when O(state=moved).
+    cache:
+        type: str
+        choices:
+            - none
+            - writethrough
+            - writeback
+            - unsafe
+            - directsync
+        description: The drive's cache mode.
+    create:
+        type: str
+        default: regular
+        choices:
+            - disabled
+            - regular
+            - forced
+        description: With O(create) flag you can control behavior of O(state=present). When O(create=disabled) it will not create new disk (if not exists) but will update options in existing disk. When O(create=regular) it will either create new disk (if not exists) or update options in existing disk. When O(create=forced) it will always create new disk (if disk exists it will be detached and left unused).
+    cyls:
+        type: int
+        description: Force the drive's physical geometry to have a specific cylinder count.
+    delete_moved:
+        type: bool
+        description: Delete the original disk after successful copy. By default the original disk is kept as unused disk. Used only when O(state=moved).
+    detect_zeroes:
+        type: bool
+        description: Control whether to detect and try to optimize writes of zeroes.
+    discard:
+        type: str
+        choices:
+            - ignore
+            - on
+        description: Control whether to pass discard/trim requests to the underlying storage.
+    disk:
+        type: str
+        required: true
+        description:
+            > The disk key (V(unused[n]), V(ide[n]), V(sata[n]), V(scsi[n]) or V(virtio[n])) you want to operate on. Disk buses (IDE, SATA and so on) have fixed ranges of V(n) that accepted by Proxmox API. For IDE: 0-3; for SCSI: 0-30; for SATA: 0-5; for VirtIO: 0-15; for Unused: 0-255.
+            >
+    format:
+        type: str
+        choices:
+            - raw
+            - cow
+            - qcow
+            - qed
+            - qcow2
+            - vmdk
+            - cloop
+        description: The drive's backing file's data format.
+    heads:
+        type: int
+        description: Force the drive's physical geometry to have a specific head count.
+    import_from:
+        type: str
+        description: Import volume from this existing one. Volume string format C(<STORAGE>:<VMID>/<FULL_NAME>) or C(<ABSOLUTE_PATH>/<FULL_NAME>) Attention! Only root can use absolute paths. This parameter is mutually exclusive with O(size). Increase O(timeout) parameter when importing large disk images or using slow storage.
+    iops:
+        type: int
+        description: Maximum total r/w I/O in operations per second. You can specify either total limit or per operation (mutually exclusive with O(iops_rd) and O(iops_wr)).
+    iops_max:
+        type: int
+        description: Maximum unthrottled total r/w I/O pool in operations per second.
+    iops_max_length:
+        type: int
+        description: Maximum length of total r/w I/O bursts in seconds.
+    iops_rd:
+        type: int
+        description: Maximum read I/O in operations per second. You can specify either read or total limit (mutually exclusive with O(iops)).
+    iops_rd_max:
+        type: int
+        description: Maximum unthrottled read I/O pool in operations per second.
+    iops_rd_max_length:
+        type: int
+        description: Maximum length of read I/O bursts in seconds.
+    iops_wr:
+        type: int
+        description: Maximum write I/O in operations per second. You can specify either write or total limit (mutually exclusive with O(iops)).
+    iops_wr_max:
+        type: int
+        description: Maximum unthrottled write I/O pool in operations per second.
+    iops_wr_max_length:
+        type: int
+        description: Maximum length of write I/O bursts in seconds.
+    iothread:
+        type: bool
+        description: Whether to use iothreads for this drive (only for SCSI and VirtIO)
+    iso_image:
+        type: str
+        description: The ISO image to be mounted on the specified in O(disk) CD-ROM. O(media=cdrom) needs to be specified for this option to work. Image string format: V(<STORAGE>:iso/<ISO_NAME>) to mount ISO. V(cdrom) to use physical CD/DVD drive. V(none) to unmount image from existent CD-ROM or create empty CD-ROM drive.
+    mbps:
+        type: float
+        description: Maximum total r/w speed in megabytes per second. Can be fractional but use with caution - fractionals less than 1 are not supported officially. You can specify either total limit or per operation (mutually exclusive with O(mbps_rd) and O(mbps_wr)).
+    mbps_max:
+        type: float
+        description: Maximum unthrottled total r/w pool in megabytes per second.
+    mbps_rd:
+        type: float
+        description: Maximum read speed in megabytes per second. You can specify either read or total limit (mutually exclusive with O(mbps)).
+    mbps_rd_max:
+        type: float
+        description: Maximum unthrottled read pool in megabytes per second.
+    mbps_wr:
+        type: float
+        description: Maximum write speed in megabytes per second. You can specify either write or total limit (mutually exclusive with O(mbps)).
+    mbps_wr_max:
+        type: float
+        description: Maximum unthrottled write pool in megabytes per second.
+    media:
+        type: str
+        choices:
+            - cdrom
+            - disk
+        description: The drive's media type.
+    name:
+        type: str
+        description: The unique name of the VM. You can specify either O(name) or O(vmid) or both of them.
+    queues:
+        type: int
+        description: Number of queues (SCSI only).
+    replicate:
+        type: bool
+        description: Whether the drive should considered for replication jobs.
+    rerror:
+        type: str
+        choices:
+            - ignore
+            - report
+            - stop
+        description: Read error action.
+    ro:
+        type: bool
+        description: Whether the drive is read-only.
+    scsiblock:
+        type: bool
+        description: Whether to use scsi-block for full passthrough of host block device. Can lead to I/O errors in combination with low memory or high memory fragmentation on host.
+    secs:
+        type: int
+        description: Force the drive's physical geometry to have a specific sector count.
+    serial:
+        type: str
+        description: The drive's reported serial number, url-encoded, up to 20 bytes long.
+    shared:
+        type: bool
+        description: Mark this locally-managed volume as available on all nodes. This option does not share the volume automatically, it assumes it is shared already!
+    size:
+        type: str
+        description:
+            > Desired volume size in GB to allocate when O(state=present) (specify O(size) without suffix). New (or additional) size of volume when O(state=resized). With the V(+) sign the value is added to the actual size of the volume and without it, the value is taken as an absolute one.
+            >
+    snapshot:
+        type: bool
+        description: Control qemu's snapshot mode feature. If activated, changes made to the disk are temporary and will be discarded when the VM is shutdown.
+    ssd:
+        type: bool
+        description: Whether to expose this drive as an SSD, rather than a rotational hard disk.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - resized
+            - detached
+            - moved
+            - absent
+        description:
+            > Indicates desired state of the disk. O(state=present) can be used to create, replace disk or update options in existing disk. It will create missing disk or update options in existing one by default. See the O(create) parameter description to control behavior of this option.
+            >  Some updates on options (like O(cache)) are not being applied instantly and require VM restart. Use O(state=detached) to detach existing disk from VM but do not remove it entirely. When O(state=detached) and disk is V(unused[n]) it will be left in same state (not removed).
+            >  O(state=moved) may be used to change backing storage for the disk in bounds of the same VM or to send the disk to another VM (using the same backing storage).
+            >  O(state=resized) intended to change the disk size. As of Proxmox 7.2 you can only increase the disk size because shrinking disks is not supported by the PVE API and has to be done manually.
+            >  To entirely remove the disk from backing storage use O(state=absent).
+    storage:
+        type: str
+        description: The drive's backing storage. Used only when O(state) is V(present).
+    target_disk:
+        type: str
+        description: The config key the disk will be moved to on the target VM (for example, V(ide0) or V(scsi1)). Default is the source disk key. Used only when O(state=moved).
+    target_storage:
+        type: str
+        description: Move the disk to this storage when O(state=moved). You can move between storages only in scope of one VM. Mutually exclusive with O(target_vmid). Consider increasing O(timeout) in case of large disk images or slow storage backend.
+    target_vmid:
+        type: int
+        description: The (unique) ID of the VM where disk will be placed when O(state=moved). You can move disk between VMs only when the same storage is used. Mutually exclusive with O(target_vmid).
+    timeout:
+        type: int
+        default: 600
+        description: Timeout in seconds to wait for slow operations such as importing disk or moving disk between storages. Used only when O(state) is V(present) or V(moved).
+    trans:
+        type: str
+        choices:
+            - auto
+            - lba
+            - none
+        description: Force disk geometry bios translation mode.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    vmid:
+        type: int
+        description: The unique ID of the VM. You can specify either O(vmid) or O(name) or both of them.
+    werror:
+        type: str
+        choices:
+            - enospc
+            - ignore
+            - report
+            - stop
+        description: Write error action.
+    wwn:
+        type: str
+        description: The drive's worldwide name, encoded as 16 bytes hex string, prefixed by V(0x).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create new disk in VM (do not rewrite in case it exists already)
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     name: vm-name
+    >     disk: scsi3
+    >     backup: true
+    >     cache: none
+    >     storage: local-zfs
+    >     size: 5
+    >     state: present
+    >
+    > - name: Create new disk in VM (force rewrite in case it exists already)
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     vmid: 101
+    >     disk: scsi3
+    >     format: qcow2
+    >     storage: local
+    >     size: 16
+    >     create: forced
+    >     state: present
+    >
+    > - name: Update existing disk
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     vmid: 101
+    >     disk: ide0
+    >     backup: false
+    >     ro: true
+    >     aio: native
+    >     state: present
+    >
+    > - name: Grow existing disk
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     vmid: 101
+    >     disk: sata4
+    >     size: +5G
+    >     state: resized
+    >
+    > - name: Detach disk (leave it unused)
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     name: vm-name
+    >     disk: virtio0
+    >     state: detached
+    >
+    > - name: Move disk to another storage
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_password: secret
+    >     vmid: 101
+    >     disk: scsi7
+    >     target_storage: local
+    >     format: qcow2
+    >     state: moved
+    >
+    > - name: Move disk from one VM to another
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     vmid: 101
+    >     disk: scsi7
+    >     target_vmid: 201
+    >     state: moved
+    >
+    > - name: Remove disk permanently
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_password: secret
+    >     vmid: 101
+    >     disk: scsi4
+    >     state: absent
+    >
+    > - name: Mount ISO image on CD-ROM (create drive if missing)
+    >   community.general.proxmox_disk:
+    >     api_host: node1
+    >     api_user: root@pam
+    >     api_token_id: token1
+    >     api_token_secret: some-token-data
+    >     vmid: 101
+    >     disk: ide2
+    >     media: cdrom
+    >     iso_image: local:iso/favorite_distro_amd64.iso
+    >     state: present
+    >

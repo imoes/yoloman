@@ -1,0 +1,74 @@
+name: manageiq_policies
+fqcn: community.general.manageiq_policies
+collection: community.general
+short_description: Management of resource policy_profiles in ManageIQ
+description: The manageiq_policies module supports adding and deleting policy_profiles in ManageIQ.
+options:
+    manageiq_connection:
+        type: dict
+        description: ManageIQ connection configuration information.
+    policy_profiles:
+        type: list
+        description: List of dictionaries, each includes the policy_profile V(name) key. Required if O(state) is V(present) or V(absent).
+    resource_id:
+        type: int
+        description: The ID of the resource to which the profile should be [un]assigned. Must be specified if O(resource_name) is not set. Both options are mutually exclusive.
+    resource_name:
+        type: str
+        description: The name of the resource to which the profile should be [un]assigned. Must be specified if O(resource_id) is not set. Both options are mutually exclusive.
+    resource_type:
+        type: str
+        required: true
+        choices:
+            - provider
+            - host
+            - vm
+            - blueprint
+            - category
+            - cluster
+            - data store
+            - group
+            - resource pool
+            - service
+            - service template
+            - template
+            - tenant
+            - user
+        description: The type of the resource to which the profile should be [un]assigned.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: V(absent) - policy_profiles should not exist, V(present) - policy_profiles should exist,
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Assign new policy_profile for a provider in ManageIQ
+    >   community.general.manageiq_policies:
+    >     resource_name: 'EngLab'
+    >     resource_type: 'provider'
+    >     policy_profiles:
+    >       - name: openscap profile
+    >     manageiq_connection:
+    >       url: 'http://127.0.0.1:3000'
+    >       username: 'admin'
+    >       password: 'smartvm'
+    >       validate_certs: false  # only do this when you trust the network!
+    >
+    > - name: Unassign a policy_profile for a provider in ManageIQ
+    >   community.general.manageiq_policies:
+    >     state: absent
+    >     resource_name: 'EngLab'
+    >     resource_type: 'provider'
+    >     policy_profiles:
+    >       - name: openscap profile
+    >     manageiq_connection:
+    >       url: 'http://127.0.0.1:3000'
+    >       username: 'admin'
+    >       password: 'smartvm'
+    >       validate_certs: false  # only do this when you trust the network!
+    >

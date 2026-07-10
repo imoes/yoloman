@@ -1,0 +1,68 @@
+name: atomic_container
+fqcn: community.general.atomic_container
+collection: community.general
+short_description: Manage the containers on the atomic host platform
+description: Manage the containers on the atomic host platform. Allows to manage the lifecycle of a container on the atomic host platform.
+options:
+    backend:
+        type: str
+        required: true
+        choices:
+            - docker
+            - ostree
+        description: Define the backend to use for the container.
+    image:
+        type: str
+        required: true
+        description: The image to use to install the container.
+    mode:
+        type: str
+        choices:
+            - user
+            - system
+        description: Define if it is an user or a system container.
+    name:
+        type: str
+        required: true
+        description: Name of the container.
+    rootfs:
+        type: str
+        description: Define the rootfs of the image.
+    state:
+        type: str
+        default: latest
+        choices:
+            - absent
+            - latest
+            - present
+            - rollback
+        description: State of the container.
+    values:
+        type: list
+        default:
+            []
+        description: Values for the installation of the container. This option is permitted only with mode 'user' or 'system'. The values specified here will be used at installation time as --set arguments for atomic install.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    >
+    > - name: Install the etcd system container
+    >   community.general.atomic_container:
+    >     name: etcd
+    >     image: rhel/etcd
+    >     backend: ostree
+    >     state: latest
+    >     mode: system
+    >     values:
+    >         - ETCD_NAME=etcd.server
+    >
+    > - name: Uninstall the etcd system container
+    >   community.general.atomic_container:
+    >     name: etcd
+    >     image: rhel/etcd
+    >     backend: ostree
+    >     state: absent
+    >     mode: system
+    >

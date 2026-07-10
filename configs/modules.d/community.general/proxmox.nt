@@ -1,0 +1,420 @@
+name: proxmox
+fqcn: community.general.proxmox
+collection: community.general
+short_description: Management of instances in Proxmox VE cluster
+description: Allows you to create/delete/stop instances in Proxmox VE cluster. The module automatically detects containerization type (lxc for PVE 4, openvz for older). Since community.general 4.0.0 on, there are no more default values, see O(proxmox_default_behavior).
+options:
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    clone:
+        type: int
+        description: ID of the container to be cloned. O(description), O(hostname), and O(pool) will be copied from the cloned container if not specified. The type of clone created is defined by the O(clone_type) parameter. This operator is only supported for Proxmox clusters that use LXC containerization (PVE version >= 4).
+    clone_type:
+        type: str
+        default: opportunistic
+        choices:
+            - full
+            - linked
+            - opportunistic
+        description: Type of the clone created. V(full) creates a full clone, and O(storage) must be specified. V(linked) creates a linked clone, and the cloned container must be a template container. V(opportunistic) creates a linked clone if the cloned container is a template container, and a full clone if not. O(storage) may be specified, if not it will fall back to the default.
+    cores:
+        type: int
+        description: Specify number of cores per socket. This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(1).
+    cpus:
+        type: int
+        description: numbers of allocated cpus for instance This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(1).
+    cpuunits:
+        type: int
+        description: CPU weight for a VM This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(1000).
+    description:
+        type: str
+        description: Specify the description for the container. Only used on the configuration web interface. This is saved as a comment inside the configuration file.
+    disk:
+        type: str
+        description: This option was previously described as "hard disk size in GB for instance" however several formats describing a lxc mount are permitted. Older versions of Proxmox will accept a numeric value for size using the O(storage) parameter to automatically choose which storage to allocate from, however new versions enforce the C(<STORAGE>:<SIZE>) syntax. Additional options are available by using some combination of the following key-value pairs as a comma-delimited list C([volume=]<volume> [,acl=<1|0>] [,mountoptions=<opt[;opt...]>] [,quota=<1|0>] [,replicate=<1|0>] [,ro=<1|0>] [,shared=<1|0>] [,size=<DiskSize>]). See U(https://pve.proxmox.com/wiki/Linux_Container) for a full description. This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(3). Should not be used in conjunction with O(storage).
+    features:
+        type: list
+        description: Specifies a list of features to be enabled. For valid options, see U(https://pve.proxmox.com/wiki/Linux_Container#pct_options). Some features require the use of a privileged container.
+    force:
+        type: bool
+        default: false
+        description: Forcing operations. Can be used only with states V(present), V(stopped), V(restarted). with O(state=present) force option allow to overwrite existing container. with states V(stopped), V(restarted) allow to force stop instance.
+    hookscript:
+        type: str
+        description: Script that will be executed during various steps in the containers lifetime.
+    hostname:
+        type: str
+        description: the instance hostname required only for O(state=present) must be unique if vmid is not passed
+    ip_address:
+        type: str
+        description: specifies the address the container will be assigned
+    memory:
+        type: int
+        description: memory size in MB for instance This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(512).
+    mounts:
+        type: dict
+        description: specifies additional mounts (separate disks) for the container. As a hash/dictionary defining mount points
+    nameserver:
+        type: str
+        description: sets DNS server IP address for a container
+    netif:
+        type: dict
+        description: specifies network interfaces for the container. As a hash/dictionary defining interfaces.
+    node:
+        type: str
+        description: Proxmox VE node on which to operate. Only required for O(state=present). For every other states it will be autodiscovered.
+    onboot:
+        type: bool
+        description: specifies whether a VM will be started during system bootup This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(false).
+    ostemplate:
+        type: str
+        description: the template for VM creating required only for O(state=present)
+    ostype:
+        type: str
+        default: auto
+        choices:
+            - auto
+            - debian
+            - devuan
+            - ubuntu
+            - centos
+            - fedora
+            - opensuse
+            - archlinux
+            - alpine
+            - gentoo
+            - nixos
+            - unmanaged
+        description: Specifies the C(ostype) of the LXC container. If set to V(auto), no C(ostype) will be provided on instance creation.
+    password:
+        type: str
+        description: the instance root password
+    pool:
+        type: str
+        description: Add the new VM to the specified pool.
+    proxmox_default_behavior:
+        type: str
+        default: no_defaults
+        choices:
+            - compatibility
+            - no_defaults
+        description:
+            > As of community.general 4.0.0, various options no longer have default values. These default values caused problems when users expected different behavior from Proxmox by default or filled options which caused problems when set. The value V(compatibility) (default before community.general 4.0.0) will ensure that the default values are used when the values are not explicitly specified by the user. The new default is V(no_defaults), which makes sure these options have no defaults. This affects the O(disk), O(cores), O(cpus), O(memory), O(onboot), O(swap), and O(cpuunits) options. This parameter is now B(deprecated) and it will be removed in community.general 10.0.0. By then, the module's behavior should be to not set default values, equivalent to V(no_defaults). If a consistent set of defaults is needed, the playbook or role should be responsible for setting it.
+            >
+    pubkey:
+        type: str
+        description: Public key to add to /root/.ssh/authorized_keys. This was added on Proxmox 4.2, it is ignored for earlier versions
+    purge:
+        type: bool
+        default: false
+        description: Remove container from all related configurations. For example backup jobs, replication jobs, or HA. Related ACLs and Firewall entries will always be removed. Used with O(state=absent).
+    searchdomain:
+        type: str
+        description: sets DNS search domain for a container
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - started
+            - absent
+            - stopped
+            - restarted
+            - template
+        description: Indicate desired state of the instance V(template) was added in community.general 8.1.0.
+    storage:
+        type: str
+        default: local
+        description: target storage Should not be used in conjunction with O(disk).
+    swap:
+        type: int
+        description: swap memory size in MB for instance This option has no default unless O(proxmox_default_behavior) is set to V(compatibility); then the default is V(0).
+    tags:
+        type: list
+        description: List of tags to apply to the container. Tags must start with V([a-z0-9_]) followed by zero or more of the following characters V([a-z0-9_-+.]). Tags are only available in Proxmox 7+.
+    timeout:
+        type: int
+        default: 30
+        description: timeout for operations
+    timezone:
+        type: str
+        description: Timezone used by the container, accepts values like V(Europe/Paris). The special value V(host) configures the same timezone used by Proxmox host.
+    unprivileged:
+        type: bool
+        default: true
+        description: Indicate if the container should be unprivileged. The default change to V(true) in community.general 7.0.0. It used to be V(false) before.
+    update:
+        type: bool
+        default: false
+        description: If V(true), the container will be updated with new values.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    vmid:
+        type: int
+        description: Specifies the instance ID. If not set the next available ID will be fetched from ProxmoxAPI.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create new container with minimal options
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >
+    > - name: Create new container with minimal options specifying disk storage location and size
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     disk: 'local-lvm:20'
+    >
+    > - name: Create new container with hookscript and description
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     hookscript: 'local:snippets/vm_hook.sh'
+    >     description: created with ansible
+    >
+    > - name: Create new container automatically selecting the next available vmid.
+    >   community.general.proxmox:
+    >     node: 'uk-mc02'
+    >     api_user: 'root@pam'
+    >     api_password: '1q2w3e'
+    >     api_host: 'node1'
+    >     password: '123456'
+    >     hostname: 'example.org'
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >
+    > - name: Create new container with minimal options with force(it will rewrite existing container)
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     force: true
+    >
+    > - name: Create new container with minimal options use environment PROXMOX_PASSWORD variable(you should export it before)
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >
+    > - name: Create new container with minimal options defining network interface with dhcp
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     netif: '{"net0":"name=eth0,ip=dhcp,ip6=dhcp,bridge=vmbr0"}'
+    >
+    > - name: Create new container with minimal options defining network interface with static ip
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     netif: '{"net0":"name=eth0,gw=192.168.0.1,ip=192.168.0.2/24,bridge=vmbr0"}'
+    >
+    > - name: Create new container with minimal options defining a mount with 8GB
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     mounts: '{"mp0":"local:8,mp=/mnt/test/"}'
+    >
+    > - name: Create new container with minimal options defining a cpu core limit
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     cores: 2
+    >
+    > - name: Create new container with minimal options and same timezone as proxmox host
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: 'local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     timezone: host
+    >
+    > - name: Create a new container with nesting enabled and allows the use of CIFS/NFS inside the container.
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     password: 123456
+    >     hostname: example.org
+    >     ostemplate: local:vztmpl/ubuntu-14.04-x86_64.tar.gz'
+    >     features:
+    >      - nesting=1
+    >      - mount=cifs,nfs
+    >
+    > - name: >
+    >     Create a linked clone of the template container with id 100. The newly created container with be a
+    >     linked clone, because no storage parameter is defined
+    >   community.general.proxmox:
+    >     vmid: 201
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     clone: 100
+    >     hostname: clone.example.org
+    >
+    > - name: Create a full clone of the container with id 100
+    >   community.general.proxmox:
+    >     vmid: 201
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     clone: 100
+    >     hostname: clone.example.org
+    >     storage: local
+    >
+    > - name: Update container configuration
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     node: uk-mc02
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     netif: '{"net0":"name=eth0,gw=192.168.0.1,ip=192.168.0.3/24,bridge=vmbr0"}'
+    >     update: true
+    >
+    > - name: Start container
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: started
+    >
+    > - name: >
+    >     Start container with mount. You should enter a 90-second timeout because servers
+    >     with additional disks take longer to boot
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: started
+    >     timeout: 90
+    >
+    > - name: Stop container
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: stopped
+    >
+    > - name: Stop container with force
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     force: true
+    >     state: stopped
+    >
+    > - name: Restart container(stopped or mounted container you can't restart)
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: restarted
+    >
+    > - name: Convert container to template
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: template
+    >
+    > - name: Convert container to template (stop container if running)
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: template
+    >     force: true
+    >
+    > - name: Remove container
+    >   community.general.proxmox:
+    >     vmid: 100
+    >     api_user: root@pam
+    >     api_password: 1q2w3e
+    >     api_host: node1
+    >     state: absent
+    >

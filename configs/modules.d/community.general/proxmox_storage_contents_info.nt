@@ -1,0 +1,66 @@
+name: proxmox_storage_contents_info
+fqcn: community.general.proxmox_storage_contents_info
+collection: community.general
+short_description: List content from a Proxmox VE storage
+description: Retrieves information about stored objects on a specific storage attached to a node.
+options:
+    api_host:
+        type: str
+        required: true
+        description: Specify the target host of the Proxmox VE cluster.
+    api_password:
+        type: str
+        description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment variable.
+    api_token_id:
+        type: str
+        description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+    api_token_secret:
+        type: str
+        description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+    api_user:
+        type: str
+        required: true
+        description: Specify the user to authenticate with.
+    content:
+        type: str
+        default: all
+        choices:
+            - all
+            - backup
+            - rootdir
+            - images
+            - iso
+        description: Filter on a specific content type.
+    node:
+        type: str
+        required: true
+        description: Proxmox node to which the storage is attached.
+    storage:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: Only return content stored on that specific storage.
+    validate_certs:
+        type: bool
+        default: false
+        description: If V(false), SSL certificates will not be validated. This should only be used on personally controlled sites using self-signed certificates.
+    vmid:
+        type: int
+        description: Filter on a specific VMID.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: List existing storages
+    >   community.general.proxmox_storage_contents_info:
+    >     api_host: helldorado
+    >     api_user: root@pam
+    >     api_password: "{{ password | default(omit) }}"
+    >     api_token_id: "{{ token_id | default(omit) }}"
+    >     api_token_secret: "{{ token_secret | default(omit) }}"
+    >     storage: lvm2
+    >     content: backup
+    >     vmid: 130
+    >

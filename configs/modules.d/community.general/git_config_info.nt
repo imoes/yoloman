@@ -1,0 +1,58 @@
+name: git_config_info
+fqcn: community.general.git_config_info
+collection: community.general
+short_description: Read git configuration
+description: The M(community.general.git_config_info) module reads the git configuration by invoking C(git config).
+options:
+    name:
+        type: str
+        description: The name of the setting to read. If not provided, all settings will be returned as RV(config_values).
+    path:
+        type: path
+        description: Path to a git repository or file for reading values from a specific repo. If O(scope) is V(local), this must point to a repository to read from. If O(scope) is V(file), this must point to specific git config file to read from. Otherwise O(path) is ignored if set.
+    scope:
+        type: str
+        default: system
+        choices:
+            - global
+            - system
+            - local
+            - file
+        description: Specify which scope to read values from. If set to V(global), the global git config is used. O(path) is ignored. If set to V(system), the system git config is used. O(path) is ignored. If set to V(local), O(path) must be set to the repo to read from. If set to V(file), O(path) must be set to the config file to read from.
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Read a system wide config
+    >   community.general.git_config_info:
+    >     name: core.editor
+    >   register: result
+    >
+    > - name: Show value of core.editor
+    >   ansible.builtin.debug:
+    >     msg: "{{ result.config_value | default('(not set)', true) }}"
+    >
+    > - name: Read a global config from ~/.gitconfig
+    >   community.general.git_config_info:
+    >     name: alias.remotev
+    >     scope: global
+    >
+    > - name: Read a project specific config
+    >   community.general.git_config_info:
+    >     name: color.ui
+    >     scope: local
+    >     path: /etc
+    >
+    > - name: Read all global values
+    >   community.general.git_config_info:
+    >     scope: global
+    >
+    > - name: Read all system wide values
+    >   community.general.git_config_info:
+    >
+    > - name: Read all values of a specific file
+    >   community.general.git_config_info:
+    >     scope: file
+    >     path: /etc/gitconfig
+    >

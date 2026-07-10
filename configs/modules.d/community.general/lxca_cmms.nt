@@ -1,0 +1,63 @@
+name: lxca_cmms
+fqcn: community.general.lxca_cmms
+collection: community.general
+short_description: Custom module for lxca cmms inventory utility
+description: This module returns/displays a inventory details of cmms
+options:
+    auth_url:
+        type: str
+        required: true
+        description: lxca HTTPS full web address.
+    chassis:
+        type: str
+        description: uuid of chassis, this is string with length greater than 16.
+    command_options:
+        type: str
+        default: cmms
+        choices:
+            - cmms
+            - cmms_by_uuid
+            - cmms_by_chassis_uuid
+        description: options to filter nodes information
+    login_password:
+        type: str
+        required: true
+        description: The password for use in HTTP basic authentication.
+    login_user:
+        type: str
+        required: true
+        description: The username for use in HTTP basic authentication.
+    uuid:
+        type: str
+        description: uuid of device, this is string with length greater than 16.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > # get all cmms info
+    > - name: Get nodes data from LXCA
+    >   community.general.lxca_cmms:
+    >     login_user: USERID
+    >     login_password: Password
+    >     auth_url: "https://10.243.15.168"
+    >
+    > # get specific cmms info by uuid
+    > - name: Get nodes data from LXCA
+    >   community.general.lxca_cmms:
+    >     login_user: USERID
+    >     login_password: Password
+    >     auth_url: "https://10.243.15.168"
+    >     uuid: "3C737AA5E31640CE949B10C129A8B01F"
+    >     command_options: cmms_by_uuid
+    >
+    > # get specific cmms info by chassis uuid
+    > - name: Get nodes data from LXCA
+    >   community.general.lxca_cmms:
+    >     login_user: USERID
+    >     login_password: Password
+    >     auth_url: "https://10.243.15.168"
+    >     chassis: "3C737AA5E31640CE949B10C129A8B01F"
+    >     command_options: cmms_by_chassis_uuid
+    >
+    >

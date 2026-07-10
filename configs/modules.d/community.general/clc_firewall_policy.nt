@@ -1,0 +1,80 @@
+name: clc_firewall_policy
+fqcn: community.general.clc_firewall_policy
+collection: community.general
+short_description: Create/delete/update firewall policies
+description: Create or delete or update firewall policies on Centurylink Cloud
+options:
+    destination:
+        type: list
+        description: The list of destination addresses for traffic on the terminating firewall. This is required when state is 'present'
+    destination_account_alias:
+        type: str
+        description: CLC alias for the destination account
+    enabled:
+        type: str
+        default: True
+        choices:
+            - True
+            - False
+        description: Whether the firewall policy is enabled or disabled
+    firewall_policy_id:
+        type: str
+        description: Id of the firewall policy. This is required to update or delete an existing firewall policy
+    location:
+        type: str
+        required: true
+        description: Target datacenter for the firewall policy
+    ports:
+        type: list
+        description: The list of ports associated with the policy. TCP and UDP can take in single ports or port ranges. Example: V(['any', 'icmp', 'TCP/123', 'UDP/123', 'TCP/123-456', 'UDP/123-456']).
+    source:
+        type: list
+        description: The list  of source addresses for traffic on the originating firewall. This is required when state is 'present'
+    source_account_alias:
+        type: str
+        required: true
+        description: CLC alias for the source account
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Whether to create or delete the firewall policy
+    wait:
+        type: str
+        default: True
+        description: Whether to wait for the provisioning tasks to finish before returning.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > ---
+    > - name: Create Firewall Policy
+    >   hosts: localhost
+    >   gather_facts: false
+    >   connection: local
+    >   tasks:
+    >     - name: Create / Verify an Firewall Policy at CenturyLink Cloud
+    >       clc_firewall:
+    >         source_account_alias: WFAD
+    >         location: VA1
+    >         state: present
+    >         source: 10.128.216.0/24
+    >         destination: 10.128.216.0/24
+    >         ports: Any
+    >         destination_account_alias: WFAD
+    >
+    > - name: Delete Firewall Policy
+    >   hosts: localhost
+    >   gather_facts: false
+    >   connection: local
+    >   tasks:
+    >     - name: Delete an Firewall Policy at CenturyLink Cloud
+    >       clc_firewall:
+    >         source_account_alias: WFAD
+    >         location: VA1
+    >         state: absent
+    >         firewall_policy_id: c62105233d7a4231bd2e91b9c791e43e1
+    >

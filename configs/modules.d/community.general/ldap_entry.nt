@@ -1,0 +1,146 @@
+name: ldap_entry
+fqcn: community.general.ldap_entry
+collection: community.general
+short_description: Add or remove LDAP entries
+description: Add or remove LDAP entries. This module only asserts the existence or non-existence of an LDAP entry, not its attributes. To assert the attribute values of an entry, see M(community.general.ldap_attrs).
+options:
+    attributes:
+        type: dict
+        default:
+            {}
+        description: If O(state=present), attributes necessary to create an entry. Existing entries are never modified. To assert specific attribute values on an existing entry, use M(community.general.ldap_attrs) module instead. Each attribute value can be a string for single-valued attributes or a list of strings for multi-valued attributes. If you specify values for this option in YAML, please note that you can improve readability for long string values by using YAML block modifiers as seen in the examples for this module. Note that when using values that YAML/ansible-core interprets as other types, like V(yes), V(no) (booleans), or V(2.10) (float), make sure to quote them if these are meant to be strings. Otherwise the wrong values may be sent to LDAP.
+    bind_dn:
+        type: str
+        description: A DN to bind with. If this is omitted, we'll try a SASL bind with the EXTERNAL mechanism as default. If this is blank, we'll use an anonymous bind.
+    bind_pw:
+        type: str
+        default:
+        description: The password to use with O(bind_dn).
+    ca_path:
+        type: path
+        description: Set the path to PEM file with CA certs.
+    client_cert:
+        type: path
+        description: PEM formatted certificate chain file to be used for SSL client authentication. Required if O(client_key) is defined.
+    client_key:
+        type: path
+        description: PEM formatted file that contains your private key to be used for SSL client authentication. Required if O(client_cert) is defined.
+    dn:
+        type: str
+        required: true
+        description: The DN of the entry to add or remove.
+    objectClass:
+        type: list
+        description: If O(state=present), value or list of values to use when creating the entry. It can either be a string or an actual list of strings.
+    recursive:
+        type: bool
+        default: false
+        description: If O(state=delete), a flag indicating whether a single entry or the whole branch must be deleted.
+    referrals_chasing:
+        type: str
+        default: anonymous
+        choices:
+            - disabled
+            - anonymous
+        description: Set the referrals chasing behavior. V(anonymous) follow referrals anonymously. This is the default behavior. V(disabled) disable referrals chasing. This sets C(OPT_REFERRALS) to off.
+    sasl_class:
+        type: str
+        default: external
+        choices:
+            - external
+            - gssapi
+        description: The class to use for SASL authentication.
+    server_uri:
+        type: str
+        default: ldapi:///
+        description: The O(server_uri) parameter may be a comma- or whitespace-separated list of URIs containing only the schema, the host, and the port fields. The default value lets the underlying LDAP client library look for a UNIX domain socket in its default location. Note that when using multiple URIs you cannot determine to which URI your client gets connected. For URIs containing additional fields, particularly when using commas, behavior is undefined.
+    start_tls:
+        type: bool
+        default: false
+        description: If true, we'll use the START_TLS LDAP extension.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: The target state of the entry.
+    validate_certs:
+        type: bool
+        default: true
+        description: If set to V(false), SSL certificates will not be validated. This should only be used on sites using self-signed certificates.
+    xorder_discovery:
+        type: str
+        default: auto
+        choices:
+            - enable
+            - auto
+            - disable
+        description: Set the behavior on how to process Xordered DNs. V(enable) will perform a C(ONELEVEL) search below the superior RDN to find the matching DN. V(disable) will always use the DN unmodified (as passed by the O(dn) parameter). V(auto) will only perform a search if the first RDN does not contain an index number (C({x})).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Make sure we have a parent entry for users
+    >   community.general.ldap_entry:
+    >     dn: ou=users,dc=example,dc=com
+    >     objectClass: organizationalUnit
+    >
+    > - name: Make sure we have an admin user
+    >   community.general.ldap_entry:
+    >     dn: cn=admin,dc=example,dc=com
+    >     objectClass:
+    >       - simpleSecurityObject
+    >       - organizationalRole
+    >     attributes:
+    >       description: An LDAP administrator
+    >       userPassword: "{SSHA}tabyipcHzhwESzRaGA7oQ/SDoBZQOGND"
+    >
+    > - name: Set possible values for attributes elements
+    >   community.general.ldap_entry:
+    >     dn: cn=admin,dc=example,dc=com
+    >     objectClass:
+    >       - simpleSecurityObject
+    >       - organizationalRole
+    >     attributes:
+    >       description: An LDAP Administrator
+    >       roleOccupant:
+    >       - cn=Chocs Puddington,ou=Information Technology,dc=example,dc=com
+    >       - cn=Alice Stronginthebrain,ou=Information Technology,dc=example,dc=com
+    >       olcAccess:
+    >       - >-
+    >         {0}to attrs=userPassword,shadowLastChange
+    >         by self write
+    >         by anonymous auth
+    >         by dn="cn=admin,dc=example,dc=com" write
+    >         by * none'
+    >       - >-
+    >         {1}to dn.base="dc=example,dc=com"
+    >         by dn="cn=admin,dc=example,dc=com" write
+    >         by * read
+    >
+    > - name: Get rid of an old entry
+    >   community.general.ldap_entry:
+    >     dn: ou=stuff,dc=example,dc=com
+    >     state: absent
+    >     server_uri: ldap://localhost/
+    >     bind_dn: cn=admin,dc=example,dc=com
+    >     bind_pw: password
+    >
+    > #
+    > # The same as in the previous example but with the authentication details
+    > # stored in the ldap_auth variable:
+    > #
+    > # ldap_auth:
+    > #   server_uri: ldap://localhost/
+    > #   bind_dn: cn=admin,dc=example,dc=com
+    > #   bind_pw: password
+    > #
+    > # In the example below, 'args' is a task keyword, passed at the same level as the module
+    > - name: Get rid of an old entry
+    >   community.general.ldap_entry:
+    >     dn: ou=stuff,dc=example,dc=com
+    >     state: absent
+    >   args: "{{ ldap_auth }}"
+    >

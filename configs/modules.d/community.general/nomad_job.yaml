@@ -1,0 +1,73 @@
+name: nomad_job
+fqcn: community.general.nomad_job
+collection: community.general
+short_description: Launch a Nomad Job
+description: Launch a Nomad job. Stop a Nomad job. Force start a Nomad job
+options:
+  client_cert:
+    type: path
+    description: Path of certificate for TLS/SSL.
+  client_key:
+    type: path
+    description: Path of certificate's private key for TLS/SSL.
+  content:
+    type: str
+    description: Content of Nomad job. Either this or O(name) must be specified.
+  content_format:
+    type: str
+    default: hcl
+    choices:
+    - hcl
+    - json
+    description: Type of content of Nomad job.
+  force_start:
+    type: bool
+    default: false
+    description: Force job to started.
+  host:
+    type: str
+    required: true
+    description: FQDN of Nomad server.
+  name:
+    type: str
+    description: Name of job for delete, stop and start job without source. Name of job for delete, stop
+      and start job without source. Either this or O(content) must be specified.
+  namespace:
+    type: str
+    description: Namespace for Nomad.
+  port:
+    type: int
+    default: 4646
+    description: Port of Nomad server.
+  state:
+    type: str
+    required: true
+    choices:
+    - present
+    - absent
+    description: Deploy or remove job.
+  timeout:
+    type: int
+    default: 5
+    description: Timeout (in seconds) for the request to Nomad.
+  token:
+    type: str
+    description: ACL token for authentication.
+  use_ssl:
+    type: bool
+    default: true
+    description: Use TLS/SSL connection.
+  validate_certs:
+    type: bool
+    default: true
+    description: Enable TLS/SSL certificate validation.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create job\n  community.general.nomad_job:\n    host: localhost\n    state: present\n\
+  \    content: \"{{ lookup('ansible.builtin.file', 'job.hcl') }}\"\n    timeout: 120\n\n- name: Connect\
+  \ with port to create job\n  community.general.nomad_job:\n    host: localhost\n    port: 4645\n   \
+  \ state: present\n    content: \"{{ lookup('ansible.builtin.file', 'job.hcl') }}\"\n    timeout: 120\n\
+  \n- name: Stop job\n  community.general.nomad_job:\n    host: localhost\n    state: absent\n    name:\
+  \ api\n\n- name: Force job to start\n  community.general.nomad_job:\n    host: localhost\n    state:\
+  \ present\n    name: api\n    timeout: 120\n    force_start: true\n"

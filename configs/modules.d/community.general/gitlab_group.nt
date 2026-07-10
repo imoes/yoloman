@@ -1,0 +1,133 @@
+name: gitlab_group
+fqcn: community.general.gitlab_group
+collection: community.general
+short_description: Creates/updates/deletes GitLab Groups
+description: When the group does not exist in GitLab, it will be created. When the group does exist and state=absent, the group will be deleted.
+options:
+    api_job_token:
+        type: str
+        description: GitLab CI job token for logging in.
+    api_oauth_token:
+        type: str
+        description: GitLab OAuth token for logging in.
+    api_password:
+        type: str
+        description: The password to use for authentication against the API.
+    api_token:
+        type: str
+        description: GitLab access token with API permissions.
+    api_url:
+        type: str
+        description: The resolvable endpoint for the API.
+    api_username:
+        type: str
+        description: The username to use for authentication against the API.
+    auto_devops_enabled:
+        type: bool
+        description: Default to Auto DevOps pipeline for all projects within this group.
+    avatar_path:
+        type: path
+        description: Absolute path image to configure avatar. File size should not exceed 200 kb. This option is only used on creation, not for updates.
+    ca_path:
+        type: str
+        description: The CA certificates bundle to use to verify GitLab server certificate.
+    description:
+        type: str
+        description: A description for the group.
+    force_delete:
+        type: bool
+        default: false
+        description: Force delete group even if projects in it. Used only when O(state=absent).
+    name:
+        type: str
+        required: true
+        description: Name of the group you want to create.
+    parent:
+        type: str
+        description: Allow to create subgroups Id or Full path of parent group in the form of group/name
+    path:
+        type: str
+        description: The path of the group you want to create, this will be api_url/group_path If not supplied, the group_name will be used.
+    project_creation_level:
+        type: str
+        choices:
+            - developer
+            - maintainer
+            - noone
+        description: Determine if developers can create projects in the group.
+    require_two_factor_authentication:
+        type: bool
+        description: Require all users in this group to setup two-factor authentication.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: create or delete group. Possible values are present and absent.
+    subgroup_creation_level:
+        type: str
+        choices:
+            - maintainer
+            - owner
+        description: Allowed to create subgroups.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+    visibility:
+        type: str
+        default: private
+        choices:
+            - private
+            - internal
+            - public
+        description: Default visibility of the group
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: "Delete GitLab Group"
+    >   community.general.gitlab_group:
+    >     api_url: https://gitlab.example.com/
+    >     api_token: "{{ access_token }}"
+    >     name: my_first_group
+    >     state: absent
+    >
+    > - name: "Create GitLab Group"
+    >   community.general.gitlab_group:
+    >     api_url: https://gitlab.example.com/
+    >     validate_certs: true
+    >     api_username: dj-wasabi
+    >     api_password: "MySecretPassword"
+    >     name: my_first_group
+    >     path: my_first_group
+    >     state: present
+    >
+    > # The group will by created at https://gitlab.dj-wasabi.local/super_parent/parent/my_first_group
+    > - name: "Create GitLab SubGroup"
+    >   community.general.gitlab_group:
+    >     api_url: https://gitlab.example.com/
+    >     validate_certs: true
+    >     api_username: dj-wasabi
+    >     api_password: "MySecretPassword"
+    >     name: my_first_group
+    >     path: my_first_group
+    >     state: present
+    >     parent: "super_parent/parent"
+    >
+    > # Other group which only allows sub-groups - no projects
+    > - name: "Create GitLab Group for SubGroups only"
+    >   community.general.gitlab_group:
+    >     api_url: https://gitlab.example.com/
+    >     validate_certs: true
+    >     api_username: dj-wasabi
+    >     api_password: "MySecretPassword"
+    >     name: my_main_group
+    >     path: my_main_group
+    >     state: present
+    >     project_creation_level: noone
+    >     auto_devops_enabled: false
+    >     subgroup_creation_level: maintainer
+    >

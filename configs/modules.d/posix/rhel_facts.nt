@@ -1,0 +1,25 @@
+name: rhel_facts
+fqcn: posix.rhel_facts
+collection: posix
+short_description: Facts module to set or override RHEL specific facts.
+description: Compatibility layer for using the "package" module for rpm-ostree based systems via setting the "pkg_mgr" fact correctly.
+options:
+    {}
+writes: false
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Playbook to use the package module on all RHEL footprints
+    >   vars:
+    >     ansible_facts_modules:
+    >       - setup # REQUIRED to be run before all custom fact modules
+    >       - posix.rhel_facts
+    >   tasks:
+    >     - name: Ensure packages are installed
+    >       ansible.builtin.package:
+    >         name:
+    >           - htop
+    >           - ansible
+    >         state: present
+    >

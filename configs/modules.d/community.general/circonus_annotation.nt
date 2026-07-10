@@ -1,0 +1,61 @@
+name: circonus_annotation
+fqcn: community.general.circonus_annotation
+collection: community.general
+short_description: Create an annotation in circonus
+description: Create an annotation event with a given category, title and description. Optionally start, end or durations can be provided
+options:
+    api_key:
+        type: str
+        required: true
+        description: Circonus API key
+    category:
+        type: str
+        required: true
+        description: Annotation Category
+    description:
+        type: str
+        required: true
+        description: Description of annotation
+    duration:
+        type: int
+        default: 0
+        description: Duration in seconds of annotation
+    start:
+        type: int
+        description: Unix timestamp of event start If not specified, it defaults to "now".
+    stop:
+        type: int
+        description: Unix timestamp of event end If not specified, it defaults to "now" + O(duration).
+    title:
+        type: str
+        required: true
+        description: Title of annotation
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create a simple annotation event with a source, defaults to start and end time of now
+    >   community.general.circonus_annotation:
+    >     api_key: XXXXXXXXXXXXXXXXX
+    >     title: App Config Change
+    >     description: This is a detailed description of the config change
+    >     category: This category groups like annotations
+    >
+    > - name: Create an annotation with a duration of 5 minutes and a default start time of now
+    >   community.general.circonus_annotation:
+    >     api_key: XXXXXXXXXXXXXXXXX
+    >     title: App Config Change
+    >     description: This is a detailed description of the config change
+    >     category: This category groups like annotations
+    >     duration: 300
+    >
+    > - name: Create an annotation with a start_time and end_time
+    >   community.general.circonus_annotation:
+    >     api_key: XXXXXXXXXXXXXXXXX
+    >     title: App Config Change
+    >     description: This is a detailed description of the config change
+    >     category: This category groups like annotations
+    >     start_time: 1395940006
+    >     end_time: 1395954407
+    >

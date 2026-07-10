@@ -1,0 +1,127 @@
+name: homebrew_cask
+fqcn: community.general.homebrew_cask
+collection: community.general
+short_description: Install and uninstall homebrew casks
+description: Manages Homebrew casks.
+options:
+    accept_external_apps:
+        type: bool
+        default: false
+        description: Allow external apps.
+    greedy:
+        type: bool
+        default: false
+        description: Upgrade casks that auto update. Passes C(--greedy) to C(brew outdated --cask) when checking if an installed cask has a newer version available, or to C(brew upgrade --cask) when upgrading all casks.
+    install_options:
+        type: list
+        aliases:
+            - options
+        description: Options flags to install a package.
+    name:
+        type: list
+        aliases:
+            - cask
+            - package
+            - pkg
+        description: Name of cask to install or remove.
+    path:
+        type: path
+        default: /usr/local/bin:/opt/homebrew/bin
+        description: ':' separated list of paths to search for 'brew' executable.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - installed
+            - latest
+            - present
+            - removed
+            - uninstalled
+            - upgraded
+        description: State of the cask.
+    sudo_password:
+        type: str
+        description: The sudo password to be passed to SUDO_ASKPASS.
+    update_homebrew:
+        type: bool
+        default: false
+        description: Update homebrew itself first. Note that C(brew cask update) is a synonym for C(brew update).
+    upgrade_all:
+        type: bool
+        default: false
+        aliases:
+            - upgrade
+        description: Upgrade all casks. Mutually exclusive with C(upgraded) state.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install cask
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: present
+    >
+    > - name: Remove cask
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: absent
+    >
+    > - name: Install cask with install options
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: present
+    >     install_options: 'appdir=/Applications'
+    >
+    > - name: Install cask with install options
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: present
+    >     install_options: 'debug,appdir=/Applications'
+    >
+    > - name: Install cask with force option
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: present
+    >     install_options: force
+    >
+    > - name: Allow external app
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: present
+    >     accept_external_apps: true
+    >
+    > - name: Remove cask with force option
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: absent
+    >     install_options: force
+    >
+    > - name: Upgrade all casks
+    >   community.general.homebrew_cask:
+    >     upgrade_all: true
+    >
+    > - name: Upgrade all casks with greedy option
+    >   community.general.homebrew_cask:
+    >     upgrade_all: true
+    >     greedy: true
+    >
+    > - name: Upgrade given cask with force option
+    >   community.general.homebrew_cask:
+    >     name: alfred
+    >     state: upgraded
+    >     install_options: force
+    >
+    > - name: Upgrade cask with greedy option
+    >   community.general.homebrew_cask:
+    >     name: 1password
+    >     state: upgraded
+    >     greedy: true
+    >
+    > - name: Using sudo password for installing cask
+    >   community.general.homebrew_cask:
+    >     name: wireshark
+    >     state: present
+    >     sudo_password: "{{ ansible_become_pass }}"
+    >

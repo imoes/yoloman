@@ -1,0 +1,84 @@
+name: discord
+fqcn: community.general.discord
+collection: community.general
+short_description: Send Discord messages
+description: Sends a message to a Discord channel using the Discord webhook API.
+options:
+    avatar_url:
+        type: str
+        description: Overrides the default avatar of the webhook.
+    content:
+        type: str
+        description: Content of the message to the Discord channel. At least one of O(content) and O(embeds) must be specified.
+    embeds:
+        type: list
+        description: Send messages as Embeds to the Discord channel. Embeds can have a colored border, embedded images, text fields and more. Allowed parameters are described in the Discord Docs: U(https://discord.com/developers/docs/resources/channel#embed-object) At least one of O(content) and O(embeds) must be specified.
+    tts:
+        type: bool
+        default: false
+        description: Set this to V(true) if this is a TTS (Text to Speech) message.
+    username:
+        type: str
+        description: Overrides the default username of the webhook.
+    webhook_id:
+        type: str
+        required: true
+        description: The webhook ID. Format from Discord webhook URL: C(/webhooks/{webhook.id}/{webhook.token}).
+    webhook_token:
+        type: str
+        required: true
+        description: The webhook token. Format from Discord webhook URL: C(/webhooks/{webhook.id}/{webhook.token}).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Send a message to the Discord channel
+    >   community.general.discord:
+    >     webhook_id: "00000"
+    >     webhook_token: "XXXYYY"
+    >     content: "This is a message from ansible"
+    >
+    > - name: Send a message to the Discord channel with specific username and avatar
+    >   community.general.discord:
+    >     webhook_id: "00000"
+    >     webhook_token: "XXXYYY"
+    >     content: "This is a message from ansible"
+    >     username: Ansible
+    >     avatar_url: "https://docs.ansible.com/ansible/latest/_static/images/logo_invert.png"
+    >
+    > - name: Send a embedded message to the Discord channel
+    >   community.general.discord:
+    >     webhook_id: "00000"
+    >     webhook_token: "XXXYYY"
+    >     embeds:
+    >       - title: "Embedded message"
+    >         description: "This is an embedded message"
+    >         footer:
+    >           text: "Author: Ansible"
+    >         image:
+    >           url: "https://docs.ansible.com/ansible/latest/_static/images/logo_invert.png"
+    >
+    > - name: Send two embedded messages
+    >   community.general.discord:
+    >     webhook_id: "00000"
+    >     webhook_token: "XXXYYY"
+    >     embeds:
+    >       - title: "First message"
+    >         description: "This is my first embedded message"
+    >         footer:
+    >           text: "Author: Ansible"
+    >         image:
+    >           url: "https://docs.ansible.com/ansible/latest/_static/images/logo_invert.png"
+    >       - title: "Second message"
+    >         description: "This is my first second message"
+    >         footer:
+    >           text: "Author: Ansible"
+    >           icon_url: "https://docs.ansible.com/ansible/latest/_static/images/logo_invert.png"
+    >         fields:
+    >           - name: "Field 1"
+    >             value: "Value of my first field"
+    >           - name: "Field 2"
+    >             value: "Value of my second field"
+    >         timestamp: "{{ ansible_date_time.iso8601 }}"
+    >

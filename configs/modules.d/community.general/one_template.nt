@@ -1,0 +1,95 @@
+name: one_template
+fqcn: community.general.one_template
+collection: community.general
+short_description: Manages OpenNebula templates
+description: Manages OpenNebula templates.
+options:
+    api_password:
+        type: str
+        aliases:
+            - api_token
+        description: The password or token for XMLRPC authentication. If not specified then the value of the E(ONE_PASSWORD) environment variable, if any, is used.
+    api_url:
+        type: str
+        aliases:
+            - api_endpoint
+        description: The ENDPOINT URL of the XMLRPC server. If not specified then the value of the E(ONE_URL) environment variable, if any, is used.
+    api_username:
+        type: str
+        description: The name of the user for XMLRPC authentication. If not specified then the value of the E(ONE_USERNAME) environment variable, if any, is used.
+    id:
+        type: int
+        description: A O(id) of the template you would like to manage.  If not set then a new template will be created with the given O(name).
+    name:
+        type: str
+        description: A O(name) of the template you would like to manage.  If a template with the given name does not exist it will be created, otherwise it will be managed by this module.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: V(present) - state that is used to manage the template. V(absent) - delete the template.
+    template:
+        type: str
+        description: A string containing the template contents.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether to validate the TLS/SSL certificates or not. This parameter is ignored if E(PYTHONHTTPSVERIFY) environment variable is used.
+    wait_timeout:
+        type: int
+        default: 300
+        description: Time to wait for the desired state to be reached before timeout, in seconds.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Fetch the TEMPLATE by id
+    >   community.general.one_template:
+    >     id: 6459
+    >   register: result
+    >
+    > - name: Print the TEMPLATE properties
+    >   ansible.builtin.debug:
+    >     var: result
+    >
+    > - name: Fetch the TEMPLATE by name
+    >   community.general.one_template:
+    >     name: tf-prd-users-workerredis-p6379a
+    >   register: result
+    >
+    > - name: Create a new or update an existing TEMPLATE
+    >   community.general.one_template:
+    >     name: generic-opensuse
+    >     template: |
+    >       CONTEXT = [
+    >         HOSTNAME = "generic-opensuse"
+    >       ]
+    >       CPU = "1"
+    >       CUSTOM_ATTRIBUTE = ""
+    >       DISK = [
+    >         CACHE = "writeback",
+    >         DEV_PREFIX = "sd",
+    >         DISCARD = "unmap",
+    >         IMAGE = "opensuse-leap-15.2",
+    >         IMAGE_UNAME = "oneadmin",
+    >         IO = "threads",
+    >         SIZE = "" ]
+    >       MEMORY = "2048"
+    >       NIC = [
+    >         MODEL = "virtio",
+    >         NETWORK = "testnet",
+    >         NETWORK_UNAME = "oneadmin" ]
+    >       OS = [
+    >         ARCH = "x86_64",
+    >         BOOT = "disk0" ]
+    >       SCHED_REQUIREMENTS = "CLUSTER_ID=\"100\""
+    >       VCPU = "2"
+    >
+    > - name: Delete the TEMPLATE by id
+    >   community.general.one_template:
+    >     id: 6459
+    >     state: absent
+    >

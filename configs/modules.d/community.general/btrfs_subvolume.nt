@@ -1,0 +1,94 @@
+name: btrfs_subvolume
+fqcn: community.general.btrfs_subvolume
+collection: community.general
+short_description: Manage btrfs subvolumes
+description: Creates, updates and deletes btrfs subvolumes and snapshots.
+options:
+    automount:
+        type: bool
+        default: false
+        description: Allow the module to temporarily mount the targeted btrfs filesystem in order to validate the current state and make any required changes.
+    default:
+        type: bool
+        default: false
+        description: Make the subvolume specified by O(name) the filesystem's default subvolume.
+    filesystem_device:
+        type: path
+        description: A block device contained within the btrfs filesystem to be targeted. Useful when multiple btrfs filesystems are present to specify which filesystem should be targeted.
+    filesystem_label:
+        type: str
+        description: A descriptive label assigned to the btrfs filesystem to be targeted. Useful when multiple btrfs filesystems are present to specify which filesystem should be targeted.
+    filesystem_uuid:
+        type: str
+        description: A unique identifier assigned to the btrfs filesystem to be targeted. Useful when multiple btrfs filesystems are present to specify which filesystem should be targeted.
+    name:
+        type: str
+        required: true
+        description: Name of the subvolume/snapshot to be targeted.
+    recursive:
+        type: bool
+        default: false
+        description: When true, indicates that parent/child subvolumes should be created/removedas necessary to complete the operation (for O(state=present) and O(state=absent) respectively).
+    snapshot_conflict:
+        type: str
+        default: skip
+        choices:
+            - skip
+            - clobber
+            - error
+        description: Policy defining behavior when a subvolume already exists at the path of the requested snapshot. V(skip) - Create a snapshot only if a subvolume does not yet exist at the target location, otherwise indicate that no change is required. Warning, this option does not yet verify that the target subvolume was generated from a snapshot of the requested source. V(clobber) - If a subvolume already exists at the requested location, delete it first. This option is not idempotent and will result in a new snapshot being generated on every execution. V(error) - If a subvolume already exists at the requested location, return an error. This option is not idempotent and will result in an error on replay of the module.
+    snapshot_source:
+        type: str
+        description: Identifies the source subvolume for the created snapshot. Infers that the created subvolume is a snapshot.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Indicates the current state of the targeted subvolume.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    >
+    > - name: Create a @home subvolume under the root subvolume
+    >   community.general.btrfs_subvolume:
+    >     name: /@home
+    >     device: /dev/vda2
+    >
+    > - name: Remove the @home subvolume if it exists
+    >   community.general.btrfs_subvolume:
+    >     name: /@home
+    >     state: absent
+    >     device: /dev/vda2
+    >
+    > - name: Create a snapshot of the root subvolume named @
+    >   community.general.btrfs_subvolume:
+    >     name: /@
+    >     snapshot_source: /
+    >     device: /dev/vda2
+    >
+    > - name: Create a snapshot of the root subvolume and make it the new default subvolume
+    >   community.general.btrfs_subvolume:
+    >     name: /@
+    >     snapshot_source: /
+    >     default: Yes
+    >     device: /dev/vda2
+    >
+    > - name: Create a snapshot of the /@ subvolume and recursively creating intermediate subvolumes as required
+    >   community.general.btrfs_subvolume:
+    >     name: /@snapshots/@2022_06_09
+    >     snapshot_source: /@
+    >     recursive: True
+    >     device: /dev/vda2
+    >
+    > - name: Remove the /@ subvolume and recursively delete child subvolumes as required
+    >   community.general.btrfs_subvolume:
+    >     name: /@snapshots/@2022_06_09
+    >     snapshot_source: /@
+    >     recursive: True
+    >     device: /dev/vda2
+    >
+    >

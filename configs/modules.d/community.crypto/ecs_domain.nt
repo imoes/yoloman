@@ -1,0 +1,91 @@
+name: ecs_domain
+fqcn: community.crypto.ecs_domain
+collection: community.crypto
+short_description: Request validation of a domain with the Entrust Certificate Services (ECS) API
+description: Request validation or re-validation of a domain with the Entrust Certificate Services (ECS) API. Requires credentials for the L(Entrust Certificate Services,https://www.entrustdatacard.com/products/categories/ssl-certificates) (ECS) API. If the domain is already in the validation process, no new validation will be requested, but the validation data (if applicable) will be returned. If the domain is already in the validation process but the O(verification_method) specified is different than the current O(verification_method), the O(verification_method) will be updated and validation data (if applicable) will be returned. If the domain is an active, validated domain, the return value of C(changed) will be false, unless RV(domain_status=EXPIRED), in which case a re-validation will be performed. If O(verification_method=dns), details about the required DNS entry will be specified in the return parameters RV(dns_contents), RV(dns_location), and RV(dns_resource_type). If O(verification_method=web_server), details about the required file details will be specified in the return parameters RV(file_contents) and RV(file_location). If O(verification_method=email), the email address(es) that the validation email(s) were sent to will be in the return parameter RV(emails). This is purely informational. For domains requested using this module, this will always be a list of size 1.
+options:
+    client_id:
+        type: int
+        default: 1
+        description: The client ID to request the domain be associated with. If no client ID is specified, the domain will be added under the primary client with ID of 1.
+    domain_name:
+        type: str
+        required: true
+        description: The domain name to be verified or reverified.
+    entrust_api_client_cert_key_path:
+        type: path
+        required: true
+        description: The path to the key for the client certificate used to authenticate to the Entrust Certificate Services (ECS) API.
+    entrust_api_client_cert_path:
+        type: path
+        required: true
+        description: The path to the client certificate used to authenticate to the Entrust Certificate Services (ECS) API.
+    entrust_api_key:
+        type: str
+        required: true
+        description: The key (password) for authentication to the Entrust Certificate Services (ECS) API.
+    entrust_api_specification_path:
+        type: path
+        default: https://cloud.entrust.net/EntrustCloud/documentation/cms-api-2.1.0.yaml
+        description: The path to the specification file defining the Entrust Certificate Services (ECS) API configuration. You can use this to keep a local copy of the specification to avoid downloading it every time the module is used.
+    entrust_api_user:
+        type: str
+        required: true
+        description: The username for authentication to the Entrust Certificate Services (ECS) API.
+    verification_email:
+        type: str
+        description: Email address to be used to verify domain ownership. Email address must be either an email address present in the WHOIS data for O(domain_name), or one of the following constructed emails: admin@O(domain_name), administrator@O(domain_name), webmaster@O(domain_name), hostmaster@O(domain_name), postmaster@O(domain_name). Note that if O(domain_name) includes subdomains, the top level domain should be used. For example, if requesting validation of example1.ansible.com, or test.example2.ansible.com, and you want to use the "admin" preconstructed name, the email address should be admin@ansible.com. If using the email values from the WHOIS data for the domain or its top level namespace, they must be exact matches. If O(verification_method=email) but O(verification_email) is not provided, the first email address found in WHOIS data for the domain will be used. To verify domain ownership, domain owner must follow the instructions in the email they receive. Only allowed if O(verification_method=email)
+    verification_method:
+        type: str
+        required: true
+        choices:
+            - dns
+            - email
+            - manual
+            - web_server
+        description: The verification method to be used to prove control of the domain. If O(verification_method=email) and the value O(verification_email) is specified, that value is used for the email validation. If O(verification_email) is not provided, the first value present in WHOIS data will be used. An email will be sent to the address in O(verification_email) with instructions on how to verify control of the domain. If O(verification_method=dns), the value RV(dns_contents) must be stored in location RV(dns_location), with a DNS record type of RV(dns_resource_type). To prove domain ownership, update your DNS records so the text string returned by RV(dns_contents) is available at RV(dns_location). If O(verification_method=web_server), the contents of return value RV(file_contents) must be made available on a web server accessible at location RV(file_location). If O(verification_method=manual), the domain will be validated with a manual process. This is not recommended.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Request domain validation using email validation for client ID of 2.
+    >   community.crypto.ecs_domain:
+    >     domain_name: ansible.com
+    >     client_id: 2
+    >     verification_method: email
+    >     verification_email: admin@ansible.com
+    >     entrust_api_user: apiusername
+    >     entrust_api_key: a^lv*32!cd9LnT
+    >     entrust_api_client_cert_path: /etc/ssl/entrust/ecs-client.crt
+    >     entrust_api_client_cert_key_path: /etc/ssl/entrust/ecs-client.key
+    >
+    > - name: Request domain validation using DNS. If domain is already valid,
+    >         request revalidation if expires within 90 days
+    >   community.crypto.ecs_domain:
+    >     domain_name: ansible.com
+    >     verification_method: dns
+    >     entrust_api_user: apiusername
+    >     entrust_api_key: a^lv*32!cd9LnT
+    >     entrust_api_client_cert_path: /etc/ssl/entrust/ecs-client.crt
+    >     entrust_api_client_cert_key_path: /etc/ssl/entrust/ecs-client.key
+    >
+    > - name: Request domain validation using web server validation, and revalidate
+    >         if fewer than 60 days remaining of EV eligibility.
+    >   community.crypto.ecs_domain:
+    >     domain_name: ansible.com
+    >     verification_method: web_server
+    >     entrust_api_user: apiusername
+    >     entrust_api_key: a^lv*32!cd9LnT
+    >     entrust_api_client_cert_path: /etc/ssl/entrust/ecs-client.crt
+    >     entrust_api_client_cert_key_path: /etc/ssl/entrust/ecs-client.key
+    >
+    > - name: Request domain validation using manual validation.
+    >   community.crypto.ecs_domain:
+    >     domain_name: ansible.com
+    >     verification_method: manual
+    >     entrust_api_user: apiusername
+    >     entrust_api_key: a^lv*32!cd9LnT
+    >     entrust_api_client_cert_path: /etc/ssl/entrust/ecs-client.crt
+    >     entrust_api_client_cert_key_path: /etc/ssl/entrust/ecs-client.key
+    >

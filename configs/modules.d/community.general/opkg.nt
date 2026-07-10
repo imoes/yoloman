@@ -1,0 +1,82 @@
+name: opkg
+fqcn: community.general.opkg
+collection: community.general
+short_description: Package manager for OpenWrt and Openembedded/Yocto based Linux distributions
+description: Manages ipk packages for OpenWrt and Openembedded/Yocto based Linux distributions
+options:
+    executable:
+        type: path
+        description: The executable location for C(opkg).
+    force:
+        type: str
+        choices:
+            -
+            - depends
+            - maintainer
+            - reinstall
+            - overwrite
+            - downgrade
+            - space
+            - postinstall
+            - remove
+            - checksum
+            - removal-of-dependent-packages
+        description: The C(opkg --force) parameter used. Passing V("") as value and not passing any value at all have both the same effect of B(not) using any C(--force-) parameter.
+    name:
+        type: list
+        required: true
+        aliases:
+            - pkg
+        description: Name of package(s) to install/remove. C(NAME=VERSION) syntax is also supported to install a package in a certain version. See the examples. This only works on Yocto based Linux distributions (opkg>=0.3.2) and not for OpenWrt. This is supported since community.general 6.2.0.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+            - installed
+            - removed
+        description: State of the package.
+    update_cache:
+        type: bool
+        default: false
+        description: Update the package DB first.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install foo
+    >   community.general.opkg:
+    >     name: foo
+    >     state: present
+    >
+    > - name: Install foo in version 1.2 (opkg>=0.3.2 on Yocto based Linux distributions)
+    >   community.general.opkg:
+    >     name: foo=1.2
+    >     state: present
+    >
+    > - name: Update cache and install foo
+    >   community.general.opkg:
+    >     name: foo
+    >     state: present
+    >     update_cache: true
+    >
+    > - name: Remove foo
+    >   community.general.opkg:
+    >     name: foo
+    >     state: absent
+    >
+    > - name: Remove foo and bar
+    >   community.general.opkg:
+    >     name:
+    >       - foo
+    >       - bar
+    >     state: absent
+    >
+    > - name: Install foo using overwrite option forcibly
+    >   community.general.opkg:
+    >     name: foo
+    >     state: present
+    >     force: overwrite
+    >

@@ -1,0 +1,34 @@
+name: selinux_permissive
+fqcn: community.general.selinux_permissive
+collection: community.general
+short_description: Change permissive domain in SELinux policy
+description: Add and remove a domain from the list of permissive domains.
+options:
+    domain:
+        type: str
+        required: true
+        aliases:
+            - name
+        description: The domain that will be added or removed from the list of permissive domains.
+    no_reload:
+        type: bool
+        default: false
+        description: Disable reloading of the SELinux policy after making change to a domain's permissive setting. The default is V(false), which causes policy to be reloaded when a domain changes state. Reloading the policy does not work on older versions of the C(policycoreutils-python) library, for example in EL 6."
+    permissive:
+        type: bool
+        required: true
+        description: Indicate if the domain should or should not be set as permissive.
+    store:
+        type: str
+        default:
+        description: Name of the SELinux policy store to use.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Change the httpd_t domain to permissive
+    >   community.general.selinux_permissive:
+    >     name: httpd_t
+    >     permissive: true
+    >

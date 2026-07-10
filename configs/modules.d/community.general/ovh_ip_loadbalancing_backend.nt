@@ -1,0 +1,81 @@
+name: ovh_ip_loadbalancing_backend
+fqcn: community.general.ovh_ip_loadbalancing_backend
+collection: community.general
+short_description: Manage OVH IP LoadBalancing backends
+description: Manage OVH (French European hosting provider) LoadBalancing IP backends
+options:
+    application_key:
+        type: str
+        required: true
+        description: The applicationKey to use
+    application_secret:
+        type: str
+        required: true
+        description: The application secret to use
+    backend:
+        type: str
+        required: true
+        description: The IP address of the backend to update / modify / delete
+    consumer_key:
+        type: str
+        required: true
+        description: The consumer key to use
+    endpoint:
+        type: str
+        required: true
+        description: The endpoint to use ( for instance ovh-eu)
+    name:
+        type: str
+        required: true
+        description: Name of the LoadBalancing internal name (ip-X.X.X.X)
+    probe:
+        type: str
+        default: none
+        choices:
+            - none
+            - http
+            - icmp
+            - oco
+        description: Determines the type of probe to use for this backend
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Determines whether the backend is to be created/modified or deleted
+    timeout:
+        type: int
+        default: 120
+        description: The timeout in seconds used to wait for a task to be completed.
+    weight:
+        type: int
+        default: 8
+        description: Determines the weight for this backend
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Adds or modify the backend '212.1.1.1' to a loadbalancing 'ip-1.1.1.1'
+    >   ovh_ip_loadbalancing:
+    >     name: ip-1.1.1.1
+    >     backend: 212.1.1.1
+    >     state: present
+    >     probe: none
+    >     weight: 8
+    >     endpoint: ovh-eu
+    >     application_key: yourkey
+    >     application_secret: yoursecret
+    >     consumer_key: yourconsumerkey
+    >
+    > - name: Removes a backend '212.1.1.1' from a loadbalancing 'ip-1.1.1.1'
+    >   ovh_ip_loadbalancing:
+    >     name: ip-1.1.1.1
+    >     backend: 212.1.1.1
+    >     state: absent
+    >     endpoint: ovh-eu
+    >     application_key: yourkey
+    >     application_secret: yoursecret
+    >     consumer_key: yourconsumerkey
+    >

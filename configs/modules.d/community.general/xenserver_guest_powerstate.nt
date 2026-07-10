@@ -1,0 +1,75 @@
+name: xenserver_guest_powerstate
+fqcn: community.general.xenserver_guest_powerstate
+collection: community.general
+short_description: Manages power states of virtual machines running on Citrix Hypervisor/XenServer host or pool
+description:
+    > This module can be used to power on, power off, restart or suspend virtual machine and gracefully reboot or shutdown guest OS of virtual machine.
+    >
+options:
+    hostname:
+        type: str
+        default: localhost
+        aliases:
+            - host
+            - pool
+        description: The hostname or IP address of the XenServer host or XenServer pool master. If the value is not specified in the task, the value of environment variable E(XENSERVER_HOST) will be used instead.
+    name:
+        type: str
+        aliases:
+            - name_label
+        description: Name of the VM to manage. VMs running on XenServer do not necessarily have unique names. The module will fail if multiple VMs with same name are found. In case of multiple VMs with same name, use O(uuid) to uniquely specify VM to manage. This parameter is case sensitive.
+    password:
+        type: str
+        aliases:
+            - pass
+            - pwd
+        description: The password to use for connecting to XenServer. If the value is not specified in the task, the value of environment variable E(XENSERVER_PASSWORD) will be used instead.
+    state:
+        type: str
+        default: present
+        choices:
+            - powered-on
+            - powered-off
+            - restarted
+            - shutdown-guest
+            - reboot-guest
+            - suspended
+            - present
+        description: Specify the state VM should be in. If O(state) is set to value other than V(present), then VM is transitioned into required state and facts are returned. If O(state) is set to V(present), then VM is just checked for existence and facts are returned.
+    state_change_timeout:
+        type: int
+        default: 0
+        description: By default, module will wait indefinitely for VM to change state or acquire an IP address if O(wait_for_ip_address=true). If this parameter is set to positive value, the module will instead wait specified number of seconds for the state change. In case of timeout, module will generate an error message.
+    username:
+        type: str
+        default: root
+        aliases:
+            - admin
+            - user
+        description: The username to use for connecting to XenServer. If the value is not specified in the task, the value of environment variable E(XENSERVER_USER) will be used instead.
+    uuid:
+        type: str
+        description: UUID of the VM to manage if known. This is XenServer's unique identifier. It is required if name is not unique.
+    validate_certs:
+        type: bool
+        default: true
+        description: Allows connection when SSL certificates are not valid. Set to V(false) when certificates are not trusted. If the value is not specified in the task, the value of environment variable E(XENSERVER_VALIDATE_CERTS) will be used instead.
+    wait_for_ip_address:
+        type: bool
+        default: false
+        description: Wait until XenServer detects an IP address for the VM. This requires XenServer Tools to be preinstalled on the VM to work properly.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Power on VM
+    >   community.general.xenserver_guest_powerstate:
+    >     hostname: "{{ xenserver_hostname }}"
+    >     username: "{{ xenserver_username }}"
+    >     password: "{{ xenserver_password }}"
+    >     name: testvm_11
+    >     state: powered-on
+    >   delegate_to: localhost
+    >   register: facts
+    >

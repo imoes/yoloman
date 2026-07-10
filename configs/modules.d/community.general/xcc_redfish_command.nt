@@ -1,0 +1,181 @@
+name: xcc_redfish_command
+fqcn: community.general.xcc_redfish_command
+collection: community.general
+short_description: Manages Lenovo Out-Of-Band controllers using Redfish APIs
+description: Builds Redfish URIs locally and sends them to remote OOB controllers to perform an action or get information back or update a configuration attribute. Manages virtual media. Supports getting information back via GET method. Supports updating a configuration attribute via PATCH method. Supports performing an action via POST method.
+options:
+    auth_token:
+        type: str
+        description: Security token for authentication with OOB controller
+    baseuri:
+        type: str
+        required: true
+        description: Base URI of OOB controller.
+    category:
+        type: str
+        required: true
+        description: Category to execute on OOB controller.
+    command:
+        type: list
+        required: true
+        description: List of commands to execute on OOB controller.
+    password:
+        type: str
+        description: Password for authentication with OOB controller.
+    request_body:
+        type: dict
+        description: The request body to patch or post.
+    resource_id:
+        type: str
+        description: The ID of the System, Manager or Chassis to modify.
+    resource_uri:
+        type: str
+        description: The resource uri to get or patch or post.
+    timeout:
+        type: int
+        default: 10
+        description: Timeout in seconds for URL requests to OOB controller.
+    username:
+        type: str
+        description: Username for authentication with OOB controller.
+    virtual_media:
+        type: dict
+        description: The options for VirtualMedia commands.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    >   - name: Insert Virtual Media
+    >     community.general.xcc_redfish_command:
+    >       category: Manager
+    >       command: VirtualMediaInsert
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       virtual_media:
+    >         image_url: "http://example.com/images/SomeLinux-current.iso"
+    >         media_types:
+    >           - CD
+    >           - DVD
+    >       resource_id: "1"
+    >
+    >   - name: Eject Virtual Media
+    >     community.general.xcc_redfish_command:
+    >       category: Manager
+    >       command: VirtualMediaEject
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       virtual_media:
+    >         image_url: "http://example.com/images/SomeLinux-current.iso"
+    >       resource_id: "1"
+    >
+    >   - name: Eject all Virtual Media
+    >     community.general.xcc_redfish_command:
+    >       category: Manager
+    >       command: VirtualMediaEject
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_id: "1"
+    >
+    >   - name: Get ComputeSystem Oem property SystemStatus via GetResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: GetResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Systems/1"
+    >     register: result
+    >   - ansible.builtin.debug:
+    >       msg: "{{ result.redfish_facts.data.Oem.Lenovo.SystemStatus }}"
+    >
+    >   - name: Get Oem DNS setting via GetResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: GetResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Managers/1/NetworkProtocol/Oem/Lenovo/DNS"
+    >     register: result
+    >
+    >   - name: Print fetched information
+    >     ansible.builtin.debug:
+    >       msg: "{{ result.redfish_facts.data }}"
+    >
+    >   - name: Get Lenovo FoD key collection resource via GetCollectionResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: GetCollectionResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Managers/1/Oem/Lenovo/FoD/Keys"
+    >     register: result
+    >
+    >   - name: Print fetched information
+    >     ansible.builtin.debug:
+    >       msg: "{{ result.redfish_facts.data_list }}"
+    >
+    >   - name: Update ComputeSystem property AssetTag via PatchResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: PatchResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Systems/1"
+    >       request_body:
+    >         AssetTag: "new_asset_tag"
+    >
+    >   - name: Perform BootToBIOSSetup action via PostResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: PostResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Systems/1/Actions/Oem/LenovoComputerSystem.BootToBIOSSetup"
+    >       request_body: {}
+    >
+    >   - name: Perform SecureBoot.ResetKeys action via PostResource command
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: PostResource
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >       resource_uri: "/redfish/v1/Systems/1/SecureBoot/Actions/SecureBoot.ResetKeys"
+    >       request_body:
+    >         ResetKeysType: DeleteAllKeys
+    >
+    >   - name: Create session
+    >     community.general.redfish_command:
+    >       category: Sessions
+    >       command: CreateSession
+    >       baseuri: "{{ baseuri }}"
+    >       username: "{{ username }}"
+    >       password: "{{ password }}"
+    >     register: result
+    >
+    >   - name: Update Manager DateTimeLocalOffset property using security token for auth
+    >     community.general.xcc_redfish_command:
+    >       category: Raw
+    >       command: PatchResource
+    >       baseuri: "{{ baseuri }}"
+    >       auth_token: "{{ result.session.token }}"
+    >       resource_uri: "/redfish/v1/Managers/1"
+    >       request_body:
+    >         DateTimeLocalOffset: "+08:00"
+    >
+    >   - name: Delete session using security token created by CreateSesssion above
+    >     community.general.redfish_command:
+    >       category: Sessions
+    >       command: DeleteSession
+    >       baseuri: "{{ baseuri }}"
+    >       auth_token: "{{ result.session.token }}"
+    >       session_uri: "{{ result.session.uri }}"
+    >

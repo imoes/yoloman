@@ -1,0 +1,56 @@
+name: alerta_customer
+fqcn: community.general.alerta_customer
+collection: community.general
+short_description: Manage customers in Alerta
+description: Create or delete customers in Alerta with the REST API.
+options:
+    alerta_url:
+        type: str
+        required: true
+        description: The Alerta API endpoint.
+    api_key:
+        type: str
+        description: The access token for the API.
+    api_password:
+        type: str
+        description: The password for the API using basic auth.
+    api_username:
+        type: str
+        description: The username for the API using basic auth.
+    customer:
+        type: str
+        required: true
+        description: Name of the customer.
+    match:
+        type: str
+        required: true
+        description: The matching logged in user for the customer.
+    state:
+        type: str
+        default: present
+        choices:
+            - absent
+            - present
+        description: Whether the customer should exist or not. Both O(customer) and O(match) identify a customer that should be added or removed.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create customer
+    >   community.general.alerta_customer:
+    >     alerta_url: https://alerta.example.com
+    >     api_username: admin@example.com
+    >     api_password: password
+    >     customer: Developer
+    >     match: dev@example.com
+    >
+    > - name: Delete customer
+    >   community.general.alerta_customer:
+    >     alerta_url: https://alerta.example.com
+    >     api_username: admin@example.com
+    >     api_password: password
+    >     customer: Developer
+    >     match: dev@example.com
+    >     state: absent
+    >

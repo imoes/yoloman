@@ -1,0 +1,53 @@
+name: nosh
+fqcn: community.general.nosh
+collection: community.general
+short_description: Manage services with nosh
+description: Control running and enabled state for system-wide or user services. BSD and Linux systems
+  are supported.
+options:
+  enabled:
+    type: bool
+    description: Enable or disable the service, independently of C(*.preset) file preference or running
+      state. Mutually exclusive with O(preset). Will take effect prior to O(state=reset).
+  name:
+    type: str
+    required: true
+    description: Name of the service to manage.
+  preset:
+    type: bool
+    description: Enable or disable the service according to local preferences in C(*.preset) files. Mutually
+      exclusive with O(enabled). Only has an effect if set to true. Will take effect prior to O(state=reset).
+  state:
+    type: str
+    choices:
+    - started
+    - stopped
+    - reset
+    - restarted
+    - reloaded
+    description: V(started)/V(stopped) are idempotent actions that will not run commands unless necessary.
+      V(restarted) will always bounce the service. V(reloaded) will send a SIGHUP or start the service.
+      V(reset) will start or stop the service according to whether it is enabled or not.
+  user:
+    type: bool
+    default: false
+    description: Run system-control talking to the calling user's service manager, rather than the system-wide
+      service manager.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Start dnscache if not running\n  community.general.nosh:\n    name: dnscache\n  \
+  \  state: started\n\n- name: Stop mpd, if running\n  community.general.nosh:\n    name: mpd\n    state:\
+  \ stopped\n\n- name: Restart unbound or start it if not already running\n  community.general.nosh:\n\
+  \    name: unbound\n    state: restarted\n\n- name: Reload fail2ban or start it if not already running\n\
+  \  community.general.nosh:\n    name: fail2ban\n    state: reloaded\n\n- name: Disable nsd\n  community.general.nosh:\n\
+  \    name: nsd\n    enabled: false\n\n- name: For package installers, set nginx running state according\
+  \ to local enable settings, preset and reset\n  community.general.nosh:\n    name: nginx\n    preset:\
+  \ true\n    state: reset\n\n- name: Reboot the host if nosh is the system manager, would need a \"wait_for*\"\
+  \ task at least, not recommended as-is\n  community.general.nosh:\n    name: reboot\n    state: started\n\
+  \n- name: Using conditionals with the module facts\n  tasks:\n    - name: Obtain information on tinydns\
+  \ service\n      community.general.nosh:\n        name: tinydns\n      register: result\n\n    - name:\
+  \ Fail if service not loaded\n      ansible.builtin.fail:\n        msg: \"The {{ result.name }} service\
+  \ is not loaded\"\n      when: not result.status\n\n    - name: Fail if service is running\n      ansible.builtin.fail:\n\
+  \        msg: \"The {{ result.name }} service is running\"\n      when: result.status and result.status['DaemontoolsEncoreState']\
+  \ == \"running\"\n"

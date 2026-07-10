@@ -1,0 +1,138 @@
+name: keycloak_authz_permission
+fqcn: community.general.keycloak_authz_permission
+collection: community.general
+short_description: Allows administration of Keycloak client authorization permissions via Keycloak API
+description: This module allows the administration of Keycloak client authorization permissions via the Keycloak REST API. Authorization permissions are only available if a client has Authorization enabled. There are some peculiarities in JSON paths and payloads for authorization permissions. In particular POST and PUT operations are targeted at permission endpoints, whereas GET requests go to policies endpoint. To make matters more interesting the JSON responses from GET requests return data in a different format than what is expected for POST and PUT. The end result is that it is not possible to detect changes to things like policies, scopes or resources - at least not without a large number of additional API calls. Therefore this module always updates authorization permissions instead of attempting to determine if changes are truly needed. This module requires access to the REST API via OpenID Connect; the user connecting and the realm being used must have the requisite access rights. In a default Keycloak installation, admin-cli and an admin user would work, as would a separate realm definition with the scope tailored to your needs and a user having the expected roles. The names of module options are snake_cased versions of the camelCase options used by Keycloak. The Authorization Services paths and payloads have not officially been documented by the Keycloak project. U(https://www.puppeteers.net/blog/keycloak-authorization-services-rest-api-paths-and-payload/)
+options:
+    auth_client_id:
+        type: str
+        default: admin-cli
+        description: OpenID Connect C(client_id) to authenticate to the API with.
+    auth_client_secret:
+        type: str
+        description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+    auth_keycloak_url:
+        type: str
+        required: true
+        aliases:
+            - url
+        description: URL to the Keycloak instance.
+    auth_password:
+        type: str
+        aliases:
+            - password
+        description: Password to authenticate for API access with.
+    auth_realm:
+        type: str
+        description: Keycloak realm name to authenticate to for API access.
+    auth_username:
+        type: str
+        aliases:
+            - username
+        description: Username to authenticate for API access with.
+    client_id:
+        type: str
+        required: true
+        description: The clientId of the keycloak client that should have the authorization scope. This is usually a human-readable name of the Keycloak client.
+    connection_timeout:
+        type: int
+        default: 10
+        description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+    decision_strategy:
+        type: str
+        default: UNANIMOUS
+        choices:
+            - UNANIMOUS
+            - AFFIRMATIVE
+            - CONSENSUS
+        description: The decision strategy to use with this permission.
+    description:
+        type: str
+        description: The description of the authorization permission.
+    http_agent:
+        type: str
+        default: Ansible
+        description: Configures the HTTP User-Agent header.
+    name:
+        type: str
+        required: true
+        description: Name of the authorization permission to create.
+    permission_type:
+        type: str
+        required: true
+        choices:
+            - resource
+            - scope
+        description: The type of authorization permission. On V(scope) create a scope-based permission. On V(resource) create a resource-based permission.
+    policies:
+        type: list
+        default:
+            []
+        description: Policy names to attach to this permission.
+    realm:
+        type: str
+        required: true
+        description: The name of the Keycloak realm the Keycloak client is in.
+    resources:
+        type: list
+        default:
+            []
+        description: Resource names to attach to this permission. Scope-based permissions can only include one resource. Resource-based permissions can include multiple resources.
+    scopes:
+        type: list
+        default:
+            []
+        description: Scope names to attach to this permission. Resource-based permissions cannot have scopes attached to them.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: State of the authorization permission. On V(present), the authorization permission will be created (or updated if it exists already). On V(absent), the authorization permission will be removed if it exists.
+    token:
+        type: str
+        description: Authentication token for Keycloak API.
+    validate_certs:
+        type: bool
+        default: true
+        description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Manage scope-based Keycloak authorization permission
+    >   community.general.keycloak_authz_permission:
+    >     name: ScopePermission
+    >     state: present
+    >     description: Scope permission
+    >     permission_type: scope
+    >     scopes:
+    >       - file:delete
+    >     policies:
+    >       - Default Policy
+    >     client_id: myclient
+    >     realm: myrealm
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: keycloak
+    >     auth_password: keycloak
+    >     auth_realm: master
+    >
+    > - name: Manage resource-based Keycloak authorization permission
+    >   community.general.keycloak_authz_permission:
+    >     name: ResourcePermission
+    >     state: present
+    >     description: Resource permission
+    >     permission_type: resource
+    >     resources:
+    >       - Default Resource
+    >     policies:
+    >       - Default Policy
+    >     client_id: myclient
+    >     realm: myrealm
+    >     auth_keycloak_url: http://localhost:8080/auth
+    >     auth_username: keycloak
+    >     auth_password: keycloak
+    >     auth_realm: master
+    >

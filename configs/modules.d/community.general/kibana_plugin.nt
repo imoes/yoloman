@@ -1,0 +1,64 @@
+name: kibana_plugin
+fqcn: community.general.kibana_plugin
+collection: community.general
+short_description: Manage Kibana plugins
+description: This module can be used to manage Kibana plugins.
+options:
+    allow_root:
+        type: bool
+        default: false
+        description: Whether to allow C(kibana) and C(kibana-plugin) to be run as root. Passes the C(--allow-root) flag to these commands.
+    force:
+        type: bool
+        default: false
+        description: Delete and re-install the plugin. Can be useful for plugins update.
+    name:
+        type: str
+        required: true
+        description: Name of the plugin to install.
+    plugin_bin:
+        type: path
+        default: /opt/kibana/bin/kibana
+        description: Location of the Kibana binary.
+    plugin_dir:
+        type: path
+        default: /opt/kibana/installedPlugins/
+        description: Your configured plugin directory specified in Kibana.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Desired state of a plugin.
+    timeout:
+        type: str
+        default: 1m
+        description: Timeout setting: 30s, 1m, 1h etc.
+    url:
+        type: str
+        description: Set exact URL to download the plugin from. For local file, prefix its absolute path with file://
+    version:
+        type: str
+        description: Version of the plugin to be installed. If plugin exists with previous version, plugin will B(not) be updated unless O(force) is set to V(true).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Install Elasticsearch head plugin
+    >   community.general.kibana_plugin:
+    >     state: present
+    >     name: elasticsearch/marvel
+    >
+    > - name: Install specific version of a plugin
+    >   community.general.kibana_plugin:
+    >     state: present
+    >     name: elasticsearch/marvel
+    >     version: '2.3.3'
+    >
+    > - name: Uninstall Elasticsearch head plugin
+    >   community.general.kibana_plugin:
+    >     state: absent
+    >     name: elasticsearch/marvel
+    >

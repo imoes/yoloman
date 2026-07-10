@@ -1,0 +1,108 @@
+name: gitlab_issue
+fqcn: community.general.gitlab_issue
+collection: community.general
+short_description: Create, update, or delete GitLab issues
+description: Creates an issue if it does not exist. When an issue does exist, it will be updated if the provided parameters are different. When an issue does exist and O(state=absent), the issue will be deleted. When multiple issues are detected, the task fails. Existing issues are matched based on O(title) and O(state_filter) filters.
+options:
+    api_job_token:
+        type: str
+        description: GitLab CI job token for logging in.
+    api_oauth_token:
+        type: str
+        description: GitLab OAuth token for logging in.
+    api_password:
+        type: str
+        description: The password to use for authentication against the API.
+    api_token:
+        type: str
+        description: GitLab access token with API permissions.
+    api_url:
+        type: str
+        description: The resolvable endpoint for the API.
+    api_username:
+        type: str
+        description: The username to use for authentication against the API.
+    assignee_ids:
+        type: list
+        description: A list of assignee usernames omitting V(@) character. Set to an empty array to unassign all assignees.
+    ca_path:
+        type: str
+        description: The CA certificates bundle to use to verify GitLab server certificate.
+    description:
+        type: str
+        description: A description of the issue. Gets overridden by a content of file specified at O(description_path), if found.
+    description_path:
+        type: path
+        description: A path of file containing issue's description. Accepts MarkDown formatted files.
+    issue_type:
+        type: str
+        default: issue
+        choices:
+            - issue
+            - incident
+            - test_case
+        description: Type of the issue.
+    labels:
+        type: list
+        description: A list of label names. Set to an empty array to remove all labels.
+    milestone_group_id:
+        type: str
+        description: The path or numeric ID of the group hosting desired milestone.
+    milestone_search:
+        type: str
+        description: The name of the milestone. Set to empty string to unassign milestone.
+    project:
+        type: str
+        required: true
+        description: The path or name of the project.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: Create or delete issue.
+    state_filter:
+        type: str
+        default: opened
+        choices:
+            - opened
+            - closed
+        description: Filter specifying state of issues while searching.
+    title:
+        type: str
+        required: true
+        description: A title for the issue. The title is used as a unique identifier to ensure idempotency.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create Issue
+    >   community.general.gitlab_issue:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     project: "group1/project1"
+    >     title: "Ansible demo Issue"
+    >     description: "Demo Issue description"
+    >     labels:
+    >         - Ansible
+    >         - Demo
+    >     assignee_ids:
+    >         - testassignee
+    >     state_filter: "opened"
+    >     state: present
+    >
+    > - name: Delete Issue
+    >   community.general.gitlab_issue:
+    >     api_url: https://gitlab.com
+    >     api_token: secret_access_token
+    >     project: "group1/project1"
+    >     title: "Ansible demo Issue"
+    >     state_filter: "opened"
+    >     state: absent
+    >

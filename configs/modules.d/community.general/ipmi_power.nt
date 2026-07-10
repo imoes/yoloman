@@ -1,0 +1,74 @@
+name: ipmi_power
+fqcn: community.general.ipmi_power
+collection: community.general
+short_description: Power management for machine
+description: Use this module for power management
+options:
+    key:
+        type: str
+        description: Encryption key to connect to the BMC in hex format.
+    machine:
+        type: list
+        description: Provide a list of the remote target address for the bridge IPMI request, and the power status. Either this option or O(state) is required.
+    name:
+        type: str
+        required: true
+        description: Hostname or ip address of the BMC.
+    password:
+        type: str
+        required: true
+        description: Password to connect to the BMC.
+    port:
+        type: int
+        default: 623
+        description: Remote RMCP port.
+    state:
+        type: str
+        choices:
+            - on
+            - off
+            - shutdown
+            - reset
+            - boot
+        description: Whether to ensure that the machine in desired state. The choices for state are: - on -- Request system turn on - off -- Request system turn off without waiting for OS to shutdown - shutdown -- Have system request OS proper shutdown - reset -- Request system reset without waiting for OS - boot -- If system is off, then 'on', else 'reset' Either this option or O(machine) is required.
+    timeout:
+        type: int
+        default: 300
+        description: Maximum number of seconds before interrupt request.
+    user:
+        type: str
+        required: true
+        description: Username to use to connect to the BMC.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Ensure machine is powered on
+    >   community.general.ipmi_power:
+    >     name: test.testdomain.com
+    >     user: admin
+    >     password: password
+    >     state: 'on'
+    >
+    > - name: Ensure machines of which remote target address is 48 and 50 are powered off
+    >   community.general.ipmi_power:
+    >     name: test.testdomain.com
+    >     user: admin
+    >     password: password
+    >     state: 'off'
+    >     machine:
+    >       - targetAddress: 48
+    >       - targetAddress: 50
+    >
+    > - name: Ensure machine of which remote target address is 48 is powered on, and 50 is powered off
+    >   community.general.ipmi_power:
+    >     name: test.testdomain.com
+    >     user: admin
+    >     password: password
+    >     machine:
+    >       - targetAddress: 48
+    >         state: 'on'
+    >       - targetAddress: 50
+    >         state: 'off'
+    >

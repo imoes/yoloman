@@ -1,0 +1,106 @@
+name: redis_data
+fqcn: community.general.redis_data
+collection: community.general
+short_description: Set key value pairs in Redis
+description: Set key value pairs in Redis database.
+options:
+    ca_certs:
+        type: str
+        description: Path to root certificates file. If not set and O(tls) is set to V(true), certifi ca-certificates will be used.
+    existing:
+        type: bool
+        description: Only set key if it already exists.
+    expiration:
+        type: int
+        description: Expiration time in milliseconds. Setting this flag will always result in a change in the database.
+    keep_ttl:
+        type: bool
+        description: Retain the time to live associated with the key.
+    key:
+        type: str
+        required: true
+        description: Database key.
+    login_host:
+        type: str
+        default: localhost
+        description: Specify the target host running the database.
+    login_password:
+        type: str
+        description: Specify the password to authenticate with. Usually not used when target is localhost.
+    login_port:
+        type: int
+        default: 6379
+        description: Specify the port to connect to.
+    login_user:
+        type: str
+        description: Specify the user to authenticate with. Requires L(redis,https://pypi.org/project/redis) >= 3.4.0.
+    non_existing:
+        type: bool
+        description: Only set key if it does not already exist.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - absent
+        description: State of the key.
+    tls:
+        type: bool
+        default: true
+        description: Specify whether or not to use TLS for the connection.
+    validate_certs:
+        type: bool
+        default: true
+        description: Specify whether or not to validate TLS certificates. This should only be turned off for personally controlled sites or with C(localhost) as target.
+    value:
+        type: str
+        description: Value that key should be set to.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Set key foo=bar on localhost with no username
+    >   community.general.redis_data:
+    >     login_host: localhost
+    >     login_password: supersecret
+    >     key: foo
+    >     value: bar
+    >     state: present
+    >
+    > - name: Set key foo=bar if non existing with expiration of 30s
+    >   community.general.redis_data:
+    >     login_host: localhost
+    >     login_password: supersecret
+    >     key: foo
+    >     value: bar
+    >     non_existing: true
+    >     expiration: 30000
+    >     state: present
+    >
+    > - name: Set key foo=bar if existing and keep current TTL
+    >   community.general.redis_data:
+    >     login_host: localhost
+    >     login_password: supersecret
+    >     key: foo
+    >     value: bar
+    >     existing: true
+    >     keep_ttl: true
+    >
+    > - name: Set key foo=bar on redishost with custom ca-cert file
+    >   community.general.redis_data:
+    >     login_host: redishost
+    >     login_password: supersecret
+    >     login_user: someuser
+    >     validate_certs: true
+    >     ssl_ca_certs: /path/to/ca/certs
+    >     key: foo
+    >     value: bar
+    >
+    > - name: Delete key foo on localhost with no username
+    >   community.general.redis_data:
+    >     login_host: localhost
+    >     login_password: supersecret
+    >     key: foo
+    >     state: absent
+    >

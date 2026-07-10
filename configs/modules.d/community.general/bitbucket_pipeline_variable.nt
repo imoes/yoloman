@@ -1,0 +1,70 @@
+name: bitbucket_pipeline_variable
+fqcn: community.general.bitbucket_pipeline_variable
+collection: community.general
+short_description: Manages Bitbucket pipeline variables
+description: Manages Bitbucket pipeline variables.
+options:
+    client_id:
+        type: str
+        description: The OAuth consumer key. If not set the environment variable E(BITBUCKET_CLIENT_ID) will be used.
+    client_secret:
+        type: str
+        description: The OAuth consumer secret. If not set the environment variable E(BITBUCKET_CLIENT_SECRET) will be used.
+    name:
+        type: str
+        required: true
+        description: The pipeline variable name.
+    password:
+        type: str
+        description: The App password. If not set the environment variable E(BITBUCKET_PASSWORD) will be used.
+    repository:
+        type: str
+        required: true
+        description: The repository name.
+    secured:
+        type: bool
+        default: false
+        description: Whether to encrypt the variable value.
+    state:
+        type: str
+        required: true
+        choices:
+            - absent
+            - present
+        description: Indicates desired state of the variable.
+    user:
+        type: str
+        aliases:
+            - username
+        description: The username. If not set the environment variable E(BITBUCKET_USERNAME) will be used. O(ignore:username) is an alias of O(user) since community.general 6.0.0. It was an alias of O(workspace) before.
+    value:
+        type: str
+        description: The pipeline variable value.
+    workspace:
+        type: str
+        required: true
+        description: The repository owner. B(Note:) O(ignore:username) used to be an alias of this option. Since community.general 6.0.0 it is an alias of O(user).
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Create or update pipeline variables from the list
+    >   community.general.bitbucket_pipeline_variable:
+    >     repository: 'bitbucket-repo'
+    >     workspace: bitbucket_workspace
+    >     name: '{{ item.name }}'
+    >     value: '{{ item.value }}'
+    >     secured: '{{ item.secured }}'
+    >     state: present
+    >   with_items:
+    >     - { name: AWS_ACCESS_KEY, value: ABCD1234, secured: false }
+    >     - { name: AWS_SECRET, value: qwe789poi123vbn0, secured: true }
+    >
+    > - name: Remove pipeline variable
+    >   community.general.bitbucket_pipeline_variable:
+    >     repository: bitbucket-repo
+    >     workspace: bitbucket_workspace
+    >     name: AWS_ACCESS_KEY
+    >     state: absent
+    >

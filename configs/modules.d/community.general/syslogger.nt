@@ -1,0 +1,76 @@
+name: syslogger
+fqcn: community.general.syslogger
+collection: community.general
+short_description: Log messages in the syslog
+description: Uses syslog to add log entries to the host.
+options:
+    facility:
+        type: str
+        default: daemon
+        choices:
+            - kern
+            - user
+            - mail
+            - daemon
+            - auth
+            - lpr
+            - news
+            - uucp
+            - cron
+            - syslog
+            - local0
+            - local1
+            - local2
+            - local3
+            - local4
+            - local5
+            - local6
+            - local7
+        description: Set the log facility.
+    ident:
+        type: str
+        default: ansible_syslogger
+        description: Specify the name of application name which is sending the log to syslog.
+    log_pid:
+        type: bool
+        default: false
+        description: Log the PID in brackets.
+    msg:
+        type: str
+        required: true
+        description: This is the message to place in syslog.
+    priority:
+        type: str
+        default: info
+        choices:
+            - emerg
+            - alert
+            - crit
+            - err
+            - warning
+            - notice
+            - info
+            - debug
+        description: Set the log priority.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Simple Usage
+    >   community.general.syslogger:
+    >     msg: "I will end up as daemon.info"
+    >
+    > - name: Send a log message with err priority and user facility with log_pid
+    >   community.general.syslogger:
+    >     msg: "Hello from Ansible"
+    >     priority: "err"
+    >     facility: "user"
+    >     log_pid: true
+    >
+    > - name: Specify the name of application which is sending log message
+    >   community.general.syslogger:
+    >     ident: "MyApp"
+    >     msg: "I want to believe"
+    >     priority: "alert"
+    >

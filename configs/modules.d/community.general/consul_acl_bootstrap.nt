@@ -1,0 +1,44 @@
+name: consul_acl_bootstrap
+fqcn: community.general.consul_acl_bootstrap
+collection: community.general
+short_description: Bootstrap ACLs in Consul
+description: Allows bootstrapping of ACLs in a Consul cluster, see U(https://developer.hashicorp.com/consul/api-docs/acl#bootstrap-acls) for details.
+options:
+    bootstrap_secret:
+        type: str
+        description: The secret to be used as secret ID for the initial token. Needs to be an UUID.
+    ca_path:
+        type: str
+        description: The CA bundle to use for https connections
+    host:
+        type: str
+        default: localhost
+        description: Host of the consul agent, defaults to V(localhost).
+    port:
+        type: int
+        default: 8500
+        description: The port on which the consul agent is running.
+    scheme:
+        type: str
+        default: http
+        description: The protocol scheme on which the consul agent is running. Defaults to V(http) and can be set to V(https) for secure connections.
+    state:
+        type: str
+        default: present
+        choices:
+            - present
+            - bootstrapped
+        description: Whether the token should be present or absent.
+    validate_certs:
+        type: bool
+        default: true
+        description: Whether to verify the TLS certificate of the consul agent.
+writes: true
+runtime: starlark
+source: translated
+examples:
+    >
+    > - name: Bootstrap the ACL system
+    >   community.general.consul_acl_bootstrap:
+    >     bootstrap_secret: 22eaeed1-bdbd-4651-724e-42ae6c43e387
+    >
