@@ -97,7 +97,9 @@ Runs on every managed host. Highlights:
   `isinstance` shim, and the `ctx` capability API — Bossman pushes translated collection modules and
   checks here (`POST /api/v1/modules/apply`), and they run by name via `POST /api/v1/tools/{name}`.
 - **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin or Checkmk local check
-  (see the `nagios_plugin` / `checkmk_local` wrapper checks) with no rewrite.
+  with no rewrite. The `check_plugin` wrapper **auto-detects** which convention the command's output
+  follows (Nagios exit-code + `text | perfdata`, Checkmk local `status item perf details` lines, or
+  Checkmk `<<<agent>>>` sections) and normalizes it to the verdict — no need to pick a wrapper.
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
@@ -170,9 +172,11 @@ host has for it — one per filesystem, per file, per sensor — exactly like a 
 `discovery_function`. All checks live flat in `configs/checks.d/<name>.{star,nt}`:
 
 - **Translated** — Checkmk's ~1400 built-in checks, machine-translated to Starlark.
-- **Custom** — hand-authored, and crucially **Nagios- and Checkmk-compatible**: the `nagios_plugin`
-  wrapper runs any Nagios plugin (exit code + `text | perfdata`), the `checkmk_local` wrapper runs a
-  Checkmk local check (one service per output line). Reuse existing plugins unchanged.
+- **Custom** — hand-authored, and crucially **Nagios- and Checkmk-compatible**: the `check_plugin`
+  wrapper runs any external check and **auto-detects** the output convention — Nagios (exit code +
+  `text | perfdata`), Checkmk local (one `status item perf details` service per line), or Checkmk
+  `<<<agent>>>` sections — normalizing each to the verdict. (The `nagios_plugin` / `checkmk_local`
+  wrappers remain for forcing one specific format.) Reuse existing plugins unchanged.
 
 Assign a check on the **host's Checks tab** or, GPO-style, to a **group/OU in OU / Policy** — a
 host's own config overrides the inherited one, warn/crit levels merged weakest→strongest.

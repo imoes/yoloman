@@ -1,0 +1,28 @@
+name: check_plugin
+short_description: Universal check bridge — auto-detects Nagios / Checkmk output
+description:
+  > The universal custom-check bridge: runs any external check command and
+  > AUTO-DETECTS which monitoring convention its output follows — a classic
+  > Nagios plugin (state from the exit code, "text | perfdata"), a Checkmk
+  > local check (one "<0|1|2|3|P> item perf details" line per service), or
+  > Checkmk agent section output ("<<<section>>>") — then normalizes it to the
+  > yolo-man verdict (state + metrics + details). One plugin covers all three;
+  > no need to choose the right wrapper up front. Reuses existing
+  > Nagios/Checkmk plugins unchanged.
+options:
+  command:
+    type: list
+    required: true
+    description: The check argv, e.g. ["/usr/lib/nagios/plugins/check_load", "-w", "5", "-c", "10"]
+  item:
+    type: str
+    required: false
+    description: For local-check output, which service line to evaluate (default the unnamed one)
+  force_format:
+    type: str
+    required: false
+    description: Skip auto-detection and force "nagios", "local", or "agent"
+writes: false
+runtime: starlark
+source: custom
+kind: check
