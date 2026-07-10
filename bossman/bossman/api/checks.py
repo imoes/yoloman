@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, CheckAssignment
 from bossman.db.session import get_session
@@ -186,3 +187,104 @@ async def delete_assignment(
         raise HTTPException(status_code=403, detail="group/OU assignments are admin-only")
     await session.delete(a)
     await session.commit()
+
+
+# ── Auto-discovery: run checks in _discover mode on the host (Block G9-P3c) ─
+
+
+async def _agent_with_address(session: AsyncSession, agent_id: UUID) -> Agent:
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="no such agent")
+    if not agent.address:
+        raise HTTPException(status_code=422, detail="agent has no address to reach")
+    return agent
+
+
+def _load_candidate_checks(settings: Settings, names: list[str] | None) -> list[dict[str, Any]]:
+    """Load the checks to run discovery for (default: the whole library),
+    each as {name, star, sidecar, sidecar_format, options, short_description}."""
+    from pathlib import Path
+
+    catalog = {c["name"]: c for c in checks_library.list_checks(settings.checks_dir)}
+    wanted = names if names else list(catalog)
+    out: list[dict[str, Any]] = []
+    for name in wanted:
+        entry = catalog.get(name)
+        if not entry:
+            continue
+        yaml_path, star_path = checks_library.check_paths(settings.checks_dir, name)
+        try:
+            star = star_path.read_text(encoding="utf-8")
+            sidecar = Path(yaml_path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        out.append({
+            "name": name, "star": star, "sidecar": sidecar, "sidecar_format": "yaml",
+            "options": entry.get("options", {}), "short_description": entry.get("short_description", ""),
+        })
+    return out
+
+
+@router.post("/api/v1/agents/{agent_id}/discover")
+async def discover_checks(
+    agent_id: UUID,
+    body: dict[str, Any] | None = None,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity: Identity = Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Run auto-discovery on this host: push the candidate checks and invoke
+    each in _discover mode, returning the items/metrics found (Checkmk-style
+    service discovery). Optional body {check_names: [...]} scopes the run
+    (default: the whole library). Read-only; proposes, never assigns —
+    apply the accepted proposals via POST .../discover/apply."""
+    from bossman.services.agent_client import AgentClientError
+    from bossman.services.discovery import run_check_discovery
+
+    if not await user_can_manage_agent(session, identity, agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    agent = await _agent_with_address(session, agent_id)
+    names = (body or {}).get("check_names")
+    checks = _load_candidate_checks(settings, names)
+    client = client_factory(agent, settings)
+    try:
+        proposals = await run_check_discovery(client, checks)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent_id), "candidates": len(checks), "proposals": [p.to_dict() for p in proposals]}
+
+
+@router.post("/api/v1/agents/{agent_id}/discover/apply")
+async def apply_discovery(
+    agent_id: UUID,
+    body: dict[str, Any],
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Turn accepted discovery proposals into host-scoped check assignments.
+    body {assign: [{check_name, item?, parameters?}, ...]}. The `item` (if any)
+    is folded into the assignment's parameters as `item` so the check runs for
+    that discovered item."""
+    if not await user_can_manage_agent(session, identity, agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="no such agent")
+    created = []
+    for spec in body.get("assign", []):
+        check_name = spec.get("check_name")
+        if not check_name:
+            continue
+        params = dict(spec.get("parameters") or {})
+        if spec.get("item"):
+            params["item"] = spec["item"]
+        a = CheckAssignment(
+            tenant_id=DEFAULT_TENANT_ID, check_name=check_name, scope_type="host",
+            agent_id=agent_id, parameters=params, source="autodiscovered", created_by=identity.name,
+        )
+        session.add(a)
+        created.append(check_name)
+    await session.commit()
+    return {"agent_id": str(agent_id), "assigned": created}
