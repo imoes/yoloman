@@ -39,6 +39,7 @@ from bossman.services.chat_backend import (
     HermesWebBackend,
 )
 from bossman.services.chat_oauth import ChatOAuthError, ChatOAuthService, token_needs_refresh
+from bossman.services.chat_prompt import build_system_prompt
 
 router = APIRouter()
 
@@ -366,7 +367,11 @@ async def send_message(
             select(ChatMessage).where(ChatMessage.session_id == sid).order_by(ChatMessage.seq)
         )
     ).all()
-    messages = [{"role": m.role, "content": m.content} for m in history_rows]
+    # Inject the (non-persisted) system prompt so the model knows how to emit
+    # Markdown + bm-widget/plantuml blocks. Backends route a system message to
+    # their own system slot (OpenAI system / claude --system-prompt).
+    messages = [{"role": "system", "content": build_system_prompt()}]
+    messages += [{"role": m.role, "content": m.content} for m in history_rows]
     assistant_seq = next_seq + 1
 
     try:

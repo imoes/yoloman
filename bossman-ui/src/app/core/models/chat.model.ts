@@ -59,6 +59,13 @@ export interface ChatPrefs {
   models: Record<string, string>;
 }
 
+/** A widget the assistant emitted (a ```bm-widget {json}``` block), parsed
+ * into the DashboardWidget contract the shared renderer already understands. */
+export interface ChatWidget {
+  widget: import('./dashboard.model').DashboardWidget;
+  data: import('./dashboard.model').WidgetData | null;
+}
+
 /** A rendered chat message in the dock. */
 export interface ChatUiMessage {
   role: 'user' | 'assistant';
@@ -66,4 +73,5 @@ export interface ChatUiMessage {
   streaming?: boolean;
   error?: boolean;
   tools?: { tool: string; done: boolean }[];
+  widgets?: ChatWidget[];
 }

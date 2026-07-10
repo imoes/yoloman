@@ -5,7 +5,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatUiMessage, CodexStartResponse, ClaudeStartResponse } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse } from '../../core/models/chat.model';
+import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
+import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
+
+const WIDGET_TYPES: WidgetType[] = ['top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat'];
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -23,7 +27,7 @@ const BACKEND_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-chat-dock',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent],
   template: `
     <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [style.height.px]="open() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
@@ -61,6 +65,13 @@ const BACKEND_LABELS: Record<string, string> = {
                 <div class="bm-msg-err">{{ m.text }}</div>
               } @else {
                 <div class="bm-md" [innerHTML]="rendered(m)"></div>
+              }
+              @if (m.widgets?.length) {
+                <div class="bm-msg-widgets">
+                  @for (w of m.widgets!; track $index) {
+                    <div class="bm-msg-widget"><app-dashboard-widget [widget]="w.widget" [data]="w.data" /></div>
+                  }
+                </div>
               }
             </div>
           }
@@ -138,6 +149,8 @@ const BACKEND_LABELS: Record<string, string> = {
       .bm-login-code { font-family: monospace; font-size: 15px; letter-spacing: 2px; background: var(--mat-sys-surface); padding: 2px 8px; border-radius: 4px; }
       .bm-login-wait { display: inline-flex; align-items: center; gap: 6px; color: var(--mat-sys-on-surface-variant); }
       .bm-login-input { padding: 4px 8px; border: 1px solid var(--mat-sys-outline); border-radius: 4px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+      .bm-msg-widgets { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .bm-msg-widget { min-height: 160px; background: var(--mat-sys-surface-container-high); border-radius: 8px; padding: 6px; }
     `,
   ],
 })
@@ -257,12 +270,57 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     } finally {
       this.zone.run(() => {
         assistant.streaming = false;
+        if (!assistant.error) {
+          // Extract ```bm-widget {json}``` blocks into rendered widgets and
+          // strip them from the markdown (done once, at stream end).
+          const { cleaned, widgets } = this.parseWidgets(assistant.text);
+          assistant.text = cleaned;
+          if (widgets.length) assistant.widgets = widgets;
+        }
         this.mdCache.delete(assistant);
         this.messages.update((m) => [...m]); // trigger re-render (markdown now)
         this.streaming.set(false);
         this.abort = null;
       });
     }
+  }
+
+  /** Pull ```bm-widget {json}``` fenced blocks out of assistant text into
+   * DashboardWidget specs (validated against the known widget types) and
+   * return the text with those blocks removed. */
+  private parseWidgets(text: string): { cleaned: string; widgets: ChatWidget[] } {
+    const widgets: ChatWidget[] = [];
+    const cleaned = text.replace(/```bm-widget\s*([\s\S]*?)```/g, (full, body) => {
+      try {
+        const w = this.toChatWidget(JSON.parse(String(body).trim()));
+        if (w) {
+          widgets.push(w);
+          return '';
+        }
+      } catch {
+        /* leave a malformed block visible as-is */
+      }
+      return full;
+    });
+    return { cleaned: cleaned.trim(), widgets };
+  }
+
+  private toChatWidget(spec: any): ChatWidget | null {
+    if (!spec || !WIDGET_TYPES.includes(spec.widget_type)) return null;
+    const widget: DashboardWidget = {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(Math.random())),
+      widget_type: spec.widget_type,
+      title: spec.title ?? '',
+      gs_x: 0,
+      gs_y: 0,
+      gs_w: spec.gs_w ?? 4,
+      gs_h: spec.gs_h ?? 3,
+      config: spec.config ?? {},
+      pinned: false,
+      hidden: false,
+      created_at: '',
+    };
+    return { widget, data: spec.data ?? null };
   }
 
   private onEvent(e: ChatEvent, assistant: ChatUiMessage): void {

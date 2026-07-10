@@ -99,6 +99,19 @@ export class ChatService {
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
     let buf = '';
+    // Returns true if the frame was the [DONE] sentinel (stop).
+    const handle = (part: string): boolean => {
+      const line = part.trim();
+      if (!line.startsWith('data:')) return false; // skip comments/heartbeats
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') return true;
+      try {
+        onEvent(JSON.parse(payload) as ChatEvent);
+      } catch {
+        /* ignore a malformed frame */
+      }
+      return false;
+    };
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -106,16 +119,11 @@ export class ChatService {
       const parts = buf.split('\n\n');
       buf = parts.pop() ?? '';
       for (const part of parts) {
-        const line = part.trim();
-        if (!line.startsWith('data:')) continue;
-        const payload = line.slice(5).trim();
-        if (payload === '[DONE]') return;
-        try {
-          onEvent(JSON.parse(payload) as ChatEvent);
-        } catch {
-          /* ignore a malformed frame */
-        }
+        if (handle(part)) return;
       }
     }
+    // Trailing-frame flush: the stream can close before the final \n\n reaches
+    // the buffer, leaving the last event (often the terminal one) unparsed.
+    if (buf.trim()) handle(buf);
   }
 }
