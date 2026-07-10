@@ -32,6 +32,33 @@ export interface ChatEvent {
   [key: string]: unknown;
 }
 
+export interface OAuthStatusResponse {
+  authenticated: Record<ChatBackendName, boolean>;
+}
+
+export interface CodexStartResponse {
+  session_id: string;
+  user_code: string;
+  verification_uri: string;
+  poll_interval_seconds: number;
+  expires_in_minutes: number;
+}
+
+export interface CodexPollResponse {
+  status: 'pending' | 'authorized' | 'timeout';
+}
+
+export interface ClaudeStartResponse {
+  session_id: string;
+  authorize_url: string;
+  expires_in_minutes: number;
+}
+
+export interface ChatPrefs {
+  default_backend: ChatBackendName;
+  models: Record<string, string>;
+}
+
 /** A rendered chat message in the dock. */
 export interface ChatUiMessage {
   role: 'user' | 'assistant';

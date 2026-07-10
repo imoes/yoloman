@@ -1,11 +1,11 @@
-import { Component, NgZone, OnInit, inject, signal } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatUiMessage } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatUiMessage, CodexStartResponse, ClaudeStartResponse } from '../../core/models/chat.model';
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -33,8 +33,8 @@ const BACKEND_LABELS: Record<string, string> = {
         </button>
         <mat-icon class="bm-dock-icon">smart_toy</mat-icon>
         <span class="bm-dock-title">Assistant</span>
-        <select class="bm-dock-backend" [value]="backend()" (change)="backend.set($any($event.target).value)" [disabled]="streaming()">
-          @for (b of backends(); track b) { <option [value]="b">{{ label(b) }}</option> }
+        <select class="bm-dock-backend" [value]="backend()" (change)="onBackendChange($any($event.target).value)" [disabled]="streaming()">
+          @for (b of backends(); track b) { <option [value]="b">{{ label(b) }}{{ authed()[b] === false ? ' ⚠' : '' }}</option> }
         </select>
         <span class="bm-dock-spacer"></span>
         <button mat-icon-button (click)="newSession()" [disabled]="streaming()" title="New conversation"><mat-icon>add_comment</mat-icon></button>
@@ -66,18 +66,42 @@ const BACKEND_LABELS: Record<string, string> = {
           }
         </div>
 
+        @if (needsAuth()) {
+          <div class="bm-dock-login">
+            <span class="bm-login-note">{{ label(backend()) }} is not logged in.</span>
+            @if (backend() === 'codex') {
+              @if (codexLogin(); as c) {
+                <span>Open <a [href]="c.verification_uri" target="_blank" rel="noopener">{{ c.verification_uri }}</a> and enter code</span>
+                <code class="bm-login-code">{{ c.user_code }}</code>
+                <span class="bm-login-wait"><mat-spinner diameter="14" /> waiting…</span>
+              } @else {
+                <button mat-flat-button color="primary" (click)="startCodexLogin()" [disabled]="loginBusy()">Log in with ChatGPT</button>
+              }
+            } @else if (backend() === 'claude_cli') {
+              @if (claudeLogin(); as c) {
+                <span>Open <a [href]="c.authorize_url" target="_blank" rel="noopener">the Claude authorize page</a>, then paste the code:</span>
+                <input class="bm-login-input" type="text" [value]="claudeCode()" (input)="claudeCode.set($any($event.target).value)" placeholder="code#state" />
+                <button mat-stroked-button (click)="completeClaudeLogin()" [disabled]="loginBusy() || !claudeCode().trim()">Complete</button>
+              } @else {
+                <button mat-flat-button color="primary" (click)="startClaudeLogin()" [disabled]="loginBusy()">Log in with Claude</button>
+              }
+            }
+            @if (loginErr()) { <span class="bm-svc-err">{{ loginErr() }}</span> }
+          </div>
+        }
+
         <form class="bm-dock-input" (submit)="send($event)">
           <input
             type="text"
             placeholder="Ask the assistant… (Markdown, plans, widgets)"
             [value]="input()"
             (input)="input.set($any($event.target).value)"
-            [disabled]="streaming()"
+            [disabled]="streaming() || needsAuth()"
           />
           @if (streaming()) {
             <button type="button" mat-stroked-button (click)="stop()">Stop</button>
           } @else {
-            <button type="submit" mat-flat-button color="primary" [disabled]="!input().trim()">Send</button>
+            <button type="submit" mat-flat-button color="primary" [disabled]="!input().trim() || needsAuth()">Send</button>
           }
         </form>
       }
@@ -109,10 +133,15 @@ const BACKEND_LABELS: Record<string, string> = {
       .bm-dock-input { display: flex; gap: 8px; padding: 8px 12px; flex: none; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-dock-input input { flex: 1; padding: 8px 10px; border: 1px solid var(--mat-sys-outline); border-radius: 6px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
       .bm-dock-err { color: var(--mat-sys-error); font-size: 12px; }
+      .bm-dock-login { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; font-size: 12px; border-top: 1px solid var(--mat-sys-outline-variant); background: color-mix(in srgb, var(--mat-sys-tertiary) 10%, transparent); }
+      .bm-login-note { color: var(--mat-sys-on-surface-variant); }
+      .bm-login-code { font-family: monospace; font-size: 15px; letter-spacing: 2px; background: var(--mat-sys-surface); padding: 2px 8px; border-radius: 4px; }
+      .bm-login-wait { display: inline-flex; align-items: center; gap: 6px; color: var(--mat-sys-on-surface-variant); }
+      .bm-login-input { padding: 4px 8px; border: 1px solid var(--mat-sys-outline); border-radius: 4px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
     `,
   ],
 })
-export class ChatDockComponent implements OnInit {
+export class ChatDockComponent implements OnInit, OnDestroy {
   private chat = inject(ChatService);
   private sanitizer = inject(DomSanitizer);
   private zone = inject(NgZone);
@@ -126,20 +155,50 @@ export class ChatDockComponent implements OnInit {
   streaming = signal(false);
   loadErr = signal<string | null>(null);
 
+  // Per-user auth status + login state.
+  authed = signal<Record<string, boolean>>({});
+  codexLogin = signal<CodexStartResponse | null>(null);
+  claudeLogin = signal<ClaudeStartResponse | null>(null);
+  claudeCode = signal('');
+  loginBusy = signal(false);
+  loginErr = signal<string | null>(null);
+
+  /** hermes_web needs no per-user login; codex/claude do. */
+  needsAuth = computed(() => this.backend() !== 'hermes_web' && this.authed()[this.backend()] === false);
+
   private sessionId: string | null = null;
   private abort: AbortController | null = null;
+  private codexPoll: ReturnType<typeof setInterval> | null = null;
   private mdCache = new WeakMap<ChatUiMessage, SafeHtml>();
 
   label = (b: string) => BACKEND_LABELS[b] ?? b;
 
   ngOnInit(): void {
-    this.chat.backends().subscribe({
-      next: (res) => {
-        this.backends.set(res.backends);
-        this.backend.set(res.default);
-      },
-      error: () => {},
-    });
+    this.chat.backends().subscribe({ next: (res) => this.backends.set(res.backends), error: () => {} });
+    // Per-user default backend + auth status.
+    this.chat.getPrefs().subscribe({ next: (p) => this.backend.set(p.default_backend), error: () => {} });
+    this.refreshAuth();
+  }
+
+  ngOnDestroy(): void {
+    this.abort?.abort();
+    this.stopCodexPoll();
+  }
+
+  private refreshAuth(): void {
+    this.chat.oauthStatus().subscribe({ next: (s) => this.authed.set(s.authenticated), error: () => {} });
+  }
+
+  onBackendChange(b: ChatBackendName): void {
+    if (b === this.backend()) return;
+    this.backend.set(b);
+    this.newSession(); // sessions are pinned to a backend — switch starts fresh
+    this.stopCodexPoll();
+    this.codexLogin.set(null);
+    this.claudeLogin.set(null);
+    this.loginErr.set(null);
+    this.chat.setPrefs({ default_backend: b }).subscribe({ error: () => {} });
+    this.refreshAuth();
   }
 
   rendered(m: ChatUiMessage): SafeHtml {
@@ -230,6 +289,88 @@ export class ChatDockComponent implements OnInit {
 
   stop(): void {
     this.abort?.abort();
+  }
+
+  // ---- OAuth login flows ----
+
+  startCodexLogin(): void {
+    this.loginBusy.set(true);
+    this.loginErr.set(null);
+    this.chat.codexStart().subscribe({
+      next: (res) => {
+        this.loginBusy.set(false);
+        this.codexLogin.set(res);
+        this.stopCodexPoll();
+        this.codexPoll = setInterval(() => this.pollCodex(res.session_id), (res.poll_interval_seconds || 5) * 1000);
+      },
+      error: (e) => {
+        this.loginBusy.set(false);
+        this.loginErr.set(e?.error?.detail ?? 'login failed to start');
+      },
+    });
+  }
+
+  private pollCodex(sid: string): void {
+    this.chat.codexPoll(sid).subscribe({
+      next: (res) => {
+        if (res.status === 'authorized') {
+          this.stopCodexPoll();
+          this.codexLogin.set(null);
+          this.refreshAuth();
+        } else if (res.status === 'timeout') {
+          this.stopCodexPoll();
+          this.codexLogin.set(null);
+          this.loginErr.set('login timed out — try again');
+        }
+      },
+      error: () => {
+        this.stopCodexPoll();
+        this.codexLogin.set(null);
+        this.loginErr.set('login polling failed');
+      },
+    });
+  }
+
+  private stopCodexPoll(): void {
+    if (this.codexPoll) {
+      clearInterval(this.codexPoll);
+      this.codexPoll = null;
+    }
+  }
+
+  startClaudeLogin(): void {
+    this.loginBusy.set(true);
+    this.loginErr.set(null);
+    this.chat.claudeStart().subscribe({
+      next: (res) => {
+        this.loginBusy.set(false);
+        this.claudeLogin.set(res);
+      },
+      error: (e) => {
+        this.loginBusy.set(false);
+        this.loginErr.set(e?.error?.detail ?? 'login failed to start');
+      },
+    });
+  }
+
+  completeClaudeLogin(): void {
+    const login = this.claudeLogin();
+    const code = this.claudeCode().trim();
+    if (!login || !code) return;
+    this.loginBusy.set(true);
+    this.loginErr.set(null);
+    this.chat.claudeComplete(login.session_id, code).subscribe({
+      next: () => {
+        this.loginBusy.set(false);
+        this.claudeLogin.set(null);
+        this.claudeCode.set('');
+        this.refreshAuth();
+      },
+      error: (e) => {
+        this.loginBusy.set(false);
+        this.loginErr.set(e?.error?.detail ?? 'login failed');
+      },
+    });
   }
 
   startResize(ev: MouseEvent): void {
