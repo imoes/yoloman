@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # validate_module/submit_module shell out to.
     starlark_check_path: str = "starlark-check"
 
+    # The check library (Block G9): every monitoring check — translated from
+    # Checkmk or hand-authored ("custom checks") — lands here FLAT as
+    # <name>.{star,yaml}, unlike modules.d's per-collection layout. A check is
+    # a read-only Starlark module (writes:false) returning a monitoring
+    # verdict in `data` (state/metrics); see services/checkmk_translation.py.
+    checks_dir: str = "/etc/bossman/checks.d"
+
     # Seed the built-in-check default rules (Memory/Disk) at startup (Block
     # H6). Disabled in the test suite so the seeded global rules don't
     # pollute the shared test database's count-based assertions.

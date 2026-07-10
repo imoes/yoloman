@@ -40,7 +40,7 @@ from bossman.db.models import (
     Service,
 )
 from bossman.mcp.auth import current_identity
-from bossman.services import module_library
+from bossman.services import checks_library, module_library
 from bossman.services.agent_client import AgentClientError, client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.compiler import (
@@ -490,6 +490,41 @@ def build_mcp_server(
         next fqcn from there, get_module_source() it, translate, validate_module()
         until ok, then submit_module(). Safe to call any time for resume."""
         return module_library.status(settings.modules_dir, settings.module_sources_dir)
+
+    # ── Check library (Block G9) ─────────────────────────────────────────
+    # Checks (Checkmk translations + custom) are READ-ONLY Starlark modules
+    # stored FLAT in checks_dir, distinct from the Ansible modules above.
+    # get_module_source serves their translation source too (fqcn
+    # "checkmk.<name>"); submit_check writes them, list_checks_status is the
+    # resumable queue.
+
+    def _check_source_names() -> list[str]:
+        from pathlib import Path
+
+        return sorted(p.stem[len("checkmk.") :] for p in Path(settings.module_sources_dir).glob("checkmk.*.json"))
+
+    @mcp.tool()
+    async def submit_check(name: str, metadata_yaml: str, star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Store one translated/custom CHECK in the flat check library
+        (<checks_dir>/<name>.{star,yaml}). Like submit_module but for a
+        read-only monitoring check: the metadata must have writes:false and
+        kind:check, and the Starlark main(ctx, params) must return
+        {"changed": False, "msg": ..., "data": {"state": "OK|WARN|CRIT|UNKNOWN",
+        "metrics": {...}, "details": ...}}. Validates first (same hard gate)
+        and only persists on ok. `name` is the flat check name (e.g. "http")."""
+        return checks_library.submit_check(
+            settings.checks_dir, settings.starlark_check_path, name, metadata_yaml, star_code, params
+        )
+
+    @mcp.tool()
+    async def list_checks_status() -> dict[str, Any]:
+        """Translation progress of the CHECK library, derived from the
+        filesystem: {total, translated, missing: [name, ...]}. The dumped
+        checkmk.*.json sources define the universe; a stored <name>.star means
+        translated. `missing` is the work queue — get_module_source
+        ("checkmk.<name>"), translate to a read-only check module, then
+        submit_check(name, ...). Safe to call any time for resume."""
+        return checks_library.checks_status(settings.checks_dir, _check_source_names())
 
     # ── Policy & Orchestration (Block L2) ────────────────────────────────
     # Read-only + a safe dry-run preview + ONE gated write tool for the
