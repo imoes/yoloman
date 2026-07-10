@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
   { path: '/modules', label: 'Modules', icon: 'extension' },
+  { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/plans', label: 'Plans', icon: 'checklist' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
