@@ -504,16 +504,16 @@ def build_mcp_server(
         return sorted(p.stem[len("checkmk.") :] for p in Path(settings.module_sources_dir).glob("checkmk.*.json"))
 
     @mcp.tool()
-    async def submit_check(name: str, metadata_yaml: str, star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def submit_check(name: str, metadata: str, star_code: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Store one translated/custom CHECK in the flat check library
-        (<checks_dir>/<name>.{star,yaml}). Like submit_module but for a
-        read-only monitoring check: the metadata must have writes:false and
-        kind:check, and the Starlark main(ctx, params) must return
+        (<checks_dir>/<name>.{star,nt}). Like submit_module but for a
+        read-only monitoring check: `metadata` is NestedText with writes:false
+        and kind:check, and the Starlark main(ctx, params) must return
         {"changed": False, "msg": ..., "data": {"state": "OK|WARN|CRIT|UNKNOWN",
         "metrics": {...}, "details": ...}}. Validates first (same hard gate)
         and only persists on ok. `name` is the flat check name (e.g. "http")."""
         return checks_library.submit_check(
-            settings.checks_dir, settings.starlark_check_path, name, metadata_yaml, star_code, params
+            settings.checks_dir, settings.starlark_check_path, name, metadata, star_code, params
         )
 
     @mcp.tool()

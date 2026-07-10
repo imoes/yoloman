@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import yaml
+import nestedtext
 
 from bossman.services.starlark_translation import (  # reuse the shared, tested helpers
     SOURCE_CHAR_BUDGET,
@@ -134,11 +134,11 @@ core threshold logic; skip clustering / SNMP-only / cluster-section paths.
 """
 
 
-def build_checkmk_metadata_yaml(record: dict[str, Any]) -> str:
-    """Catalog metadata for a translated check module. Like the Ansible
-    build_metadata_yaml but always read-only (writes: false) and marks the
-    module as a check so the UI/agent can treat its `data.state`/`data.metrics`
-    as a monitoring result."""
+def build_checkmk_metadata_nt(record: dict[str, Any]) -> str:
+    """Catalog metadata for a translated check module, as NestedText (project
+    convention — no YAML). Always read-only (writes: false) and marked kind:
+    check so the UI/agent treat its `data.state`/`data.metrics` as a
+    monitoring result."""
     doc = record.get("doc") or {}
     options: dict[str, Any] = {}
     for name, spec in sorted((doc.get("options") or {}).items()):
@@ -175,7 +175,9 @@ def build_checkmk_metadata_yaml(record: dict[str, Any]) -> str:
     examples = record.get("examples")
     if examples:
         meta["examples"] = examples
-    return yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=100)
+    # NestedText: all leaves must be strings — default=str coerces the bool
+    # (writes) and any numeric defaults; nested option dicts are preserved.
+    return nestedtext.dumps(meta, default=str)
 
 
 def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[str, str]]:

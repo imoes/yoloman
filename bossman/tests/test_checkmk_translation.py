@@ -1,11 +1,11 @@
 """Block G9 — the Checkmk-check translation helpers (pure, no LLM/IO)."""
 
-import yaml
+import nestedtext
 
 from bossman.services.checkmk_translation import (
     CHECK_CONTRACT_ADDENDUM,
     build_checkmk_messages,
-    build_checkmk_metadata_yaml,
+    build_checkmk_metadata_nt,
 )
 
 _RECORD = {
@@ -23,21 +23,20 @@ _RECORD = {
 }
 
 
-def test_metadata_is_readonly_check():
-    meta = yaml.safe_load(build_checkmk_metadata_yaml(_RECORD))
+def test_metadata_is_readonly_check_nt():
+    meta = nestedtext.loads(build_checkmk_metadata_nt(_RECORD), top="dict")
     assert meta["fqcn"] == "checkmk.fileinfo"
     assert meta["collection"] == "checkmk"
-    assert meta["writes"] is False          # a check never mutates
+    # NestedText leaves are strings — writes is the string "False", kind "check"
+    assert meta["writes"] == "False"        # a check never mutates
     assert meta["runtime"] == "starlark"
     assert meta["kind"] == "check"
     assert meta["source"] == "translated"
-    # fqcn must equal collection.name (submit_module enforces this too)
     assert meta["fqcn"] == f"{meta['collection']}.{meta['name']}"
 
 
-def test_metadata_fqcn_matches_submit_contract():
-    # parse_metadata (library) requires these keys; make sure they're all present.
-    meta = yaml.safe_load(build_checkmk_metadata_yaml(_RECORD))
+def test_metadata_has_required_keys():
+    meta = nestedtext.loads(build_checkmk_metadata_nt(_RECORD), top="dict")
     for key in ("name", "fqcn", "collection", "short_description", "options", "writes", "runtime"):
         assert key in meta, key
 

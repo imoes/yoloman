@@ -288,3 +288,64 @@ async def apply_discovery(
         created.append(check_name)
     await session.commit()
     return {"agent_id": str(agent_id), "assigned": created}
+
+
+# ── Credential provisioning (Block G9-P3d) ─────────────────────────────────
+
+
+@router.get("/api/v1/checks/{name}/provisioning")
+async def check_provisioning(
+    name: str, settings: Settings = Depends(get_settings), _identity=Depends(get_current_identity)
+) -> dict[str, Any]:
+    """Whether this check ships a provisioning recipe (create a monitoring
+    account) and, if so, the admin params the wizard must collect."""
+    from bossman.services import provisioning
+
+    recipe = provisioning.load_recipe(settings.checks_dir, name)
+    if recipe is None:
+        return {"available": False}
+    return {
+        "available": True,
+        "title": recipe.get("title", "Provision " + name),
+        "description": recipe.get("description", ""),
+        "admin_params": provisioning.admin_param_specs(recipe),
+    }
+
+
+@router.post("/api/v1/agents/{agent_id}/checks/{name}/provision")
+async def provision_check(
+    agent_id: UUID,
+    name: str,
+    body: dict[str, Any],
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity: Identity = Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Run the check's provisioning recipe on the host (create the monitoring
+    account with the operator-supplied admin creds), then assign the check to
+    the host with the generated monitoring credential. Admin creds are used
+    only for the setup command and never stored. Needs manage rights on the
+    host. body: {admin_params: {...}, extra_params?: {...}}."""
+    from bossman.services import provisioning
+
+    if not await user_can_manage_agent(session, identity, agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    recipe = provisioning.load_recipe(settings.checks_dir, name)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail=f"check {name!r} has no provisioning recipe")
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    result = await provisioning.provision(client, recipe, body.get("admin_params") or {})
+    if not result["ok"]:
+        raise HTTPException(status_code=422, detail=result["error"])
+
+    params = {**(body.get("extra_params") or {}), **result["produced_params"]}
+    a = CheckAssignment(
+        tenant_id=DEFAULT_TENANT_ID, check_name=name, scope_type="host",
+        agent_id=agent_id, parameters=params, source="autodiscovered", created_by=identity.name,
+    )
+    session.add(a)
+    await session.commit()
+    # never echo the admin creds; the produced monitoring cred is what was stored
+    return {"assignment": _assignment_out(a), "provisioned": True}

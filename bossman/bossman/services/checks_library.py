@@ -18,24 +18,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
+import nestedtext
 
 from bossman.services.module_library import ModuleLibraryError, load_metadata, validate_star
 
 
 def check_paths(checks_dir: str | Path, name: str) -> tuple[Path, Path]:
-    """The flat <checks_dir>/<name>.{yaml,star} pair for one check."""
+    """The flat <checks_dir>/<name>.{nt,star} pair for one check. Metadata is
+    NestedText (project convention — no YAML)."""
     base = Path(checks_dir)
-    return base / f"{name}.yaml", base / f"{name}.star"
+    return base / f"{name}.nt", base / f"{name}.star"
 
 
-def _parse_check_metadata(metadata_yaml: str, name: str) -> dict[str, Any]:
+def _parse_check_metadata(metadata_text: str, name: str) -> dict[str, Any]:
     try:
-        meta = yaml.safe_load(metadata_yaml)
-    except yaml.YAMLError as exc:
-        raise ModuleLibraryError(f"check metadata is not valid YAML: {exc}") from exc
+        meta = nestedtext.loads(metadata_text, top="dict")
+    except nestedtext.NestedTextError as exc:
+        raise ModuleLibraryError(f"check metadata is not valid NestedText: {exc}") from exc
     if not isinstance(meta, dict):
-        raise ModuleLibraryError("check metadata must be a YAML mapping")
+        raise ModuleLibraryError("check metadata must be a NestedText mapping")
     for key in ("name", "short_description", "options", "runtime"):
         if key not in meta:
             raise ModuleLibraryError(f"check metadata is missing required key: {key}")
@@ -52,42 +53,42 @@ def submit_check(
     checks_dir: str | Path,
     starlark_check_path: str,
     name: str,
-    metadata_yaml: str,
+    metadata_text: str,
     star_code: str,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate (hard gate) then persist one check flat in checks_dir.
-    Returns {stored, paths, validation}."""
-    _parse_check_metadata(metadata_yaml, name)
+    `metadata_text` is NestedText. Returns {stored, paths, validation}."""
+    _parse_check_metadata(metadata_text, name)
     result = validate_star(starlark_check_path, star_code, params)
     if not result.ok:
         return {"stored": False, "validation": result.to_dict()}
-    yaml_path, star_path = check_paths(checks_dir, name)
-    yaml_path.parent.mkdir(parents=True, exist_ok=True)
-    yaml_path.write_text(metadata_yaml, encoding="utf-8")
+    nt_path, star_path = check_paths(checks_dir, name)
+    nt_path.parent.mkdir(parents=True, exist_ok=True)
+    nt_path.write_text(metadata_text, encoding="utf-8")
     star_path.write_text(star_code, encoding="utf-8")
-    return {"stored": True, "paths": {"metadata": str(yaml_path), "star": str(star_path)}, "validation": result.to_dict()}
+    return {"stored": True, "paths": {"metadata": str(nt_path), "star": str(star_path)}, "validation": result.to_dict()}
 
 
 def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
     """Catalog listing: one entry per stored check (a <name>.star with a
-    matching <name>.yaml), enriched from the small metadata."""
+    matching <name>.nt), enriched from the small NestedText metadata."""
     base = Path(checks_dir)
     out: list[dict[str, Any]] = []
     if not base.is_dir():
         return out
     for star in sorted(base.glob("*.star")):
         name = star.stem
-        yaml_path = base / f"{name}.yaml"
-        if not yaml_path.exists():
+        nt_path = base / f"{name}.nt"
+        if not nt_path.exists():
             continue
         entry: dict[str, Any] = {"name": name, "kind": "check", "source": "translated"}
         try:
-            meta = load_metadata(yaml_path)
+            meta = load_metadata(nt_path)
             entry["short_description"] = meta.get("short_description", "")
             entry["source"] = meta.get("source", "translated")
             entry["options"] = meta.get("options", {}) or {}
-        except (OSError, yaml.YAMLError, ModuleLibraryError):
+        except (OSError, ModuleLibraryError):
             entry["options"] = {}
         out.append(entry)
     return out
@@ -95,13 +96,13 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
 
 def load_check(checks_dir: str | Path, name: str) -> dict[str, Any]:
     """One stored check: parsed metadata + Starlark source."""
-    yaml_path, star_path = check_paths(checks_dir, name)
-    if not yaml_path.exists() or not star_path.exists():
+    nt_path, star_path = check_paths(checks_dir, name)
+    if not nt_path.exists() or not star_path.exists():
         raise ModuleLibraryError(f"check {name!r} is not in the library")
     try:
-        metadata = load_metadata(yaml_path)
+        metadata = load_metadata(nt_path)
         star_code = star_path.read_text(encoding="utf-8")
-    except (OSError, yaml.YAMLError) as exc:
+    except OSError as exc:
         raise ModuleLibraryError(f"cannot read check {name!r}: {exc}") from exc
     return {"name": name, "metadata": metadata, "star_code": star_code}
 
