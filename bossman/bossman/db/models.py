@@ -863,6 +863,29 @@ class Runbook(Base):
     )
 
 
+class RunbookRun(Base):
+    """One execution of a runbook against a host (Block G11) — the audit
+    trail, like PlanRun for plans. `result` is the engine's RunResult
+    (per-step ok/changed/skipped/failed). dry_run=true is a check_mode
+    preview. Kept as a JSONB blob rather than per-step rows: a runbook run is
+    reviewed as a whole, and the doc is already DB-canonical."""
+
+    __tablename__ = "runbook_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    runbook_name: Mapped[str] = mapped_column(String, nullable=False)
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="ok")  # ok | failed | aborted
+    changed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    requested_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("idx_runbook_runs_agent", "agent_id"),)
+
+
 class SystemSettings(Base):
     """One-and-only row of Bossman-wide runtime toggles (Block L2) — DB-
     backed (not env-var) so they flip instantly via the REST API/UI without

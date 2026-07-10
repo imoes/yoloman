@@ -23,10 +23,11 @@ from sqlalchemy.exc import IntegrityError
 from bossman.api.auth import get_current_identity
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, Runbook
+from bossman.db.models import Agent, Runbook, RunbookRun
 from bossman.db.session import get_session
 from bossman.services import nt_compile, nt_convert, nt_engine, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
+from bossman.services.plan_loader import load_host_vars
 
 router = APIRouter()
 
@@ -168,10 +169,53 @@ async def run_runbook(
                 magic.update(facts)
     except Exception:  # noqa: BLE001 — facts are best-effort, never block the run
         pass
-    variables = {**magic, **(body.variables or {})}
+    # Variable precedence (weakest→strongest): magic facts < host_vars <
+    # explicit request variables. (Group/OU var scopes are a follow-on store.)
+    try:
+        host_vars = load_host_vars(settings.plans_dir, agent.name) or {}
+    except Exception:  # noqa: BLE001
+        host_vars = {}
+    variables = {**magic, **host_vars, **(body.variables or {})}
 
     result = await nt_engine.run_runbook(doc, client, variables, check_mode=body.dry_run)
-    return {"agent_id": str(agent_id), "runbook": doc.name, "facts_gathered": len(magic) - 1, **result.to_dict()}
+    rr = result.to_dict()
+
+    # Persist the run as an audit record (dry-run or apply).
+    run_row = RunbookRun(
+        tenant_id=DEFAULT_TENANT_ID, runbook_name=doc.name, agent_id=agent_id,
+        dry_run=body.dry_run, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
+        changed=result.changed, result=rr, requested_by=identity.name,
+    )
+    session.add(run_row)
+    await session.commit()
+
+    return {"run_id": str(run_row.id), "agent_id": str(agent_id), "runbook": doc.name,
+            "facts_gathered": len(magic) - 1, **rr}
+
+
+@router.get("/api/v1/runbook-runs")
+async def list_runbook_runs(
+    agent_id: UUID | None = None, limit: int = 50,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """The runbook-run audit trail (newest first), optionally for one host."""
+    stmt = select(RunbookRun).where(RunbookRun.tenant_id == DEFAULT_TENANT_ID)
+    if agent_id is not None:
+        stmt = stmt.where(RunbookRun.agent_id == agent_id)
+    rows = (await session.scalars(stmt.order_by(RunbookRun.created_at.desc()).limit(limit))).all()
+    return {"runs": [{"id": str(r.id), "runbook": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
+                      "dry_run": r.dry_run, "status": r.status, "changed": r.changed,
+                      "created_at": r.created_at.isoformat() if r.created_at else None} for r in rows]}
+
+
+@router.get("/api/v1/runbook-runs/{run_id}")
+async def get_runbook_run(run_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    r = await session.get(RunbookRun, run_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="no such run")
+    return {"id": str(r.id), "runbook": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
+            "dry_run": r.dry_run, "status": r.status, "changed": r.changed, "result": r.result,
+            "requested_by": r.requested_by, "created_at": r.created_at.isoformat() if r.created_at else None}
 
 
 @router.post("/api/v1/runbooks/role/compile")
