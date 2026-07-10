@@ -40,69 +40,97 @@ from bossman.services.starlark_translation import (  # reuse the shared, tested 
 # example-led — the model already gets the language rules from the base
 # contract; this only teaches the read-only monitoring return shape.
 CHECK_CONTRACT_ADDENDUM = """\
-# Checkmk check → read-only Starlark check module
+# Checkmk check → read-only Starlark check module (with discovery)
 
 You are translating a Checkmk **check** (a monitor), NOT a state-changing
 Ansible module. The module must be READ-ONLY: it gathers data on the host and
 reports a verdict — it never mutates the system (never pass mutates=True,
 never call ctx.file_write).
 
-## What to produce
+A Checkmk check has TWO parts you must reproduce, both inside one
+`def main(ctx, params):`, selected by whether `params.get("_discover")` is set:
 
-`def main(ctx, params):` that
+## 1. DISCOVERY MODE  —  when `params.get("_discover")` is true
 
-1. Gathers the same data the Checkmk check consumes, but ON THE HOST via ctx.*
-   (the Checkmk *agent plugin*'s job). E.g. run the probe command with
-   ctx.run([...]) (mutates=False), or read files with ctx.file_read / ctx.stat.
-2. Applies the check's threshold logic. Warn/crit levels arrive in `params`
-   (use params.get with the Checkmk default). Compare the measured value.
-3. Returns the verdict — NEVER changed=True:
+Reproduce the check's Checkmk `discovery_function`: gather the on-host data
+and ENUMERATE the items this host actually has, each with the metric names it
+exposes. (Checkmk discovery yields one Service per item — one per filesystem
+for df, one per file for fileinfo, ONE PER SENSOR for ipmi, and each item's
+metrics are discovered with it.) Return:
+
+    return {
+        "changed": False,
+        "msg": "discovered N items",
+        "data": {"discovery": [
+            {"item": "<item name>",            # "" for a single-service check
+             "params": {<suggested default params for this item>},
+             "metrics": ["<metric name>", ...]},   # the perfdata this item yields
+            ...
+        ]},
+    }
+
+If nothing is found the check does not apply to this host -> return an empty
+`discovery` list. A single-service check (no per-item breakdown, e.g. uptime,
+mem) returns exactly one entry with item "".
+
+## 2. CHECK MODE  —  otherwise (the normal path)
+
+Check ONE item — `params.get("item", "")` names which one (from discovery;
+"" for a single-service check). Gather that item's data on-host via ctx.*
+(run the probe with ctx.run([...], mutates=False), or ctx.file_read /
+ctx.stat), apply the threshold logic (warn/crit arrive in `params`, use
+params.get with the Checkmk default), and return the verdict — NEVER
+changed=True:
 
     return {
         "changed": False,
         "msg": "<one-line summary, Checkmk-style, e.g. 'Size: 1.2 MB, Age: 5 m'>",
         "data": {
-            "state": "OK",              # one of: OK, WARN, CRIT, UNKNOWN
-            "metrics": {"size": 1234, "age": 300},   # perfdata: name -> number
-            "details": "",              # optional extra lines
+            "state": "OK",                          # OK | WARN | CRIT | UNKNOWN
+            "metrics": {"size": 1234, "age": 300},  # perfdata: name -> number
+            "details": "",
         },
     }
 
 ## State rules
 
-- Compute state from the measured value against the params levels:
-  upper levels -> WARN if value >= warn, CRIT if value >= crit;
+- upper levels -> WARN if value >= warn, CRIT if value >= crit;
   lower levels -> WARN if value <= warn, CRIT if value <= crit.
-- If data cannot be gathered (command missing, file absent when it must
-  exist), return state "UNKNOWN" with a msg explaining why — do NOT fail()
-  for an expected "not found" the check itself would report as a state.
+- Data ungatherable / item gone -> state "UNKNOWN" with an explaining msg; do
+  NOT fail() for an expected "not found" the check reports as a state.
 - `metrics` values MUST be plain numbers (int/float), never strings.
 
-## Example (complete, contract-correct — a file age/size check)
+## Example (complete — a per-mount filesystem check, both modes)
 
     def main(ctx, params):
-        path = params["path"]
-        warn_size = params.get("size_warn")
-        crit_size = params.get("size_crit")
-        st = ctx.stat(path)
-        if st == None or not st.get("exists"):
-            return {"changed": False, "msg": "File not found: " + path,
+        if params.get("_discover"):
+            res = ctx.run(["df", "-PkT"], mutates=False)
+            out = []
+            for line in res.stdout.splitlines()[1:]:
+                f = line.split()
+                if len(f) < 7:
+                    continue
+                mount = f[6]
+                out.append({"item": mount, "params": {"warn": 80, "crit": 90},
+                            "metrics": ["used_percent"]})
+            return {"changed": False, "msg": "discovered %d filesystems" % len(out),
+                    "data": {"discovery": out}}
+        item = params.get("item", "")
+        res = ctx.run(["df", "-PkT", item], mutates=False)
+        lines = res.stdout.splitlines()
+        if len(lines) < 2:
+            return {"changed": False, "msg": "no such mount: " + item,
                     "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        size = st.get("size", 0)
-        state = "OK"
-        if crit_size != None and size >= crit_size:
-            state = "CRIT"
-        elif warn_size != None and size >= warn_size:
-            state = "WARN"
-        return {
-            "changed": False,
-            "msg": "Size: %d bytes" % size,
-            "data": {"state": state, "metrics": {"size": size}, "details": ""},
-        }
+        f = lines[1].split()
+        used = int(f[5].rstrip("%")) if f[5].rstrip("%").isdigit() else 0
+        warn = params.get("warn", 80)
+        crit = params.get("crit", 90)
+        state = "CRIT" if used >= crit else ("WARN" if used >= warn else "OK")
+        return {"changed": False, "msg": "%s %d%% used" % (item, used),
+                "data": {"state": state, "metrics": {"used_percent": used}, "details": ""}}
 
-Keep it focused (typically 40-140 lines). Reproduce the check's core
-behavior and thresholds; skip discovery/clustering/SNMP-only paths — this is
-a single-service on-host probe.
+Keep it focused (typically 50-160 lines). Reproduce the check's discovery +
+core threshold logic; skip clustering / SNMP-only / cluster-section paths.
 """
 
 
