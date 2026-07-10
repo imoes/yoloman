@@ -23,11 +23,12 @@ from sqlalchemy.exc import IntegrityError
 from bossman.api.auth import get_current_identity
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, Runbook, RunbookRun
+from bossman.db.models import Agent, Runbook, RunbookRun, ScopeVars
 from bossman.db.session import get_session
 from bossman.services import nt_compile, nt_convert, nt_engine, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.plan_loader import load_host_vars
+from bossman.services.scope_vars import resolve_scope_vars
 
 router = APIRouter()
 
@@ -169,13 +170,15 @@ async def run_runbook(
                 magic.update(facts)
     except Exception:  # noqa: BLE001 — facts are best-effort, never block the run
         pass
-    # Variable precedence (weakest→strongest): magic facts < host_vars <
-    # explicit request variables. (Group/OU var scopes are a follow-on store.)
+    # Variable precedence (weakest→strongest): magic facts < filesystem
+    # host_vars < GPO-resolved scope vars (group < OU root→leaf < host) <
+    # explicit request variables.
     try:
         host_vars = load_host_vars(settings.plans_dir, agent.name) or {}
     except Exception:  # noqa: BLE001
         host_vars = {}
-    variables = {**magic, **host_vars, **(body.variables or {})}
+    scope_v = await resolve_scope_vars(session, agent)
+    variables = {**magic, **host_vars, **scope_v, **(body.variables or {})}
 
     result = await nt_engine.run_runbook(doc, client, variables, check_mode=body.dry_run)
     rr = result.to_dict()
@@ -191,6 +194,61 @@ async def run_runbook(
 
     return {"run_id": str(run_row.id), "agent_id": str(agent_id), "runbook": doc.name,
             "facts_gathered": len(magic) - 1, **rr}
+
+
+class ScopeVarsBody(BaseModel):
+    scope_type: str  # ou | group | host
+    ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+    agent_id: UUID | None = None
+    vars: dict[str, Any] = {}
+
+
+def _scope_filter(stmt, scope_type: str, ou_id, host_group_id, agent_id):
+    col = {"ou": (ScopeVars.ou_id, ou_id), "group": (ScopeVars.host_group_id, host_group_id),
+           "host": (ScopeVars.agent_id, agent_id)}[scope_type]
+    return stmt.where(ScopeVars.scope_type == scope_type, col[0] == col[1])
+
+
+@router.get("/api/v1/scope-vars")
+async def get_scope_vars(
+    scope_type: str, ou_id: UUID | None = None, host_group_id: UUID | None = None, agent_id: UUID | None = None,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """The variables set directly on one scope target (not the resolved
+    inheritance — a runbook run resolves that GPO-style)."""
+    if scope_type not in ("ou", "group", "host"):
+        raise HTTPException(status_code=422, detail="scope_type must be ou|group|host")
+    row = await session.scalar(_scope_filter(select(ScopeVars).where(ScopeVars.tenant_id == DEFAULT_TENANT_ID), scope_type, ou_id, host_group_id, agent_id))
+    return {"vars": row.vars if row else {}}
+
+
+@router.put("/api/v1/scope-vars")
+async def put_scope_vars(
+    body: ScopeVarsBody, session: AsyncSession = Depends(get_session), identity: Identity = Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Set (upsert) the variables on a host/group/OU. Host scope needs manage
+    rights on the host; group/OU scope is admin-only (broad blast radius)."""
+    if body.scope_type not in ("ou", "group", "host"):
+        raise HTTPException(status_code=422, detail="scope_type must be ou|group|host")
+    scope_id = {"ou": body.ou_id, "group": body.host_group_id, "host": body.agent_id}[body.scope_type]
+    if scope_id is None:
+        raise HTTPException(status_code=422, detail=f"scope_type={body.scope_type} requires the matching id")
+    if body.scope_type == "host":
+        if not await user_can_manage_agent(session, identity, body.agent_id):
+            raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    elif not (identity.kind == "user" and identity.role == "admin"):
+        raise HTTPException(status_code=403, detail="group/OU vars are admin-only")
+
+    row = await session.scalar(_scope_filter(select(ScopeVars).where(ScopeVars.tenant_id == DEFAULT_TENANT_ID), body.scope_type, body.ou_id, body.host_group_id, body.agent_id))
+    if row is None:
+        row = ScopeVars(tenant_id=DEFAULT_TENANT_ID, scope_type=body.scope_type,
+                        ou_id=body.ou_id, host_group_id=body.host_group_id, agent_id=body.agent_id, vars=body.vars)
+        session.add(row)
+    else:
+        row.vars = body.vars
+    await session.commit()
+    return {"id": str(row.id), "scope_type": row.scope_type, "vars": row.vars}
 
 
 @router.get("/api/v1/runbook-runs")

@@ -863,6 +863,33 @@ class Runbook(Base):
     )
 
 
+class ScopeVars(Base):
+    """Variables attached to a scope — a host, a host group, or an OU (Block
+    G11). A runbook/role run resolves them GPO-style (global < group < OU
+    root→leaf < host), the same precedence as check thresholds, so a value set
+    on an OU is inherited by its hosts and overridable per group/host. `vars`
+    is a flat JSONB dict of name → value."""
+
+    __tablename__ = "scope_vars"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False)  # ou | group | host
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    vars: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('ou', 'group', 'host')", name="ck_scope_vars_scope_type"),
+        Index("idx_scope_vars_ou", "ou_id"),
+        Index("idx_scope_vars_group", "host_group_id"),
+        Index("idx_scope_vars_agent", "agent_id"),
+    )
+
+
 class RunbookRun(Base):
     """One execution of a runbook against a host (Block G11) — the audit
     trail, like PlanRun for plans. `result` is the engine's RunResult
