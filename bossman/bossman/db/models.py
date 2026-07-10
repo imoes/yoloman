@@ -1196,3 +1196,46 @@ class DashboardWidget(Base):
         ),
         Index("idx_dashboard_widgets_username", "username"),
     )
+
+
+class ChatSession(Base):
+    """Block K — one AI chat-console conversation. Keyed by username (like
+    dashboard_widgets), records which backend (claude_cli/codex/hermes_web)
+    it uses. Messages are its ordered children."""
+
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    username: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str | None] = mapped_column(String)
+    backend: Mapped[str] = mapped_column(String, nullable=False, default="claude_cli")
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.seq"
+    )
+
+    __table_args__ = (Index("idx_chat_sessions_username", "username"),)
+
+
+class ChatMessage(Base):
+    """Block K — one turn in a chat session (OpenAI {role, content} shape),
+    ordered by `seq`. `meta` carries per-message extras (tool calls, emitted
+    widget specs) for replay."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # user | assistant | system
+    content: Mapped[str] = mapped_column(String, nullable=False, default="")
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    session: Mapped["ChatSession"] = relationship(back_populates="messages")
+
+    __table_args__ = (Index("idx_chat_messages_session", "session_id", "seq"),)

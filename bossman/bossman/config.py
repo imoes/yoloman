@@ -147,6 +147,22 @@ class Settings(BaseSettings):
     chat_model: str = "qwen3next-79b"
     chat_token: str = ""
 
+    # Block K — AI chat console. The docked chatbot routes a conversation to
+    # one of three selectable backends; `chat_backend` is the default when a
+    # request doesn't name one. hermes-web is OpenAI-compatible (its own
+    # gateway server); codex hits ChatGPT's unofficial Codex endpoint with a
+    # device-code OAuth token; claude_cli shells out to the local `claude`
+    # binary (--print). Per-backend endpoints/models are configurable; auth
+    # for claude_cli/codex is ambient (CLI login / cached OAuth token file).
+    chat_backend: str = "claude_cli"  # claude_cli | codex | hermes_web
+    hermes_web_base_url: str = "http://localhost:8642"
+    hermes_web_model: str = "hermes-agent"
+    hermes_web_token: str = ""
+    codex_base_url: str = "https://chatgpt.com/backend-api/codex"
+    codex_model: str = "gpt-5.5"
+    claude_cli_path: str = "claude"
+    claude_cli_model: str = "sonnet"
+
     # Notifications (Block H8): master switch + SMTP transport. Webhook
     # targets carry their own URL per rule, so need no global config. The
     # notifier fires on a confirmed (hard) problem onset/recovery, skipping

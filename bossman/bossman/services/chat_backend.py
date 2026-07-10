@@ -1,0 +1,279 @@
+"""Block K — pluggable AI chat backends behind one streaming interface.
+
+The docked chatbot routes a conversation to one of three selectable backends,
+all reduced to the same async event stream so the chat router (and the UI)
+don't care which one is active:
+
+- HermesWebBackend  — OpenAI-compatible server (hermes gateway, /v1/chat/completions SSE).
+- CodexBackend      — ChatGPT's unofficial Codex Responses endpoint (SSE), device-code OAuth.
+- ClaudeCliBackend  — the local `claude --print` binary (subprocess).
+
+Each `stream(messages, ...)` yields event dicts: {"type": "delta", "text": ...}
+for assistant tokens, {"type": "error", "text": ...} on failure. Tool events
+(agentic tool-calling, Block K3) reuse the same channel with
+{"type": "tool_start"|"tool_done", ...}. The terminal [DONE] sentinel is the
+router's concern, not the backend's.
+
+Test seams: hermes/codex take an httpx transport (MockTransport); claude takes
+an injectable async `spawn` so a fake subprocess can be supplied.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+
+import httpx
+
+if TYPE_CHECKING:
+    from bossman.config import Settings
+
+logger = logging.getLogger(__name__)
+
+# Backend names (also the values of settings.chat_backend / the request field).
+CLAUDE_CLI = "claude_cli"
+CODEX = "codex"
+HERMES_WEB = "hermes_web"
+BACKENDS = (CLAUDE_CLI, CODEX, HERMES_WEB)
+
+
+class ChatBackendError(Exception):
+    """Raised when a chat backend fails to start or stream — carries a
+    human-readable message that is surfaced to the UI as an error event."""
+
+
+def _system_and_turns(messages: list[dict[str, str]]) -> tuple[str, list[dict[str, str]]]:
+    """Split a message list into (system_prompt, non-system turns). Multiple
+    system messages are joined; the rest keep their order."""
+    system_parts = [m.get("content", "") for m in messages if m.get("role") == "system"]
+    turns = [m for m in messages if m.get("role") != "system"]
+    return "\n\n".join(p for p in system_parts if p), turns
+
+
+class HermesWebBackend:
+    """OpenAI-compatible chat backend (hermes gateway or any /v1 server).
+    Streams `chat.completion.chunk` deltas via SSE."""
+
+    name = HERMES_WEB
+
+    def __init__(self, base_url: str, model: str, token: str = "", timeout: float = 300.0,
+                 transport: httpx.AsyncBaseTransport | None = None):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.token = token
+        self._timeout = timeout
+        self._transport = transport
+
+    async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
+                     model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+        msgs = list(messages)
+        if system:
+            msgs = [{"role": "system", "content": system}] + msgs
+        body = {"model": model or self.model, "messages": msgs, "stream": True}
+        headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
+        url = f"{self.base_url}/v1/chat/completions"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, headers=headers, transport=self._transport) as client:
+                async with client.stream("POST", url, json=body) as resp:
+                    if resp.status_code != 200:
+                        text = (await resp.aread()).decode("utf-8", "replace")[:2048]
+                        raise ChatBackendError(f"hermes_web: status {resp.status_code}: {text}")
+                    async for line in resp.aiter_lines():
+                        for ev in _parse_openai_chunk_line(line):
+                            yield ev
+        except httpx.HTTPError as exc:
+            raise ChatBackendError(f"hermes_web: request failed: {exc}") from exc
+
+
+class CodexBackend:
+    """ChatGPT Codex Responses endpoint (SSE). Auth via a cached device-code
+    OAuth token file (established out-of-band; see chatgpt-codex-api skill)."""
+
+    name = CODEX
+
+    def __init__(self, base_url: str, model: str, token_path: str = "~/.config/skills/codex_tokens.json",
+                 timeout: float = 300.0, transport: httpx.AsyncBaseTransport | None = None):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.token_path = token_path
+        self._timeout = timeout
+        self._transport = transport
+
+    def _access_token(self) -> str:
+        p = Path(self.token_path).expanduser()
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ChatBackendError(
+                f"codex: no usable OAuth token at {self.token_path} — run the codex device-code login first ({exc})"
+            ) from exc
+        tok = data.get("access_token")
+        if not tok:
+            raise ChatBackendError("codex: token file has no access_token")
+        exp = data.get("expires_at") or 0
+        if exp and float(exp) < time.time():
+            # Refresh is out of scope here; the skill refreshes on its own path.
+            raise ChatBackendError("codex: access token expired — re-run the codex login/refresh")
+        return tok
+
+    async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
+                     model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+        sys_prompt, turns = _system_and_turns(messages)
+        instructions = system or sys_prompt or "You are a helpful assistant."
+        payload = {
+            "model": model or self.model,
+            "instructions": instructions,
+            "input": [
+                {"type": "message", "role": m.get("role", "user"),
+                 "content": [{"type": "input_text", "text": m.get("content", "")}]}
+                for m in turns
+            ],
+            "store": False,
+            "stream": True,
+        }
+        headers = {"Authorization": f"Bearer {self._access_token()}", "Content-Type": "application/json"}
+        url = f"{self.base_url}/responses"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, headers=headers, transport=self._transport) as client:
+                async with client.stream("POST", url, json=payload) as resp:
+                    if resp.status_code != 200:
+                        text = (await resp.aread()).decode("utf-8", "replace")[:2048]
+                        raise ChatBackendError(f"codex: status {resp.status_code}: {text}")
+                    async for line in resp.aiter_lines():
+                        for ev in _parse_codex_line(line):
+                            yield ev
+        except httpx.HTTPError as exc:
+            raise ChatBackendError(f"codex: request failed: {exc}") from exc
+
+
+# An injectable spawn: (argv, stdin_text) -> (returncode, stdout, stderr).
+SpawnFn = Callable[[list[str], str], Awaitable[tuple[int, str, str]]]
+
+
+async def _default_spawn(argv: list[str], stdin_text: str) -> tuple[int, str, str]:
+    proc = await asyncio.create_subprocess_exec(
+        *argv, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    out, err = await proc.communicate(stdin_text.encode("utf-8"))
+    return proc.returncode or 0, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+
+
+class ClaudeCliBackend:
+    """The local Claude Code CLI via `claude --print --output-format json`.
+    One-shot per turn (token streaming is a later refinement): the conversation
+    is rendered into the prompt, the system prompt passed via --system-prompt,
+    and the JSON `.result` yielded as a single delta. Auth is ambient (the
+    logged-in CLI / CLAUDE_CODE_OAUTH_TOKEN)."""
+
+    name = CLAUDE_CLI
+
+    def __init__(self, cli_path: str = "claude", model: str = "sonnet", spawn: SpawnFn | None = None):
+        self.cli_path = cli_path
+        self.model = model
+        self._spawn = spawn or _default_spawn
+
+    async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
+                     model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+        sys_prompt, turns = _system_and_turns(messages)
+        system_prompt = system or sys_prompt
+        prompt = _render_transcript(turns)
+        argv = [self.cli_path, "--print", "--output-format", "json",
+                "--no-session-persistence", "--model", model or self.model]
+        if system_prompt:
+            argv += ["--system-prompt", system_prompt]
+        try:
+            rc, out, err = await self._spawn(argv, prompt)
+        except (OSError, FileNotFoundError) as exc:
+            raise ChatBackendError(f"claude_cli: could not run {self.cli_path!r}: {exc}") from exc
+        if rc != 0:
+            raise ChatBackendError(f"claude_cli: exit {rc}: {(err or out)[:2048]}")
+        text = _claude_result_text(out)
+        if text:
+            yield {"type": "delta", "text": text}
+
+
+def _render_transcript(turns: list[dict[str, str]]) -> str:
+    """Render prior turns into a single prompt string for the one-shot CLI.
+    A lone final user turn is passed verbatim; multi-turn history is labelled."""
+    if len(turns) == 1 and turns[0].get("role") == "user":
+        return turns[0].get("content", "")
+    lines = []
+    for m in turns:
+        role = m.get("role", "user").capitalize()
+        lines.append(f"{role}: {m.get('content', '')}")
+    return "\n\n".join(lines)
+
+
+def _claude_result_text(stdout: str) -> str:
+    """Extract the assistant text from `claude --output-format json` stdout.
+    Shape: {"type":"result","result":"...","is_error":bool,...}."""
+    stdout = stdout.strip()
+    if not stdout:
+        return ""
+    try:
+        obj = json.loads(stdout)
+    except ValueError:
+        # Fallback: some builds emit the plain result on stdout.
+        return stdout
+    if isinstance(obj, dict):
+        if obj.get("is_error"):
+            raise ChatBackendError(f"claude_cli: {obj.get('result') or 'error'}")
+        return str(obj.get("result") or obj.get("text") or "")
+    return str(obj)
+
+
+def _parse_openai_chunk_line(line: str) -> list[dict[str, Any]]:
+    """Parse one SSE line of an OpenAI chat.completion stream into events."""
+    line = line.strip()
+    if not line or not line.startswith("data:"):
+        return []
+    data = line[len("data:"):].strip()
+    if data == "[DONE]":
+        return []
+    try:
+        obj = json.loads(data)
+    except ValueError:
+        return []
+    events: list[dict[str, Any]] = []
+    for choice in obj.get("choices", []) or []:
+        delta = (choice.get("delta") or {}).get("content")
+        if delta:
+            events.append({"type": "delta", "text": delta})
+    return events
+
+
+def _parse_codex_line(line: str) -> list[dict[str, Any]]:
+    """Parse one SSE line of a Codex Responses stream. Text arrives as
+    events with type 'response.output_text.delta' carrying a 'delta' field."""
+    line = line.strip()
+    if not line or not line.startswith("data:"):
+        return []
+    data = line[len("data:"):].strip()
+    if data == "[DONE]":
+        return []
+    try:
+        obj = json.loads(data)
+    except ValueError:
+        return []
+    if obj.get("type") == "response.output_text.delta":
+        d = obj.get("delta")
+        if d:
+            return [{"type": "delta", "text": d}]
+    return []
+
+
+def chat_backend_for(settings: Settings, name: str | None = None):
+    """Build the selected chat backend from Settings. `name` (a per-request
+    override) falls back to settings.chat_backend."""
+    backend = (name or settings.chat_backend or CLAUDE_CLI).strip()
+    if backend == HERMES_WEB:
+        return HermesWebBackend(settings.hermes_web_base_url, settings.hermes_web_model, settings.hermes_web_token)
+    if backend == CODEX:
+        return CodexBackend(settings.codex_base_url, settings.codex_model)
+    if backend == CLAUDE_CLI:
+        return ClaudeCliBackend(settings.claude_cli_path, settings.claude_cli_model)
+    raise ChatBackendError(f"unknown chat backend {backend!r} (want one of {', '.join(BACKENDS)})")
