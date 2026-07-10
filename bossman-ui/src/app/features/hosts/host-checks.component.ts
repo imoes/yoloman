@@ -64,6 +64,24 @@ import { CheckService } from '../../core/services/check.service';
                     }
                   </div>
                 }
+                @if (isSel(p.check_name) && hasProvisioning(p.check_name)) {
+                  <div class="bm-provision">
+                    <span class="bm-dim">{{ provInfo()[p.check_name].title }} — provide admin credentials; a monitoring account is created and its credential stored (admin creds are not saved):</span>
+                    <div class="bm-creds">
+                      @for (a of provAdminParams(p.check_name); track a.name) {
+                        <mat-form-field appearance="outline" class="bm-ff-sm">
+                          <mat-label>{{ a.name }} *</mat-label>
+                          <input matInput [type]="a.secret ? 'password' : 'text'"
+                                 [ngModel]="adminCred(p.check_name, a.name)"
+                                 (ngModelChange)="setAdminCred(p.check_name, a.name, $event)" />
+                        </mat-form-field>
+                      }
+                      <button mat-stroked-button color="primary" (click)="provisionAndAssign(p.check_name)">
+                        <mat-icon>key</mat-icon> Provision &amp; assign
+                      </button>
+                    </div>
+                  </div>
+                }
               </div>
             }
             <div class="bm-form-actions">
@@ -154,6 +172,7 @@ import { CheckService } from '../../core/services/check.service';
       .bm-prop-items { font-size: 12px; margin: 2px 0 0 24px; }
       .bm-creds { margin: 6px 0 4px 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
       .bm-ff-sm { width: 200px; }
+      .bm-provision { margin: 4px 0 4px 24px; padding: 6px 10px; border-left: 2px solid color-mix(in srgb, var(--bm-green) 50%, transparent); }
     `,
   ],
 })
@@ -173,6 +192,9 @@ export class HostChecksComponent {
   discovering = signal(false);
   private selected = signal<Set<string>>(new Set());
   private creds = signal<Record<string, Record<string, string>>>({});
+  // provisioning: per-check {available, title, admin_params} + collected admin creds
+  provInfo = signal<Record<string, { available: boolean; title?: string; admin_params?: { name: string; secret: boolean; description: string }[] }>>({});
+  private adminCreds = signal<Record<string, Record<string, string>>>({});
 
   /** Checks in the library not already effective on this host. */
   addable = computed(() => {
@@ -291,8 +313,43 @@ export class HostChecksComponent {
     this.selected.set(new Set());
     this.creds.set({});
     this.checkService.discover(this.agent().id).subscribe({
-      next: (r) => { this.proposals.set(r.proposals); this.discovering.set(false); },
+      next: (r) => {
+        this.proposals.set(r.proposals);
+        this.discovering.set(false);
+        // fetch provisioning availability for each proposed check
+        for (const p of r.proposals) {
+          this.checkService.provisioning(p.check_name).subscribe((info) =>
+            this.provInfo.update((m) => ({ ...m, [p.check_name]: info })),
+          );
+        }
+      },
       error: (e) => { this.fail(e); this.discovering.set(false); },
+    });
+  }
+
+  hasProvisioning(check: string): boolean {
+    return !!this.provInfo()[check]?.available;
+  }
+
+  provAdminParams(check: string): { name: string; secret: boolean; description: string }[] {
+    return this.provInfo()[check]?.admin_params ?? [];
+  }
+
+  adminCred(check: string, key: string): string {
+    return this.adminCreds()[check]?.[key] ?? '';
+  }
+
+  setAdminCred(check: string, key: string, value: string): void {
+    this.adminCreds.update((c) => ({ ...c, [check]: { ...(c[check] || {}), [key]: value } }));
+  }
+
+  /** Run the check's provisioning recipe (create the monitoring account) then
+   * assign it — the "MySQL needs a user" flow. */
+  provisionAndAssign(check: string): void {
+    this.error.set(null);
+    this.checkService.provision(this.agent().id, check, this.adminCreds()[check] || {}).subscribe({
+      next: () => { this.proposals.set(null); this.reload(this.agent().id); },
+      error: (e) => this.fail(e),
     });
   }
 

@@ -61,4 +61,23 @@ export class CheckService {
       { assign },
     );
   }
+
+  /** Whether a check ships a provisioning recipe + the admin params to collect. */
+  provisioning(name: string) {
+    return this.http.get<{
+      available: boolean;
+      title?: string;
+      description?: string;
+      admin_params?: { name: string; description: string; required: boolean; secret: boolean }[];
+    }>(`${this.base}/checks/${encodeURIComponent(name)}/provisioning`);
+  }
+
+  /** Run a check's provisioning recipe (create the monitoring account) then
+   * assign the check to the host with the generated credential. */
+  provision(agentId: string, name: string, adminParams: Record<string, string>, extraParams?: Record<string, unknown>) {
+    return this.http.post<{ assignment: unknown; provisioned: boolean }>(
+      `${this.base}/agents/${agentId}/checks/${encodeURIComponent(name)}/provision`,
+      { admin_params: adminParams, extra_params: extraParams || {} },
+    );
+  }
 }
