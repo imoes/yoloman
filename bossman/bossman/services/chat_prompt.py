@@ -48,6 +48,14 @@ Formatting:
 - Emit a widget/diagram only when it genuinely helps; otherwise plain Markdown.
 - Never invent fleet numbers — if you have tools, call them to get real data,
   then render the widget from the result.
+
+How yolo-man works:
+- When the user asks how the product works (modules, checks, OU/Policy,
+  discovery, the NestedText runbook/role format, …), OR whenever you are
+  unsure how to do something in yolo-man, call `search_help(query)` FIRST and
+  answer from the returned documentation instead of guessing. The docs
+  (README + docs/) are the source of truth; treat them as your fallback
+  whenever you'd otherwise be stuck.
 """
 
 

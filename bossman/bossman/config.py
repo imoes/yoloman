@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     # verdict in `data` (state/metrics); see services/checkmk_translation.py.
     checks_dir: str = "/etc/bossman/checks.d"
 
+    # Help/docs (Block G10): the README.md (+ docs/) mounted here are served as
+    # the in-app Help page, searched by the AI's search_help tool, and used as
+    # the model's fallback context when it's unsure about the product.
+    help_root: str = "/etc/bossman/help"
+
     # Seed the built-in-check default rules (Memory/Disk) at startup (Block
     # H6). Disabled in the test suite so the seeded global rules don't
     # pollute the shared test database's count-based assertions.

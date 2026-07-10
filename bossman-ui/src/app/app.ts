@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },
+  { path: '/help', label: 'Help', icon: 'help_outline' },
 ];
 
 @Component({

@@ -46,6 +46,23 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "search_help",
+            "description": (
+                "Search the yolo-man documentation (README + docs) for how the product works — "
+                "modules, checks, OU/Policy, discovery, the NestedText format, etc. Use this when "
+                "the user asks how something works, OR whenever you are unsure how to do something "
+                "in yolo-man before answering. Returns the most relevant doc sections."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "What to look up."}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "discover_host_checks",
             "description": (
                 "Run monitoring auto-discovery on a host: detect which checks apply and the "
@@ -104,6 +121,11 @@ async def execute_tool(
     `settings`/`client_factory` are needed only by the discovery tools (they
     reach the host); read-only fleet tools work without them."""
     now = datetime.now(timezone.utc)
+    if name == "search_help":
+        from bossman.services import help as help_svc
+
+        root = getattr(settings, "help_root", "/etc/bossman/help") if settings else "/etc/bossman/help"
+        return {"query": args.get("query", ""), "results": help_svc.search_help(root, args.get("query", ""))}
     if name in ("discover_host_checks", "assign_host_check"):
         return await _check_tool(session, name, args, settings, client_factory)
     if name == "list_hosts":
