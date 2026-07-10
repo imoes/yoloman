@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 from bossman.services.chat_agent import backend_is_agentic, run_agentic
+from bossman.services.chat_prompt import WIDGET_VOCAB
 
 # The widget types the UI can render (kept in sync with dashboard.model.ts).
 ALLOWED_WIDGETS = {
@@ -24,18 +25,20 @@ ALLOWED_WIDGETS = {
 
 MAX_WIDGETS = 12
 
-DESIGN_PROMPT = """\
+DESIGN_PROMPT = f"""\
 You are designing an operations dashboard for a fleet-management app. Use the
 available tools to fetch REAL fleet data first (e.g. list_hosts, fleet_health),
 then design 2–8 widgets that best summarize the situation.
 
 Output ONLY a JSON array (no prose, no markdown fences) of widget specs:
-[{"widget_type": "...", "title": "...", "data": { ... }, "gs_w": 4, "gs_h": 4}]
+[{{"widget_type": "...", "title": "...", "data": {{ ... }}, "gs_w": 4, "gs_h": 4}}]
 
-widget_type is one of: donut, gauge, stat, bar, table, status_tiles, progress,
-ai_summary, war_room, log, callout, timeseries. Fill `data` with the real data
-you gathered (never invent host counts). gs_w is 2–12 columns, gs_h 2–8 rows.
-Prefer a donut/stat/status_tiles overview plus a table or ai_summary."""
+The `data` object MUST use the exact shape for its widget_type:
+{WIDGET_VOCAB}
+
+Fill `data` with the REAL data you gathered from tools (never invent host
+counts). gs_w is 2–12 columns, gs_h 2–8 rows. Prefer a stat/donut/status_tiles
+overview plus a table or ai_summary."""
 
 
 def _parse_specs(text: str) -> list[dict[str, Any]]:

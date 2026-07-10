@@ -12,7 +12,7 @@ from __future__ import annotations
 
 # The widget types the UI's DashboardWidgetComponent can render + their data
 # shapes. Kept in sync with bossman-ui core/models/dashboard.model.ts.
-_WIDGET_VOCAB = """\
+WIDGET_VOCAB = """\
 Available widget_type values and their `data` shapes:
 - donut: {"buckets":[{"key":"success","count":8},{"key":"failed","count":1}]}
 - gauge: {"value":72,"warn":80,"crit":90}
@@ -40,7 +40,7 @@ Formatting:
 - When a result is better SHOWN than described, emit a widget as a fenced code
   block tagged `bm-widget` containing a single JSON object:
   {{"widget_type": "donut", "title": "Deploy result", "data": {{ ... }}}}
-  {_WIDGET_VOCAB}
+  {WIDGET_VOCAB}
   Use a donut for pass/fail distributions (e.g. hosts deployed OK vs failed),
   a gauge for a single percentage against thresholds, a stat for one number.
 - For diagrams or plans/workflows, emit a fenced `plantuml` block with valid
