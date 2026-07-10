@@ -18,7 +18,9 @@ Available widget_type values and their `data` shapes:
 - gauge: {"value":72,"warn":80,"crit":90}
 - stat:  {"value":42,"label":"hosts"}
 - timeseries: {"points":[{"t":"2026-07-10T10:00:00Z","value":12}, ...]}
-- top_hosts / problems: fleet lists (usually better fetched via tools)."""
+- top_hosts / problems: fleet lists (usually better fetched via tools).
+- plan_graph: a workflow/plan DAG —
+  {"data":{"nodes":[{"id":"a","label":"Step A"}],"edges":[{"from":"a","to":"b"}]}}"""
 
 SYSTEM_PROMPT = f"""\
 You are Bossman's fleet assistant — an AI console embedded in a fleet

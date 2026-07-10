@@ -5,11 +5,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
+import { ChatPlanGraphComponent } from './chat-plan-graph.component';
 
 const WIDGET_TYPES: WidgetType[] = ['top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat'];
+// PlantUML server for the ~h hex-encoding (pure client-side, no deflate dep).
+const PLANTUML_SERVER = 'https://www.plantuml.com/plantuml/svg/~h';
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -27,7 +30,7 @@ const BACKEND_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-chat-dock',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent],
   template: `
     <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [style.height.px]="open() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
@@ -70,6 +73,23 @@ const BACKEND_LABELS: Record<string, string> = {
                 <div class="bm-msg-widgets">
                   @for (w of m.widgets!; track $index) {
                     <div class="bm-msg-widget"><app-dashboard-widget [widget]="w.widget" [data]="w.data" /></div>
+                  }
+                </div>
+              }
+              @if (m.planGraphs?.length) {
+                <div class="bm-msg-widgets">
+                  @for (g of m.planGraphs!; track $index) {
+                    <div class="bm-msg-widget">
+                      @if (g.title) { <div class="bm-graph-title">{{ g.title }}</div> }
+                      <app-chat-plan-graph [data]="g" />
+                    </div>
+                  }
+                </div>
+              }
+              @if (m.diagrams?.length) {
+                <div class="bm-msg-widgets">
+                  @for (src of m.diagrams!; track $index) {
+                    <img class="bm-msg-diagram" [src]="src" alt="diagram" loading="lazy" />
                   }
                 </div>
               }
@@ -151,6 +171,8 @@ const BACKEND_LABELS: Record<string, string> = {
       .bm-login-input { padding: 4px 8px; border: 1px solid var(--mat-sys-outline); border-radius: 4px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
       .bm-msg-widgets { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
       .bm-msg-widget { min-height: 160px; background: var(--mat-sys-surface-container-high); border-radius: 8px; padding: 6px; }
+      .bm-graph-title { font-size: 12px; color: var(--mat-sys-on-surface-variant); margin: 2px 4px; }
+      .bm-msg-diagram { max-width: 100%; background: #fff; border-radius: 6px; padding: 4px; }
     `,
   ],
 })
@@ -271,11 +293,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       this.zone.run(() => {
         assistant.streaming = false;
         if (!assistant.error) {
-          // Extract ```bm-widget {json}``` blocks into rendered widgets and
-          // strip them from the markdown (done once, at stream end).
-          const { cleaned, widgets } = this.parseWidgets(assistant.text);
+          // Extract widget / plan-graph / plantuml blocks into rendered
+          // artifacts and strip them from the markdown (once, at stream end).
+          const { cleaned, widgets, planGraphs, diagrams } = this.parseArtifacts(assistant.text);
           assistant.text = cleaned;
           if (widgets.length) assistant.widgets = widgets;
+          if (planGraphs.length) assistant.planGraphs = planGraphs;
+          if (diagrams.length) assistant.diagrams = diagrams;
         }
         this.mdCache.delete(assistant);
         this.messages.update((m) => [...m]); // trigger re-render (markdown now)
@@ -285,14 +309,27 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Pull ```bm-widget {json}``` fenced blocks out of assistant text into
-   * DashboardWidget specs (validated against the known widget types) and
-   * return the text with those blocks removed. */
-  private parseWidgets(text: string): { cleaned: string; widgets: ChatWidget[] } {
+  /** Pull ```bm-widget {json}``` and ```plantuml``` fenced blocks out of the
+   * assistant text into rendered artifacts (widgets, plan graphs, diagram
+   * images) and return the text with those blocks removed. */
+  private parseArtifacts(text: string): {
+    cleaned: string;
+    widgets: ChatWidget[];
+    planGraphs: PlanGraphSpec[];
+    diagrams: string[];
+  } {
     const widgets: ChatWidget[] = [];
-    const cleaned = text.replace(/```bm-widget\s*([\s\S]*?)```/g, (full, body) => {
+    const planGraphs: PlanGraphSpec[] = [];
+    const diagrams: string[] = [];
+
+    let cleaned = text.replace(/```bm-widget\s*([\s\S]*?)```/g, (full, body) => {
       try {
-        const w = this.toChatWidget(JSON.parse(String(body).trim()));
+        const spec = JSON.parse(String(body).trim());
+        if (spec?.widget_type === 'plan_graph' && spec.data) {
+          planGraphs.push({ title: spec.title, nodes: spec.data.nodes ?? [], edges: spec.data.edges ?? [] });
+          return '';
+        }
+        const w = this.toChatWidget(spec);
         if (w) {
           widgets.push(w);
           return '';
@@ -302,7 +339,23 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       }
       return full;
     });
-    return { cleaned: cleaned.trim(), widgets };
+
+    cleaned = cleaned.replace(/```plantuml\s*([\s\S]*?)```/g, (_full, body) => {
+      const url = this.plantumlUrl(String(body).trim());
+      if (url) diagrams.push(url);
+      return '';
+    });
+
+    return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams };
+  }
+
+  /** PlantUML server URL via the ~h hex encoding (no deflate dependency). */
+  private plantumlUrl(source: string): string | null {
+    if (!source) return null;
+    const bytes = new TextEncoder().encode(source);
+    let hex = '';
+    for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+    return PLANTUML_SERVER + hex;
   }
 
   private toChatWidget(spec: any): ChatWidget | null {

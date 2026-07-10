@@ -66,6 +66,12 @@ export interface ChatWidget {
   data: import('./dashboard.model').WidgetData | null;
 }
 
+export interface PlanGraphSpec {
+  title?: string;
+  nodes: { id: string; label?: string }[];
+  edges: { from: string; to: string; label?: string }[];
+}
+
 /** A rendered chat message in the dock. */
 export interface ChatUiMessage {
   role: 'user' | 'assistant';
@@ -74,4 +80,6 @@ export interface ChatUiMessage {
   error?: boolean;
   tools?: { tool: string; done: boolean }[];
   widgets?: ChatWidget[];
+  planGraphs?: PlanGraphSpec[];
+  diagrams?: string[]; // rendered PlantUML image URLs
 }
