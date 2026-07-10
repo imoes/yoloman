@@ -42,6 +42,21 @@ export interface CheckAssignment {
   source: string;
 }
 
+/** Block G9-P3c — one auto-discovery proposal for a host. */
+export interface DiscoveredItemProposal {
+  item: string;
+  params: Record<string, unknown>;
+  metrics: string[];
+}
+
+export interface DiscoveryProposal {
+  check_name: string;
+  short_description: string;
+  items: DiscoveredItemProposal[];
+  needs_params: string[];
+  error: string;
+}
+
 export interface CreateCheckAssignment {
   check_name: string;
   scope_type: 'ou' | 'group' | 'host';

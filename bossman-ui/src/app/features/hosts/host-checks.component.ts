@@ -6,7 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { Agent } from '../../core/models/agent.model';
-import { CheckCatalogEntry, CheckOption, EffectiveCheck } from '../../core/models/check.model';
+import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } from '../../core/models/check.model';
 import { CheckService } from '../../core/services/check.service';
 
 /**
@@ -35,7 +35,48 @@ import { CheckService } from '../../core/services/check.service';
             }
           </mat-select>
         </mat-form-field>
+        <button mat-stroked-button (click)="runDiscover()" [disabled]="discovering()">
+          <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
+        </button>
       </div>
+
+      @if (proposals() !== null) {
+        <div class="bm-wizard">
+          <div class="bm-form-title">Discovered checks for {{ agent().name }}</div>
+          @if (proposals()!.length) {
+            @for (p of proposals()!; track p.check_name) {
+              <div class="bm-prop">
+                <label class="bm-prop-head">
+                  <input type="checkbox" [checked]="isSel(p.check_name)" (change)="toggleSel(p.check_name)" />
+                  <span class="bm-mono">{{ p.check_name }}</span>
+                  <span class="bm-dim">{{ p.short_description }}</span>
+                  <span class="bm-count">{{ p.items.length }} item(s)</span>
+                </label>
+                <div class="bm-prop-items bm-dim">{{ itemsSummary(p) }}</div>
+                @if (p.needs_params.length && isSel(p.check_name)) {
+                  <div class="bm-creds">
+                    <span class="bm-dim">Required parameters (e.g. credentials):</span>
+                    @for (k of p.needs_params; track k) {
+                      <mat-form-field appearance="outline" class="bm-ff-sm">
+                        <mat-label>{{ k }} *</mat-label>
+                        <input matInput [ngModel]="cred(p.check_name, k)" (ngModelChange)="setCred(p.check_name, k, $event)" />
+                      </mat-form-field>
+                    }
+                  </div>
+                }
+              </div>
+            }
+            <div class="bm-form-actions">
+              <button mat-raised-button color="primary" (click)="applySelected()" [disabled]="!anySelected()">
+                Assign selected to host
+              </button>
+              <button mat-button (click)="proposals.set(null)">Dismiss</button>
+            </div>
+          } @else {
+            <p class="bm-dim">No checks discovered on this host. <button mat-button (click)="proposals.set(null)">Dismiss</button></p>
+          }
+        </div>
+      }
 
       @if (pickName()) {
         <div class="bm-form">
@@ -105,6 +146,14 @@ import { CheckService } from '../../core/services/check.service';
       .bm-orphan { opacity: 0.55; }
       .bm-error { color: #d32f2f; margin-bottom: 10px; }
       h3 { margin: 14px 0 6px; font-size: 13px; opacity: 0.8; }
+      .bm-wizard { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+      .bm-prop { padding: 6px 0; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-prop:first-of-type { border-top: none; }
+      .bm-prop-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+      .bm-count { margin-left: auto; font-size: 12px; opacity: 0.7; }
+      .bm-prop-items { font-size: 12px; margin: 2px 0 0 24px; }
+      .bm-creds { margin: 6px 0 4px 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .bm-ff-sm { width: 200px; }
     `,
   ],
 })
@@ -118,6 +167,12 @@ export class HostChecksComponent {
 
   pickName = signal<string>('');
   draft = signal<Record<string, string>>({});
+
+  // discovery wizard state
+  proposals = signal<DiscoveryProposal[] | null>(null);
+  discovering = signal(false);
+  private selected = signal<Set<string>>(new Set());
+  private creds = signal<Record<string, Record<string, string>>>({});
 
   /** Checks in the library not already effective on this host. */
   addable = computed(() => {
@@ -223,6 +278,64 @@ export class HostChecksComponent {
   remove(c: EffectiveCheck): void {
     this.checkService.deleteAssignment(c.assignment_id).subscribe({
       next: () => this.reload(this.agent().id),
+      error: (e) => this.fail(e),
+    });
+  }
+
+  // ── auto-discovery wizard ──────────────────────────────────────────────
+
+  runDiscover(): void {
+    this.error.set(null);
+    this.discovering.set(true);
+    this.proposals.set(null);
+    this.selected.set(new Set());
+    this.creds.set({});
+    this.checkService.discover(this.agent().id).subscribe({
+      next: (r) => { this.proposals.set(r.proposals); this.discovering.set(false); },
+      error: (e) => { this.fail(e); this.discovering.set(false); },
+    });
+  }
+
+  itemsSummary(p: DiscoveryProposal): string {
+    if (p.error) return 'error: ' + p.error;
+    const names = p.items.map((i) => i.item || '(single)').slice(0, 8);
+    const more = p.items.length > 8 ? ` +${p.items.length - 8} more` : '';
+    return names.join(', ') + more;
+  }
+
+  isSel(name: string): boolean {
+    return this.selected().has(name);
+  }
+
+  anySelected(): boolean {
+    return this.selected().size > 0;
+  }
+
+  toggleSel(name: string): void {
+    this.selected.update((s) => {
+      const n = new Set(s);
+      if (n.has(name)) n.delete(name);
+      else n.add(name);
+      return n;
+    });
+  }
+
+  cred(check: string, key: string): string {
+    return this.creds()[check]?.[key] ?? '';
+  }
+
+  setCred(check: string, key: string, value: string): void {
+    this.creds.update((c) => ({ ...c, [check]: { ...(c[check] || {}), [key]: value } }));
+  }
+
+  applySelected(): void {
+    const props = this.proposals() || [];
+    const assign = props
+      .filter((p) => this.isSel(p.check_name))
+      .map((p) => ({ check_name: p.check_name, parameters: { ...(this.creds()[p.check_name] || {}) } }));
+    if (!assign.length) return;
+    this.checkService.applyDiscovery(this.agent().id, assign).subscribe({
+      next: () => { this.proposals.set(null); this.reload(this.agent().id); },
       error: (e) => this.fail(e),
     });
   }
