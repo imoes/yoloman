@@ -24,6 +24,10 @@ import {
   CheckAssignDialogData,
   CheckAssignResult,
 } from '../../shared/components/check-assign-dialog/check-assign-dialog.component';
+import {
+  ScopeVarsDialogComponent,
+  ScopeVarsDialogData,
+} from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
@@ -244,6 +248,7 @@ interface PaletteItem {
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToOu(ctx()!.ou!)">Assign Check…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="editOuVars(ctx()!.ou!)">Variables…</button>
         <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
@@ -269,6 +274,7 @@ interface PaletteItem {
         @if (ctx()?.obj?.kind === 'host_group') {
           <button class="bm-menu-item" cdkMenuItem (click)="manageMembers(ctx()!)">Members…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToGroup(ctx()!)">Assign Check…</button>
+          <button class="bm-menu-item" cdkMenuItem (click)="editGroupVars(ctx()!)">Variables…</button>
           <div class="bm-menu-sep"></div>
         }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
@@ -561,6 +567,20 @@ export class OuPolicyComponent implements OnInit {
         .createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters })
         .subscribe({ error: (e) => alert(e?.error?.detail ?? 'assign failed') });
     });
+  }
+
+  /** GPO-style variables for a runbook run: inherited by every host in the OU,
+   * overridable per group and per host (group < OU root→leaf < host). */
+  editOuVars(ou: OUNode): void {
+    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
+      ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'ou', scopeId: ou.id, scopeLabel: 'OU ' + ou.path } },
+    );
+  }
+
+  editGroupVars(row: TreeRow): void {
+    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
+      ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'group', scopeId: row.obj!.id, scopeLabel: 'group ' + row.obj!.label } },
+    );
   }
 
   removeAssignment(a: CheckAssignment, ouId: string): void {

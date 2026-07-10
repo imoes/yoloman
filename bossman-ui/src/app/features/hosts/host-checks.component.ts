@@ -5,9 +5,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog } from '@angular/material/dialog';
 import { Agent } from '../../core/models/agent.model';
 import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } from '../../core/models/check.model';
 import { CheckService } from '../../core/services/check.service';
+import {
+  ScopeVarsDialogComponent,
+  ScopeVarsDialogData,
+} from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
 
 /**
  * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
@@ -37,6 +42,9 @@ import { CheckService } from '../../core/services/check.service';
         </mat-form-field>
         <button mat-stroked-button (click)="runDiscover()" [disabled]="discovering()">
           <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
+        </button>
+        <button mat-stroked-button (click)="editHostVars()">
+          <mat-icon>data_object</mat-icon> Variables…
         </button>
       </div>
 
@@ -178,7 +186,16 @@ import { CheckService } from '../../core/services/check.service';
 })
 export class HostChecksComponent {
   private checkService = inject(CheckService);
+  private dialog = inject(MatDialog);
   agent = input.required<Agent>();
+
+  /** Host-scope runbook variables (strongest in the GPO merge). */
+  editHostVars(): void {
+    const a = this.agent();
+    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
+      ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'host', scopeId: a.id, scopeLabel: 'host ' + a.name } },
+    );
+  }
 
   checks = signal<EffectiveCheck[]>([]);
   catalog = signal<CheckCatalogEntry[]>([]);

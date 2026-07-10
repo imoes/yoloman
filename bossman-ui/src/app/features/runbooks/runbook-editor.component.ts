@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,6 +26,7 @@ interface RunResult {
   facts_gathered?: number; steps?: StepResult[];
 }
 interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number; error?: string; line?: number; }
+interface RunRow { id: string; runbook: string; status: string; dry_run: boolean; created_at: string; }
 
 const STARTER = `name: web baseline
 targets: group:web-servers
@@ -62,7 +64,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -89,7 +91,7 @@ const MAGIC_VARS = [
             <button mat-stroked-button (click)="doLint()"><mat-icon>check_circle</mat-icon> Lint</button>
             <mat-form-field appearance="outline" class="bm-host">
               <mat-label>Host</mat-label>
-              <mat-select [(ngModel)]="hostId">
+              <mat-select [ngModel]="hostId()" (ngModelChange)="onHostChange($event)">
                 @for (h of hosts(); track h.id) { <mat-option [value]="h.id">{{ h.name }}</mat-option> }
               </mat-select>
             </mat-form-field>
@@ -137,6 +139,19 @@ const MAGIC_VARS = [
             @for (v of magicVars; track v) { <li class="bm-mono">{{ ref(v) }}</li> }
           </ul>
           <p class="bm-dim">Also any host/group/OU var, role parameters, and <code>&#36;&#123;item&#125;</code> in a loop.</p>
+
+          <div class="bm-panel-title" style="margin-top:16px;">Recent runs @if (hostId()) { <span class="bm-dim">· this host</span> }</div>
+          @if (runs().length === 0) { <p class="bm-dim">No runs recorded yet.</p> }
+          <ul class="bm-vars">
+            @for (r of runs(); track r.id) {
+              <li class="bm-run" (click)="viewRun(r.id)" title="View this run">
+                <span class="bm-badge bm-{{ r.status }}">{{ r.status }}</span>
+                <span class="bm-mono">{{ r.runbook }}</span>
+                @if (r.dry_run) { <span class="bm-dim">· dry</span> }
+                <span class="bm-dim">· {{ r.created_at | date:'MM-dd HH:mm' }}</span>
+              </li>
+            }
+          </ul>
         </div>
       </div>
     </div>
@@ -165,6 +180,9 @@ const MAGIC_VARS = [
       .bm-badge.bm-ok { background: color-mix(in srgb, var(--bm-green) 20%, transparent); }
       .bm-badge.bm-failed { background: color-mix(in srgb, var(--bm-red) 22%, transparent); }
       .bm-badge.bm-skipped { background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); }
+      .bm-badge.bm-aborted { background: color-mix(in srgb, var(--bm-red) 22%, transparent); }
+      .bm-run { padding: 3px 0; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+      .bm-run:hover { opacity: 0.8; }
       .bm-mono { font-family: monospace; }
       .bm-dim { opacity: 0.6; font-size: 12.5px; }
       .bm-panel-title { font-weight: 600; margin-bottom: 6px; }
@@ -188,11 +206,28 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   saved = signal<{ id: string; name: string; kind: string }[]>([]);
   currentId = signal<string>('');
   saveMsg = signal<string>('');
+  runs = signal<RunRow[]>([]);
   magicVars = MAGIC_VARS;
 
   ngOnInit(): void {
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
+    this.loadRuns();
+  }
+
+  private loadRuns(): void {
+    const q = this.hostId() ? `?agent_id=${this.hostId()}` : '';
+    this.http.get<{ runs: RunRow[] }>(`${this.base}/runbook-runs${q}`).subscribe((r) => this.runs.set(r.runs));
+  }
+
+  viewRun(id: string): void {
+    this.http.get<{ runbook: string; result: RunResult }>(`${this.base}/runbook-runs/${id}`)
+      .subscribe((r) => this.result.set({ ...r.result, runbook: r.runbook }));
+  }
+
+  onHostChange(id: string): void {
+    this.hostId.set(id);
+    this.loadRuns();
   }
 
   private reloadList(): void {
@@ -272,7 +307,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.running.set(true);
     this.result.set(null);
     this.http.post<RunResult>(`${this.base}/agents/${this.hostId()}/runbook/run`, { nt: this.source(), dry_run: dryRun }).subscribe({
-      next: (r) => { this.result.set(r); this.running.set(false); },
+      next: (r) => { this.result.set(r); this.running.set(false); this.loadRuns(); },
       error: (e) => {
         this.result.set({ ok: false, steps: [{ name: 'error', module: '', status: 'failed', changed: null, error: e?.error?.detail ?? 'run failed' }] });
         this.running.set(false);
