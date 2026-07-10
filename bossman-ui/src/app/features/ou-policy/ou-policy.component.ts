@@ -111,6 +111,7 @@ interface PaletteItem {
                   (dragleave)="onOuDragLeave(row.ou!)"
                   (drop)="onOuDrop(row.ou!, $event)"
                   (click)="select(row)"
+                  (dblclick)="toggleExpand(row.ou!)"
                   [cdkContextMenuTriggerFor]="ouMenu"
                   (contextmenu)="ctx.set(row)"
                 >
@@ -153,7 +154,12 @@ interface PaletteItem {
         <!-- Policies palette: every orchestration plan, draggable onto an OU
              to link it there (Windows-GPMC "link a GPO" gesture). -->
         <div class="bm-palette">
-          <div class="bm-palette-head">Policies — drag onto an OU to link</div>
+          <div class="bm-palette-head">
+            <span>Policies — drag onto an OU to link</span>
+            <button mat-stroked-button class="bm-palette-new" (click)="newPolicyUnlinked()">
+              <mat-icon>add</mat-icon> New Policy
+            </button>
+          </div>
           @for (p of allPolicies(); track p.kind + ':' + p.id) {
             <div
               class="bm-palette-item"
@@ -209,7 +215,7 @@ interface PaletteItem {
         <button class="bm-menu-item bm-menu-strong" cdkMenuItem (click)="newOrchestrationPlan(ctx()!.ou!)">
           New Policy… (multiple entries)
         </button>
-        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Link existing Policy…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="linkPlan(ctx()!.ou!)">Bind Policy (OU / Host / Group)…</button>
         <div class="bm-menu-sep"></div>
         <div class="bm-menu-label">Quick add (single entry)</div>
         <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
@@ -266,7 +272,9 @@ interface PaletteItem {
       }
       .bm-palette-head {
         font-size: 12px; opacity: 0.7; padding: 4px 12px 6px; text-transform: uppercase; letter-spacing: 0.04em;
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
       }
+      .bm-palette-new { transform: scale(0.85); transform-origin: right center; }
       .bm-palette-item {
         display: flex; align-items: center; gap: 6px; padding: 5px 12px;
         cursor: grab; white-space: nowrap; user-select: none;
@@ -748,18 +756,64 @@ export class OuPolicyComponent implements OnInit {
     });
   }
 
-  linkPlan(ou: OUNode): void {
-    const ref = this.dialog.open<OuLinkPlanDialogComponent, OuLinkPlanDialogData, OuLinkPlanResult>(OuLinkPlanDialogComponent, {
-      width: '460px', data: { ouId: ou.id, ouPath: ou.path },
+  /** Block N2: create a brand-new policy that isn't linked anywhere yet —
+   * it appears in the palette as "(unlinked)" and can be dragged onto an OU
+   * or bound to a host/group later. Distinct from newOrchestrationPlan(ou),
+   * which creates AND links under a specific OU. */
+  newPolicyUnlinked(): void {
+    const ref = this.dialog.open<OrchestrationPlanDialogComponent, undefined, OrchestrationPlanInput>(
+      OrchestrationPlanDialogComponent, { width: '480px' },
+    );
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      const fail = (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'could not create the policy');
+      this.orchestration.createPlan(input).subscribe({ next: () => this.reload(), error: fail });
     });
-    ref.afterClosed().subscribe((res) => {
-      if (!res) return;
-      this.orchestration
-        .createLink(res.plan_id, {
-          target_type: 'ou', ou_id: ou.id, enforced: res.enforced,
-          auto_apply: res.auto_apply, require_approval: !res.auto_apply,
-        })
-        .subscribe(() => this.afterObjectChange(ou.id));
+  }
+
+  /** Block N3: bind an existing policy within this OU — to the OU itself, or
+   * (GPO-style) to a specific host or host group scoped under it. The dialog
+   * offers a target selector + host/group picker; the backend already accepts
+   * target_type host|group with agent_id|host_group_id. */
+  linkPlan(ou: OUNode): void {
+    this.agentService.list().subscribe((agents: Agent[]) => {
+      this.hostGroup.list().subscribe((groups) => {
+        const ref = this.dialog.open<OuLinkPlanDialogComponent, OuLinkPlanDialogData, OuLinkPlanResult>(
+          OuLinkPlanDialogComponent,
+          {
+            width: '460px',
+            data: {
+              ouId: ou.id,
+              ouPath: ou.path,
+              hosts: agents.map((a) => ({ id: a.id, name: a.name })).sort((x, y) => x.name.localeCompare(y.name)),
+              groups: groups.map((g) => ({ id: g.id, name: g.name })).sort((x, y) => x.name.localeCompare(y.name)),
+            },
+          },
+        );
+        ref.afterClosed().subscribe((res) => {
+          if (!res) return;
+          this.orchestration
+            .createLink(res.plan_id, {
+              target_type: res.target_type,
+              ou_id: res.ou_id,
+              agent_id: res.agent_id,
+              host_group_id: res.host_group_id,
+              enforced: res.enforced,
+              auto_apply: res.auto_apply,
+              require_approval: !res.auto_apply,
+            })
+            .subscribe({
+              next: () => {
+                // An OU-scoped link shows up as an object under the OU; host/
+                // group-scoped links don't live under an OU node, so just
+                // reload the palette to reflect the plan's now-linked state.
+                if (res.target_type === 'ou') this.afterObjectChange(ou.id);
+                else this.reload();
+              },
+              error: (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'bind failed'),
+            });
+        });
+      });
     });
   }
 
