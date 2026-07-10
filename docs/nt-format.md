@@ -48,7 +48,31 @@ steps:
 ```
 
 `name` (label), `module`, `args` (the module's params). Optional per-step keys:
-`when`, `loop`, `register`, `ignore_errors`, `become`.
+`when`, `loop`, `register`, `ignore_errors`.
+
+There is **no `become`/privilege step** — the agent runs as root, so
+escalation is never needed (and never a footgun).
+
+### `run:` — the shell shorthand (an explicit, gated escape hatch)
+
+For a plain shell one-liner, `run:` is sugar for `module: shell`:
+
+```nestedtext
+steps:
+  -
+    name: rebuild the font cache
+    run: fc-cache -f && echo done
+```
+
+Two escape hatches, deliberately distinct:
+
+- **`module: starlark`** — the *sandboxed* escape: deterministic, `check_mode`
+  aware, no ambient authority. **Prefer this** for logic.
+- **`run:` / `module: shell`** — *real* `/bin/sh -c` (pipes, globs, redirects).
+  The non-sandboxed "I know what I'm doing" path: only available when
+  `write: true` and subject to the command whitelist + audit log, exactly like
+  the existing `shell` module. Not a general logic layer — use it for genuine
+  shell, and reach for `starlark` otherwise.
 
 ## Control flow — Ansible parity (decision 1)
 
@@ -113,6 +137,19 @@ $var        ${var}        {{ var }}        {{var}}
 (`$var` / `${var}` bash-style; `{{ var }}` Ansible-style. All equivalent.)
 `${item}` / `{{ item }}` inside a `loop`. Undefined variable → a clear error
 at lint time, never a silent empty string.
+
+**Bash-style modifiers** (the genuinely useful subset — text templating only,
+no command substitution, no arithmetic):
+
+```
+${var:-default}   use `default` if var is unset/empty
+${var:?message}   fail with `message` if var is unset/empty (required var)
+```
+
+We deliberately do NOT take bash's `$(command)`, `$((math))`, or `${var//x/y}`
+— those are *logic*, and logic belongs in a `starlark` step, not in the data.
+So the rule of thumb: **bash syntax for referencing and defaulting values;
+Starlark (or `run:`) for computing them.**
 
 **Precedence (GPO, reusing the check-assignment resolver):**
 
