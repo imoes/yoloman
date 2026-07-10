@@ -1,0 +1,98 @@
+"""Resolve a host's effective checks from CheckAssignments (Block G9-P2).
+
+Same GPO model as the orchestration compiler: an assignment reaches a host
+if it is host-direct, on a group the host is in, or on an OU on the host's
+ancestry path. Per check_name the winner is the most specific scope
+(host > group > OU-deep > OU-shallow); parameters are merged so a more
+specific scope overrides an inherited one key-by-key. This is how "warn
+levels configured per host / group / OU" (user decision) is realized —
+e.g. an OU 'Databases' carries the MySQL check with default levels, a
+single host overrides one threshold.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from sqlalchemy import and_, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bossman.db.models import Agent, CheckAssignment
+from bossman.services import gpo
+from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
+
+
+@dataclass
+class EffectiveCheck:
+    check_name: str
+    parameters: dict[str, Any]
+    source_scope: str          # 'host' | 'group' | 'ou'
+    source_scope_id: str | None
+    assignment_id: str         # the winning (most specific) assignment
+    contributing: list[str] = field(default_factory=list)  # all assignment ids that merged in
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "check_name": self.check_name,
+            "parameters": self.parameters,
+            "source_scope": self.source_scope,
+            "source_scope_id": self.source_scope_id,
+            "assignment_id": self.assignment_id,
+            "contributing": self.contributing,
+        }
+
+
+async def resolve_host_checks(session: AsyncSession, agent: Agent) -> list[EffectiveCheck]:
+    """Every check that applies to `agent`, deduped per check_name with
+    host > group > OU precedence and inherited-then-specific param merge."""
+    ancestry = await resolve_ou_ancestry(session, agent.ou_id)  # root … leaf
+    ancestry_depth = {n.id: depth for depth, n in enumerate(ancestry)}
+    group_ids = await resolve_host_group_ids(session, agent.id)
+
+    clauses = [and_(CheckAssignment.scope_type == "host", CheckAssignment.agent_id == agent.id)]
+    if group_ids:
+        clauses.append(and_(CheckAssignment.scope_type == "group", CheckAssignment.host_group_id.in_(group_ids)))
+    if ancestry_depth:
+        clauses.append(and_(CheckAssignment.scope_type == "ou", CheckAssignment.ou_id.in_(list(ancestry_depth))))
+
+    rows = (
+        await session.scalars(
+            select(CheckAssignment).where(
+                CheckAssignment.tenant_id == agent.tenant_id,
+                CheckAssignment.enabled.is_(True),
+                or_(*clauses),
+            )
+        )
+    ).all()
+
+    def level(a: CheckAssignment) -> int:
+        if a.scope_type == "host":
+            return gpo.LEVEL_HOST
+        if a.scope_type == "group":
+            return gpo.LEVEL_GROUP
+        return gpo.LEVEL_OU_BASE + ancestry_depth.get(a.ou_id, 0)
+
+    # group by check_name; sort each group least→most specific for the merge.
+    per_check: dict[str, list[CheckAssignment]] = {}
+    for a in rows:
+        per_check.setdefault(a.check_name, []).append(a)
+
+    out: list[EffectiveCheck] = []
+    for check_name, assignments in sorted(per_check.items()):
+        ordered = sorted(assignments, key=level)  # shallow OU → deep OU → group → host
+        merged: dict[str, Any] = {}
+        for a in ordered:
+            merged.update(a.parameters or {})   # more specific overrides
+        winner = ordered[-1]
+        out.append(
+            EffectiveCheck(
+                check_name=check_name,
+                parameters=merged,
+                source_scope=winner.scope_type,
+                source_scope_id=str(winner.ou_id or winner.host_group_id or winner.agent_id or "") or None,
+                assignment_id=str(winner.id),
+                contributing=[str(a.id) for a in ordered],
+            )
+        )
+    return out

@@ -805,6 +805,40 @@ class OrchestrationPlanLink(Base):
     )
 
 
+class CheckAssignment(Base):
+    """Assigns a check (checks.d/<check_name>) to a scope — a host, a host
+    group, or an OU — with per-scope parameters/thresholds (Block G9-P2). A
+    host's effective checks are resolved GPO-style: every assignment that
+    reaches it (host-direct + each group it belongs to + each OU on its
+    ancestry path), deduped per check_name with host > group > OU precedence,
+    parameters merged (inherited < more specific). Mirrors
+    OrchestrationPlanLink's scope columns; source records where an
+    auto-discovery run created it."""
+
+    __tablename__ = "check_assignments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    check_name: Mapped[str] = mapped_column(String, nullable=False)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False)  # ou | group | host
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="manual")  # manual | autodiscovered | ai
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('ou', 'group', 'host')", name="ck_check_assignments_scope_type"),
+        Index("idx_check_assignments_agent", "agent_id"),
+        Index("idx_check_assignments_group", "host_group_id"),
+        Index("idx_check_assignments_ou", "ou_id"),
+        Index("idx_check_assignments_check", "check_name"),
+    )
+
+
 class SystemSettings(Base):
     """One-and-only row of Bossman-wide runtime toggles (Block L2) — DB-
     backed (not env-var) so they flip instantly via the REST API/UI without
