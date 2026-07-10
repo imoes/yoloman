@@ -45,6 +45,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/checks/checks-catalog.component').then((m) => m.ChecksCatalogComponent),
   },
   {
+    path: 'runbooks',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/runbooks/runbook-editor.component').then((m) => m.RunbookEditorComponent),
+  },
+  {
     path: 'notifications',
     canActivate: [authGuard],
     loadComponent: () => import('./features/notifications/notifications.component').then((m) => m.NotificationsComponent),

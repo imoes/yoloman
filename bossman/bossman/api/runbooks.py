@@ -39,7 +39,7 @@ async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) ->
     try:
         doc = nt_runbook.parse_document(body.nt)
     except nt_runbook.NTRunbookError as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": str(exc), "line": getattr(exc, "line", None)}
     return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps)}
 
 

@@ -27,7 +27,12 @@ import nestedtext
 
 
 class NTRunbookError(Exception):
-    """A malformed runbook/role document — carries a human-readable message."""
+    """A malformed runbook/role document — carries a human-readable message
+    and, for NestedText syntax errors, the 1-based line for editor markers."""
+
+    def __init__(self, message: str, line: int | None = None):
+        super().__init__(message)
+        self.line = line
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -151,7 +156,8 @@ def parse_document(text: str, source: str = "<string>") -> Runbook | Role:
     try:
         data = nestedtext.loads(text, top="dict")
     except nestedtext.NestedTextError as exc:
-        raise NTRunbookError(f"{source}: not valid NestedText: {exc}") from exc
+        line = getattr(exc, "lineno", None)
+        raise NTRunbookError(f"{source}: not valid NestedText: {exc}", line=line) from exc
     if not isinstance(data, dict):
         raise NTRunbookError(f"{source}: top level must be a mapping")
 
