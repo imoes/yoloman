@@ -26,9 +26,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// DefaultCommand is the program spawned in the PTY. /bin/login presents the
-// OS login prompt so the operator authenticates inside the terminal.
-var DefaultCommand = []string{"/bin/login"}
+// DefaultCommand is the program spawned in the PTY: /bin/login, so the OS login
+// prompt appears in the terminal and the operator authenticates via PAM (the
+// shell then runs as that user, not the root agent).
+//
+// It is wrapped in script(1) deliberately. util-linux login does vhangup() on
+// its controlling terminal then reopens it; run directly in our PTY that reopen
+// fails with EIO ("can't reopen tty"). script allocates a FRESH pty for login
+// and keeps its master open, so login's vhangup/reopen works — the standard
+// trick for running login-like programs under a pseudo-terminal.
+var DefaultCommand = []string{"/usr/bin/script", "-qc", "/bin/login", "/dev/null"}
 
 type ctrl struct {
 	Type string `json:"type"`
@@ -62,6 +69,9 @@ func serve(conn *websocket.Conn, command []string) {
 	cmd := exec.Command(command[0], command[1:]...) // #nosec G204 — command is operator config, not request input
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
+	// pty.Start makes the child a fresh session leader with the pty as its
+	// controlling terminal (Setsid + Setctty), so interactive shells and job
+	// control work.
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		_ = conn.WriteMessage(websocket.TextMessage, []byte("failed to start console: "+err.Error()))

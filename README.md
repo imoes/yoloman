@@ -100,6 +100,9 @@ Runs on every managed host. Highlights:
   with no rewrite. The `check_plugin` wrapper **auto-detects** which convention the command's output
   follows (Nagios exit-code + `text | perfdata`, Checkmk local `status item perf details` lines, or
   Checkmk `<<<agent>>>` sections) and normalizes it to the verdict — no need to pick a wrapper.
+- **Web shell console** (Proxmox-style) — an interactive terminal for any host, right in the UI's
+  Console tab. xterm.js over a WebSocket that Bossman proxies to the agent's PTY running `/bin/login`,
+  so you log in with OS credentials in the browser. mTLS + the per-host manage ACL gate it.
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
