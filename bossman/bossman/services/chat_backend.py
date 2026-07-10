@@ -67,13 +67,35 @@ class HermesWebBackend:
         self._timeout = timeout
         self._transport = transport
 
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.token}"} if self.token else {}
+
+    async def complete_with_tools(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                                  *, model: str | None = None) -> dict[str, Any]:
+        """One non-streaming round with function-calling — returns
+        {content, tool_calls}. Powers the agentic loop (chat_agent.py): the
+        model either asks to call tools or gives a final answer."""
+        body = {"model": model or self.model, "messages": messages, "tools": tools,
+                "tool_choice": "auto", "stream": False}
+        url = f"{self.base_url}/v1/chat/completions"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, headers=self._headers(),
+                                         transport=self._transport) as client:
+                resp = await client.post(url, json=body)
+        except httpx.HTTPError as exc:
+            raise ChatBackendError(f"hermes_web: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise ChatBackendError(f"hermes_web: status {resp.status_code}: {resp.text[:2048]}")
+        msg = ((resp.json().get("choices") or [{}])[0]).get("message") or {}
+        return {"content": msg.get("content") or "", "tool_calls": msg.get("tool_calls") or []}
+
     async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
                      model: str | None = None) -> AsyncIterator[dict[str, Any]]:
         msgs = list(messages)
         if system:
             msgs = [{"role": "system", "content": system}] + msgs
         body = {"model": model or self.model, "messages": msgs, "stream": True}
-        headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
+        headers = self._headers()
         url = f"{self.base_url}/v1/chat/completions"
         try:
             async with httpx.AsyncClient(timeout=self._timeout, headers=headers, transport=self._transport) as client:

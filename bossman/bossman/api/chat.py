@@ -38,6 +38,7 @@ from bossman.services.chat_backend import (
     CodexBackend,
     HermesWebBackend,
 )
+from bossman.services.chat_agent import backend_is_agentic, bind_executor, run_agentic
 from bossman.services.chat_oauth import ChatOAuthError, ChatOAuthService, token_needs_refresh
 from bossman.services.chat_prompt import build_system_prompt
 
@@ -381,11 +382,23 @@ async def send_message(
 
     async def event_stream() -> AsyncIterator[bytes]:
         parts: list[str] = []
-        try:
-            async for ev in backend.stream(messages):
+
+        async def pump(events) -> AsyncIterator[bytes]:
+            async for ev in events:
                 if ev.get("type") == "delta" and ev.get("text"):
                     parts.append(ev["text"])
                 yield f"data: {json.dumps(ev)}\n\n".encode("utf-8")
+
+        try:
+            if backend_is_agentic(backend):
+                # Agentic: the model can call fleet tools; execute them
+                # in-process against a fresh session held for the whole loop.
+                async with session_factory() as tool_sess:
+                    async for frame in pump(run_agentic(backend, messages, bind_executor(tool_sess), model=model)):
+                        yield frame
+            else:
+                async for frame in pump(backend.stream(messages)):
+                    yield frame
         except ChatBackendError as exc:
             yield f"data: {json.dumps({'type': 'error', 'text': str(exc)})}\n\n".encode("utf-8")
         except Exception as exc:  # noqa: BLE001 — never leak a stack trace into the stream
