@@ -50,6 +50,13 @@ steps:
 `name` (label), `module`, `args` (the module's params). Optional per-step keys:
 `when`, `loop`, `register`, `ignore_errors`.
 
+> **NestedText has no inline collections.** Unlike YAML, there is no
+> `{a: b, c: d}` or `[x, y]` flow syntax — a value after `key:` on the same
+> line is *always a string*. Dicts and lists are written multi-line + indented
+> (`args:` then indented `name: …`, lists with `-`). This is exactly why the
+> Norway/typing problems can't occur, but it's the one thing to remember when
+> coming from YAML.
+
 There is **no `become`/privilege step** — the agent runs as root, so
 escalation is never needed (and never a footgun).
 
@@ -101,7 +108,9 @@ steps:
   -
     name: reload nginx only if the config changed
     module: service
-    args: {name: nginx, state: reloaded}
+    args:
+      name: nginx
+      state: reloaded
     when: dropped_config.changed        # a prior step's registered result
 
   -
@@ -172,11 +181,16 @@ steps:
   -
     name: install mysql-server
     module: apt
-    args: {name: mysql-server, state: present}
+    args:
+      name: mysql-server
+      state: present
   -
     name: ensure running
     module: service
-    args: {name: mysql, state: started, enabled: true}
+    args:
+      name: mysql
+      state: started
+      enabled: true
 monitoring:
   checks:
     - mysql
