@@ -526,6 +526,49 @@ def build_mcp_server(
         submit_check(name, ...). Safe to call any time for resume."""
         return checks_library.checks_status(settings.checks_dir, _check_source_names())
 
+    @mcp.tool()
+    async def run_runbook(runbook: str, host: str) -> dict[str, Any]:
+        """DRY-RUN a stored runbook against a host by name — a check_mode
+        preview of every step (nothing is mutated). "Preview runbook X on host
+        Y." Applying for real is human-only (via the REST API / UI), matching
+        the AI-proposes-human-confirms posture — this tool cannot mutate.
+        Returns the per-step result (ok/changed/skipped/failed)."""
+        from bossman.db.models import Agent, Runbook, RunbookRun
+        from bossman.services import nt_convert, nt_engine, nt_runbook
+
+        async with session_factory() as session:
+            rb = await session.scalar(select(Runbook).where(Runbook.name == runbook))
+            if rb is None:
+                raise ValueError(f"no such runbook {runbook!r}")
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            if not agent.address:
+                raise ValueError(f"host {host!r} has no reachable address")
+
+            doc = nt_runbook.parse_document(nt_convert.doc_to_nt(rb.doc))
+            if not isinstance(doc, nt_runbook.Runbook):
+                raise ValueError(f"{runbook!r} is a role, not a runbook — bind it in OU/Policy")
+
+            magic: dict[str, Any] = {"inventory_hostname": agent.name}
+            client = client_factory(agent, settings)
+            try:
+                facts = await client.call_tool("setup", {})
+                if isinstance(facts, dict) and isinstance(facts.get("data"), dict):
+                    magic.update(facts["data"])
+            except Exception:  # noqa: BLE001
+                pass
+            variables = {**magic, **(load_host_vars(settings.plans_dir, agent.name) or {})}
+            result = await nt_engine.run_runbook(doc, client, variables, check_mode=True)
+            rr = result.to_dict()
+            session.add(RunbookRun(
+                tenant_id=DEFAULT_TENANT_ID, runbook_name=doc.name, agent_id=agent.id,
+                dry_run=True, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
+                changed=result.changed, result=rr, requested_by=(current_identity.get() or "mcp-facade"),
+            ))
+            await session.commit()
+        return {"runbook": doc.name, "host": host, "dry_run": True, **rr}
+
     # ── Policy & Orchestration (Block L2) ────────────────────────────────
     # Read-only + a safe dry-run preview + ONE gated write tool for the
     # Policy/Orchestration layer (Block L1: OU tree, host groups,
