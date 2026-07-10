@@ -11,6 +11,7 @@ import {
   ClaudeStartResponse,
   CodexPollResponse,
   CodexStartResponse,
+  GeneratedDashboardResponse,
   OAuthStatusResponse,
 } from '../models/chat.model';
 
@@ -51,6 +52,14 @@ export class ChatService {
   }
   claudeComplete(sid: string, code: string) {
     return this.http.post<{ status: string }>(`${this.base}/oauth/claude/complete`, { session_id: sid, code });
+  }
+
+  // ---- W2: generative dashboard ----
+  getDashboard() {
+    return this.http.get<GeneratedDashboardResponse>(`${this.base}/dashboard`);
+  }
+  generateDashboard(prompt: string, backend?: string) {
+    return this.http.post<GeneratedDashboardResponse>(`${this.base}/dashboard/generate`, { prompt, backend });
   }
 
   listSessions() {

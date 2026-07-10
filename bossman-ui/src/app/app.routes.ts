@@ -14,6 +14,11 @@ export const routes: Routes = [
       import('./features/fleet-overview/fleet-overview.component').then((m) => m.FleetOverviewComponent),
   },
   {
+    path: 'ai-dashboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/ai-dashboard/ai-dashboard.component').then((m) => m.AiDashboardComponent),
+  },
+  {
     path: 'hosts',
     canActivate: [authGuard],
     loadComponent: () => import('./features/hosts/hosts-list.component').then((m) => m.HostsListComponent),

@@ -59,6 +59,20 @@ export interface ChatPrefs {
   models: Record<string, string>;
 }
 
+/** W2 — a generated dashboard: AI-designed inline-data widget specs. */
+export interface GeneratedWidgetSpec {
+  widget_type: string;
+  title: string;
+  data: Record<string, unknown>;
+  gs_w?: number;
+  gs_h?: number;
+}
+export interface GeneratedDashboardResponse {
+  prompt: string;
+  widgets: GeneratedWidgetSpec[];
+  created_at?: string | null;
+}
+
 /** A widget the assistant emitted (a ```bm-widget {json}``` block), parsed
  * into the DashboardWidget contract the shared renderer already understands. */
 export interface ChatWidget {

@@ -1254,3 +1254,19 @@ class ChatPreference(Base):
     default_backend: Mapped[str] = mapped_column(String, nullable=False, default="claude_cli")
     models: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # {backend: model}
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class GeneratedDashboard(Base):
+    """Block W2 — a per-user AI-generated dashboard (like CentralStation's
+    generative designer). The AI designs a set of inline-data widget specs
+    ([{widget_type, title, data, gs_w, gs_h}]); they're stored whole (one row
+    per user, latest wins) and rendered by the shared widget component. Kept
+    separate from the operator's config-driven dashboard_widgets."""
+
+    __tablename__ = "generated_dashboards"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    prompt: Mapped[str] = mapped_column(String, nullable=False, default="")
+    widgets: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)

@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
-from bossman.db.models import ChatMessage, ChatPreference, ChatSession
+from bossman.db.models import ChatMessage, ChatPreference, ChatSession, GeneratedDashboard
 from bossman.db.session import get_session
 from bossman.services import chat_home
 from bossman.services.chat_backend import (
@@ -39,6 +39,7 @@ from bossman.services.chat_backend import (
     HermesWebBackend,
 )
 from bossman.services.chat_agent import backend_is_agentic, bind_executor, run_agentic
+from bossman.services.chat_dashboard import generate_dashboard
 from bossman.services.chat_oauth import ChatOAuthError, ChatOAuthService, token_needs_refresh
 from bossman.services.chat_prompt import build_system_prompt
 
@@ -104,6 +105,11 @@ class ClaudeCompleteRequest(BaseModel):
 class PrefsRequest(BaseModel):
     default_backend: str | None = None
     models: dict[str, str] | None = None
+
+
+class GenerateDashboardRequest(BaseModel):
+    prompt: str = ""
+    backend: str | None = None
 
 
 def _session_out(s: ChatSession, msg_count: int | None = None) -> dict[str, Any]:
@@ -325,6 +331,62 @@ async def delete_session(
     s = await _owned_session(session, sid, identity.name)
     await session.delete(s)
     await session.commit()
+
+
+# ---- W2: generative dashboard ----------------------------------------------
+
+
+@router.get("/api/v1/chat/dashboard")
+async def get_generated_dashboard(
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    row = await session.scalar(select(GeneratedDashboard).where(GeneratedDashboard.username == identity.name))
+    return {
+        "prompt": row.prompt if row else "",
+        "widgets": (row.widgets if row else []) or [],
+        "created_at": row.created_at.isoformat() if row and row.created_at else None,
+    }
+
+
+@router.post("/api/v1/chat/dashboard/generate")
+async def generate_dashboard_route(
+    body: GenerateDashboardRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
+    oauth: ChatOAuthService = Depends(get_chat_oauth),
+) -> dict[str, Any]:
+    """Have the configured AI design a dashboard (it may call fleet tools for
+    real data) and persist it for this user. Enabled once a backend is usable."""
+    prefs = await _load_prefs(session, identity.name)
+    backend_name = (body.backend or (prefs.default_backend if prefs else settings.chat_backend)).strip()
+    if backend_name not in BACKENDS:
+        raise HTTPException(status_code=422, detail=f"backend must be one of: {', '.join(BACKENDS)}")
+    model = (prefs.models or {}).get(backend_name) if prefs else None
+    try:
+        backend = await _build_backend(settings, oauth, identity.name, backend_name, model)
+    except ChatBackendError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    async with session_factory() as tool_sess:
+        try:
+            widgets = await generate_dashboard(backend, bind_executor(tool_sess), body.prompt)
+        except ChatBackendError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if not widgets:
+        raise HTTPException(status_code=502, detail="the AI did not return any valid widgets — try rephrasing")
+
+    row = await session.scalar(select(GeneratedDashboard).where(GeneratedDashboard.username == identity.name))
+    if row is None:
+        row = GeneratedDashboard(username=identity.name, prompt=body.prompt, widgets=widgets)
+        session.add(row)
+    else:
+        row.prompt = body.prompt
+        row.widgets = widgets
+    await session.commit()
+    return {"prompt": body.prompt, "widgets": widgets}
 
 
 @router.post("/api/v1/chat/sessions/{sid}/message")

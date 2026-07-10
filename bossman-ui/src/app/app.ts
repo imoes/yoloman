@@ -13,6 +13,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
+  { path: '/ai-dashboard', label: 'AI Dashboard', icon: 'auto_awesome' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/notifications', label: 'Notifications', icon: 'notifications' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
