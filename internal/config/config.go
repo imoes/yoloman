@@ -34,10 +34,11 @@ type Config struct {
 	AllowSelfUpdate bool   `yaml:"allow_self_update"`
 	TLS             TLS    `yaml:"tls"`
 	EBPF            EBPF   `yaml:"ebpf"`
-	DB              DB     `yaml:"db"`
-	PAM             PAM    `yaml:"pam"`
-	UI              UI     `yaml:"ui"`
-	ToolsDir        string `yaml:"tools_dir"`
+	DB              DB      `yaml:"db"`
+	PAM             PAM     `yaml:"pam"`
+	UI              UI      `yaml:"ui"`
+	Console         Console `yaml:"console"`
+	ToolsDir        string  `yaml:"tools_dir"`
 	// ModulesDir holds translated Starlark collection modules
 	// (<collection>/<name>.star + .nt/.yaml sidecar), loaded and registered
 	// as executable tools at startup (Block G3). Optional dir like tools_dir.
@@ -249,6 +250,14 @@ type UI struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+// Console configures the interactive web shell (GET /api/v1/console). Command
+// is the program spawned in the PTY; empty uses console.DefaultCommand
+// (/bin/login), so the operator authenticates in the terminal via PAM.
+type Console struct {
+	Enabled bool     `yaml:"enabled"`
+	Command []string `yaml:"command"`
+}
+
 // Default returns a Config with safe, conservative defaults (write disabled).
 func Default() Config {
 	return Config{
@@ -267,6 +276,7 @@ func Default() Config {
 		},
 		PAM:           PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
 		UI:            UI{Enabled: true},
+		Console:       Console{Enabled: true},
 		ToolsDir:      "/etc/agentic-mcp/tools.d",
 		ModulesDir:    "/var/lib/agentic-mcp/modules.d",
 		CommandsFile:  "/etc/agentic-mcp/commands.yaml",

@@ -11,6 +11,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/audit"
 	"github.com/mutkluge/agentic-mcp/internal/authz"
 	"github.com/mutkluge/agentic-mcp/internal/collect"
+	"github.com/mutkluge/agentic-mcp/internal/console"
 	"github.com/mutkluge/agentic-mcp/internal/desiredstate"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
@@ -46,6 +47,13 @@ type RESTConfig struct {
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
 	AllowSelfUpdate bool
+	// ConsoleEnabled activates the interactive web shell at GET /api/v1/console
+	// (a PTY over WebSocket — see internal/console). Default true.
+	ConsoleEnabled bool
+	// ConsoleCommand is the program spawned in the console PTY; empty uses
+	// console.DefaultCommand (/bin/login, so the operator authenticates in the
+	// terminal via PAM and the shell runs as that user, not the root agent).
+	ConsoleCommand []string
 	// UpdateStagingDir is where the pushed .deb is written before dpkg runs.
 	// It MUST NOT be under /tmp or /var/tmp: the service runs with
 	// PrivateTmp=true, so those paths are namespaced to this process and
@@ -318,6 +326,13 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)
 	RegisterProcessRoutes(mux, cfg)
+
+	// Interactive web shell (Proxmox-style): a PTY running /bin/login, over a
+	// WebSocket. Behind withIdentity + the outer mTLS wrapper; Bossman proxies
+	// browsers to it with a per-host ACL check.
+	if cfg.ConsoleEnabled {
+		mux.Handle("GET /api/v1/console", console.Handler(cfg.ConsoleCommand))
+	}
 
 	return withIdentity(cfg, mux)
 }

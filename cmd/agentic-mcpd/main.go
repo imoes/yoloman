@@ -169,6 +169,8 @@ func run(args []string) error {
 		ModulesDir:         cfg.ModulesDir,
 		MaxUploadSize:      cfg.MaxUploadSize,
 		AllowSelfUpdate:    cfg.AllowSelfUpdate,
+		ConsoleEnabled:     cfg.Console.Enabled,
+		ConsoleCommand:     cfg.Console.Command,
 		Mode:               cfg.Mode,
 		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM:  proxyPublicKeyPEM,
