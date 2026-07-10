@@ -17,6 +17,13 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
 import { OuService } from '../../core/services/ou.service';
+import { CheckService } from '../../core/services/check.service';
+import { CheckAssignment } from '../../core/models/check.model';
+import {
+  CheckAssignDialogComponent,
+  CheckAssignDialogData,
+  CheckAssignResult,
+} from '../../shared/components/check-assign-dialog/check-assign-dialog.component';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
@@ -188,7 +195,21 @@ interface PaletteItem {
                 <tr><th>Block Inheritance</th><td>{{ sel.ou!.block_inheritance ? 'yes' : 'no' }}</td></tr>
                 <tr><th>Objects</th><td>{{ (objectsByOu().get(sel.ou!.id) || []).length }}</td></tr>
               </table>
-              <p class="bm-hint">Right-click to add OUs/objects, toggle Block Inheritance, or delete.</p>
+              @if (ouChecks().length) {
+                <h3 class="bm-checks-h">Checks (GPO — inherited by hosts in this OU)</h3>
+                <table class="bm-kv">
+                  @for (c of ouChecks(); track c.id) {
+                    <tr>
+                      <th>{{ c.check_name }}</th>
+                      <td>
+                        <span class="bm-dim">{{ paramsSummary(c.parameters) }}</span>
+                        <button class="bm-link" (click)="removeAssignment(c, sel.ou!.id)">remove</button>
+                      </td>
+                    </tr>
+                  }
+                </table>
+              }
+              <p class="bm-hint">Right-click to add OUs/objects, assign a check, toggle Block Inheritance, or delete. A host's own check config overrides these.</p>
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
               <table class="bm-kv">
@@ -222,6 +243,8 @@ interface PaletteItem {
         <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">Notification…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
         <div class="bm-menu-sep"></div>
+        <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToOu(ctx()!.ou!)">Assign Check…</button>
+        <div class="bm-menu-sep"></div>
         <button class="bm-menu-item" cdkMenuItem (click)="toggleBlock(ctx()!.ou!)">
           {{ ctx()?.ou?.block_inheritance ? '✓ ' : '' }}Block Inheritance
         </button>
@@ -245,6 +268,7 @@ interface PaletteItem {
         }
         @if (ctx()?.obj?.kind === 'host_group') {
           <button class="bm-menu-item" cdkMenuItem (click)="manageMembers(ctx()!)">Members…</button>
+          <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToGroup(ctx()!)">Assign Check…</button>
           <div class="bm-menu-sep"></div>
         }
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
@@ -314,6 +338,8 @@ interface PaletteItem {
       .bm-badge-off { background: color-mix(in srgb, var(--mat-sys-on-surface) 14%, transparent); }
       .bm-empty { opacity: 0.7; padding: 12px 16px; }
       .bm-hint { opacity: 0.6; font-size: 12.5px; margin-top: 16px; }
+      .bm-checks-h { font-size: 12px; opacity: 0.75; margin: 16px 0 4px; }
+      .bm-link { background: none; border: none; color: var(--bm-green); cursor: pointer; font: inherit; margin-left: 8px; padding: 0; }
       .bm-kv { border-collapse: collapse; margin-top: 8px; }
       .bm-kv th { text-align: left; opacity: 0.7; padding: 4px 16px 4px 0; font-weight: 500; vertical-align: top; }
       .bm-kv td { padding: 4px 0; }
@@ -343,7 +369,11 @@ export class OuPolicyComponent implements OnInit {
   private orchestration = inject(OrchestrationService);
   private agentService = inject(AgentService);
   private systemSettings = inject(SystemSettingsService);
+  private checkService = inject(CheckService);
   private dialog = inject(MatDialog);
+
+  /** GPO check assignments on the selected OU (Block G9-P3). */
+  ouChecks = signal<CheckAssignment[]>([]);
 
   ous = signal<OUNode[]>([]);
   expanded = signal<Set<string>>(new Set());
@@ -490,6 +520,51 @@ export class OuPolicyComponent implements OnInit {
 
   select(row: TreeRow): void {
     this.selected.set(row);
+    this.ouChecks.set([]);
+    if (row.kind === 'ou') this.loadOuChecks(row.ou!.id);
+  }
+
+  private loadOuChecks(ouId: string): void {
+    this.checkService.listAssignments({ ou_id: ouId }).subscribe((r) => this.ouChecks.set(r.assignments));
+  }
+
+  paramsSummary(params: Record<string, unknown>): string {
+    const keys = Object.keys(params || {});
+    return keys.length ? keys.map((k) => k + '=' + JSON.stringify(params[k])).join(', ') : '(defaults)';
+  }
+
+  /** GPO-assign a check to this OU (inherited by every host in the OU;
+   * a host's own config overrides it). */
+  assignCheckToOu(ou: OUNode): void {
+    const ref = this.dialog.open<CheckAssignDialogComponent, CheckAssignDialogData, CheckAssignResult>(
+      CheckAssignDialogComponent, { width: '460px', data: { scopeLabel: 'OU ' + ou.path } },
+    );
+    ref.afterClosed().subscribe((res) => {
+      if (!res) return;
+      this.checkService
+        .createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters })
+        .subscribe({
+          next: () => { this.select({ kind: 'ou', ou, depth: 0 }); },
+          error: (e) => alert(e?.error?.detail ?? 'assign failed'),
+        });
+    });
+  }
+
+  assignCheckToGroup(row: TreeRow): void {
+    const groupId = row.obj!.id;
+    const ref = this.dialog.open<CheckAssignDialogComponent, CheckAssignDialogData, CheckAssignResult>(
+      CheckAssignDialogComponent, { width: '460px', data: { scopeLabel: 'group ' + row.obj!.label } },
+    );
+    ref.afterClosed().subscribe((res) => {
+      if (!res) return;
+      this.checkService
+        .createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters })
+        .subscribe({ error: (e) => alert(e?.error?.detail ?? 'assign failed') });
+    });
+  }
+
+  removeAssignment(a: CheckAssignment, ouId: string): void {
+    this.checkService.deleteAssignment(a.id).subscribe({ next: () => this.loadOuChecks(ouId) });
   }
 
   toggleExpand(ou: OUNode): void {
