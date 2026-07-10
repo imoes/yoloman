@@ -5,174 +5,292 @@
 > *"You only live once — but your servers only get one uptime SLA, so let's not get carried
 > away."*
 
-A self-contained Linux node agent that hands your server's monitoring, observability, and
-configuration management over to an AI — over [MCP](https://modelcontextprotocol.io) (stdio or
-Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime required on the
-managed host. Ships as a single static Go binary with a hardened systemd unit.
+A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
+**observability**, and **configuration management** to an AI — over [MCP](https://modelcontextprotocol.io)
+(stdio or Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime on the
+managed host. The node agent ships as a single static Go binary with a hardened systemd unit; the
+central Fleet Commander ships as a Docker Compose stack.
 
-Think CheckMK (monitoring) + Coroot (eBPF observability) + Ansible (configuration management),
-minus the three separate tools, plus one thing they don't have: an API built for a language model
-to actually drive.
+Think **CheckMK** (monitoring) + **Coroot** (eBPF observability) + **Ansible** (configuration
+management), minus the three separate tools, plus one thing they don't have: an API and a
+configuration language built for a language model to actually drive — safely.
 
-The daemon itself goes by **Duppy** — Jamaican patois for a spirit that lingers unseen and does
-things in the background, which is coincidentally also why Unix daemons are spelled that way in
-the first place (the old hacker folklore insists it's the *helpful* kind of supernatural entity,
-not the evil one). Duppies in actual Jamaican folklore have a bit of a reputation for mischief;
-ours mostly just watches `/proc` and restarts services on request.
+Two cooperating components:
 
-## Is This Actually a Good Idea?
+- **Duppy** — the node agent (this repo root). Runs on every server. *Duppy* is Jamaican patois
+  for a background spirit — coincidentally why Unix daemons are spelled that way. Ours mostly
+  watches `/proc` and restarts services on request.
+- **Bossman** — the central Fleet Commander ([`bossman/`](bossman/) + [`bossman-ui/`](bossman-ui/)).
+  Aggregates the fleet, compiles per-host desired state (GPO-style), translates foreign automation
+  (Ansible collections, Checkmk checks) into the agent's sandboxed runtime, and gives an AI one
+  endpoint for the whole infrastructure.
 
-Let's be honest about the name for a second. "YOLO" as an engineering philosophy has a well-earned
-reputation, and the internet has receipts. The original ["YOLO deployment" meme](https://hackernoon.com/could-yolo-driven-development-be-a-thing-fa1c12242188)
-is about skipping the test suite and shipping straight to prod on a Friday afternoon — the joke
-being that your CI pipeline becomes "CI/See-No-Evil" and whatever breaks becomes [tomorrow-you's
-problem](https://www.cloudzero.com/blog/devops-memes/). And handing infrastructure to an *autonomous
-agent* specifically has its own, less funny research trail: [Gartner predicts 40% of enterprises
-will decommission autonomous AI agents by 2027](https://www.gartner.com/en/newsroom/press-releases/2026-05-26-gartner-says-applying-uniform-governance-across-ai-agents-will-lead-to-enterprise-ai-agent-failure)
-after governance gaps surface in production, and the recurring root cause in the [2025 AI agent
-security literature](https://www.obsidiansecurity.com/blog/ai-agent-market-landscape) is
-over-permissioning — agents quietly handed more access than their job needs, with no way to dial
-it back.
+---
 
-So, fair question: why would you point something called YOLO-MANager at your infrastructure?
+## Why Starlark, and why NestedText?
 
-Because unlike an actual YOLO deploy, nothing here is a blind commit to prod. Every mutating
-action goes through the same idempotent, Ansible-shaped module first in `check_mode` — a full dry
-run preview of exactly what would change, with nothing touched — before it's ever allowed to run
-for real. Real execution requires the operator to explicitly flip a global `write: true` switch in
-config.yaml; leave it `false` (the default) and every mutating tool isn't just hidden, it's never
-even registered. Layered on top: a per-user/per-token ACL with a kill switch for every individual
-tool, and a structured audit log of every call, straight to journald. The Gartner finding above —
-that governance fails when it's all-or-nothing instead of graduated — is more or less this
-project's whole design brief.
+Two deliberate language choices sit at the centre of this project. They're worth explaining up
+front because everything else — the module library, the checks, the runbooks and roles — is
+expressed in them.
 
-In short: we kept the "let an AI run your servers" idea, and deliberately did not keep the "skip
-the safety checks" part the name jokes about. Read the full model in
-[docs/plan.md](docs/plan.md#security-model) if you want to see the trade-offs made explicit.
+### Starlark for logic — "like Ansible, but it runs sandboxed inside the agent"
 
-## What's implemented
+The built-in modules are native Go. But the *extended* vocabulary — every Ansible collection module
+we translate, every Checkmk check, every custom check — is written in **[Starlark](https://github.com/bazelbuild/starlark)**,
+the small Python dialect from Bazel. Why not just run Python, or shell?
 
-- **A full built-in module library, native in Go** — `file`, `copy`, `lineinfile`, `apt`,
-  `command`, `raw`, `script`, `service`/`systemd`/`systemd_service`, `sysvinit`, `blockinfile`,
-  `replace`, `assemble`, `tempfile`, `template`, `user`, `group`, `cron`, `hostname`, `timezone`,
-  `apt_key`, `apt_repository`, `deb822_repository`, `dpkg_selections`, `debconf`, `yum`, `dnf`,
-  `dnf5`, `yum_repository`, `rpm_key` (the RedHat-family package modules are unit-tested only —
-  this project's real test host is Debian), `package`, `pip`, `git`, `subversion`, `unarchive`,
-  `expect`, `reboot`, `get_url`, `uri`, `known_hosts`, `iptables`, plus read-only facts (`setup`,
-  `stat`, `find`, `slurp`, `fetch`, `wait_for`, `ping`, `service_facts`, `package_facts`,
-  `getent`). Idempotent, `check_mode`-aware, `changed: true/false` reporting — no Ansible
-  installation required on either end. One deliberate exception to the "no shell, argv only"
-  design the rest of this set follows: `shell`, which genuinely runs `/bin/sh -c` (pipes,
-  redirects, globbing) because that's the entire point of the real Ansible module it mirrors —
-  see [docs/plan.md](docs/plan.md#security-model) for the trade-off. Every module's description
-  names its Ansible/Chef/Puppet/Salt/Terraform equivalent, so an AI can translate a task from any
-  of those formats without external docs. See [docs/plan.md](docs/plan.md) for the module-by-module scope, the batches it
-  was built in, and how each one was verified.
-- **`tools.d/`** — curated, named tool definitions written in literal task YAML
-  (a bare `<module>:` key + `{{ placeholder }}` params), plus native argv command pipelines
-  (`cmd1 | cmd2`, no shell) with a binary/argument whitelist.
-- **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin, exposed as an MCP tool
-  automatically.
-- **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, and disk
-  I/O latency (block request issue/completion correlated in-kernel by device+sector) via
-  `cilium/ebpf`, CO-RE-free stable tracepoints, graceful degradation on kernels without ring buffer
-  support. Every event is container-aware — a best-effort container ID resolved from
-  `/proc/<pid>/cgroup`, recognizing Docker's own cgroup driver, Docker-via-systemd, and
-  containerd/CRI paths uniformly, without walking fragile kernel cgroup structs.
-- **Local SQLite metrics store** with a retention/downsampling job (raw → hourly → daily), plus a
-  bulk `metrics_dump` endpoint for efficient polling.
-- **PAM login + SQLite-backed ACL, with per-token RBAC** — a per-tool kill switch and per-
-  user/group/token rules, enforced identically whether the caller comes in over MCP or REST.
-  Beyond the single legacy bearer token, `config.yaml` can name additional tokens
-  (`tokens: [{name, token}]`), each resolving to its own ACL identity — so a CI pipeline and a
-  future Bossman instance can be scoped to different tool sets instead of every valid token
-  granting the same access.
-- **Self-contained embedded web admin UI** — login, tool toggles, ACL editing, metrics/facts
-  viewing. No build step, no CDN.
-- **Structured audit logging** — every tool call as a JSON line to journald.
-- **Hardened systemd unit** — privilege-escalation and kernel-attack-surface hardening; explicitly
-  *not* filesystem/capability-sandboxed, because the entire point of this daemon is open-ended
-  system management (see [docs/plan.md](docs/plan.md) for why that trade-off was made deliberately,
-  not by accident).
-- **Three operating modes** — `standalone` (fully self-contained, the default), `satellite` (a
-  central Fleet Commander pulls this agent's data), and `proxy`, nicknamed **Selecta** (this agent
-  pulls from a list of satellites over TLS and re-serves the aggregate, for firewalled or
-  distributed networks — a soundsystem selector working the crowd's whole set from one deck).
-  Machine-to-machine access is authorized via TLS client certificates pinned per caller — the SSH
-  `authorized_keys` model, over TLS, checked in addition to the existing bearer token.
-- **`agentic-mcpd register`** — a one-time enrollment handshake with the future Bossman: trades a
-  shared bootstrap secret for Bossman's public key, so it can be added to `tls.trusted_client_keys`
-  without copying key files around by hand. `agentic-mcpd --generate-token` mints a fresh random
-  bearer token for `config.yaml`, independently of enrollment.
-- **`upload_file` (MCP) / `PUT /api/v1/upload` (REST)** — stages a new file (a config snippet, a
-  `.deb` package) onto the host before `copy` places it at its final destination. The MCP tool
-  takes small base64 content (≲64 KiB — anything an AI would plausibly compose inline); the REST
-  endpoint streams a raw request body straight to disk, no base64, sized for real packages (kernel
-  packages run up to ~274 MiB).
-- **`.rpm` packaging** (`packaging/nfpm.yaml`) — one shared `nfpm` config builds both `.deb` and
-  `.rpm`; `postinst` bootstraps `config.yaml` with a freshly generated token on first install and
-  enables the systemd unit, `postrm` stops the service without ever deleting the token/store/audit
-  history. Real-installed and run under genuine `systemd` in a Rocky Linux 9 container.
+- **It's a sandbox by construction.** Starlark has no `import`, no filesystem, no network, no
+  `os`/`sys`, no ambient authority at all. A module can only touch the system through the
+  capability object `ctx` we pass in (`ctx.run`, `ctx.file_read`, `ctx.file_write`, `ctx.stat`,
+  `ctx.facts`). You cannot write a module that quietly opens a socket or reads `/etc/shadow` unless
+  we handed it that capability. That's the opposite of "curl | bash" or an unrestricted Python
+  plugin.
+- **It's deterministic and terminating.** No unbounded loops, no recursion, no wall-clock, no
+  randomness by default. The same inputs produce the same plan. That's what makes a *dry run*
+  (`check_mode`) trustworthy: the preview is the execution.
+- **It looks like Python, so an LLM writes it fluently** — but the differences (`== None` not
+  `is None`, `fail()` not exceptions, `%`/`.format()` not f-strings) are few, mechanical, and
+  enforced by a validator, so a model's output either lint-cleans or gets a precise correction to
+  retry against.
+- **One validator, one runtime.** `validate ≡ execute`: the Go `starlark-check` binary that gates a
+  module is built from the *same* `internal/starmod` package the agent runs it with. A module that
+  validates here runs there — they cannot drift.
+
+So a "module" or a "check" is one `.star` file defining `def main(ctx, params)`. Action modules
+return `{"changed": bool, "msg": str}`; checks are read-only and return
+`{"changed": False, "msg": str, "data": {"state": "OK|WARN|CRIT|UNKNOWN", "metrics": {...}}}`.
+
+### NestedText for configuration — "no quoting, no typing footguns, no YAML surprises"
+
+Every human-authored *configuration* — module metadata, runbooks, roles, provisioning recipes — is
+written in **[NestedText](https://nestedtext.org)**, not YAML. NestedText is YAML's readable subset
+with the sharp edges removed:
+
+- **Everything is a string, a list, or a dictionary. Full stop.** There is no implicit typing, so
+  the [Norway problem](https://hitchdev.com/strictyaml/why/implicit-typing-removed/) (`no` becoming
+  `false`, `3.10` becoming `3.1`, `on`/`off`/`yes` surprises) simply cannot happen. A version is
+  `"3.10"` because it's *always* text; the module coerces where it means a number.
+- **No quoting, no escaping.** A value runs to the end of the line verbatim — SQL, a regex, a shell
+  fragment, a password with `:` and `#` in it — no quotes, no backslashes. This matters enormously
+  for check thresholds and provisioning commands.
+- **Whitespace-only structure, like YAML, so it reads the same** — but the grammar is tiny and
+  unambiguous, which means both a human and an LLM produce valid documents on the first try far more
+  often.
+
+NestedText carries no behaviour; it's pure data. The *behaviour* is the Starlark. This split —
+**declarative data in NestedText, sandboxed logic in Starlark** — is the core of how yolo-man stays
+both AI-authorable and safe.
+
+---
+
+## The node agent (Duppy)
+
+Runs on every managed host. Highlights:
+
+- **A full built-in module library, native in Go** — `file`, `copy`, `lineinfile`, `blockinfile`,
+  `replace`, `template`, `apt`/`yum`/`dnf`/`package`, `service`/`systemd`, `user`, `group`, `cron`,
+  `git`, `unarchive`, `get_url`, `uri`, `iptables`, `reboot`, and read-only facts (`setup`, `stat`,
+  `find`, `service_facts`, `package_facts`, …). Idempotent, `check_mode`-aware, `changed: true/false`
+  reporting — no Ansible on either end. Every module names its Ansible/Chef/Puppet/Salt/Terraform
+  equivalent so an AI can translate from any of them without external docs.
+- **A sandboxed Starlark module runtime** (`internal/starmod`) with a `json` builtin, an
+  `isinstance` shim, and the `ctx` capability API — Bossman pushes translated collection modules and
+  checks here (`POST /api/v1/modules/apply`), and they run by name via `POST /api/v1/tools/{name}`.
+- **Nagios/CheckMK-compatible custom checks** — drop in any Nagios plugin or Checkmk local check
+  (see the `nagios_plugin` / `checkmk_local` wrapper checks) with no rewrite.
+- **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
+  latency, container-aware, with graceful degradation on older kernels.
+- **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
+- **PAM login + SQLite-backed per-token/user/group ACL** with a per-tool kill switch, enforced
+  identically over MCP and REST. Every mutating action previews in `check_mode` first; real
+  execution requires a global `write: true` switch (default `false` — mutating tools aren't even
+  registered otherwise).
+- **Three modes** — `standalone` (default), `satellite` (Bossman pulls its data), and `proxy`
+  (**Selecta** — pulls from satellites over mTLS and re-serves the aggregate). Machine-to-machine
+  auth is TLS client certs pinned per caller (the `authorized_keys` model, over TLS).
+- **`.deb`/`.rpm` packaging**, a hardened systemd unit, a self-contained embedded web admin UI, and
+  structured audit logging (one JSON line per call to journald).
+
+See [`docs/plan.md`](docs/plan.md) for the module-by-module scope and how each was verified.
+
+## Is this actually a good idea?
+
+"YOLO" as an engineering philosophy has a well-earned reputation, and handing infrastructure to an
+autonomous agent has its own research trail — [Gartner predicts 40% of enterprises will decommission
+autonomous AI agents by 2027](https://www.gartner.com/en/newsroom/press-releases/2026-05-26-gartner-says-applying-uniform-governance-across-ai-agents-will-lead-to-enterprise-ai-agent-failure),
+with over-permissioning the recurring root cause. So why point something called YOLO-MANager at your
+servers?
+
+Because nothing here is a blind commit to prod. Every mutating action runs first in `check_mode` — a
+full dry-run preview — before it's ever allowed to run for real, real execution needs an explicit
+`write: true`, there's a graduated per-user/per-token/per-tool ACL with a kill switch, and every
+call is audited to journald. The Gartner finding — that governance fails when it's all-or-nothing
+instead of graduated — is more or less this project's whole design brief. Full model in
+[docs/plan.md](docs/plan.md#security-model).
+
+---
 
 ## The Fleet Commander: Bossman
 
 ![Bossman — Linux Solutions](docs/assets/bossman.jpg)
 
-The Node Agent (this repo) runs on every server. A separate central component — codename
-**Bossman** (Jamaican patois for "the boss," a fitting counterpart to YOLO-MAN: he runs on every
-machine, Bossman keeps an eye on the whole fleet) — aggregates the fleet, translates Ansible
-playbooks (and, via a real LLM-backed translator, arbitrary foreign automation sources) into this
-agent's own module calls, and gives an AI one MCP endpoint for the whole infrastructure instead of
-one per box. Lives in [`bossman/`](bossman/) (backend) and [`bossman-ui/`](bossman-ui/) (frontend);
-see [docs/plan.md](docs/plan.md) for the full, continuously-updated implementation record.
+Bossman aggregates the fleet and gives an AI (and you) one place to run it. What it does today:
 
-**Try the whole Bossman stack locally** with Docker Compose — Postgres/TimescaleDB, migrations, an
-`admin`/`admin123` seed user, the FastAPI backend, and the Angular frontend behind nginx:
+- **Fleet inventory & monitoring** — hosts, services, metrics, problems, downtimes,
+  notifications, availability, dependency/topology graphs.
+- **Policy & Orchestration (GPO-style)** — an **OU tree** (LDAP-style, ltree-backed), first-class
+  **host groups**, and **orchestration plans/roles** you bind to an OU / group / host. Per-host
+  desired state is compiled with real GPO precedence (`global < group < OU(root→host) < host`),
+  `enforced` links, and block-inheritance — resolved server-side, previewed before it's pushed.
+- **Checks subsystem** (see below) — a flat `checks.d` library of monitoring checks, assignable to
+  host/group/OU with per-scope thresholds, with auto-discovery and credential provisioning.
+- **Users & Access** — human users (admin/operator), machine API tokens, and per-host/group
+  **access grants** (admin manages everything; operator/token only what a grant covers).
+- **AI chat console** — Claude CLI, ChatGPT Codex, or a self-hosted model, agentic (the model calls
+  fleet tools), rendering Markdown + PlantUML/diagrams and a generative dashboard.
+- **The translator** — pulls Ansible collections and Checkmk checks through an LLM
+  (`llamacpp03/qwen79b`) into the agent's Starlark runtime, validated by the same `starlark-check`
+  gate the agent uses.
+
+**Try the whole stack locally** — Postgres/TimescaleDB, migrations, an `admin`/`admin123` seed user,
+the FastAPI backend, and the Angular frontend behind nginx:
 
 ```bash
 docker compose up -d --build
 ```
 
-Then open the URL `docker-compose.override.yml` publishes for `bossman-ui` (`4201` by default in
-this checkout — see that file's comments for why, and adjust it for your own machine's free ports)
-and sign in with `admin` / `admin123`. `docker-compose.yml` is the portable, shareable stack
-definition; `docker-compose.override.yml` (merged in automatically, no `-f` flag needed) is where
-anything specific to *your* machine belongs — port choices, an outbound proxy, etc.
+Open the URL `docker-compose.override.yml` publishes for `bossman-ui` (`4201` by default) and sign
+in with `admin` / `admin123`.
 
-## Build
+### Checks: translated + custom, all in `checks.d`
+
+A **check** is a read-only Starlark module that gathers data on the host and reports a verdict
+(`state` + `metrics`), plus a **discovery mode** (`params._discover`) that enumerates the items a
+host has for it — one per filesystem, per file, per sensor — exactly like a Checkmk
+`discovery_function`. All checks live flat in `configs/checks.d/<name>.{star,nt}`:
+
+- **Translated** — Checkmk's ~1400 built-in checks, machine-translated to Starlark.
+- **Custom** — hand-authored, and crucially **Nagios- and Checkmk-compatible**: the `nagios_plugin`
+  wrapper runs any Nagios plugin (exit code + `text | perfdata`), the `checkmk_local` wrapper runs a
+  Checkmk local check (one service per output line). Reuse existing plugins unchanged.
+
+Assign a check on the **host's Checks tab** or, GPO-style, to a **group/OU in OU / Policy** — a
+host's own config overrides the inherited one, warn/crit levels merged weakest→strongest.
+**Auto-discovery** runs the checks' discovery on a host and proposes assignments; when a check needs
+credentials (e.g. a MySQL monitoring user), a **provisioning recipe** (`<name>.provision.nt`) creates
+the account on the host and stores the generated credential — the admin credentials are used once and
+never persisted. The AI can drive the whole flow and **asks you for any required parameters** before
+assigning.
+
+---
+
+## Working with NestedText: runbooks and roles
+
+> **Status: proposed format, under active design.** The examples below show where the NestedText
+> runbook/role format is heading — Ansible-shaped but flatter and quoting-free. See
+> [`docs/nestedtext-playbooks.md`](docs/nestedtext-playbooks.md) for the agent-side NT playbook CLI
+> that exists today, and the "NT format" discussion in the project notes for the open questions.
+
+### A runbook
+
+A **runbook** is an ordered list of named steps; each step is one module call. Like an Ansible
+playbook, but every value is plain text (no quoting, no `yes→true` surprises) and the structure is
+flatter.
+
+```nestedtext
+name: web baseline
+targets: group:web-servers
+steps:
+  -
+    name: install nginx
+    module: apt
+    args:
+      name: nginx
+      state: present
+  -
+    name: drop the vhost config
+    module: template
+    args:
+      src: nginx/site.conf.j2
+      dest: /etc/nginx/sites-enabled/site.conf
+      mode: "0644"
+  -
+    name: enable and start nginx
+    module: service
+    args:
+      name: nginx
+      state: started
+      enabled: true
+```
+
+Run it dry (preview) then for real:
 
 ```bash
+yolo-man run web-baseline.nt --check      # dry run: shows exactly what would change
+yolo-man run web-baseline.nt              # apply
+```
+
+### A role
+
+A **role** bundles what a *kind of host* should be — its steps **and** the monitoring and
+notifications that come with it ("what is orchestrated is monitored"). You bind a role to an OU,
+group, or host; Bossman compiles it into the host's desired state.
+
+```nestedtext
+role: mysql_server
+description: A MySQL database server — package, service, monitoring, alerting.
+parameters:
+  bind_address: 127.0.0.1
+  monitor_user: monitor
+steps:
+  -
+    name: install mysql-server
+    module: apt
+    args:
+      name: mysql-server
+      state: present
+  -
+    name: ensure it is running
+    module: service
+    args:
+      name: mysql
+      state: started
+      enabled: true
+monitoring:
+  checks:
+    - mysql
+    - disk
+    - cpu_loads
+notifications:
+  routes:
+    - dba-oncall
+```
+
+Bind it in OU / Policy (e.g. to an OU **Databases**), and every host placed there installs MySQL,
+gets the `mysql`/`disk`/`cpu_loads` checks, and routes alerts to `dba-oncall` — with per-host
+overrides where you need them.
+
+---
+
+## Build, run, test
+
+```bash
+# Node agent
 go build -o bin/agentic-mcpd ./cmd/agentic-mcpd
-```
-
-## Run
-
-```bash
-# MCP over stdio (for local testing with an MCP client)
-./bin/agentic-mcpd --stdio --config configs/config.yaml
-
-# MCP over Streamable HTTP (default) + REST, listens on config.yaml's `listen`
-./bin/agentic-mcpd --config configs/config.yaml
-```
-
-Without a config file, the daemon falls back to built-in defaults (listening on `127.0.0.1:8010`,
-write disabled) for quick local testing.
-
-## Test
-
-```bash
+./bin/agentic-mcpd --config configs/config.yaml        # MCP (HTTP) + REST
+./bin/agentic-mcpd --stdio --config configs/config.yaml # MCP over stdio
 go test ./...
+
+# The Starlark validator (used by Bossman's translator + check library)
+CGO_ENABLED=0 go build -o bin/starlark-check ./cmd/starlark-check
+
+# Bossman stack
+docker compose up -d --build
 ```
 
-## Playbooks
-
-Plans (and the agent's local `tools.d` tasks) can be written in
-[NestedText](https://nestedtext.org) instead of YAML — all-strings, no
-implicit typing, no quoting — and run with the `yolo-man` CLI
-(`lint`/`show`/`convert`/`run`). See
-[`docs/nestedtext-playbooks.md`](docs/nestedtext-playbooks.md).
+Without a config file the agent falls back to built-in defaults (`127.0.0.1:8010`, write disabled).
 
 ## Learn more
 
-The full design — architecture, module system, security model, the three operating modes, and the
-complete roadmap — lives in [`docs/plan.md`](docs/plan.md).
+The full design — architecture, module system, security model, the three operating modes, the
+policy/orchestration compiler, and the complete roadmap — lives in [`docs/plan.md`](docs/plan.md).
