@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings
-from bossman.db.models import ApiToken, BossmanUser
+from bossman.db.models import AccessGrant, ApiToken, BossmanUser, HostGroupMember
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -137,6 +137,42 @@ class Identity:
     kind: str  # "user" | "api_token"
     name: str
     role: str | None = None  # only set for kind == "user"
+
+
+async def user_can_manage_agent(session: AsyncSession, identity: Identity, agent_id) -> bool:
+    """Block M authorization: may this caller MANAGE this host?
+
+    admin users bypass entirely. Every other user AND every api_token needs a
+    grant: scope='all' (wildcard) → yes; scope='host' matching agent_id → yes;
+    scope='host_group' where the host is a member → yes. Otherwise no."""
+    if identity.kind == "user" and identity.role == "admin":
+        return True
+    grants = (
+        await session.scalars(
+            select(AccessGrant).where(
+                AccessGrant.subject_kind == identity.kind,
+                AccessGrant.subject_ref == identity.name,
+            )
+        )
+    ).all()
+    group_ids: list = []
+    for g in grants:
+        if g.scope == "all":
+            return True
+        if g.scope == "host" and g.agent_id is not None and str(g.agent_id) == str(agent_id):
+            return True
+        if g.scope == "host_group" and g.host_group_id is not None:
+            group_ids.append(g.host_group_id)
+    if group_ids:
+        member = await session.scalar(
+            select(HostGroupMember.id).where(
+                HostGroupMember.agent_id == agent_id,
+                HostGroupMember.host_group_id.in_(group_ids),
+            )
+        )
+        if member is not None:
+            return True
+    return False
 
 
 async def resolve_identity(session: AsyncSession, settings: Settings, bearer: str) -> Identity:

@@ -60,6 +60,11 @@ async def _make_agent(db_session, **overrides) -> Agent:
 async def _make_api_token(db_session):
     row, raw = new_api_token("plans-caller")
     db_session.add(row)
+    # Block M: plan-run routes now enforce the host ACL; this suite isn't
+    # about that, so a wildcard grant keeps the caller authorized.
+    from bossman.db.models import AccessGrant
+
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref="plans-caller", scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw

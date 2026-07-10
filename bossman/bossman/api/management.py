@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import get_current_identity
+from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
@@ -62,7 +62,7 @@ async def list_agent_tools_route(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Every tool one managed agent currently exposes ([{name, kind, writes}]),
@@ -84,7 +84,7 @@ async def call_agent_tool_route(
     body: ToolCallRequest,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Route a single tool call to one managed agent (proxies the agent's
@@ -105,7 +105,7 @@ async def get_agent_services(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4a — the host's systemd service units + their load/active/sub
@@ -135,7 +135,7 @@ async def get_agent_logs(
     boot: bool = Query(False, description="Current boot only"),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4b — the host's journald log, via the read-only `journal`
@@ -180,7 +180,7 @@ async def get_agent_accounts(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4c — the host's users and groups, via the read-only `getent`
@@ -253,7 +253,7 @@ async def manage_agent_user(
     body: UserActionRequest,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4c — create/modify/remove a user via the write-gated `user`
@@ -277,7 +277,7 @@ async def manage_agent_group(
     body: GroupActionRequest,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4c — create/remove a group via the write-gated `group` module."""
@@ -307,7 +307,7 @@ async def get_agent_storage(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4d — a read-only storage overview: block devices + LVM + VDO via
@@ -359,7 +359,7 @@ async def get_agent_network(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4e — the host's current network config (interfaces/addresses/
@@ -386,7 +386,7 @@ async def configure_agent_network(
     body: NetworkConfigRequest,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4e — configure or remove an interface via the write-gated baked
@@ -414,7 +414,7 @@ async def get_agent_virt(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Local virtualization overview: which hypervisor stack(s) this host runs

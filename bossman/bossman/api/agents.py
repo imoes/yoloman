@@ -18,7 +18,8 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from bossman.api.auth import get_current_identity
+from bossman.api.auth import get_current_identity, require_manage_agent
+from bossman.services.auth import user_can_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
@@ -167,7 +168,7 @@ _AGENT_CHILD_DELETES = (
 async def delete_agent(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> None:
     """Remove a host (agent) and everything it owns. Satellites that used this
     agent as their proxy parent are orphaned (parent_agent_id → NULL), not
@@ -194,7 +195,7 @@ async def update_agent_groups(
     agent_id: UUID,
     body: UpdateGroupsRequest,
     session: AsyncSession = Depends(get_session),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> AgentOut:
     """Host-group membership (see docs/plan.md's monitoring Block E2/E3) —
     the unit a check_rules row can target with scope_type=group, which a
@@ -216,7 +217,7 @@ async def update_agent_tags(
     agent_id: UUID,
     body: UpdateTagsRequest,
     session: AsyncSession = Depends(get_session),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> AgentOut:
     """Block K7 (Zabbix gap-analysis, tagging): name or name:value host
     tags (empty-string value = name-only), inherited onto every problem
@@ -239,7 +240,7 @@ class MassUpdateGroupsRequest(BaseModel):
 async def mass_update_agent_groups(
     body: MassUpdateGroupsRequest,
     session: AsyncSession = Depends(get_session),
-    _identity=Depends(get_current_identity),
+    identity=Depends(get_current_identity),
 ) -> list[AgentOut]:
     """Zabbix gap-analysis Block K2c ("Mass update"): bulk-edit host-group
     membership across many selected agents in one call, instead of one
@@ -257,6 +258,11 @@ async def mass_update_agent_groups(
     missing = set(body.agent_ids) - found_ids
     if missing:
         raise HTTPException(status_code=404, detail=f"no such agent(s): {sorted(str(m) for m in missing)}")
+
+    # Block M: the caller must be allowed to manage every host in the batch.
+    for agent in agents:
+        if not await user_can_manage_agent(session, identity, agent.id):
+            raise HTTPException(status_code=403, detail=f"not authorized to manage host {agent.name!r}")
 
     for agent in agents:
         if body.op == "replace":
@@ -277,7 +283,7 @@ async def update_agent(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     client_factory=Depends(get_client_factory),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> dict:
     """Push a new agent .deb to an ENROLLED host over the existing mTLS
     channel; the agent installs it (dpkg → postinst restart) and returns on
@@ -321,7 +327,7 @@ async def service_control(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     client_factory=Depends(get_client_factory),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> dict:
     """Block J2/J4a — safe service control. Restart/stop/start a systemd
     unit's running state, or enable/disable its start-at-boot state, on an
@@ -364,7 +370,7 @@ async def sync_agent_modules(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     client_factory=Depends(get_client_factory),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> dict:
     """Push the library's translated Starlark modules (or a given subset) to
     an enrolled host (Block G3), so it can EXECUTE them. Reads each module's
@@ -423,7 +429,7 @@ async def poll_agent_now(
     session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
     settings: Settings = Depends(get_settings),
     client_factory=Depends(get_client_factory),
-    _identity=Depends(get_current_identity),
+    _identity=Depends(require_manage_agent),
 ) -> dict:
     """Zabbix gap-analysis Block K5 ("Execute now"): force one agent to be
     polled immediately instead of waiting for the next

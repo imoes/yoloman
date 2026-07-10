@@ -344,6 +344,33 @@ class ApiToken(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
 
 
+class AccessGrant(Base):
+    """Block M — a per-subject host-management access grant. Enforcement:
+    admin users bypass entirely; every other user AND every api_token may only
+    manage hosts they hold a grant for. scope='all' is a wildcard (keeps
+    admin-issued automation tokens working); 'host' targets one agent;
+    'host_group' targets a HostGroup, expanded to its members at check time."""
+
+    __tablename__ = "access_grants"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    subject_kind: Mapped[str] = mapped_column(String, nullable=False)  # user | api_token
+    subject_ref: Mapped[str] = mapped_column(String, nullable=False)  # username or token name
+    scope: Mapped[str] = mapped_column(String, nullable=False)  # all | host | host_group
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE")
+    )
+    permission: Mapped[str] = mapped_column(String, nullable=False, default="manage")
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("subject_kind IN ('user', 'api_token')", name="ck_access_grants_subject_kind"),
+        CheckConstraint("scope IN ('all', 'host', 'host_group')", name="ck_access_grants_scope"),
+        Index("idx_access_grants_subject", "subject_kind", "subject_ref"),
+    )
+
+
 class ChunkEmbedding(Base):
     """One translated plan chunk's foreign source text, embedded — the
     fuzzy, additive layer on top of plan_loader's exact chunk_id/

@@ -55,6 +55,11 @@ async def _make_service(db_session, agent, **overrides) -> Service:
 async def _make_api_token(db_session, name="mon-caller"):
     row, raw = new_api_token(name)
     db_session.add(row)
+    # Block M: not testing the host ACL here — a wildcard grant keeps this
+    # token past require_manage_agent on the per-host management routes.
+    from bossman.db.models import AccessGrant
+
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw

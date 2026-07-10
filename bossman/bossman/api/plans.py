@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.services.auth import user_can_manage_agent
 from bossman.api.chunks import get_embedding_client
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
@@ -211,6 +212,8 @@ async def run_plan_route(
     agent = await session.scalar(select(Agent).where(Agent.name == body.agent))
     if agent is None:
         raise HTTPException(status_code=404, detail=f"no such agent {body.agent!r}")
+    if not await user_can_manage_agent(session, identity, agent.id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
     if not agent.address:
         raise HTTPException(status_code=422, detail=f"agent {body.agent!r} has no reachable address")
 
@@ -305,6 +308,8 @@ async def run_stored_plan_route(
     agent = await session.scalar(select(Agent).where(Agent.name == body.agent))
     if agent is None:
         raise HTTPException(status_code=404, detail=f"no such agent {body.agent!r}")
+    if not await user_can_manage_agent(session, identity, agent.id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
     if not agent.address:
         raise HTTPException(status_code=422, detail=f"agent {body.agent!r} has no reachable address")
 

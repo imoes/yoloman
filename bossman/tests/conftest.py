@@ -19,6 +19,9 @@ os.environ.setdefault("BOSSMAN_SEED_DEFAULT_CHECKS", "false")
 os.environ.setdefault("BOSSMAN_POLL_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_HOUSEKEEPING_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_RECONCILE_ENABLED", "false")
+# A non-empty JWT secret so tests that mint an operator/admin token (Block M
+# ACL) can sign/verify (HS256 rejects an empty key).
+os.environ.setdefault("BOSSMAN_JWT_SECRET", "test-jwt-secret-block-m-000000000")
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

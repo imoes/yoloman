@@ -9,10 +9,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from bossman.api.plans import get_client_factory
-from bossman.db.models import Agent, Metric
+from bossman.db.models import Agent, Metric, Service, ServiceStateHistory
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
@@ -50,6 +50,11 @@ async def _make_agent(db_session, **overrides) -> Agent:
 async def _make_api_token(db_session, name="test-caller"):
     row, raw = new_api_token(name)
     db_session.add(row)
+    # Block M: these tests aren't about the host ACL — give the token a
+    # wildcard grant so require_manage_agent on mutating routes lets it through.
+    from bossman.db.models import AccessGrant
+
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw
@@ -66,6 +71,12 @@ async def _cleanup(db_session, agent=None, api_token=None, metrics=None):
             await db_session.delete(got)
     await db_session.flush()
     if agent is not None:
+        # poll-now / poll_agent can persist Service + ServiceStateHistory rows
+        # (NO-ACTION FKs) for this agent; clear them before the agent delete so
+        # the raw delete here doesn't hit a foreign-key violation.
+        await db_session.execute(delete(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))
+        await db_session.execute(delete(Service).where(Service.agent_id == agent.id))
+        await db_session.flush()
         await db_session.delete(agent)
     if api_token is not None:
         await db_session.delete(api_token)

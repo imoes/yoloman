@@ -12,7 +12,7 @@ import asyncio
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bossman.config import Settings, get_settings
@@ -128,6 +128,7 @@ async def test_poll_agent_writes_metrics_and_edges(db_session, session_factory):
     await db_session.delete(metric)
     await db_session.delete(edge)
     await db_session.flush()  # children must actually delete before the FK-referenced agent
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
 
@@ -164,6 +165,7 @@ async def test_poll_agent_records_partial_failure(db_session, session_factory):
     edge = await db_session.scalar(select(HostEdge).where(HostEdge.src_agent_id == agent.id))
     await db_session.delete(edge)
     await db_session.flush()
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
 
@@ -194,6 +196,7 @@ async def test_poll_agent_uses_cursor_on_second_poll(db_session, session_factory
     await poll_agent(session_factory, agent.id, _settings(), asyncio.Semaphore(1), lambda a, s: fake)
     assert fake.metrics_calls[1] is not None  # second pull: cursor from the first pull's "now"
 
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
 
@@ -222,6 +225,7 @@ async def test_upsert_edges_is_idempotent_and_updates_event_count(db_session, se
 
     await db_session.delete(matches[0])
     await db_session.flush()
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
 
@@ -246,6 +250,7 @@ async def test_poll_once_only_polls_enrolled_agents(db_session, session_factory)
     assert str(enrolled.id) in result_ids
     assert str(pending.id) not in result_ids
 
+    await _purge_service_state(db_session, enrolled, pending)
     await db_session.delete(enrolled)
     await db_session.delete(pending)
     await db_session.commit()
@@ -254,6 +259,17 @@ async def test_poll_once_only_polls_enrolled_agents(db_session, session_factory)
 # ---------------------------------------------------------------------------
 # GET /api/v1/hosts/overview ingestion (see docs/plan.md's monitoring-
 # cockpit ergänzung Block F2) — satellite discovery + agent-reported checks.
+
+
+async def _purge_service_state(db_session, *agents):
+    """poll_agent evaluates any check rules present in the (shared) DB and
+    persists Service + ServiceStateHistory rows for the polled agent. Those
+    are NO-ACTION FKs, so a raw db_session.delete(agent) in a test's cleanup
+    hits a foreign-key violation unless they're cleared first. Idempotent."""
+    for agent in agents:
+        await db_session.execute(delete(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))
+        await db_session.execute(delete(Service).where(Service.agent_id == agent.id))
+    await db_session.flush()
 
 
 async def _cleanup_hosts_overview(db_session, *agents):
@@ -398,6 +414,7 @@ async def test_poll_agent_self_entry_identified_by_missing_parent_not_by_name(db
     bogus = await db_session.scalar(select(Agent).where(Agent.name == "host2.example.internal"))
     assert bogus is None, "the proxy's own self entry must never become a satellite Agent row"
 
+    await _purge_service_state(db_session, proxy)
     await db_session.delete(proxy)
     await db_session.commit()
 
@@ -448,6 +465,7 @@ async def test_poll_agent_keeps_same_timestamp_multi_label_metrics(db_session, s
     for r in rows:
         await db_session.delete(r)
     await db_session.flush()
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
 
@@ -460,5 +478,6 @@ async def test_poll_agent_records_hosts_overview_failure(db_session, session_fac
 
     assert any("hosts_overview" in e for e in result.errors)
 
+    await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
