@@ -25,10 +25,9 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Runbook, RunbookRun, ScopeVars
 from bossman.db.session import get_session
-from bossman.services import nt_compile, nt_convert, nt_engine, nt_runbook
+from bossman.services import nt_compile, nt_convert, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
-from bossman.services.plan_loader import load_host_vars
-from bossman.services.scope_vars import resolve_scope_vars
+from bossman.services.runbook_exec import execute_runbook
 
 router = APIRouter()
 
@@ -154,46 +153,11 @@ async def run_runbook(
         raise HTTPException(status_code=422, detail="that is a role, not a runbook — bind it in OU / Policy instead")
 
     client = client_factory(agent, settings)
-
-    # Magic variables (Ansible-style): the agent's own facts — hostname,
-    # distribution, and hardware/DMI (motherboard vendor, product, serial,
-    # BIOS) via the read-only `setup` module — are made available to the
-    # runbook as ${ansible_*} / ${inventory_hostname}. Explicit request
-    # variables win over facts. Best-effort: if setup fails, the runbook still
-    # runs with whatever variables were passed.
-    magic: dict[str, Any] = {"inventory_hostname": agent.name}
-    try:
-        facts_resp = await client.call_tool("setup", {})
-        if isinstance(facts_resp, dict):
-            facts = facts_resp.get("data") if isinstance(facts_resp.get("data"), dict) else facts_resp
-            if isinstance(facts, dict):
-                magic.update(facts)
-    except Exception:  # noqa: BLE001 — facts are best-effort, never block the run
-        pass
-    # Variable precedence (weakest→strongest): magic facts < filesystem
-    # host_vars < GPO-resolved scope vars (group < OU root→leaf < host) <
-    # explicit request variables.
-    try:
-        host_vars = load_host_vars(settings.plans_dir, agent.name) or {}
-    except Exception:  # noqa: BLE001
-        host_vars = {}
-    scope_v = await resolve_scope_vars(session, agent)
-    variables = {**magic, **host_vars, **scope_v, **(body.variables or {})}
-
-    result = await nt_engine.run_runbook(doc, client, variables, check_mode=body.dry_run)
-    rr = result.to_dict()
-
-    # Persist the run as an audit record (dry-run or apply).
-    run_row = RunbookRun(
-        tenant_id=DEFAULT_TENANT_ID, runbook_name=doc.name, agent_id=agent_id,
-        dry_run=body.dry_run, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
-        changed=result.changed, result=rr, requested_by=identity.name,
+    run_row, rr = await execute_runbook(
+        session, agent, doc, settings=settings, client=client,
+        request_vars=body.variables, dry_run=body.dry_run, requested_by=identity.name,
     )
-    session.add(run_row)
-    await session.commit()
-
-    return {"run_id": str(run_row.id), "agent_id": str(agent_id), "runbook": doc.name,
-            "facts_gathered": len(magic) - 1, **rr}
+    return {"run_id": str(run_row.id), "agent_id": str(agent_id), "runbook": doc.name, **rr}
 
 
 class ScopeVarsBody(BaseModel):

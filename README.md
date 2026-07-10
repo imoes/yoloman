@@ -226,9 +226,14 @@ steps:
 Run it dry (preview) then for real:
 
 ```bash
-yolo-man run web-baseline.nt --check      # dry run: shows exactly what would change
-yolo-man run web-baseline.nt              # apply
+yolo-man runbook run web-baseline.nt --host web01 --check   # dry run: shows exactly what would change
+yolo-man runbook run web-baseline.nt --host web01           # apply
 ```
+
+The agent's own facts (hostname, distribution, and hardware/DMI like the
+motherboard vendor) are available as magic variables — `${inventory_hostname}`,
+`${ansible_distribution}`, `${ansible_board_vendor}` — with no declaration.
+Every run is recorded as an audit trail (visible in the UI's runbook editor).
 
 ### A role
 

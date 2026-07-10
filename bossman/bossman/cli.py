@@ -179,6 +179,90 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return asyncio.run(_run_plan_cli(args))
 
 
+def _cmd_runbook_lint(args: argparse.Namespace) -> int:
+    from bossman.services import nt_runbook
+
+    try:
+        doc = nt_runbook.parse_document(Path(args.file).read_text(encoding="utf-8"))
+    except (nt_runbook.NTRunbookError, OSError) as exc:
+        line = getattr(exc, "line", None)
+        print(f"INVALID: {exc}" + (f" (line {line})" if line else ""), file=sys.stderr)
+        return 1
+    print(f"OK: {doc.kind} {doc.name!r} — {len(doc.steps)} step(s)")
+    return 0
+
+
+async def _run_runbook_cli(args: argparse.Namespace) -> int:
+    # Same engine + variable layering as the REST endpoint, reaching the agent
+    # directly over mTLS. Needs Bossman's DB + TLS identity in the environment.
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from bossman.config import get_settings
+    from bossman.db.models import Agent
+    from bossman.services import nt_runbook
+    from bossman.services.agent_client import client_for
+    from bossman.services.runbook_exec import execute_runbook
+
+    try:
+        doc = nt_runbook.parse_document(Path(args.file).read_text(encoding="utf-8"))
+    except (nt_runbook.NTRunbookError, OSError) as exc:
+        print(f"INVALID: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(doc, nt_runbook.Runbook):
+        print("that is a role, not a runbook — bind it in OU / Policy instead", file=sys.stderr)
+        return 1
+
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == args.host))
+            if agent is None:
+                print(f"no enrolled host named {args.host!r}", file=sys.stderr)
+                return 1
+            if not agent.address:
+                print(f"host {args.host!r} has no address to reach", file=sys.stderr)
+                return 1
+            client = client_for(agent, settings)
+            _run, rr = await execute_runbook(
+                session, agent, doc, settings=settings, client=client,
+                request_vars=_coerce_params(_parse_params(args.var)),
+                dry_run=args.check, requested_by="yolo-man-cli",
+            )
+    finally:
+        await engine.dispose()
+
+    mode = "check" if args.check else "apply"
+    print(f"runbook {doc.name} on {args.host} [{mode}]: "
+          f"{'ok' if rr.get('ok') else ('aborted' if rr.get('aborted') else 'failed')}"
+          f"{' · changed' if rr.get('changed') else ''} · {rr.get('facts_gathered', 0)} facts")
+    for step in rr.get("steps", []):
+        item = f" [{step['item']}]" if step.get("item") is not None else ""
+        err = f" — {step['error']}" if step.get("error") else ""
+        print(f"  {step['status']:8} {step.get('name') or step.get('module')}{item}{err}")
+    return 0 if rr.get("ok") else 2
+
+
+def _coerce_params(pairs: dict[str, str]) -> dict[str, Any]:
+    """CLI --var values arrive as strings; coerce int/bool so ${port} lands
+    as an int (mirrors the scope-vars editor's coercion)."""
+    out: dict[str, Any] = {}
+    for k, v in pairs.items():
+        if v in ("true", "false"):
+            out[k] = v == "true"
+        elif v.lstrip("-").isdigit():
+            out[k] = int(v)
+        else:
+            out[k] = v
+    return out
+
+
+def _cmd_runbook_run(args: argparse.Namespace) -> int:
+    return asyncio.run(_run_runbook_cli(args))
+
+
 # Map a file extension to (prefix, source_format) for `store` auto-detection.
 _EXT_ORIGIN = {
     ".nt": ("ansible", "nestedtext"),
@@ -286,6 +370,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_ls = sub.add_parser("ls", help="list plans in the canonical store")
     p_ls.add_argument("--prefix", help="filter by origin system (ansible|salt|puppet|chef)")
     p_ls.set_defaults(func=_cmd_ls)
+
+    # `runbook` — the NestedText runbook format (Block G11): magic facts,
+    # ${var} substitution, when/loop/register, GPO-resolved scope vars. Distinct
+    # from the legacy `run` (Plan/chunk engine).
+    p_rb = sub.add_parser("runbook", help="NestedText runbook (magic facts, when/loop, scope vars)")
+    rb_sub = p_rb.add_subparsers(dest="runbook_command", required=True)
+
+    p_rb_lint = rb_sub.add_parser("lint", help="parse + shape-validate a runbook or role")
+    p_rb_lint.add_argument("file")
+    p_rb_lint.set_defaults(func=_cmd_runbook_lint)
+
+    p_rb_run = rb_sub.add_parser("run", help="run a runbook against an enrolled host")
+    p_rb_run.add_argument("file", help="runbook .nt file")
+    p_rb_run.add_argument("--host", required=True, help="name of the enrolled agent to run against")
+    p_rb_run.add_argument("--var", action="append", default=[], metavar="KEY=VALUE", help="runbook variable (repeatable)")
+    p_rb_run.add_argument("--check", action="store_true", help="dry-run (check_mode) — no changes made")
+    p_rb_run.set_defaults(func=_cmd_runbook_run)
 
     return parser
 

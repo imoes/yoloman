@@ -226,10 +226,17 @@ discovery/provisioning where needed), and routes alerts to `dba-oncall`. The
 ## Run flow
 
 ```bash
-yolo-man lint   web-baseline.nt        # parse + expression/var check, no host
-yolo-man run    web-baseline.nt --check  # dry run: every step in check_mode
-yolo-man run    web-baseline.nt          # apply
+yolo-man runbook lint web-baseline.nt                    # parse + shape check, no host
+yolo-man runbook run  web-baseline.nt --host web01 --check  # dry run: every step in check_mode
+yolo-man runbook run  web-baseline.nt --host web01          # apply
+yolo-man runbook run  web-baseline.nt --host web01 --var port=8080  # override a variable
 ```
+
+Each run records a `RunbookRun` audit row (same as a UI run), reaches the host
+directly over mTLS, and layers variables weakest→strongest: agent facts (magic
+`${ansible_*}`) < filesystem `host_vars` < GPO scope vars (group < OU root→leaf
+< host) < `--var`. (The bare `yolo-man run`/`store`/`ls` commands drive the
+legacy Plan store — a separate subsystem the NT runbook format replaces.)
 
 A role isn't "run" directly — it's bound in OU / Policy and the reconciler
 pushes the compiled desired state.
