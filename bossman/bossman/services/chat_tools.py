@@ -43,6 +43,45 @@ TOOL_DEFS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "discover_host_checks",
+            "description": (
+                "Run monitoring auto-discovery on a host: detect which checks apply and the "
+                "items/metrics they'd monitor (e.g. a MySQL server, filesystems, sensors). Returns "
+                "proposals, each with `needs_params` — required parameters (often CREDENTIALS) with "
+                "no default. IMPORTANT: before assigning a proposed check that has non-empty "
+                "needs_params, you MUST ASK THE USER for those values (never invent them). Then "
+                "call assign_host_check with the collected parameters."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "assign_host_check",
+            "description": (
+                "Assign a check to a host with parameters (host-scoped). Call this only AFTER the "
+                "user has provided any required parameters/credentials the check needs "
+                "(see discover_host_checks' needs_params). Creates the monitoring assignment."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string"},
+                    "check_name": {"type": "string"},
+                    "parameters": {"type": "object", "description": "Parameter values for the check (incl. any credentials the user provided)."},
+                },
+                "required": ["host", "check_name"],
+            },
+        },
+    },
 ]
 
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_DEFS}
@@ -52,10 +91,21 @@ def _online(agent: Agent, now: datetime) -> bool:
     return bool(agent.last_seen_at and agent.last_seen_at >= now - _ONLINE_WINDOW)
 
 
-async def execute_tool(session: AsyncSession, name: str, args: dict[str, Any]) -> dict[str, Any]:
+async def execute_tool(
+    session: AsyncSession,
+    name: str,
+    args: dict[str, Any],
+    *,
+    settings: Any = None,
+    client_factory: Any = None,
+) -> dict[str, Any]:
     """Run one fleet tool in-process and return a JSON-serializable result.
-    Unknown tools return an error dict (the model sees it and can recover)."""
+    Unknown tools return an error dict (the model sees it and can recover).
+    `settings`/`client_factory` are needed only by the discovery tools (they
+    reach the host); read-only fleet tools work without them."""
     now = datetime.now(timezone.utc)
+    if name in ("discover_host_checks", "assign_host_check"):
+        return await _check_tool(session, name, args, settings, client_factory)
     if name == "list_hosts":
         agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
         return {
@@ -76,3 +126,58 @@ async def execute_tool(session: AsyncSession, name: str, args: dict[str, Any]) -
         online = sum(1 for a in agents if _online(a, now))
         return {"total": total, "enrolled": enrolled, "online": online, "offline": total - online}
     return {"error": f"unknown tool {name!r}"}
+
+
+async def _resolve_agent(session: AsyncSession, host: str) -> Agent | None:
+    return await session.scalar(select(Agent).where(Agent.name == host))
+
+
+async def _check_tool(session, name, args, settings, client_factory) -> dict[str, Any]:
+    """discover_host_checks / assign_host_check (Block G9-P4). Needs settings
+    + client_factory (the host-reaching tools); returns an error dict if the
+    chat path didn't wire them."""
+    from uuid import UUID
+
+    from bossman.db.models import CheckAssignment
+    from bossman.services import checks_library, provisioning
+    from bossman.services.discovery import run_check_discovery
+
+    DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+    host = args.get("host") or ""
+    agent = await _resolve_agent(session, host)
+    if agent is None:
+        return {"error": f"no such host {host!r}"}
+
+    if name == "discover_host_checks":
+        if settings is None or client_factory is None:
+            return {"error": "discovery is not available in this chat context"}
+        if not agent.address:
+            return {"error": f"host {host!r} has no address to reach"}
+        catalog = {c["name"]: c for c in checks_library.list_checks(settings.checks_dir)}
+        checks = []
+        for cname, entry in catalog.items():
+            nt_path, star_path = checks_library.check_paths(settings.checks_dir, cname)
+            try:
+                checks.append({"name": cname, "star": star_path.read_text(encoding="utf-8"),
+                               "sidecar": nt_path.read_text(encoding="utf-8"), "sidecar_format": "nt",
+                               "options": entry.get("options", {}), "short_description": entry.get("short_description", "")})
+            except OSError:
+                continue
+        proposals = await run_check_discovery(client_factory(agent, settings), checks)
+        return {"host": host, "proposals": [
+            {**p.to_dict(),
+             "provisioning_available": provisioning.load_recipe(settings.checks_dir, p.check_name) is not None}
+            for p in proposals
+        ]}
+
+    # assign_host_check
+    check_name = args.get("check_name") or ""
+    if not check_name:
+        return {"error": "check_name is required"}
+    a = CheckAssignment(
+        tenant_id=DEFAULT_TENANT_ID, check_name=check_name, scope_type="host",
+        agent_id=agent.id, parameters=args.get("parameters") or {}, source="ai",
+    )
+    session.add(a)
+    await session.commit()
+    return {"assigned": check_name, "host": host, "parameters": a.parameters}

@@ -456,7 +456,10 @@ async def send_message(
                 # Agentic: the model can call fleet tools; execute them
                 # in-process against a fresh session held for the whole loop.
                 async with session_factory() as tool_sess:
-                    async for frame in pump(run_agentic(backend, messages, bind_executor(tool_sess), model=model)):
+                    from bossman.api.plans import get_client_factory
+
+                    executor = bind_executor(tool_sess, settings=settings, client_factory=get_client_factory())
+                    async for frame in pump(run_agentic(backend, messages, executor, model=model)):
                         yield frame
             else:
                 async for frame in pump(backend.stream(messages)):

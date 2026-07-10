@@ -105,9 +105,11 @@ async def run_agentic(
         yield {"type": "error", "text": str(exc)}
 
 
-def bind_executor(session) -> ToolExecutor:
-    """Bind chat_tools.execute_tool to a DB session for the loop."""
+def bind_executor(session, *, settings: Any = None, client_factory: Any = None) -> ToolExecutor:
+    """Bind chat_tools.execute_tool to a DB session for the loop. settings +
+    client_factory enable the host-reaching discovery tools (Block G9-P4);
+    omit them for read-only-only contexts."""
     async def _exec(name: str, args: dict[str, Any]) -> dict[str, Any]:
-        return await execute_tool(session, name, args)
+        return await execute_tool(session, name, args, settings=settings, client_factory=client_factory)
 
     return _exec
