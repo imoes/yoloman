@@ -77,7 +77,7 @@ export class AgentService {
   /** Block J4a: the host's full systemd service-unit list + load/active/sub
    * state, via the read-only `service_facts` module (live pass-through). */
   services(id: string) {
-    return this.http.get<ServicesResponse>(`${this.base}/${id}/services`);
+    return this.http.get<ServicesResponse>(`${this.base}/${id}/service-units`);
   }
 
   /** Block J4b: the host's journald log via the read-only `journal` module

@@ -100,7 +100,7 @@ async def call_agent_tool_route(
     return {"agent_id": str(agent.id), "tool": tool_name, "result": result}
 
 
-@router.get("/api/v1/agents/{agent_id}/services")
+@router.get("/api/v1/agents/{agent_id}/service-units")
 async def get_agent_services(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -111,7 +111,11 @@ async def get_agent_services(
     """Block J4a — the host's systemd service units + their load/active/sub
     state, via the read-only `service_facts` module. The UI drives its
     per-unit start/stop/restart/enable/disable off this list (each action
-    goes to POST /agents/{id}/service-control)."""
+    goes to POST /agents/{id}/service-control).
+
+    Path is /service-units, not /services: the latter is the monitoring
+    read route (GET /agents/{id}/services -> list[ServiceOut] of graded
+    check states) and the two must not collide on the router."""
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
     try:

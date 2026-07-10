@@ -79,7 +79,7 @@ def _override(app, fake):
 async def test_services_requires_auth(db_session):
     agent = await _make_agent(db_session)
     with TestClient(create_app()) as client:
-        resp = client.get(f"/api/v1/agents/{agent.id}/services")
+        resp = client.get(f"/api/v1/agents/{agent.id}/service-units")
     assert resp.status_code == 401
     await db_session.delete(agent)
     await db_session.commit()
@@ -94,7 +94,7 @@ async def test_services_proxies_service_facts(db_session):
     app = create_app()
     _override(app, fake)
     with TestClient(app) as client:
-        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+        resp = client.get(f"/api/v1/agents/{agent.id}/service-units", headers=_headers(raw))
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -109,7 +109,7 @@ async def test_services_proxies_service_facts(db_session):
 async def test_services_unknown_agent_404(db_session):
     api_token, raw = await _make_api_token(db_session)
     with TestClient(create_app()) as client:
-        resp = client.get(f"/api/v1/agents/{uuid.uuid4()}/services", headers=_headers(raw))
+        resp = client.get(f"/api/v1/agents/{uuid.uuid4()}/service-units", headers=_headers(raw))
     assert resp.status_code == 404
     await db_session.delete(api_token)
     await db_session.commit()
@@ -119,7 +119,7 @@ async def test_services_no_address_422(db_session):
     agent = await _make_agent(db_session, address=None)
     api_token, raw = await _make_api_token(db_session)
     with TestClient(create_app()) as client:
-        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+        resp = client.get(f"/api/v1/agents/{agent.id}/service-units", headers=_headers(raw))
     assert resp.status_code == 422
     await db_session.delete(api_token)
     await db_session.delete(agent)
@@ -133,7 +133,7 @@ async def test_services_unreachable_502(db_session):
     app = create_app()
     _override(app, fake)
     with TestClient(app) as client:
-        resp = client.get(f"/api/v1/agents/{agent.id}/services", headers=_headers(raw))
+        resp = client.get(f"/api/v1/agents/{agent.id}/service-units", headers=_headers(raw))
     assert resp.status_code == 502
     await db_session.delete(api_token)
     await db_session.delete(agent)

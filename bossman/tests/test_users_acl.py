@@ -105,10 +105,12 @@ async def test_group_grant_via_membership(db_session):
 
 
 async def test_service_route_403_for_ungranted_operator(db_session):
+    # /service-units is a management (per-host ACL) route; the sibling
+    # /services is the monitoring read route, gated only by auth.
     a = await _agent(db_session)
     op = await _user(db_session, "operator")
     with TestClient(create_app()) as client:
-        r = client.get(f"/api/v1/agents/{a.id}/services", headers=_h(_jwt(op)))
+        r = client.get(f"/api/v1/agents/{a.id}/service-units", headers=_h(_jwt(op)))
         assert r.status_code == 403
     await db_session.delete(a)
     await db_session.commit()
@@ -118,7 +120,7 @@ async def test_admin_not_403(db_session):
     a = await _agent(db_session, address=None)  # no address -> 422 from handler, not 403
     admin = await _user(db_session, "admin")
     with TestClient(create_app()) as client:
-        r = client.get(f"/api/v1/agents/{a.id}/services", headers=_h(_jwt(admin)))
+        r = client.get(f"/api/v1/agents/{a.id}/service-units", headers=_h(_jwt(admin)))
         assert r.status_code != 403
     await db_session.delete(a)
     await db_session.commit()
