@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/auth/auth.service';
+import { ChatDockComponent } from './features/chat/chat-dock.component';
 
 interface NavItem {
   path: string;
@@ -27,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
