@@ -160,6 +160,22 @@ We deliberately do NOT take bash's `$(command)`, `$((math))`, or `${var//x/y}`
 So the rule of thumb: **bash syntax for referencing and defaulting values;
 Starlark (or `run:`) for computing them.**
 
+**Magic variables (Ansible-style facts).** Before a runbook runs, the agent's
+own facts are gathered (the read-only `setup` module) and made available as
+variables — no need to declare them:
+
+```
+${inventory_hostname}          the host's name
+${ansible_hostname}            ${ansible_distribution}   ${ansible_kernel}
+${ansible_architecture}        ${ansible_memtotal_mb}    ${ansible_processor_vcpus}
+${ansible_board_vendor}        ${ansible_board_name}     ${ansible_product_serial}
+${ansible_system_vendor}       ${ansible_bios_vendor}    ${ansible_chassis_vendor}
+```
+
+So a runbook can branch on hardware — e.g. `when: ansible_board_vendor ==
+"Supermicro"` or `${ansible_distribution}`. Everything the agent collects is
+reachable; explicit variables (below) override a fact of the same name.
+
 **Precedence (GPO, reusing the check-assignment resolver):**
 
 ```

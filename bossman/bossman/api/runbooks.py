@@ -75,8 +75,26 @@ async def run_runbook(
         raise HTTPException(status_code=422, detail="that is a role, not a runbook — bind it in OU / Policy instead")
 
     client = client_factory(agent, settings)
-    result = await nt_engine.run_runbook(doc, client, body.variables, check_mode=body.dry_run)
-    return {"agent_id": str(agent_id), "runbook": doc.name, **result.to_dict()}
+
+    # Magic variables (Ansible-style): the agent's own facts — hostname,
+    # distribution, and hardware/DMI (motherboard vendor, product, serial,
+    # BIOS) via the read-only `setup` module — are made available to the
+    # runbook as ${ansible_*} / ${inventory_hostname}. Explicit request
+    # variables win over facts. Best-effort: if setup fails, the runbook still
+    # runs with whatever variables were passed.
+    magic: dict[str, Any] = {"inventory_hostname": agent.name}
+    try:
+        facts_resp = await client.call_tool("setup", {})
+        if isinstance(facts_resp, dict):
+            facts = facts_resp.get("data") if isinstance(facts_resp.get("data"), dict) else facts_resp
+            if isinstance(facts, dict):
+                magic.update(facts)
+    except Exception:  # noqa: BLE001 — facts are best-effort, never block the run
+        pass
+    variables = {**magic, **(body.variables or {})}
+
+    result = await nt_engine.run_runbook(doc, client, variables, check_mode=body.dry_run)
+    return {"agent_id": str(agent_id), "runbook": doc.name, "facts_gathered": len(magic) - 1, **result.to_dict()}
 
 
 @router.post("/api/v1/runbooks/role/compile")

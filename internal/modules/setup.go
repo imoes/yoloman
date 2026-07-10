@@ -19,6 +19,10 @@ type Setup struct {
 	OSReleasePath string
 	Architecture  string
 	HostnameFunc  func() (string, error)
+	// DMIRoot is /sys/class/dmi/id on a real host — the SMBIOS/DMI facts
+	// (motherboard vendor, product, serial, BIOS) so runbooks can key on
+	// hardware the way Ansible's ansible_board_*/ansible_product_* facts do.
+	DMIRoot string
 }
 
 // NewSetup returns a Setup module reading from the real host: /proc,
@@ -30,7 +34,22 @@ func NewSetup() *Setup {
 		OSReleasePath: "/etc/os-release",
 		Architecture:  unameArch(runtime.GOARCH),
 		HostnameFunc:  os.Hostname,
+		DMIRoot:       "/sys/class/dmi/id",
 	}
+}
+
+// dmiFacts maps ansible_* fact names to their /sys/class/dmi/id file.
+var dmiFacts = map[string]string{
+	"ansible_board_vendor":   "board_vendor",
+	"ansible_board_name":     "board_name",
+	"ansible_board_serial":   "board_serial",
+	"ansible_product_name":   "product_name",
+	"ansible_product_serial": "product_serial",
+	"ansible_product_uuid":   "product_uuid",
+	"ansible_system_vendor":  "sys_vendor",
+	"ansible_bios_vendor":    "bios_vendor",
+	"ansible_bios_version":   "bios_version",
+	"ansible_chassis_vendor": "chassis_vendor",
 }
 
 func (s *Setup) Name() string { return "setup" }
@@ -101,6 +120,16 @@ func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Re
 		f.Close()
 		if parseErr == nil {
 			facts["ansible_processor_vcpus"] = len(cpus)
+		}
+	}
+
+	// DMI/SMBIOS facts (best-effort; unreadable on VMs/containers or without
+	// privilege — a missing file just omits that fact, never an error).
+	if s.DMIRoot != "" {
+		for factName, file := range dmiFacts {
+			if v, err := readFirstLine(filepath.Join(s.DMIRoot, file)); err == nil && v != "" {
+				facts[factName] = v
+			}
 		}
 	}
 
