@@ -26,6 +26,7 @@ import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/comp
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
 import { HostChecksComponent } from './host-checks.component';
+import { HostConsoleComponent } from './host-console.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
@@ -101,6 +102,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostStatusBadgeComponent,
     HostInventoryComponent,
     HostChecksComponent,
+    HostConsoleComponent,
     HostManagementComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -437,6 +439,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             <div class="bm-tab-content">
               <app-host-checks [agent]="agent" />
             </div>
+          </mat-tab>
+
+          <mat-tab label="Console">
+            <!-- Lazy: the WebSocket/PTY only opens when this tab is selected. -->
+            <ng-template matTabContent>
+              <div class="bm-tab-content">
+                <app-host-console [agent]="agent" />
+              </div>
+            </ng-template>
           </mat-tab>
 
           <mat-tab label="Relationships">
