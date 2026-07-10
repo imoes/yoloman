@@ -25,6 +25,7 @@ import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../share
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
+import { HostChecksComponent } from './host-checks.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
@@ -99,6 +100,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatButtonModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
+    HostChecksComponent,
     HostManagementComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -428,6 +430,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <dt>Tags</dt>
                 <dd>{{ hasTags(agent) ? tagsJson(agent) : '—' }}</dd>
               </dl>
+            </div>
+          </mat-tab>
+
+          <mat-tab label="Checks">
+            <div class="bm-tab-content">
+              <app-host-checks [agent]="agent" />
             </div>
           </mat-tab>
 
