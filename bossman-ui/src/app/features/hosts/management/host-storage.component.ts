@@ -61,14 +61,23 @@ import { StorageResponse } from '../../../core/models/agent.model';
               <div class="bm-vg">
                 <div class="bm-vg-top">
                   <span class="bm-dev"><mat-icon class="bm-dev-ic">dns</mat-icon>{{ vg.vg_name }}</span>
+                  <span class="bm-spacer"></span>
                   <span class="bm-vg-cap">{{ human(usedBytes(vg)) }} / {{ human(vg.vg_size) }} used</span>
+                  <button mat-icon-button class="bm-act" title="Delete volume group" (click)="deleteVg(vg.vg_name)"><mat-icon>delete_outline</mat-icon></button>
                 </div>
                 <div class="bm-bar"><span class="bm-bar-fill" [style.width.%]="usedPct(vg)" [class.bm-bar-warn]="usedPct(vg) >= 80" [class.bm-bar-crit]="usedPct(vg) >= 90"></span></div>
                 @if (lvsOf(s, vg.vg_name).length) {
                   <table class="bm-ct bm-lv-t">
                     <tbody>
                       @for (lv of lvsOf(s, vg.vg_name); track lv.lv_name) {
-                        <tr><td class="bm-dev bm-lv-name"><mat-icon class="bm-dev-ic">layers</mat-icon>{{ lv.lv_name }}</td><td class="bm-right">{{ human(lv.lv_size) }}</td></tr>
+                        <tr>
+                          <td class="bm-dev bm-lv-name"><mat-icon class="bm-dev-ic">layers</mat-icon>{{ lv.lv_name }}</td>
+                          <td class="bm-right">{{ human(lv.lv_size) }}</td>
+                          <td class="bm-right bm-lv-acts">
+                            <button mat-icon-button class="bm-act" title="Resize" (click)="resizeLv(vg.vg_name, lv.lv_name)"><mat-icon>open_in_full</mat-icon></button>
+                            <button mat-icon-button class="bm-act" title="Delete" (click)="deleteLv(vg.vg_name, lv.lv_name)"><mat-icon>delete_outline</mat-icon></button>
+                          </td>
+                        </tr>
                       }
                     </tbody>
                   </table>
@@ -93,6 +102,33 @@ import { StorageResponse } from '../../../core/models/agent.model';
               </div>
             </div>
           }
+        </section>
+
+        <!-- Filesystems: format + mount (Cockpit: format/mount/unmount) -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Format &amp; mount</h3></header>
+          <div class="bm-forms">
+            <div class="bm-inline-form">
+              <mat-icon class="bm-dev-ic">build</mat-icon>
+              <input type="text" placeholder="device (e.g. /dev/vg0/data)" [value]="fsDev()" (input)="fsDev.set($any($event.target).value)" />
+              <select [value]="fsType()" (change)="fsType.set($any($event.target).value)">
+                <option value="xfs">xfs</option><option value="ext4">ext4</option>
+                <option value="btrfs">btrfs</option><option value="swap">swap</option>
+              </select>
+              <button mat-stroked-button (click)="formatDev()" [disabled]="busy() || !fsDev().trim()">Format</button>
+            </div>
+            <div class="bm-inline-form">
+              <mat-icon class="bm-dev-ic">save</mat-icon>
+              <input type="text" placeholder="source device" [value]="mntSrc()" (input)="mntSrc.set($any($event.target).value)" />
+              <input type="text" placeholder="mount point (/mnt/data)" [value]="mntPath()" (input)="mntPath.set($any($event.target).value)" />
+              <select [value]="mntType()" (change)="mntType.set($any($event.target).value)">
+                <option value="xfs">xfs</option><option value="ext4">ext4</option>
+                <option value="btrfs">btrfs</option><option value="nfs">nfs</option>
+              </select>
+              <button mat-stroked-button (click)="mountDev()" [disabled]="busy() || !mntSrc().trim() || !mntPath().trim()">Mount</button>
+              <button mat-button (click)="unmountDev()" [disabled]="busy() || !mntPath().trim()">Unmount</button>
+            </div>
+          </div>
         </section>
 
         <!-- ZFS / VDO (only meaningful when present) -->
@@ -173,6 +209,11 @@ export class HostStorageComponent {
   lvVg = signal('');
   lvName = signal('');
   lvSize = signal('');
+  fsDev = signal('');
+  fsType = signal('xfs');
+  mntSrc = signal('');
+  mntPath = signal('');
+  mntType = signal('xfs');
 
   usedBytes(vg: { vg_size?: unknown; vg_free?: unknown }): number {
     return Math.max(0, Number(vg.vg_size) - Number(vg.vg_free));
@@ -232,5 +273,37 @@ export class HostStorageComponent {
 
   createLv(): void {
     this.run('community.general.lvol', { vg: this.lvVg().trim(), lv: this.lvName().trim(), size: this.lvSize().trim(), state: 'present' }, `create LV ${this.lvName().trim()}`);
+  }
+
+  deleteVg(vg: string): void {
+    if (!confirm(`Delete volume group ${vg}? This removes it and its metadata.`)) return;
+    this.run('community.general.lvg', { vg, state: 'absent', force: true }, `delete VG ${vg}`);
+  }
+
+  resizeLv(vg: string, lv: string): void {
+    const size = prompt(`New size for ${vg}/${lv} (e.g. 2G, +500M):`, '');
+    if (!size || !size.trim()) return;
+    this.run('community.general.lvol', { vg, lv, size: size.trim() }, `resize LV ${vg}/${lv}`);
+  }
+
+  deleteLv(vg: string, lv: string): void {
+    if (!confirm(`Delete logical volume ${vg}/${lv}? Data on it is lost.`)) return;
+    this.run('community.general.lvol', { vg, lv, state: 'absent', force: true }, `delete LV ${vg}/${lv}`);
+  }
+
+  formatDev(): void {
+    const dev = this.fsDev().trim();
+    if (!confirm(`Format ${dev} as ${this.fsType()}? All data on it is erased.`)) return;
+    this.run('community.general.filesystem', { fstype: this.fsType(), dev }, `format ${dev}`);
+  }
+
+  mountDev(): void {
+    this.run('posix.mount', {
+      path: this.mntPath().trim(), src: this.mntSrc().trim(), fstype: this.mntType(), state: 'mounted',
+    }, `mount ${this.mntPath().trim()}`);
+  }
+
+  unmountDev(): void {
+    this.run('posix.mount', { path: this.mntPath().trim(), state: 'unmounted' }, `unmount ${this.mntPath().trim()}`);
   }
 }

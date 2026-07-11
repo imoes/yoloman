@@ -78,6 +78,45 @@ import { NetworkResponse } from '../../../core/models/agent.model';
           </section>
         }
 
+        <!-- Add virtual interface (Cockpit: Add bond/bridge/VLAN) via nmcli -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Add connection</h3></header>
+          <div class="bm-form">
+            <div class="bm-frow">
+              <label>Type</label>
+              <select [value]="connType()" (change)="connType.set($any($event.target).value)">
+                <option value="vlan">VLAN</option>
+                <option value="bond">Bond</option>
+                <option value="bridge">Bridge</option>
+                <option value="ethernet">Ethernet</option>
+              </select>
+            </div>
+            <div class="bm-frow"><label>Connection name</label><input type="text" placeholder="e.g. vlan10" [value]="connName()" (input)="connName.set($any($event.target).value)" /></div>
+            <div class="bm-frow"><label>Interface name</label><input type="text" placeholder="e.g. eth0.10 / bond0 / br0" [value]="connIf()" (input)="connIf.set($any($event.target).value)" /></div>
+            @if (connType() === 'vlan') {
+              <div class="bm-frow"><label>Parent device</label><input type="text" placeholder="eth0" [value]="connParent()" (input)="connParent.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>VLAN ID</label><input type="text" placeholder="10" [value]="connVlanId()" (input)="connVlanId.set($any($event.target).value)" /></div>
+            }
+            @if (connType() === 'bond') {
+              <div class="bm-frow"><label>Mode</label>
+                <select [value]="connMode()" (change)="connMode.set($any($event.target).value)">
+                  <option value="active-backup">active-backup</option>
+                  <option value="balance-rr">balance-rr</option>
+                  <option value="802.3ad">802.3ad (LACP)</option>
+                  <option value="balance-xor">balance-xor</option>
+                </select>
+              </div>
+            }
+            <div class="bm-factions">
+              <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
+              <span class="bm-spacer"></span>
+              @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
+              @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
+              <button mat-raised-button color="primary" (click)="createConnection()" [disabled]="busy() || !connName().trim() || !connIf().trim()">Add</button>
+            </div>
+          </div>
+        </section>
+
         <!-- Routes + DNS side by side -->
         <div class="bm-grid2">
           <section class="bm-card">
@@ -156,6 +195,13 @@ export class HostNetworkComponent {
   cfgDns = signal('');
   dryRun = signal(true);
 
+  connType = signal<'vlan' | 'bond' | 'bridge' | 'ethernet'>('vlan');
+  connName = signal('');
+  connIf = signal('');
+  connParent = signal('');
+  connVlanId = signal('');
+  connMode = signal('active-backup');
+
   loadOnce(): void {
     if (this.loaded() || this.loading()) return;
     this.reload();
@@ -203,5 +249,34 @@ export class HostNetworkComponent {
         },
         error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'configure failed'); },
       });
+  }
+
+  /** Create a virtual interface (VLAN/bond/bridge/ethernet) via the nmcli
+   * module — Cockpit's Add bond/bridge/VLAN. Dry-run by default. */
+  createConnection(): void {
+    const params: Record<string, unknown> = {
+      type: this.connType(),
+      conn_name: this.connName().trim(),
+      ifname: this.connIf().trim(),
+      state: 'present',
+      dry_run: this.dryRun(),
+    };
+    if (this.connType() === 'vlan') {
+      params['vlandev'] = this.connParent().trim();
+      params['vlanid'] = Number(this.connVlanId().trim()) || undefined;
+    }
+    if (this.connType() === 'bond') params['mode'] = this.connMode();
+    this.busy.set(true);
+    this.msg.set(null);
+    this.err.set(null);
+    this.agentService.callTool(this.agentId(), 'community.general.nmcli', params).subscribe({
+      next: (res) => {
+        this.busy.set(false);
+        const r = res.result as { msg?: string } | undefined;
+        this.msg.set(`added ${this.connName().trim()}: ${r?.msg ?? 'ok'}${this.dryRun() ? ' (dry-run)' : ''}`);
+        if (!this.dryRun()) this.reload();
+      },
+      error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'add failed'); },
+    });
   }
 }
