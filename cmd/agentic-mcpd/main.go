@@ -410,6 +410,12 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	if cfg.Collect.Docker {
 		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket)
 	}
+	// Block J3b: per-systemd-service resource metrics from the cgroup fs (nil
+	// when disabled). No-op on hosts without a system.slice cgroup.
+	var serviceCollector *collect.ServiceCollector
+	if cfg.Collect.Services {
+		serviceCollector = collect.NewServiceCollector(cfg.Collect.CgroupRoot)
+	}
 	runOnce := func() {
 		now := time.Now()
 		// Block L4-behavioral: read the pushed thresholds fresh each tick, so a
@@ -438,6 +444,13 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				slog.Debug("docker metric sampling failed", "error", derr)
 			} else {
 				points = append(points, dpts...)
+			}
+		}
+		if serviceCollector != nil {
+			if spts, serr := serviceCollector.Sample(now); serr != nil {
+				slog.Debug("service metric sampling failed", "error", serr)
+			} else {
+				points = append(points, spts...)
 			}
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {

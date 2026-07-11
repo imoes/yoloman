@@ -99,6 +99,12 @@ type Collect struct {
 	// (Docker not installed), so it's safe to leave on everywhere.
 	Docker       bool   `yaml:"docker"`
 	DockerSocket string `yaml:"docker_socket"`
+	// Services (Block J3b): sample per-systemd-service CPU/memory/IO from the
+	// cgroup filesystem, emitted as service_* metrics labeled by unit — the
+	// legacy-host counterpart to Docker container metrics. Default true;
+	// no-op on hosts without a system.slice cgroup.
+	Services   bool   `yaml:"services"`
+	CgroupRoot string `yaml:"cgroup_root"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via
@@ -295,7 +301,7 @@ func Default() Config {
 		MaxUploadSize: 512 * 1024 * 1024,
 		Mode:          "standalone",
 		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
-		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock"},
+		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true},
 	}
 }
 
