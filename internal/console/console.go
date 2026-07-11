@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -77,17 +78,17 @@ func serve(conn *websocket.Conn, command []string) {
 		_ = conn.WriteMessage(websocket.TextMessage, []byte("failed to start console: "+err.Error()))
 		return
 	}
-	// Closing the PTY makes the login/shell get SIGHUP and exit; reaping the
-	// process avoids a zombie when the browser tab closes first.
-	defer func() {
-		_ = ptmx.Close()
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-	}()
-
 	var once sync.Once
 	done := make(chan struct{})
 	stop := func() { once.Do(func() { close(done) }) }
+
+	// The session ends when the login/shell process exits — reap it here (not
+	// in a defer) so we can surface WHY it ended. A silent disconnect on an
+	// otherwise-working host (e.g. an IPA/SSSD login that authenticates over
+	// SSH but not here) is almost always the login/shell exiting; logging its
+	// status + echoing it to the terminal makes that diagnosable.
+	exit := make(chan error, 1)
+	go func() { exit <- cmd.Wait(); stop() }()
 
 	// PTY → WebSocket: stream output as binary frames.
 	go func() {
@@ -131,4 +132,19 @@ func serve(conn *websocket.Conn, command []string) {
 	}()
 
 	<-done
+	// Tear down the PTY + ensure the process is reaped, then report the exit.
+	_ = ptmx.Close()
+	_ = cmd.Process.Kill()
+	var werr error
+	select {
+	case werr = <-exit:
+	case <-time.After(2 * time.Second):
+		werr = <-exit // Kill guarantees Wait returns
+	}
+	if werr != nil {
+		slog.Info("console session ended", "command", command[0], "error", werr.Error())
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("\r\n\x1b[33m[console session ended: "+werr.Error()+"]\x1b[0m\r\n"))
+	} else {
+		slog.Info("console session ended", "command", command[0], "status", "ok")
+	}
 }
