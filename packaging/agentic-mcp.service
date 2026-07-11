@@ -25,7 +25,14 @@ RestartSec=2s
 User=root
 Group=root
 
-NoNewPrivileges=true
+# NoNewPrivileges is deliberately NOT set. The web console runs /bin/login in a
+# PTY, which after authenticating must setuid() to the target user; PAM session
+# modules (pam_keyinit/pam_motd) also drop+restore privileges. NoNewPrivileges
+# blocks those transitions — login logged "Unable to change UID temporarily"
+# then "setuid() failed", ending the session immediately (a console disconnect
+# right after a correct password; SSH works because sshd runs in its own,
+# unrestricted unit). The daemon already runs as root with open-ended system
+# management, so this flag added little while breaking a real feature.
 PrivateTmp=true
 ProtectKernelModules=true
 ProtectControlGroups=true
