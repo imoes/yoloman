@@ -112,6 +112,17 @@ class Settings(BaseSettings):
     # project's targeted fleet size (~100 hosts, see docs/plan.md).
     poll_concurrency: int = 10
 
+    # CVE feed cache (Block 4): periodically fetch distro security trackers and
+    # index them so pending package updates can be correlated to the CVEs they
+    # fix. Disabled by default so tests/offline runs don't reach the internet.
+    cve_feed_enabled: bool = False
+    cve_feed_interval_hours: int = 24
+    cve_cache_dir: str = "/etc/bossman/cve-cache"
+    # Overridable source URLs (corporate proxy / mirror).
+    cve_debian_url: str = "https://security-tracker.debian.org/tracker/data/json"
+    cve_ubuntu_url: str = "https://ubuntu.com/security/notices.json"
+    cve_redhat_url: str = "https://access.redhat.com/hydra/rest/securitydata/cve.json"
+
     # JWT signing secret for the human-operator dashboard login.
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"

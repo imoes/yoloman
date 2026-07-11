@@ -14,13 +14,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chat, checks, chunks, console, topology as topology_api, dashboard, deploy, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runbooks, runs, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, auth, chat, checks, chunks, console, topology as topology_api, dashboard, deploy, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
 from bossman.services import keys, plan_store
 from bossman.services.catalog import CatalogCache
+from bossman.services.cve_feed import CveFeed, CveFeedStats, cve_feed_loop
 from bossman.services.chat_client import chat_client_for
 from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
@@ -117,6 +118,12 @@ async def lifespan(app: FastAPI):
     # Bossman needing a persistent queue of its own.
     app.state.poller_stats = PollerStats()
     app.state.housekeeping_stats = HousekeepingStats()
+    # Block 4: CVE feed cache — index distro security trackers so pending
+    # package updates can be correlated to the CVEs they fix. Warm from the
+    # on-disk cache immediately so lookups work before the first refresh.
+    app.state.cve_feed_stats = CveFeedStats()
+    app.state.cve_feed = CveFeed(settings, app.state.cve_feed_stats)
+    app.state.cve_feed.load_from_cache()
     # Block L4: the desired-state reconciler drains controller_outbox,
     # recompiles affected hosts and enqueues agent_config_delivery rows.
     app.state.reconcile_stats = ReconcileStats()
@@ -129,6 +136,7 @@ async def lifespan(app: FastAPI):
     reconciler_task = asyncio.create_task(
         reconciler_loop(app.state.session_factory, settings, stop_event, app.state.reconcile_stats)
     )
+    cve_feed_task = asyncio.create_task(cve_feed_loop(app.state.cve_feed, settings, stop_event))
     try:
         async with mcp_server.session_manager.run():
             yield
@@ -142,12 +150,15 @@ async def lifespan(app: FastAPI):
         poller_task.cancel()
         housekeeping_task.cancel()
         reconciler_task.cancel()
+        cve_feed_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
             await housekeeping_task
         with contextlib.suppress(asyncio.CancelledError):
             await reconciler_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await cve_feed_task
         await engine.dispose()
 
 
@@ -204,6 +215,7 @@ def create_app() -> FastAPI:
     app.include_router(host_groups.router, tags=["host-groups"])
     app.include_router(orchestration.router, tags=["orchestration"])
     app.include_router(system_settings.router, tags=["system-settings"])
+    app.include_router(security.router, tags=["security"])
     # Block L4 is PUSH, not pull: Bossman's reconciler (services/reconciler.py)
     # POSTs each new generation to the agent's own POST /api/v1/config/apply
     # over the existing mTLS channel. There is deliberately NO agent-facing
