@@ -1,11 +1,17 @@
-# yoloman.network_interface — read + configure host network interfaces.
+# yoloman.network_interface — read + configure host network interfaces,
+# independent of the underlying network provider.
 #
-# Baked into the agent (go:embed). state=gathered reads the current config by
-# parsing `ip` output + /etc/resolv.conf (text-parsing, no external json);
-# state=present/absent configures via NetworkManager (nmcli), which is the one
-# provider we can drive uniformly. Mutating steps are mutates=True so the
-# runtime enforces check_mode + the write gate. Contract shape: {changed, msg,
-# data}.
+# state=gathered reads the current config by parsing `ip` output +
+# /etc/resolv.conf (text-parsing, no external json) and reports which provider
+# manages the host (networkmanager / netplan / networkd / ifupdown).
+#
+# state=present/absent configures the interface via whichever provider is
+# active on the host — Cockpit leans on NetworkManager only; we detect and
+# drive NetworkManager (nmcli), netplan (Ubuntu), systemd-networkd, or the
+# classic Debian ifupdown /etc/network/interfaces.d, so the same UI works on
+# every host regardless of its network stack. A caller may force one with the
+# `provider` param. Mutating steps are mutates=True / file_write so the runtime
+# enforces check_mode + the write gate. Contract shape: {changed, msg, data}.
 
 def main(ctx, params):
     state = params.get("state", "gathered")
@@ -16,7 +22,8 @@ def main(ctx, params):
     name = params.get("name")
     if not name:
         fail("name (the interface / connection) is required for state=%s" % state)
-    return _configure(ctx, params, name, state)
+    provider = params.get("provider") or _detect_provider(ctx)
+    return _configure(ctx, params, name, state, provider)
 
 
 # ---- read (gathered) ------------------------------------------------------
@@ -26,6 +33,7 @@ def _gather(ctx):
         "changed": False,
         "msg": "gathered network configuration",
         "data": {
+            "provider": _detect_provider(ctx),
             "interfaces": _gather_interfaces(ctx),
             "routes": _gather_routes(ctx),
             "dns": _gather_dns(ctx),
@@ -116,27 +124,81 @@ def _gather_dns(ctx):
     return {"nameservers": nameservers, "search": search}
 
 
-# ---- configure (present / absent) via NetworkManager ----------------------
+# ---- provider detection ---------------------------------------------------
 
-def _configure(ctx, params, name, state):
-    probe = ctx.run(["sh", "-c", "command -v nmcli"], mutates=False)
-    if probe.rc != 0:
-        fail("network configuration requires NetworkManager (nmcli not found on this host)")
+def _cmd_exists(ctx, cmd):
+    return ctx.run(["sh", "-c", "command -v %s" % cmd], mutates=False).rc == 0
 
-    if state == "absent":
-        res = ctx.run(["nmcli", "connection", "delete", name], mutates=True)
-        if res.rc == 0:
-            return {"changed": True, "msg": "deleted connection %s" % name, "data": {"name": name}}
-        # nmcli returns 10 when the connection doesn't exist -> idempotent
-        if "unknown connection" in res.stderr or res.rc == 10:
-            return {"changed": False, "msg": "connection %s already absent" % name, "data": {"name": name}}
-        fail("failed to delete connection %s: %s" % (name, res.stderr))
 
+def _service_active(ctx, unit):
+    res = ctx.run(["systemctl", "is-active", unit], mutates=False)
+    return res.rc == 0 and res.stdout.strip() == "active"
+
+
+# _detect_provider picks the config system that actually manages this host's
+# interfaces, in order of how authoritative each is when present.
+def _detect_provider(ctx):
+    # NetworkManager: only if it is the running manager (nmcli present alone is
+    # not enough — some hosts ship nmcli but run networkd/ifupdown).
+    if _cmd_exists(ctx, "nmcli"):
+        st = ctx.run(["nmcli", "-t", "-f", "RUNNING", "general"], mutates=False)
+        if st.rc == 0 and "running" in st.stdout.lower():
+            return "networkmanager"
+    # netplan (Ubuntu Server) — the renderer binary implies netplan owns config.
+    if _cmd_exists(ctx, "netplan"):
+        return "netplan"
+    # systemd-networkd
+    if _cmd_exists(ctx, "networkctl") and _service_active(ctx, "systemd-networkd"):
+        return "networkd"
+    # classic Debian ifupdown
+    if ctx.file_exists("/etc/network/interfaces"):
+        return "ifupdown"
+    # last resort: a present-but-not-yet-running NetworkManager
+    if _cmd_exists(ctx, "nmcli"):
+        return "networkmanager"
+    return "unknown"
+
+
+# ---- configure (present / absent) -----------------------------------------
+
+def _configure(ctx, params, name, state, provider):
+    if provider == "networkmanager":
+        return _configure_nm(ctx, params, name, state)
+    if provider == "netplan":
+        return _configure_netplan(ctx, params, name, state)
+    if provider == "networkd":
+        return _configure_networkd(ctx, params, name, state)
+    if provider == "ifupdown":
+        return _configure_ifupdown(ctx, params, name, state)
+    fail("no supported network provider detected on this host (looked for NetworkManager, netplan, systemd-networkd, ifupdown)")
+
+
+# read + validate the common present-mode params (method/address/gateway/dns)
+def _present_params(params):
     method = params.get("method", "dhcp")
     if method not in ("dhcp", "static", "manual"):
         fail("method must be one of: dhcp, static, manual")
+    address = params.get("address")
+    gateway = params.get("gateway")
+    dns = params.get("dns", []) or []
+    if method != "dhcp" and not address:
+        fail("address (CIDR, e.g. 10.0.0.5/24) is required for method=%s" % method)
+    return method, address, gateway, dns
 
-    # Does a connection with this name already exist?
+
+# --- NetworkManager (nmcli) ---
+
+def _configure_nm(ctx, params, name, state):
+    if state == "absent":
+        res = ctx.run(["nmcli", "connection", "delete", name], mutates=True)
+        if res.rc == 0:
+            return {"changed": True, "msg": "deleted connection %s" % name, "data": {"name": name, "provider": "networkmanager"}}
+        if "unknown connection" in res.stderr or res.rc == 10:
+            return {"changed": False, "msg": "connection %s already absent" % name, "data": {"name": name, "provider": "networkmanager"}}
+        fail("failed to delete connection %s: %s" % (name, res.stderr))
+
+    method, address, gateway, dns = _present_params(params)
+
     existing = ctx.run(["nmcli", "-t", "-f", "NAME", "connection", "show"], mutates=False)
     have = False
     for line in existing.stdout.split("\n"):
@@ -152,24 +214,140 @@ def _configure(ctx, params, name, state):
     if method == "dhcp":
         cmd.extend(["ipv4.method", "auto"])
     else:
-        address = params.get("address")
-        if not address:
-            fail("address (CIDR, e.g. 10.0.0.5/24) is required for method=%s" % method)
         cmd.extend(["ipv4.method", "manual", "ipv4.addresses", address])
-        gateway = params.get("gateway")
         if gateway:
             cmd.extend(["ipv4.gateway", gateway])
-        dns = params.get("dns", [])
         if dns:
             cmd.extend(["ipv4.dns", ",".join(dns)])
 
     res = ctx.run(cmd, mutates=True)
     if res.rc != 0:
         fail("nmcli failed to configure %s: %s" % (name, res.stderr))
-    # Apply the connection (no-op / skipped in check_mode).
     ctx.run(["nmcli", "connection", "up", name], mutates=True)
     return {
         "changed": True,
-        "msg": "%s connection %s (%s)" % ("modified" if have else "added", name, method),
-        "data": {"name": name, "method": method, "existed": have},
+        "msg": "%s connection %s (%s) via NetworkManager" % ("modified" if have else "added", name, method),
+        "data": {"name": name, "method": method, "existed": have, "provider": "networkmanager"},
+    }
+
+
+# --- netplan (Ubuntu) ---
+
+def _netplan_path(name):
+    return "/etc/netplan/90-yoloman-%s.yaml" % name
+
+
+def _configure_netplan(ctx, params, name, state):
+    path = _netplan_path(name)
+    if state == "absent":
+        if not ctx.file_exists(path):
+            return {"changed": False, "msg": "netplan config for %s already absent" % name, "data": {"name": name, "provider": "netplan"}}
+        # empty the managed file, then apply
+        changed = ctx.file_write(path, "network:\n  version: 2\n", mode="0600")
+        _netplan_apply(ctx)
+        return {"changed": changed, "msg": "removed netplan config for %s" % name, "data": {"name": name, "path": path, "provider": "netplan"}}
+
+    method, address, gateway, dns = _present_params(params)
+    lines = ["network:", "  version: 2", "  ethernets:", "    %s:" % name]
+    if method == "dhcp":
+        lines.append("      dhcp4: true")
+    else:
+        lines.append("      dhcp4: false")
+        lines.append("      addresses: [%s]" % address)
+        if gateway:
+            # routes: is the modern replacement for the deprecated gateway4
+            lines.append("      routes:")
+            lines.append("        - to: default")
+            lines.append("          via: %s" % gateway)
+        if dns:
+            lines.append("      nameservers:")
+            lines.append("        addresses: [%s]" % ", ".join(dns))
+    content = "\n".join(lines) + "\n"
+    changed = ctx.file_write(path, content, mode="0600")
+    _netplan_apply(ctx)
+    return {
+        "changed": changed,
+        "msg": "wrote netplan config for %s (%s)" % (name, method),
+        "data": {"name": name, "method": method, "path": path, "provider": "netplan"},
+    }
+
+
+def _netplan_apply(ctx):
+    ctx.run(["netplan", "apply"], mutates=True)
+
+
+# --- systemd-networkd ---
+
+def _networkd_path(name):
+    return "/etc/systemd/network/90-yoloman-%s.network" % name
+
+
+def _configure_networkd(ctx, params, name, state):
+    path = _networkd_path(name)
+    if state == "absent":
+        if not ctx.file_exists(path):
+            return {"changed": False, "msg": "networkd config for %s already absent" % name, "data": {"name": name, "provider": "networkd"}}
+        # write an inert Match-only unit, then reload
+        changed = ctx.file_write(path, "[Match]\nName=%s\n" % name, mode="0644")
+        ctx.run(["networkctl", "reload"], mutates=True)
+        return {"changed": changed, "msg": "removed networkd config for %s" % name, "data": {"name": name, "path": path, "provider": "networkd"}}
+
+    method, address, gateway, dns = _present_params(params)
+    lines = ["[Match]", "Name=%s" % name, "", "[Network]"]
+    if method == "dhcp":
+        lines.append("DHCP=ipv4")
+    else:
+        lines.append("Address=%s" % address)
+        if gateway:
+            lines.append("Gateway=%s" % gateway)
+        for server in dns:
+            lines.append("DNS=%s" % server)
+    content = "\n".join(lines) + "\n"
+    changed = ctx.file_write(path, content, mode="0644")
+    ctx.run(["networkctl", "reload"], mutates=True)
+    ctx.run(["networkctl", "reconfigure", name], mutates=True)
+    return {
+        "changed": changed,
+        "msg": "wrote systemd-networkd config for %s (%s)" % (name, method),
+        "data": {"name": name, "method": method, "path": path, "provider": "networkd"},
+    }
+
+
+# --- ifupdown (Debian /etc/network/interfaces.d) ---
+
+def _ifupdown_path(name):
+    return "/etc/network/interfaces.d/yoloman-%s" % name
+
+
+def _configure_ifupdown(ctx, params, name, state):
+    path = _ifupdown_path(name)
+    if state == "absent":
+        if not ctx.file_exists(path):
+            return {"changed": False, "msg": "ifupdown config for %s already absent" % name, "data": {"name": name, "provider": "ifupdown"}}
+        ctx.run(["ifdown", name], mutates=True)
+        # blank the managed stanza file
+        changed = ctx.file_write(path, "", mode="0644")
+        return {"changed": changed, "msg": "removed ifupdown config for %s" % name, "data": {"name": name, "path": path, "provider": "ifupdown"}}
+
+    method, address, gateway, dns = _present_params(params)
+    lines = ["auto %s" % name]
+    if method == "dhcp":
+        lines.append("iface %s inet dhcp" % name)
+    else:
+        lines.append("iface %s inet static" % name)
+        # modern ifupdown accepts CIDR directly in `address`
+        lines.append("    address %s" % address)
+        if gateway:
+            lines.append("    gateway %s" % gateway)
+        if dns:
+            lines.append("    dns-nameservers %s" % " ".join(dns))
+    content = "\n".join(lines) + "\n"
+    changed = ctx.file_write(path, content, mode="0644")
+    # apply: bring it down (ignore failure if never up) then up
+    ctx.run(["ifdown", name], mutates=True, ok_codes=[0, 1])
+    ctx.run(["ifup", name], mutates=True)
+    return {
+        "changed": changed,
+        "msg": "wrote ifupdown config for %s (%s)" % (name, method),
+        "data": {"name": name, "method": method, "path": path, "provider": "ifupdown"},
     }

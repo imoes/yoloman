@@ -8,7 +8,10 @@ import { NetworkResponse } from '../../../core/models/agent.model';
 /** Block J4e — the Network section, redesigned in a RHEL-Cockpit style:
  * card-based, an Interfaces table with status pills + address chips and a
  * per-interface Configure action, and Routes / DNS as side cards. Configure
- * (NetworkManager) still defaults to dry-run and fails cleanly without nmcli. */
+ * is provider-independent — the agent module auto-detects NetworkManager /
+ * netplan / systemd-networkd / ifupdown; the detected provider is shown as a
+ * badge. Configure defaults to dry-run. The "Add connection" card (bond/
+ * bridge/VLAN) is nmcli-only, so it is shown only on NetworkManager hosts. */
 @Component({
   selector: 'app-host-network',
   standalone: true,
@@ -24,6 +27,11 @@ import { NetworkResponse } from '../../../core/models/agent.model';
         <section class="bm-card">
           <header class="bm-card-head">
             <h3>Interfaces</h3>
+            @if (n.provider && n.provider !== 'unknown') {
+              <span class="bm-prov" [title]="'Network is managed by ' + providerLabel(n.provider)"><mat-icon class="bm-prov-ic">hub</mat-icon>{{ providerLabel(n.provider) }}</span>
+            } @else if (n.provider === 'unknown') {
+              <span class="bm-prov bm-prov-none" title="No supported network provider detected — configuration is unavailable">no provider detected</span>
+            }
             <span class="bm-spacer"></span>
             <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
           </header>
@@ -48,7 +56,12 @@ import { NetworkResponse } from '../../../core/models/agent.model';
         <!-- Configure (Cockpit-style inline panel) -->
         @if (showForm()) {
           <section class="bm-card">
-            <header class="bm-card-head"><h3>Configure {{ cfgName() || 'interface' }}</h3></header>
+            <header class="bm-card-head">
+              <h3>Configure {{ cfgName() || 'interface' }}</h3>
+              @if (data()?.provider && data()!.provider !== 'unknown') {
+                <span class="bm-prov"><mat-icon class="bm-prov-ic">hub</mat-icon>{{ providerLabel(data()!.provider!) }}</span>
+              }
+            </header>
             <div class="bm-form">
               <div class="bm-frow">
                 <label>Interface</label>
@@ -78,7 +91,9 @@ import { NetworkResponse } from '../../../core/models/agent.model';
           </section>
         }
 
-        <!-- Add virtual interface (Cockpit: Add bond/bridge/VLAN) via nmcli -->
+        <!-- Add virtual interface (Cockpit: Add bond/bridge/VLAN) via nmcli.
+             nmcli-only, so only offered on NetworkManager hosts. -->
+        @if (n.provider === 'networkmanager') {
         <section class="bm-card">
           <header class="bm-card-head"><h3>Add connection</h3></header>
           <div class="bm-form">
@@ -116,6 +131,7 @@ import { NetworkResponse } from '../../../core/models/agent.model';
             </div>
           </div>
         </section>
+        }
 
         <!-- Routes + DNS side by side -->
         <div class="bm-grid2">
@@ -171,6 +187,9 @@ import { NetworkResponse } from '../../../core/models/agent.model';
       .bm-k { width: 110px; opacity: 0.6; }
       .bm-svc-ok { color: var(--bm-green, #2e7d32); font-size: 12px; }
       .bm-svc-err { color: #c62828; font-size: 12px; }
+      .bm-prov { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 10px; border-radius: 999px; font-weight: 500; background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); color: var(--mat-sys-primary); }
+      .bm-prov-ic { font-size: 14px; width: 14px; height: 14px; }
+      .bm-prov-none { background: color-mix(in srgb, #c62828 16%, transparent); color: #c62828; }
     `,
   ],
 })
@@ -201,6 +220,19 @@ export class HostNetworkComponent {
   connParent = signal('');
   connVlanId = signal('');
   connMode = signal('active-backup');
+
+  /** Human label for a detected provider id. */
+  providerLabel(p: string): string {
+    return (
+      {
+        networkmanager: 'NetworkManager',
+        netplan: 'netplan',
+        networkd: 'systemd-networkd',
+        ifupdown: 'ifupdown',
+        unknown: 'unknown',
+      } as Record<string, string>
+    )[p] ?? p;
+  }
 
   loadOnce(): void {
     if (this.loaded() || this.loading()) return;

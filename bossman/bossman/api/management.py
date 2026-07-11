@@ -355,6 +355,7 @@ class NetworkConfigRequest(BaseModel):
     address: str | None = None
     gateway: str | None = None
     dns: list[str] | None = None
+    provider: str | None = None  # networkmanager | netplan | networkd | ifupdown (auto if None)
     dry_run: bool = False
 
 
@@ -378,6 +379,7 @@ async def get_agent_network(
     data = _tool_data(result)
     return {
         "agent_id": str(agent.id),
+        "provider": data.get("provider", "unknown"),
         "interfaces": data.get("interfaces", []),
         "routes": data.get("routes", []),
         "dns": data.get("dns", {}),
@@ -394,8 +396,10 @@ async def configure_agent_network(
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """Block J4e — configure or remove an interface via the write-gated baked
-    yoloman.network_interface module (NetworkManager). dry_run is honored by
-    the module (check_mode); a host without nmcli fails cleanly (502)."""
+    yoloman.network_interface module. The module auto-detects the host's
+    network provider (NetworkManager / netplan / systemd-networkd / ifupdown),
+    or the caller may force one via `provider`. dry_run is honored by the
+    module (check_mode); a host with no supported provider fails cleanly (502)."""
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name must not be empty")
     if body.state not in ("present", "absent"):

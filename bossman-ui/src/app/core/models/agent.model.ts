@@ -253,6 +253,8 @@ export interface NetRoute {
 
 export interface NetworkResponse {
   agent_id: string;
+  /** The detected network provider that manages this host's interfaces. */
+  provider?: 'networkmanager' | 'netplan' | 'networkd' | 'ifupdown' | 'unknown';
   interfaces: NetInterface[];
   routes: NetRoute[];
   dns: { nameservers?: string[]; search?: string[] };
@@ -265,6 +267,8 @@ export interface NetworkConfig {
   address?: string;
   gateway?: string;
   dns?: string[];
+  /** Force a provider; omit to let the agent auto-detect. */
+  provider?: string;
   dry_run?: boolean;
 }
 

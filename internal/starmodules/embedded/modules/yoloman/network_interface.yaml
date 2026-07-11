@@ -3,15 +3,19 @@ name: network_interface
 collection: yoloman
 writes: true
 runtime: starlark
-short_description: Read (state=gathered) and configure (present/absent) host network interfaces
+short_description: Read (state=gathered) and configure (present/absent) host network interfaces, independent of the network provider
 options:
   state:
     type: str
     choices: [gathered, present, absent]
-    description: gathered reads current interfaces/addresses/routes/DNS; present configures an interface via NetworkManager; absent deletes its connection.
+    description: gathered reads current interfaces/addresses/routes/DNS (and the detected provider); present configures an interface via the host's provider; absent removes that config.
   name:
     type: str
-    description: The interface / NetworkManager connection name (required for present/absent).
+    description: The interface / connection name (required for present/absent).
+  provider:
+    type: str
+    choices: [networkmanager, netplan, networkd, ifupdown]
+    description: Force a specific network provider. Default is auto-detection (NetworkManager, then netplan, systemd-networkd, ifupdown).
   method:
     type: str
     choices: [dhcp, static, manual]
