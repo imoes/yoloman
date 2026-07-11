@@ -272,6 +272,24 @@ export interface NetworkConfig {
   dry_run?: boolean;
 }
 
+/** Cockpit "Software updates": a single pending package update. */
+export interface PackageUpdate {
+  name: string;
+  current: string;
+  candidate: string;
+  security: boolean;
+}
+
+export interface UpdatesResponse {
+  agent_id: string;
+  manager: 'apt' | 'dnf' | 'yum' | 'unknown';
+  updates: PackageUpdate[];
+  count: number;
+  /** -1 when the security count could not be determined. */
+  security_count: number;
+  reboot_required: boolean;
+}
+
 /** Virtualization overview from virt_facts. */
 export interface VirtResponse {
   agent_id: string;

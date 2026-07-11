@@ -414,6 +414,66 @@ async def configure_agent_network(
     return {"agent_id": str(agent.id), "result": result}
 
 
+# ---- Software updates (baked yoloman.package_updates) ---------------------
+
+
+class UpdatesApplyRequest(BaseModel):
+    security_only: bool = False
+    dry_run: bool = False
+
+
+@router.get("/api/v1/agents/{agent_id}/updates")
+async def get_agent_updates(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Cockpit "Software updates" — pending OS package updates via the baked
+    yoloman.package_updates module (apt / dnf / yum, auto-detected). Refreshes
+    the package index (apt update / dnf metadata), so it mutates the cache but
+    not the system; read-only w.r.t. installed packages."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("yoloman.package_updates", {"state": "list"})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(result)
+    return {
+        "agent_id": str(agent.id),
+        "manager": data.get("manager", "unknown"),
+        "updates": data.get("updates", []),
+        "count": data.get("count", 0),
+        "security_count": data.get("security_count", -1),
+        "reboot_required": data.get("reboot_required", False),
+    }
+
+
+@router.post("/api/v1/agents/{agent_id}/updates")
+async def apply_agent_updates(
+    agent_id: UUID,
+    body: UpdatesApplyRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Cockpit "Apply (security) updates" — installs pending updates via the
+    write-gated yoloman.package_updates module. dry_run is honored (check_mode);
+    security_only installs only security updates (apt: unattended-upgrade;
+    dnf: --security)."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    params = {"state": "apply", "security_only": body.security_only, "dry_run": body.dry_run}
+    try:
+        result = await client.call_tool("yoloman.package_updates", params)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "result": result}
+
+
 # ---- Virtualization (virt_facts detect/list; qm/virsh control) ------------
 
 

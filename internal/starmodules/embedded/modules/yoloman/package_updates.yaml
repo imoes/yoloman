@@ -1,0 +1,21 @@
+fqcn: yoloman.package_updates
+name: package_updates
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: List and apply OS package updates (apt / dnf / yum), independent of the package manager
+options:
+  state:
+    type: str
+    choices: [list, apply]
+    description: list reports pending updates (with a security count and reboot-required flag); apply installs them.
+  manager:
+    type: str
+    choices: [apt, dnf, yum]
+    description: Force a package manager. Default is auto-detection (apt, then dnf, then yum).
+  security_only:
+    type: bool
+    description: For state=apply, install only security updates (apt uses unattended-upgrade when present; dnf uses --security).
+  refresh:
+    type: bool
+    description: For apt state=list, run `apt-get update` first to refresh the index. Default true.

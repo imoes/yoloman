@@ -11,6 +11,7 @@ import { HostNetworkComponent } from './host-network.component';
 import { HostFirewallComponent } from './host-firewall.component';
 import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
+import { HostUpdatesComponent } from './host-updates.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -22,7 +23,7 @@ import { HostVirtComponent } from './host-virt.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, MatButtonModule, MatIconModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent],
+  imports: [MatTabsModule, MatButtonModule, MatIconModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
   template: `
     <div class="bm-mgmt-bar">
       <span class="bm-mgmt-hint">Network/Storage actions need their modules on the host.</span>
@@ -48,6 +49,11 @@ import { HostVirtComponent } from './host-virt.component';
       <mat-tab label="Services">
         <div class="bm-mgmt-pane">
           <app-host-services [agentId]="agentId()" />
+        </div>
+      </mat-tab>
+      <mat-tab label="Updates">
+        <div class="bm-mgmt-pane">
+          <app-host-updates [agentId]="agentId()" />
         </div>
       </mat-tab>
       <mat-tab label="Logs">
@@ -131,6 +137,7 @@ export class HostManagementComponent {
   private network = viewChild(HostNetworkComponent);
   private firewall = viewChild(HostFirewallComponent);
   private services = viewChild(HostServicesComponent);
+  private updates = viewChild(HostUpdatesComponent);
   private logs = viewChild(HostLogsComponent);
   private accounts = viewChild(HostAccountsComponent);
   private freeipa = viewChild(HostFreeipaComponent);
@@ -142,6 +149,7 @@ export class HostManagementComponent {
     if (event.tab.textLabel === 'Network') this.network()?.loadOnce();
     if (event.tab.textLabel === 'Firewall') this.firewall()?.loadOnce();
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
+    if (event.tab.textLabel === 'Updates') this.updates()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
     if (event.tab.textLabel === 'FreeIPA') this.freeipa()?.loadOnce();
