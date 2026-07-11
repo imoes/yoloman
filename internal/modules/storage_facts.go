@@ -68,9 +68,10 @@ func (m *StorageFacts) probe(ctx context.Context, name string, args ...string) (
 	return nil, false, err.Error()
 }
 
-// blockDevices parses `lsblk -J -O` (JSON, all columns) into its device tree.
+// blockDevices parses `lsblk -J -O -b` (JSON, all columns, sizes in bytes so
+// the UI can render filesystem usage bars) into its device tree.
 func (m *StorageFacts) blockDevices(ctx context.Context) map[string]any {
-	out, available, errMsg := m.probe(ctx, "lsblk", "-J", "-O")
+	out, available, errMsg := m.probe(ctx, "lsblk", "-J", "-O", "-b")
 	res := map[string]any{"available": available}
 	if !available {
 		res["error"] = errMsg

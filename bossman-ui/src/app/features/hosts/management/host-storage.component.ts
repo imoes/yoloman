@@ -1,19 +1,40 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { lastValueFrom, Observable } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
 import { StorageResponse } from '../../../core/models/agent.model';
+import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
+import { UsageBarComponent, fmtBytes } from '../../../shared/config-dialog/usage-bar.component';
+import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
 
-/** Block J4d — the Storage section, redesigned in a RHEL-Cockpit style:
- * card-based, block devices as a drives table, LVM volume groups with a
- * used/free capacity bar (Cockpit's hallmark), and inline create-VG / create-LV
- * forms. Destructive actions default to dry-run; sections whose tooling is
- * absent render as "unavailable" instead of erroring the page. */
+/** A flattened lsblk device row carrying its nesting depth. */
+interface DevRow {
+  name: string;
+  path: string;
+  type: string;
+  size: number;
+  fstype?: string;
+  mountpoint?: string;
+  fssize?: number;
+  fsused?: number;
+  depth: number;
+}
+
+/** Block J4d, Cockpit-adaptation — the Storage section rebuilt like Cockpit's
+ * storaged (../cockpit/pkg/storaged): a single hierarchical device table
+ * (disk → partition → LVM → filesystem) with per-filesystem usage bars, and
+ * per-object kebab actions (Format, Mount/Unmount, Create/Delete partition,
+ * partition table) that open pre-filled dialogs on the shared config-dialog
+ * framework — replacing the old shared free-text forms and confirm()/prompt().
+ * LVM volume groups keep their capacity bar; create-VG/LV and LV resize/delete
+ * are framework dialogs (SizeSlider + selectSpaces). */
 @Component({
   selector: 'app-host-storage',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent],
   template: `
     <div class="bm-mgmt-section">
       @if (loading()) {
@@ -29,29 +50,65 @@ import { StorageResponse } from '../../../core/models/agent.model';
           <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
         </div>
 
-        <!-- Drives / block devices -->
+        <!-- Storage: one hierarchical device table (Cockpit's overview) -->
         <section class="bm-card">
-          <header class="bm-card-head"><h3>Drives &amp; block devices</h3>
+          <header class="bm-card-head"><h3>Storage</h3>
             @if (!s.block_devices.available) { <span class="bm-na">unavailable</span> }
+            <span class="bm-spacer"></span>
+            <button mat-icon-button [matMenuTriggerFor]="createMenu" [disabled]="busy()" title="Create storage device"><mat-icon>add</mat-icon></button>
+            <mat-menu #createMenu="matMenu">
+              <button mat-menu-item (click)="createVg()"><mat-icon>dns</mat-icon> Create LVM volume group</button>
+              <button mat-menu-item (click)="wizard()"><mat-icon>auto_awesome</mat-icon> Create storage (thin/VDO/ZFS)…</button>
+            </mat-menu>
           </header>
           @if (s.block_devices.available) {
             <table class="bm-ct">
-              <thead><tr><th>Device</th><th>Size</th><th>Type</th><th>Mounted at</th></tr></thead>
+              <thead><tr><th>Device</th><th>Type</th><th>Size</th><th>Usage / mount</th><th></th></tr></thead>
               <tbody>
-                @for (d of s.block_devices.devices || []; track d.name) {
+                @for (d of rows(); track d.path) {
                   <tr>
-                    <td class="bm-dev"><mat-icon class="bm-dev-ic">{{ d.type === 'disk' ? 'storage' : 'subdirectory_arrow_right' }}</mat-icon>{{ d.name }}</td>
-                    <td>{{ d.size }}</td>
-                    <td><span class="bm-type">{{ d.type }}</span></td>
-                    <td>@if (d.mountpoint || d.mountpoints) { <span class="bm-chip">{{ d.mountpoint || d.mountpoints }}</span> } @else { <span class="bm-muted">—</span> }</td>
+                    <td class="bm-dev" [style.padding-left.px]="14 + d.depth * 20">
+                      <mat-icon class="bm-dev-ic">{{ devIcon(d) }}</mat-icon>{{ d.name }}
+                    </td>
+                    <td><span class="bm-type">{{ d.fstype || d.type }}</span></td>
+                    <td class="bm-mono">{{ bytes(d.size) }}</td>
+                    <td>
+                      @if (d.mountpoint && d.fssize) {
+                        <app-usage-bar [used]="d.fsused || 0" [total]="d.fssize" [critical]="0.95" [short]="true" />
+                        <span class="bm-mnt">{{ d.mountpoint }}</span>
+                      } @else if (d.mountpoint) {
+                        <span class="bm-chip">{{ d.mountpoint }}</span>
+                      } @else { <span class="bm-muted">—</span> }
+                    </td>
+                    <td class="bm-right">
+                      <button mat-icon-button [matMenuTriggerFor]="devMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
+                      <mat-menu #devMenu="matMenu">
+                        @if (d.type === 'disk') {
+                          <button mat-menu-item (click)="createPartTable(d)"><mat-icon>grid_on</mat-icon> Create partition table…</button>
+                          <button mat-menu-item (click)="createPartition(d)"><mat-icon>add_box</mat-icon> Create partition…</button>
+                        }
+                        @if (d.type === 'part' || d.type === 'lvm' || d.type === 'crypt') {
+                          <button mat-menu-item (click)="format(d)"><mat-icon>build</mat-icon> Format…</button>
+                          @if (d.mountpoint) {
+                            <button mat-menu-item (click)="unmount(d)"><mat-icon>eject</mat-icon> Unmount</button>
+                          } @else {
+                            <button mat-menu-item (click)="mount(d)"><mat-icon>save</mat-icon> Mount…</button>
+                          }
+                        }
+                        @if (d.type === 'part') {
+                          <button mat-menu-item class="bm-danger" (click)="deletePartition(d)"><mat-icon>delete</mat-icon> Delete partition</button>
+                        }
+                      </mat-menu>
+                    </td>
                   </tr>
                 }
+                @if (!rows().length) { <tr><td colspan="5" class="bm-empty">No storage found.</td></tr> }
               </tbody>
             </table>
           }
         </section>
 
-        <!-- LVM volume groups (with capacity bars) -->
+        <!-- LVM volume groups (with capacity bars + object-bound LV actions) -->
         <section class="bm-card">
           <header class="bm-card-head"><h3>Volume groups (LVM)</h3>
             @if (!s.lvm.available) { <span class="bm-na">unavailable</span> }
@@ -62,8 +119,12 @@ import { StorageResponse } from '../../../core/models/agent.model';
                 <div class="bm-vg-top">
                   <span class="bm-dev"><mat-icon class="bm-dev-ic">dns</mat-icon>{{ vg.vg_name }}</span>
                   <span class="bm-spacer"></span>
-                  <span class="bm-vg-cap">{{ human(usedBytes(vg)) }} / {{ human(vg.vg_size) }} used</span>
-                  <button mat-icon-button class="bm-act" title="Delete volume group" (click)="deleteVg(vg.vg_name)"><mat-icon>delete_outline</mat-icon></button>
+                  <span class="bm-vg-cap">{{ bytes(usedBytes(vg)) }} / {{ bytes(num(vg.vg_size)) }} used</span>
+                  <button mat-icon-button [matMenuTriggerFor]="vgMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
+                  <mat-menu #vgMenu="matMenu">
+                    <button mat-menu-item (click)="createLv(vg.vg_name, num(vg.vg_free))"><mat-icon>add</mat-icon> Create logical volume…</button>
+                    <button mat-menu-item class="bm-danger" (click)="deleteVg(vg.vg_name)"><mat-icon>delete</mat-icon> Delete volume group</button>
+                  </mat-menu>
                 </div>
                 <div class="bm-bar"><span class="bm-bar-fill" [style.width.%]="usedPct(vg)" [class.bm-bar-warn]="usedPct(vg) >= 80" [class.bm-bar-crit]="usedPct(vg) >= 90"></span></div>
                 @if (lvsOf(s, vg.vg_name).length) {
@@ -72,10 +133,13 @@ import { StorageResponse } from '../../../core/models/agent.model';
                       @for (lv of lvsOf(s, vg.vg_name); track lv.lv_name) {
                         <tr>
                           <td class="bm-dev bm-lv-name"><mat-icon class="bm-dev-ic">layers</mat-icon>{{ lv.lv_name }}</td>
-                          <td class="bm-right">{{ human(lv.lv_size) }}</td>
-                          <td class="bm-right bm-lv-acts">
-                            <button mat-icon-button class="bm-act" title="Resize" (click)="resizeLv(vg.vg_name, lv.lv_name)"><mat-icon>open_in_full</mat-icon></button>
-                            <button mat-icon-button class="bm-act" title="Delete" (click)="deleteLv(vg.vg_name, lv.lv_name)"><mat-icon>delete_outline</mat-icon></button>
+                          <td class="bm-right bm-mono">{{ bytes(num(lv.lv_size)) }}</td>
+                          <td class="bm-right">
+                            <button mat-icon-button [matMenuTriggerFor]="lvMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
+                            <mat-menu #lvMenu="matMenu">
+                              <button mat-menu-item (click)="resizeLv(vg.vg_name, lv.lv_name, num(lv.lv_size), num(vg.vg_free))"><mat-icon>open_in_full</mat-icon> Resize…</button>
+                              <button mat-menu-item class="bm-danger" (click)="deleteLv(vg.vg_name, lv.lv_name)"><mat-icon>delete</mat-icon> Delete</button>
+                            </mat-menu>
                           </td>
                         </tr>
                       }
@@ -85,128 +149,15 @@ import { StorageResponse } from '../../../core/models/agent.model';
               </div>
             }
             @if (!(s.lvm.vgs || []).length) { <p class="bm-empty">No volume groups.</p> }
-
-            <div class="bm-forms">
-              <div class="bm-inline-form">
-                <mat-icon class="bm-dev-ic">album</mat-icon>
-                <input type="text" placeholder="physical volume device (e.g. /dev/sdb1)" [value]="pvDev()" (input)="pvDev.set($any($event.target).value)" />
-                <button mat-stroked-button (click)="createPv()" [disabled]="busy() || !pvDev().trim()">Create PV</button>
-                <button mat-button (click)="pvResize()" [disabled]="busy() || !pvDev().trim()">Resize PV</button>
-              </div>
-              <div class="bm-inline-form">
-                <mat-icon class="bm-dev-ic">add</mat-icon>
-                <input type="text" placeholder="new VG name" [value]="vgName()" (input)="vgName.set($any($event.target).value)" />
-                <input type="text" placeholder="PVs (space-sep, e.g. /dev/sdb)" [value]="vgPvs()" (input)="vgPvs.set($any($event.target).value)" />
-                <button mat-stroked-button (click)="createVg()" [disabled]="busy() || !vgName().trim() || !vgPvs().trim()">Create VG</button>
-              </div>
-              <div class="bm-inline-form">
-                <mat-icon class="bm-dev-ic">add</mat-icon>
-                <input type="text" placeholder="VG" [value]="lvVg()" (input)="lvVg.set($any($event.target).value)" />
-                <input type="text" placeholder="LV name" [value]="lvName()" (input)="lvName.set($any($event.target).value)" />
-                <input type="text" placeholder="size (e.g. 1G)" [value]="lvSize()" (input)="lvSize.set($any($event.target).value)" />
-                <button mat-stroked-button (click)="createLv()" [disabled]="busy() || !lvVg().trim() || !lvName().trim() || !lvSize().trim()">Create LV</button>
-              </div>
-            </div>
           }
         </section>
 
-        <!-- Filesystems: format + mount (Cockpit: format/mount/unmount) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Format &amp; mount</h3></header>
-          <div class="bm-forms">
-            <div class="bm-inline-form">
-              <mat-icon class="bm-dev-ic">build</mat-icon>
-              <input type="text" placeholder="device (e.g. /dev/vg0/data)" [value]="fsDev()" (input)="fsDev.set($any($event.target).value)" />
-              <select [value]="fsType()" (change)="fsType.set($any($event.target).value)">
-                <option value="xfs">xfs</option><option value="ext4">ext4</option>
-                <option value="btrfs">btrfs</option><option value="swap">swap</option>
-              </select>
-              <button mat-stroked-button (click)="formatDev()" [disabled]="busy() || !fsDev().trim()">Format</button>
-            </div>
-            <div class="bm-inline-form">
-              <mat-icon class="bm-dev-ic">save</mat-icon>
-              <input type="text" placeholder="source device" [value]="mntSrc()" (input)="mntSrc.set($any($event.target).value)" />
-              <input type="text" placeholder="mount point (/mnt/data)" [value]="mntPath()" (input)="mntPath.set($any($event.target).value)" />
-              <select [value]="mntType()" (change)="mntType.set($any($event.target).value)">
-                <option value="xfs">xfs</option><option value="ext4">ext4</option>
-                <option value="btrfs">btrfs</option><option value="nfs">nfs</option>
-              </select>
-              <button mat-stroked-button (click)="mountDev()" [disabled]="busy() || !mntSrc().trim() || !mntPath().trim()">Mount</button>
-              <button mat-button (click)="unmountDev()" [disabled]="busy() || !mntPath().trim()">Unmount</button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Partitions (Cockpit: create partition table / add / delete partition) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Partitions</h3></header>
-          <div class="bm-forms">
-            <div class="bm-inline-form">
-              <mat-icon class="bm-dev-ic">edit</mat-icon>
-              <input type="text" placeholder="disk (e.g. /dev/sdb)" [value]="partDevice()" (input)="partDevice.set($any($event.target).value)" />
-              <select [value]="partLabel()" (change)="partLabel.set($any($event.target).value)">
-                <option value="gpt">gpt</option><option value="msdos">msdos (MBR)</option>
-              </select>
-              <input type="text" placeholder="number (e.g. 1)" [value]="partNum()" (input)="partNum.set($any($event.target).value)" />
-              <input type="text" placeholder="start (0%)" [value]="partStart()" (input)="partStart.set($any($event.target).value)" />
-              <input type="text" placeholder="end (100%)" [value]="partEnd()" (input)="partEnd.set($any($event.target).value)" />
-              <button mat-stroked-button (click)="createPartition()" [disabled]="busy() || !partDevice().trim() || !partNum().trim()">Create</button>
-              <button mat-button (click)="deletePartition()" [disabled]="busy() || !partDevice().trim() || !partNum().trim()">Delete</button>
-            </div>
-            <p class="bm-hint">Create writes a {{ partLabel() }} label if the disk has none, then partition #{{ partNum() || 'N' }} from {{ partStart() || '0%' }} to {{ partEnd() || '100%' }}. Destructive — dry-run first.</p>
-          </div>
-        </section>
-
-        <!-- Storage wizard: LVM-thin / VDO / ZFS in one -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Create storage (wizard)</h3></header>
-          <div class="bm-form">
-            <div class="bm-frow">
-              <label>Backend</label>
-              <select [value]="wizKind()" (change)="wizKind.set($any($event.target).value)">
-                <option value="lvm-thin">LVM thin provisioning</option>
-                <option value="vdo">VDO (dedup/compression)</option>
-                <option value="zfs">ZFS pool + dataset</option>
-              </select>
-            </div>
-
-            @if (wizKind() === 'lvm-thin') {
-              <div class="bm-frow"><label>Volume group</label><input type="text" placeholder="vg0 (existing)" [value]="wizVg()" (input)="wizVg.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Thin pool name</label><input type="text" placeholder="thinpool" [value]="wizPool()" (input)="wizPool.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Pool size</label><input type="text" placeholder="100%FREE or 50G" [value]="wizPoolSize()" (input)="wizPoolSize.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Thin volume name</label><input type="text" placeholder="data (optional)" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Volume virtual size</label><input type="text" placeholder="200G (optional)" [value]="wizSize()" (input)="wizSize.set($any($event.target).value)" /></div>
-              <p class="bm-hint">Creates a thin pool in the VG, then (optionally) a thin volume with a virtual size that may exceed the pool.</p>
-            }
-            @if (wizKind() === 'vdo') {
-              <div class="bm-frow"><label>VDO name</label><input type="text" placeholder="vdo0" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Backing device</label><input type="text" placeholder="/dev/sdb" [value]="wizDevice()" (input)="wizDevice.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Logical size</label><input type="text" placeholder="1T (optional)" [value]="wizSize()" (input)="wizSize.set($any($event.target).value)" /></div>
-              <p class="bm-hint">Creates a VDO volume (deduplication + compression) on the backing device.</p>
-            }
-            @if (wizKind() === 'zfs') {
-              <div class="bm-frow"><label>Pool name</label><input type="text" placeholder="tank" [value]="wizPool()" (input)="wizPool.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Devices</label><input type="text" placeholder="/dev/sdb /dev/sdc (space-sep)" [value]="wizDevice()" (input)="wizDevice.set($any($event.target).value)" /></div>
-              <div class="bm-frow"><label>Dataset</label><input type="text" placeholder="data (optional)" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
-              <p class="bm-hint">Runs <code>zpool create</code>, then optionally <code>zfs create pool/dataset</code>.</p>
-            }
-            <div><button mat-raised-button color="primary" (click)="wizardCreate()" [disabled]="busy()"><mat-icon>auto_awesome</mat-icon> Create</button></div>
-          </div>
-        </section>
-
-        <!-- ZFS / VDO (only meaningful when present) -->
         @if (s.zfs.available) {
           <section class="bm-card">
             <header class="bm-card-head"><h3>ZFS pools</h3></header>
             <table class="bm-ct"><tbody>
               @for (p of s.zfs.pools || []; track $index) { <tr><td class="bm-dev"><mat-icon class="bm-dev-ic">waves</mat-icon>{{ p.name || p }}</td></tr> }
             </tbody></table>
-          </section>
-        }
-        @if (s.vdo.available) {
-          <section class="bm-card">
-            <header class="bm-card-head"><h3>VDO</h3></header>
-            <pre class="bm-raw">{{ (s.vdo.raw || []).join('\n') }}</pre>
           </section>
         }
       }
@@ -226,14 +177,16 @@ import { StorageResponse } from '../../../core/models/agent.model';
       .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 14px; font-size: 12px; }
       .bm-ct td { padding: 8px 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
       .bm-right { text-align: right; }
-      .bm-dev { font-family: monospace; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+      .bm-dev { font-family: monospace; font-weight: 600; display: flex; align-items: center; gap: 6px; }
       .bm-dev-ic { font-size: 17px; width: 17px; height: 17px; opacity: 0.6; }
+      .bm-mono { font-family: monospace; font-variant-numeric: tabular-nums; }
       .bm-type { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
       .bm-chip { display: inline-block; font-family: monospace; font-size: 12px; padding: 1px 8px; border-radius: 6px; background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }
+      .bm-mnt { font-family: monospace; font-size: 11.5px; opacity: 0.7; margin-left: 8px; }
       .bm-muted { opacity: 0.5; }
       .bm-vg { padding: 12px 14px; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-vg:first-of-type { border-top: none; }
-      .bm-vg-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+      .bm-vg-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
       .bm-vg-cap { font-size: 12px; opacity: 0.7; font-variant-numeric: tabular-nums; }
       .bm-bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); overflow: hidden; }
       .bm-bar-fill { display: block; height: 100%; background: var(--bm-green, #2e7d32); border-radius: 999px; }
@@ -242,13 +195,9 @@ import { StorageResponse } from '../../../core/models/agent.model';
       .bm-lv-t { margin-top: 8px; }
       .bm-lv-t td { border-top: 1px dashed var(--mat-sys-outline-variant); padding: 4px 0; }
       .bm-lv-name { font-weight: 500; opacity: 0.9; padding-left: 12px; }
-      .bm-forms { padding: 10px 14px; border-top: 1px solid var(--mat-sys-outline-variant); display: flex; flex-direction: column; gap: 8px; }
-      .bm-inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      .bm-inline-form input { flex: 1 1 130px; padding: 6px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; }
       .bm-empty { opacity: 0.6; padding: 10px 14px; font-size: 13px; }
-      .bm-hint { opacity: 0.6; font-size: 12px; margin: 0; }
       .bm-chk { font-size: 12.5px; opacity: 0.85; display: flex; align-items: center; gap: 5px; }
-      .bm-raw { max-height: 30vh; overflow: auto; background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); padding: 10px 12px; border-radius: 6px; font-size: 12px; margin: 12px 14px; }
+      .bm-danger { color: #c62828; }
       .bm-svc-ok { color: var(--bm-green, #2e7d32); font-size: 12px; }
       .bm-svc-err { color: #c62828; font-size: 12px; }
     `,
@@ -256,6 +205,7 @@ import { StorageResponse } from '../../../core/models/agent.model';
 })
 export class HostStorageComponent {
   private agentService = inject(AgentService);
+  private dialogs = inject(ConfigDialogService);
 
   agentId = input.required<string>();
 
@@ -268,51 +218,46 @@ export class HostStorageComponent {
   msg = signal<string | null>(null);
   err = signal<string | null>(null);
 
-  vgName = signal('');
-  vgPvs = signal('');
-  lvVg = signal('');
-  lvName = signal('');
-  lvSize = signal('');
-  fsDev = signal('');
-  fsType = signal('xfs');
-  mntSrc = signal('');
-  mntPath = signal('');
-  mntType = signal('xfs');
-  partDevice = signal('');
-  partLabel = signal('gpt');
-  partNum = signal('');
-  partStart = signal('0%');
-  partEnd = signal('100%');
-  pvDev = signal('');
-  wizKind = signal<'lvm-thin' | 'vdo' | 'zfs'>('lvm-thin');
-  wizVg = signal('');
-  wizPool = signal('');
-  wizPoolSize = signal('100%FREE');
-  wizName = signal('');
-  wizSize = signal('');
-  wizDevice = signal('');
+  /** Flatten the lsblk device tree (children) into indented rows. */
+  rows = computed<DevRow[]>(() => {
+    const out: DevRow[] = [];
+    const walk = (nodes: any[], depth: number) => {
+      for (const n of nodes || []) {
+        out.push({
+          name: n.name, path: n.path || `/dev/${n.name}`, type: n.type ?? '',
+          size: this.num(n.size), fstype: n.fstype ?? undefined,
+          mountpoint: n.mountpoint ?? (Array.isArray(n.mountpoints) ? n.mountpoints.filter(Boolean)[0] : undefined),
+          fssize: n.fssize != null ? this.num(n.fssize) : undefined,
+          fsused: n.fsused != null ? this.num(n.fsused) : undefined,
+          depth,
+        });
+        if (n.children) walk(n.children, depth + 1);
+      }
+    };
+    walk(this.data()?.block_devices.devices || [], 0);
+    return out;
+  });
+
+  num(v: unknown): number { const n = Number(v); return isFinite(n) ? n : 0; }
+  bytes(n: number): string { return fmtBytes(n); }
+
+  devIcon(d: DevRow): string {
+    if (d.type === 'disk') return 'storage';
+    if (d.type === 'lvm') return 'layers';
+    if (d.type === 'crypt') return 'lock';
+    if (d.fstype) return 'folder';
+    return 'subdirectory_arrow_right';
+  }
 
   usedBytes(vg: { vg_size?: unknown; vg_free?: unknown }): number {
-    return Math.max(0, Number(vg.vg_size) - Number(vg.vg_free));
+    return Math.max(0, this.num(vg.vg_size) - this.num(vg.vg_free));
   }
   usedPct(vg: { vg_size?: unknown; vg_free?: unknown }): number {
-    const size = Number(vg.vg_size);
-    if (!isFinite(size) || size <= 0) return 0;
-    return Math.min(100, Math.round((this.usedBytes(vg) / size) * 100));
+    const size = this.num(vg.vg_size);
+    return size > 0 ? Math.min(100, Math.round((this.usedBytes(vg) / size) * 100)) : 0;
   }
   lvsOf(s: StorageResponse, vgName: string): { lv_name: string; vg_name: string; lv_size: unknown }[] {
     return (s.lvm.lvs || []).filter((lv: { vg_name?: string }) => lv.vg_name === vgName);
-  }
-
-  /** LVM sizes come back in bytes (--units b --nosuffix); render human-ish. */
-  human(v: unknown): string {
-    const n = Number(v);
-    if (!isFinite(n) || n <= 0) return String(v ?? '0');
-    const u = ['B', 'K', 'M', 'G', 'T', 'P'];
-    let i = 0;
-    let x = n;
-    while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
-    return x.toFixed(x < 10 && i > 0 ? 1 : 0) + u[i];
   }
 
   loadOnce(): void {
@@ -329,135 +274,242 @@ export class HostStorageComponent {
     });
   }
 
-  private run(name: string, params: Record<string, unknown>, ok: string): void {
-    this.busy.set(true);
-    this.msg.set(null);
-    this.err.set(null);
-    this.agentService.callTool(this.agentId(), name, { ...params, dry_run: this.dryRun() }).subscribe({
-      next: (res) => {
-        this.busy.set(false);
-        const r = res.result as { changed?: boolean; msg?: string } | undefined;
-        this.msg.set(`${ok}: ${r?.msg ?? 'ok'}${this.dryRun() ? ' (dry-run)' : ''}`);
-        if (!this.dryRun()) this.reload();
-      },
-      error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'action failed'); },
-    });
+  /** Run a write-gated tool through the config-dialog action contract: returns
+   * a promise that resolves on success (dialog closes) or rejects with the
+   * error detail (surfaced in the dialog). Honors the page-level dry-run. */
+  private tool(name: string, params: Record<string, unknown>) {
+    return this.agentService.callTool(this.agentId(), name, { ...params, dry_run: this.dryRun() });
   }
+
+  private applied(r: unknown): void {
+    if (r) { this.msg.set(this.dryRun() ? 'previewed (dry-run)' : 'applied'); if (!this.dryRun()) this.reload(); }
+  }
+
+  // ---- object-bound device dialogs (via the framework) ----
+
+  format(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Format ${d.name}`,
+        danger: 'Formatting erases all data on the device.',
+        dangerButton: true,
+        fields: [
+          { tag: 'fstype', title: 'Type', type: 'select', initial: 'ext4',
+            choices: ['xfs', 'ext4', 'btrfs', 'vfat', 'ntfs', 'swap'].map((t) => ({ value: t, title: t })) },
+          { tag: 'mount', title: 'Mount point', type: 'text', placeholder: '/mnt/data (optional)', visible: (v) => v['fstype'] !== 'swap' },
+        ],
+        variants: [
+          { title: 'Format only', variant: 'format' },
+          { title: 'Format and mount', variant: 'mount', primary: true },
+        ],
+        action: (v, variant) => this.doFormat(d, v, variant),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  private async doFormat(d: DevRow, v: FieldValues, variant?: string) {
+    const fstype = String(v['fstype']);
+    await lastValue(this.tool('community.general.filesystem', { fstype, dev: d.path }));
+    const mp = String(v['mount'] || '').trim();
+    if (variant === 'mount' && mp && fstype !== 'swap') {
+      await lastValue(this.tool('posix.mount', { path: mp, src: d.path, fstype, state: 'mounted' }));
+    }
+    return true;
+  }
+
+  mount(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Mount ${d.name}`,
+        fields: [
+          { tag: 'path', title: 'Mount point', type: 'text', placeholder: '/mnt/data',
+            validate: (val) => (String(val || '').trim().startsWith('/') ? null : 'Absolute path required') },
+          { tag: 'fstype', title: 'Filesystem', type: 'select', initial: d.fstype || 'auto',
+            choices: ['auto', 'xfs', 'ext4', 'btrfs', 'vfat', 'ntfs'].map((t) => ({ value: t, title: t })) },
+        ],
+        action: (v) => this.tool('posix.mount', { path: String(v['path']).trim(), src: d.path, fstype: String(v['fstype']), state: 'mounted' }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  unmount(d: DevRow): void {
+    if (!d.mountpoint) return;
+    this.busyRun(this.tool('posix.mount', { path: d.mountpoint, state: 'unmounted' }), `unmounted ${d.mountpoint}`);
+  }
+
+  createPartTable(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Create partition table on ${d.name}`,
+        danger: 'Initializing erases all data on the disk.',
+        dangerButton: true,
+        fields: [
+          { tag: 'label', title: 'Type', type: 'radio', initial: 'gpt',
+            choices: [
+              { value: 'gpt', title: 'GPT', explanation: 'Modern systems and disks > 2 TB' },
+              { value: 'msdos', title: 'MBR (msdos)', explanation: 'Compatible with all systems' },
+            ] },
+        ],
+        submitLabel: 'Initialize',
+        action: (v) => this.tool('community.general.parted', { device: d.path, label: String(v['label']), state: 'present' }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  createPartition(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Create partition on ${d.name}`,
+        fields: [
+          { tag: 'number', title: 'Number', type: 'text', initial: '1', validate: (v) => (/^\d+$/.test(String(v || '')) ? null : 'Number required') },
+          { tag: 'start', title: 'Start', type: 'text', initial: '0%' },
+          { tag: 'end', title: 'End', type: 'text', initial: '100%' },
+          { tag: 'label', title: 'Table type (if none)', type: 'select', initial: 'gpt', choices: [{ value: 'gpt', title: 'gpt' }, { value: 'msdos', title: 'msdos' }] },
+        ],
+        submitLabel: 'Create',
+        action: (v) => this.tool('community.general.parted', {
+          device: d.path, number: Number(v['number']), label: String(v['label']),
+          part_start: String(v['start'] || '0%'), part_end: String(v['end'] || '100%'), state: 'present',
+        }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  deletePartition(d: DevRow): void {
+    // Partition number is the trailing digits of the name (e.g. sdb1 -> 1).
+    const m = d.name.match(/(\d+)$/);
+    const number = m ? Number(m[1]) : 0;
+    const parent = d.path.replace(/p?\d+$/, '');
+    this.dialogs
+      .open({
+        title: `Delete ${d.name}`,
+        danger: 'All data on this partition is lost.',
+        dangerButton: true,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Deletes partition #${number} on ${parent}.` }],
+        submitLabel: 'Delete',
+        action: () => this.tool('community.general.parted', { device: parent, number, state: 'absent' }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  // ---- LVM dialogs ----
 
   createVg(): void {
-    this.run('community.general.lvg', { vg: this.vgName().trim(), pvs: this.vgPvs().trim(), state: 'present' }, `create VG ${this.vgName().trim()}`);
-  }
-
-  createLv(): void {
-    this.run('community.general.lvol', { vg: this.lvVg().trim(), lv: this.lvName().trim(), size: this.lvSize().trim(), state: 'present' }, `create LV ${this.lvName().trim()}`);
+    const spaces = this.rows().filter((d) => (d.type === 'disk' || d.type === 'part') && !d.mountpoint && !d.fstype)
+      .map((d) => ({ value: d.path, title: d.path, size: d.size }));
+    this.dialogs
+      .open({
+        title: 'Create volume group',
+        fields: [
+          { tag: 'name', title: 'Name', type: 'text', placeholder: 'vg0', validate: (v) => (String(v || '').trim() ? null : 'Name required') },
+          { tag: 'pvs', title: 'Disks', type: 'selectSpaces', spaces, minSelected: 1, emptyWarning: 'Select at least one disk' },
+        ],
+        submitLabel: 'Create',
+        action: (v) => this.tool('community.general.lvg', { vg: String(v['name']).trim(), pvs: (v['pvs'] as string[]).join(','), state: 'present' }),
+      })
+      .subscribe((r) => this.applied(r));
   }
 
   deleteVg(vg: string): void {
-    if (!confirm(`Delete volume group ${vg}? This removes it and its metadata.`)) return;
-    this.run('community.general.lvg', { vg, state: 'absent', force: true }, `delete VG ${vg}`);
+    this.dialogs
+      .open({
+        title: `Delete volume group ${vg}`,
+        danger: 'Removes the group and its metadata.',
+        dangerButton: true,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Delete ${vg}?` }],
+        submitLabel: 'Delete',
+        action: () => this.tool('community.general.lvg', { vg, state: 'absent', force: true }),
+      })
+      .subscribe((r) => this.applied(r));
   }
 
-  resizeLv(vg: string, lv: string): void {
-    const size = prompt(`New size for ${vg}/${lv} (e.g. 2G, +500M):`, '');
-    if (!size || !size.trim()) return;
-    this.run('community.general.lvol', { vg, lv, size: size.trim() }, `resize LV ${vg}/${lv}`);
+  createLv(vg: string, freeBytes: number): void {
+    this.dialogs
+      .open({
+        title: `Create logical volume in ${vg}`,
+        fields: [
+          { tag: 'name', title: 'Name', type: 'text', placeholder: 'data', validate: (v) => (String(v || '').trim() ? null : 'Name required') },
+          { tag: 'size', title: 'Size', type: 'sizeSlider', min: 1024 * 1024, max: freeBytes || 1024 * 1024 * 1024, round: 4 * 1024 * 1024, initial: Math.min(freeBytes, 1024 * 1024 * 1024) },
+        ],
+        submitLabel: 'Create',
+        action: (v) => this.tool('community.general.lvol', { vg, lv: String(v['name']).trim(), size: `${Math.round(this.num(v['size']) / (1024 * 1024))}M`, state: 'present' }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  resizeLv(vg: string, lv: string, currentBytes: number, freeBytes: number): void {
+    this.dialogs
+      .open({
+        title: `Resize ${vg}/${lv}`,
+        fields: [
+          { tag: 'size', title: 'New size', type: 'sizeSlider', min: 1024 * 1024, max: currentBytes + (freeBytes || 0), round: 4 * 1024 * 1024, initial: currentBytes },
+        ],
+        submitLabel: 'Resize',
+        action: (v) => this.tool('community.general.lvol', { vg, lv, size: `${Math.round(this.num(v['size']) / (1024 * 1024))}M` }),
+      })
+      .subscribe((r) => this.applied(r));
   }
 
   deleteLv(vg: string, lv: string): void {
-    if (!confirm(`Delete logical volume ${vg}/${lv}? Data on it is lost.`)) return;
-    this.run('community.general.lvol', { vg, lv, state: 'absent', force: true }, `delete LV ${vg}/${lv}`);
+    this.dialogs
+      .open({
+        title: `Delete ${vg}/${lv}`,
+        danger: 'Data on the logical volume is lost.',
+        dangerButton: true,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Delete logical volume ${vg}/${lv}?` }],
+        submitLabel: 'Delete',
+        action: () => this.tool('community.general.lvol', { vg, lv, state: 'absent', force: true }),
+      })
+      .subscribe((r) => this.applied(r));
   }
 
-  formatDev(): void {
-    const dev = this.fsDev().trim();
-    if (!confirm(`Format ${dev} as ${this.fsType()}? All data on it is erased.`)) return;
-    this.run('community.general.filesystem', { fstype: this.fsType(), dev }, `format ${dev}`);
+  wizard(): void {
+    this.dialogs
+      .open({
+        title: 'Create storage',
+        fields: [
+          { tag: 'kind', title: 'Backend', type: 'radio', initial: 'lvm-thin',
+            choices: [
+              { value: 'lvm-thin', title: 'LVM thin provisioning' },
+              { value: 'vdo', title: 'VDO (dedup/compression)' },
+              { value: 'zfs', title: 'ZFS pool + dataset' },
+            ] },
+          { tag: 'vg', title: 'Volume group', type: 'text', placeholder: 'vg0 (existing)', visible: (v) => v['kind'] === 'lvm-thin' },
+          { tag: 'pool', title: 'Thin pool name', type: 'text', placeholder: 'thinpool', visible: (v) => v['kind'] === 'lvm-thin' },
+          { tag: 'poolSize', title: 'Pool size', type: 'text', initial: '100%FREE', visible: (v) => v['kind'] === 'lvm-thin' },
+          { tag: 'vdoName', title: 'VDO name', type: 'text', placeholder: 'vdo0', visible: (v) => v['kind'] === 'vdo' },
+          { tag: 'vdoDev', title: 'Backing device', type: 'text', placeholder: '/dev/sdb', visible: (v) => v['kind'] === 'vdo' },
+          { tag: 'zpool', title: 'Pool name', type: 'text', placeholder: 'tank', visible: (v) => v['kind'] === 'zfs' },
+          { tag: 'zdevs', title: 'Devices (space-sep)', type: 'text', placeholder: '/dev/sdb /dev/sdc', visible: (v) => v['kind'] === 'zfs' },
+        ],
+        submitLabel: 'Create',
+        action: (v) => this.doWizard(v),
+      })
+      .subscribe((r) => this.applied(r));
   }
 
-  mountDev(): void {
-    this.run('posix.mount', {
-      path: this.mntPath().trim(), src: this.mntSrc().trim(), fstype: this.mntType(), state: 'mounted',
-    }, `mount ${this.mntPath().trim()}`);
+  private async doWizard(v: FieldValues) {
+    const kind = v['kind'];
+    if (kind === 'lvm-thin') {
+      await lastValue(this.tool('community.general.lvol', { vg: String(v['vg']).trim(), thinpool: String(v['pool']).trim(), size: String(v['poolSize'] || '100%FREE') }));
+    } else if (kind === 'vdo') {
+      await lastValue(this.tool('community.general.vdo', { name: String(v['vdoName']).trim(), device: String(v['vdoDev']).trim(), state: 'present' }));
+    } else {
+      await lastValue(this.tool('shell', { cmd: `zpool create -f ${shq(String(v['zpool']).trim())} ${String(v['zdevs']).trim()}` }));
+    }
+    return true;
   }
 
-  unmountDev(): void {
-    this.run('posix.mount', { path: this.mntPath().trim(), state: 'unmounted' }, `unmount ${this.mntPath().trim()}`);
-  }
-
-  createPartition(): void {
-    const device = this.partDevice().trim();
-    if (!confirm(`Create partition #${this.partNum()} on ${device}? This writes the partition table.`)) return;
-    this.run('community.general.parted', {
-      device, number: Number(this.partNum().trim()), label: this.partLabel(),
-      part_start: this.partStart().trim() || '0%', part_end: this.partEnd().trim() || '100%', state: 'present',
-    }, `partition ${device}#${this.partNum().trim()}`);
-  }
-
-  deletePartition(): void {
-    const device = this.partDevice().trim();
-    if (!confirm(`Delete partition #${this.partNum()} on ${device}? Data on it is lost.`)) return;
-    this.run('community.general.parted', { device, number: Number(this.partNum().trim()), state: 'absent' }, `delete ${device}#${this.partNum().trim()}`);
-  }
-
-  // pvcreate/pvresize have no dedicated module — run them via the shell tool.
-  private shellRun(cmd: string, label: string): void {
+  private busyRun(obs: any, ok: string): void {
     this.busy.set(true);
     this.msg.set(null);
     this.err.set(null);
-    this.agentService.callTool(this.agentId(), 'shell', { cmd, dry_run: this.dryRun() }).subscribe({
-      next: (res) => {
-        this.busy.set(false);
-        const d = (res.result as { data?: { rc?: number; stderr?: string; stdout?: string } })?.data;
-        if (this.dryRun()) { this.msg.set(`${label}: would run (dry-run)`); return; }
-        if ((d?.rc ?? 0) === 0) { this.msg.set(`${label}: ok`); this.reload(); }
-        else this.err.set(`${label} failed (rc ${d?.rc}): ${(d?.stderr || d?.stdout || '').slice(-160)}`);
-      },
-      error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? `${label} failed`); },
+    obs.subscribe({
+      next: () => { this.busy.set(false); this.msg.set(`${ok}${this.dryRun() ? ' (dry-run)' : ''}`); if (!this.dryRun()) this.reload(); },
+      error: (e: any) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'action failed'); },
     });
   }
-
-  createPv(): void {
-    const dev = this.pvDev().trim();
-    if (!confirm(`Initialize ${dev} as an LVM physical volume?`)) return;
-    this.shellRun(`pvcreate -y ${sh(dev)}`, `pvcreate ${dev}`);
-  }
-
-  pvResize(): void {
-    this.shellRun(`pvresize ${sh(this.pvDev().trim())}`, `pvresize ${this.pvDev().trim()}`);
-  }
-
-  wizardCreate(): void {
-    const kind = this.wizKind();
-    if (kind === 'lvm-thin') {
-      const vg = this.wizVg().trim(), pool = this.wizPool().trim();
-      if (!vg || !pool) { this.err.set('VG and thin pool name are required'); return; }
-      // Create the thin pool; if a thin volume is named, create it in the pool.
-      this.run('community.general.lvol', { vg, thinpool: pool, size: this.wizPoolSize().trim() || '100%FREE' }, `thin pool ${vg}/${pool}`);
-      if (this.wizName().trim()) {
-        this.run('community.general.lvol', { vg, lv: this.wizName().trim(), thinpool: pool, size: this.wizSize().trim() || '100%FREE' }, `thin vol ${this.wizName().trim()}`);
-      }
-      return;
-    }
-    if (kind === 'vdo') {
-      const name = this.wizName().trim(), device = this.wizDevice().trim();
-      if (!name || !device) { this.err.set('VDO name and device are required'); return; }
-      const params: Record<string, unknown> = { name, device, state: 'present' };
-      if (this.wizSize().trim()) params['logicalsize'] = this.wizSize().trim();
-      this.run('community.general.vdo', params, `VDO ${name}`);
-      return;
-    }
-    // zfs: zpool create (shell) + optional dataset (zfs module)
-    const poolName = this.wizPool().trim(), devs = this.wizDevice().trim();
-    if (!poolName || !devs) { this.err.set('Pool name and devices are required'); return; }
-    if (!this.dryRun() && !confirm(`Create ZFS pool ${poolName} on ${devs}? Devices are wiped.`)) return;
-    this.shellRun(`zpool create -f ${sh(poolName)} ${devs}`, `zpool create ${poolName}`);
-    if (this.wizName().trim()) {
-      this.run('community.general.zfs', { name: `${poolName}/${this.wizName().trim()}`, state: 'present' }, `zfs dataset ${poolName}/${this.wizName().trim()}`);
-    }
-  }
 }
 
-/** Minimal shell escaping for a single value. */
-function sh(v: string): string {
-  return "'" + v.replace(/'/g, "'\\''") + "'";
-}
+function lastValue(o: Observable<unknown>): Promise<unknown> { return lastValueFrom(o); }
+function shq(v: string): string { return "'" + v.replace(/'/g, "'\\''") + "'"; }
