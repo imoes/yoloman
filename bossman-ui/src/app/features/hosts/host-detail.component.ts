@@ -28,6 +28,7 @@ import { ThresholdDialogComponent } from '../../shared/components/threshold-dial
 import { HostInventoryComponent } from './host-inventory.component';
 import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
+import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
@@ -105,6 +106,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostInventoryComponent,
     HostChecksComponent,
     HostConsoleComponent,
+    TopologyComponent,
     HostManagementComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -460,6 +462,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="Relationships">
             <div class="bm-tab-content">
+              <div class="bm-rel-map"><app-topology [agentId]="agent.id" /></div>
+              <h3 class="bm-rel-h">Connections</h3>
               @if (edges().length) {
                 <table class="bm-table">
                   <thead>
@@ -707,6 +711,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         padding: 16px 4px;
       }
       .bm-console-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+      .bm-rel-map { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; }
+      .bm-rel-h { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
       .bm-facts {
         display: grid;
         grid-template-columns: 160px 1fr;
