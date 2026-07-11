@@ -88,6 +88,12 @@ import { StorageResponse } from '../../../core/models/agent.model';
 
             <div class="bm-forms">
               <div class="bm-inline-form">
+                <mat-icon class="bm-dev-ic">album</mat-icon>
+                <input type="text" placeholder="physical volume device (e.g. /dev/sdb1)" [value]="pvDev()" (input)="pvDev.set($any($event.target).value)" />
+                <button mat-stroked-button (click)="createPv()" [disabled]="busy() || !pvDev().trim()">Create PV</button>
+                <button mat-button (click)="pvResize()" [disabled]="busy() || !pvDev().trim()">Resize PV</button>
+              </div>
+              <div class="bm-inline-form">
                 <mat-icon class="bm-dev-ic">add</mat-icon>
                 <input type="text" placeholder="new VG name" [value]="vgName()" (input)="vgName.set($any($event.target).value)" />
                 <input type="text" placeholder="PVs (space-sep, e.g. /dev/sdb)" [value]="vgPvs()" (input)="vgPvs.set($any($event.target).value)" />
@@ -148,6 +154,43 @@ import { StorageResponse } from '../../../core/models/agent.model';
               <button mat-button (click)="deletePartition()" [disabled]="busy() || !partDevice().trim() || !partNum().trim()">Delete</button>
             </div>
             <p class="bm-hint">Create writes a {{ partLabel() }} label if the disk has none, then partition #{{ partNum() || 'N' }} from {{ partStart() || '0%' }} to {{ partEnd() || '100%' }}. Destructive — dry-run first.</p>
+          </div>
+        </section>
+
+        <!-- Storage wizard: LVM-thin / VDO / ZFS in one -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Create storage (wizard)</h3></header>
+          <div class="bm-form">
+            <div class="bm-frow">
+              <label>Backend</label>
+              <select [value]="wizKind()" (change)="wizKind.set($any($event.target).value)">
+                <option value="lvm-thin">LVM thin provisioning</option>
+                <option value="vdo">VDO (dedup/compression)</option>
+                <option value="zfs">ZFS pool + dataset</option>
+              </select>
+            </div>
+
+            @if (wizKind() === 'lvm-thin') {
+              <div class="bm-frow"><label>Volume group</label><input type="text" placeholder="vg0 (existing)" [value]="wizVg()" (input)="wizVg.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Thin pool name</label><input type="text" placeholder="thinpool" [value]="wizPool()" (input)="wizPool.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Pool size</label><input type="text" placeholder="100%FREE or 50G" [value]="wizPoolSize()" (input)="wizPoolSize.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Thin volume name</label><input type="text" placeholder="data (optional)" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Volume virtual size</label><input type="text" placeholder="200G (optional)" [value]="wizSize()" (input)="wizSize.set($any($event.target).value)" /></div>
+              <p class="bm-hint">Creates a thin pool in the VG, then (optionally) a thin volume with a virtual size that may exceed the pool.</p>
+            }
+            @if (wizKind() === 'vdo') {
+              <div class="bm-frow"><label>VDO name</label><input type="text" placeholder="vdo0" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Backing device</label><input type="text" placeholder="/dev/sdb" [value]="wizDevice()" (input)="wizDevice.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Logical size</label><input type="text" placeholder="1T (optional)" [value]="wizSize()" (input)="wizSize.set($any($event.target).value)" /></div>
+              <p class="bm-hint">Creates a VDO volume (deduplication + compression) on the backing device.</p>
+            }
+            @if (wizKind() === 'zfs') {
+              <div class="bm-frow"><label>Pool name</label><input type="text" placeholder="tank" [value]="wizPool()" (input)="wizPool.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Devices</label><input type="text" placeholder="/dev/sdb /dev/sdc (space-sep)" [value]="wizDevice()" (input)="wizDevice.set($any($event.target).value)" /></div>
+              <div class="bm-frow"><label>Dataset</label><input type="text" placeholder="data (optional)" [value]="wizName()" (input)="wizName.set($any($event.target).value)" /></div>
+              <p class="bm-hint">Runs <code>zpool create</code>, then optionally <code>zfs create pool/dataset</code>.</p>
+            }
+            <div><button mat-raised-button color="primary" (click)="wizardCreate()" [disabled]="busy()"><mat-icon>auto_awesome</mat-icon> Create</button></div>
           </div>
         </section>
 
@@ -240,6 +283,14 @@ export class HostStorageComponent {
   partNum = signal('');
   partStart = signal('0%');
   partEnd = signal('100%');
+  pvDev = signal('');
+  wizKind = signal<'lvm-thin' | 'vdo' | 'zfs'>('lvm-thin');
+  wizVg = signal('');
+  wizPool = signal('');
+  wizPoolSize = signal('100%FREE');
+  wizName = signal('');
+  wizSize = signal('');
+  wizDevice = signal('');
 
   usedBytes(vg: { vg_size?: unknown; vg_free?: unknown }): number {
     return Math.max(0, Number(vg.vg_size) - Number(vg.vg_free));
@@ -347,4 +398,66 @@ export class HostStorageComponent {
     if (!confirm(`Delete partition #${this.partNum()} on ${device}? Data on it is lost.`)) return;
     this.run('community.general.parted', { device, number: Number(this.partNum().trim()), state: 'absent' }, `delete ${device}#${this.partNum().trim()}`);
   }
+
+  // pvcreate/pvresize have no dedicated module — run them via the shell tool.
+  private shellRun(cmd: string, label: string): void {
+    this.busy.set(true);
+    this.msg.set(null);
+    this.err.set(null);
+    this.agentService.callTool(this.agentId(), 'shell', { cmd, dry_run: this.dryRun() }).subscribe({
+      next: (res) => {
+        this.busy.set(false);
+        const d = (res.result as { data?: { rc?: number; stderr?: string; stdout?: string } })?.data;
+        if (this.dryRun()) { this.msg.set(`${label}: would run (dry-run)`); return; }
+        if ((d?.rc ?? 0) === 0) { this.msg.set(`${label}: ok`); this.reload(); }
+        else this.err.set(`${label} failed (rc ${d?.rc}): ${(d?.stderr || d?.stdout || '').slice(-160)}`);
+      },
+      error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? `${label} failed`); },
+    });
+  }
+
+  createPv(): void {
+    const dev = this.pvDev().trim();
+    if (!confirm(`Initialize ${dev} as an LVM physical volume?`)) return;
+    this.shellRun(`pvcreate -y ${sh(dev)}`, `pvcreate ${dev}`);
+  }
+
+  pvResize(): void {
+    this.shellRun(`pvresize ${sh(this.pvDev().trim())}`, `pvresize ${this.pvDev().trim()}`);
+  }
+
+  wizardCreate(): void {
+    const kind = this.wizKind();
+    if (kind === 'lvm-thin') {
+      const vg = this.wizVg().trim(), pool = this.wizPool().trim();
+      if (!vg || !pool) { this.err.set('VG and thin pool name are required'); return; }
+      // Create the thin pool; if a thin volume is named, create it in the pool.
+      this.run('community.general.lvol', { vg, thinpool: pool, size: this.wizPoolSize().trim() || '100%FREE' }, `thin pool ${vg}/${pool}`);
+      if (this.wizName().trim()) {
+        this.run('community.general.lvol', { vg, lv: this.wizName().trim(), thinpool: pool, size: this.wizSize().trim() || '100%FREE' }, `thin vol ${this.wizName().trim()}`);
+      }
+      return;
+    }
+    if (kind === 'vdo') {
+      const name = this.wizName().trim(), device = this.wizDevice().trim();
+      if (!name || !device) { this.err.set('VDO name and device are required'); return; }
+      const params: Record<string, unknown> = { name, device, state: 'present' };
+      if (this.wizSize().trim()) params['logicalsize'] = this.wizSize().trim();
+      this.run('community.general.vdo', params, `VDO ${name}`);
+      return;
+    }
+    // zfs: zpool create (shell) + optional dataset (zfs module)
+    const poolName = this.wizPool().trim(), devs = this.wizDevice().trim();
+    if (!poolName || !devs) { this.err.set('Pool name and devices are required'); return; }
+    if (!this.dryRun() && !confirm(`Create ZFS pool ${poolName} on ${devs}? Devices are wiped.`)) return;
+    this.shellRun(`zpool create -f ${sh(poolName)} ${devs}`, `zpool create ${poolName}`);
+    if (this.wizName().trim()) {
+      this.run('community.general.zfs', { name: `${poolName}/${this.wizName().trim()}`, state: 'present' }, `zfs dataset ${poolName}/${this.wizName().trim()}`);
+    }
+  }
+}
+
+/** Minimal shell escaping for a single value. */
+function sh(v: string): string {
+  return "'" + v.replace(/'/g, "'\\''") + "'";
 }

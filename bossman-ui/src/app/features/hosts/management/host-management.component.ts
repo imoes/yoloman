@@ -9,6 +9,7 @@ import { HostAccountsComponent } from './host-accounts.component';
 import { HostStorageComponent } from './host-storage.component';
 import { HostNetworkComponent } from './host-network.component';
 import { HostFirewallComponent } from './host-firewall.component';
+import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
@@ -21,7 +22,7 @@ import { HostVirtComponent } from './host-virt.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, MatButtonModule, MatIconModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostVirtComponent],
+  imports: [MatTabsModule, MatButtonModule, MatIconModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent],
   template: `
     <div class="bm-mgmt-bar">
       <span class="bm-mgmt-hint">Network/Storage actions need their modules on the host.</span>
@@ -57,6 +58,11 @@ import { HostVirtComponent } from './host-virt.component';
           <app-host-accounts [agentId]="agentId()" />
         </div>
       </mat-tab>
+      <mat-tab label="FreeIPA">
+        <div class="bm-mgmt-pane">
+          <app-host-freeipa [agentId]="agentId()" />
+        </div>
+      </mat-tab>
       <mat-tab label="Storage">
         <div class="bm-mgmt-pane">
           <app-host-storage [agentId]="agentId()" />
@@ -89,7 +95,7 @@ export class HostManagementComponent {
   private static readonly MGMT_MODULES = [
     'community.general.nmcli', 'posix.mount', 'community.general.filesystem',
     'community.general.parted', 'posix.firewalld', 'community.general.lvg',
-    'community.general.lvol',
+    'community.general.lvol', 'community.general.vdo', 'community.general.zfs',
   ];
 
   enableModules(): void {
@@ -110,6 +116,7 @@ export class HostManagementComponent {
   private services = viewChild(HostServicesComponent);
   private logs = viewChild(HostLogsComponent);
   private accounts = viewChild(HostAccountsComponent);
+  private freeipa = viewChild(HostFreeipaComponent);
   private storage = viewChild(HostStorageComponent);
   private virt = viewChild(HostVirtComponent);
 
@@ -120,6 +127,7 @@ export class HostManagementComponent {
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
+    if (event.tab.textLabel === 'FreeIPA') this.freeipa()?.loadOnce();
     if (event.tab.textLabel === 'Storage') this.storage()?.loadOnce();
     if (event.tab.textLabel === 'Virtualization') this.virt()?.loadOnce();
   }

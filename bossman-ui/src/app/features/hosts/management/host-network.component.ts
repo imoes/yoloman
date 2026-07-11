@@ -211,6 +211,20 @@ export class HostNetworkComponent {
     this.cfgName.set(name);
     this.msg.set(null);
     this.err.set(null);
+    // Prefill from the interface's current state so Configure shows the
+    // existing config, not a blank form.
+    const iface = this.data()?.interfaces.find((i) => i.name === name);
+    const v4 = iface?.addresses.find((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
+    if (v4) {
+      this.cfgMethod.set('static');
+      this.cfgAddr.set(v4.cidr);
+    } else {
+      this.cfgMethod.set('dhcp');
+      this.cfgAddr.set('');
+    }
+    const gw = this.data()?.routes.find((r) => (r.dest === 'default' || r.dest === '0.0.0.0/0') && r.dev === name);
+    this.cfgGw.set(gw?.gateway || '');
+    this.cfgDns.set((this.data()?.dns.nameservers || []).join(', '));
     this.showForm.set(true);
   }
 
