@@ -10,6 +10,7 @@ import (
 
 	"github.com/mutkluge/agentic-mcp/internal/checks"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
+	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 )
 
@@ -32,13 +33,13 @@ type MetricSample struct {
 // type exists so fleet's mirrored HostSnapshot has something concrete to
 // decode into without importing internal/collect).
 type CheckSnapshot struct {
-	Name       string             `json:"name"`
-	Status     string             `json:"status"`
-	Message    string             `json:"message"`
-	LongOutput string             `json:"long_output,omitempty"`
-	Perfdata   []checkPerfDatum   `json:"perfdata,omitempty"`
-	ExitCode   int                `json:"exit_code"`
-	At         time.Time          `json:"at"`
+	Name       string           `json:"name"`
+	Status     string           `json:"status"`
+	Message    string           `json:"message"`
+	LongOutput string           `json:"long_output,omitempty"`
+	Perfdata   []checkPerfDatum `json:"perfdata,omitempty"`
+	ExitCode   int              `json:"exit_code"`
+	At         time.Time        `json:"at"`
 }
 
 type checkPerfDatum struct {
@@ -97,6 +98,26 @@ func handleHostsOverview(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 				snap.Inventory = sat.Inventory
 			}
 			hosts = append(hosts, snap)
+		}
+	}
+	// Piggyback: report each guest (Docker container, Proxmox/vSphere VM …) as
+	// its own host on behalf of this one — the CheckMK piggyback idea, ridden on
+	// the existing overview distribution. Best-effort: a source that isn't
+	// present is silently skipped.
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, col := range cfg.Piggyback {
+		guests, err := col.Collect(r.Context())
+		if err != nil {
+			continue
+		}
+		for _, g := range guests {
+			hosts = append(hosts, HostSnapshot{
+				Host:         g.Name,
+				Parent:       cfg.HostName,
+				Mode:         col.Kind(),
+				LastSampleAt: now,
+				Metrics:      convertPiggybackMetrics(g.Metrics),
+			})
 		}
 	}
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Host < hosts[j].Host })
@@ -208,6 +229,17 @@ func convertPerfdata(in []checks.PerfDatum) []checkPerfDatum {
 	out := make([]checkPerfDatum, len(in))
 	for i, p := range in {
 		out[i] = checkPerfDatum{Label: p.Label, Value: p.Value, Warn: p.Warn, Crit: p.Crit, Min: p.Min, Max: p.Max}
+	}
+	return out
+}
+
+func convertPiggybackMetrics(in []piggyback.Metric) []MetricSample {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]MetricSample, len(in))
+	for i, m := range in {
+		out[i] = MetricSample{Metric: m.Name, Value: m.Value, Labels: m.Labels}
 	}
 	return out
 }

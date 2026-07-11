@@ -24,6 +24,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/inventory"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
+	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
@@ -186,6 +187,7 @@ func run(args []string) error {
 		AllowSelfUpdate:    cfg.AllowSelfUpdate,
 		ConsoleEnabled:     cfg.Console.Enabled,
 		ConsoleCommand:     cfg.Console.Command,
+		Piggyback:          piggybackCollectors(cfg),
 		Mode:               cfg.Mode,
 		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM:  proxyPublicKeyPEM,
@@ -198,6 +200,17 @@ func run(args []string) error {
 		Inventory: inventory.NewCached(inventory.DefaultCollector(), time.Hour),
 	})
 	return serveHTTP(cfg, mcpServer, restHandler)
+}
+
+// piggybackCollectors builds the enabled piggyback sources (guests reported as
+// their own hosts via hosts/overview). Docker is auto-detected at collect time,
+// so enabling it on a non-Docker host is a harmless no-op.
+func piggybackCollectors(cfg config.Config) []piggyback.Collector {
+	var out []piggyback.Collector
+	if cfg.Piggyback.Docker {
+		out = append(out, piggyback.NewDockerCollector(cfg.Piggyback.DockerSocket))
+	}
+	return out
 }
 
 // startEBPFCollector loads and attaches the eBPF collector if enabled,

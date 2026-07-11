@@ -31,14 +31,15 @@ type Config struct {
 	// (POST /api/v1/agent/self-update), which upgrades the agent from a
 	// Bossman-pushed .deb even when Write is false. Default true (see
 	// Default()); set to false to forbid remote upgrades of this agent.
-	AllowSelfUpdate bool   `yaml:"allow_self_update"`
-	TLS             TLS    `yaml:"tls"`
-	EBPF            EBPF   `yaml:"ebpf"`
-	DB              DB      `yaml:"db"`
-	PAM             PAM     `yaml:"pam"`
-	UI              UI      `yaml:"ui"`
-	Console         Console `yaml:"console"`
-	ToolsDir        string  `yaml:"tools_dir"`
+	AllowSelfUpdate bool      `yaml:"allow_self_update"`
+	TLS             TLS       `yaml:"tls"`
+	EBPF            EBPF      `yaml:"ebpf"`
+	DB              DB        `yaml:"db"`
+	PAM             PAM       `yaml:"pam"`
+	UI              UI        `yaml:"ui"`
+	Console         Console   `yaml:"console"`
+	Piggyback       Piggyback `yaml:"piggyback"`
+	ToolsDir        string    `yaml:"tools_dir"`
 	// ModulesDir holds translated Starlark collection modules
 	// (<collection>/<name>.star + .nt/.yaml sidecar), loaded and registered
 	// as executable tools at startup (Block G3). Optional dir like tools_dir.
@@ -258,6 +259,14 @@ type Console struct {
 	Command []string `yaml:"command"`
 }
 
+// Piggyback configures reporting guests (containers/VMs) as their own hosts via
+// hosts/overview (CheckMK-style piggyback). Docker is auto-detected: with
+// docker enabled but no daemon present, it's a silent no-op.
+type Piggyback struct {
+	Docker       bool   `yaml:"docker"`        // report Docker containers as hosts
+	DockerSocket string `yaml:"docker_socket"` // default /var/run/docker.sock
+}
+
 // Default returns a Config with safe, conservative defaults (write disabled).
 func Default() Config {
 	return Config{
@@ -277,6 +286,7 @@ func Default() Config {
 		PAM:           PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
 		UI:            UI{Enabled: true},
 		Console:       Console{Enabled: true},
+		Piggyback:     Piggyback{Docker: true},
 		ToolsDir:      "/etc/agentic-mcp/tools.d",
 		ModulesDir:    "/var/lib/agentic-mcp/modules.d",
 		CommandsFile:  "/etc/agentic-mcp/commands.yaml",

@@ -173,7 +173,7 @@ async def _write_snapshot_metrics(
     return len(rows)
 
 
-async def _find_or_create_satellite(session: AsyncSession, name: str, parent_agent_id: uuid.UUID, mode: str) -> Agent:
+async def _find_or_create_satellite(session: AsyncSession, name: str, parent_agent_id: uuid.UUID, mode: str, kind: str | None = None) -> Agent:
     """Finds or creates the Agent row for a satellite discovered via a
     proxy's own GET /api/v1/hosts/overview (see docs/plan.md's
     monitoring-cockpit ergänzung Block F2) — the fix for a satellite
@@ -191,6 +191,8 @@ async def _find_or_create_satellite(session: AsyncSession, name: str, parent_age
         if existing.parent_agent_id != parent_agent_id or existing.mode != mode:
             existing.parent_agent_id = parent_agent_id
             existing.mode = mode
+        if kind and (existing.agent_metadata or {}).get("piggyback_kind") != kind:
+            existing.agent_metadata = {**(existing.agent_metadata or {}), "piggyback_kind": kind}
         return existing
 
     satellite = Agent(
@@ -198,7 +200,7 @@ async def _find_or_create_satellite(session: AsyncSession, name: str, parent_age
         token="",
         mode=mode,
         enrollment_state="enrolled",
-        agent_metadata={},
+        agent_metadata={"piggyback_kind": kind} if kind else {},
         parent_agent_id=parent_agent_id,
     )
     session.add(satellite)
@@ -241,7 +243,14 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
             continue
 
         satellite_count += 1
-        satellite = await _find_or_create_satellite(session, host_name, agent.id, host.get("mode") or "satellite")
+        # agents.mode is an operational role (standalone|satellite|proxy). A
+        # piggyback guest (container/proxmox/vsphere) is satellite-role from
+        # Bossman's view; keep its real type in agent_metadata.piggyback_kind.
+        raw_mode = host.get("mode") or "satellite"
+        valid = raw_mode in ("standalone", "satellite", "proxy")
+        satellite = await _find_or_create_satellite(
+            session, host_name, agent.id, raw_mode if valid else "satellite", kind=None if valid else raw_mode
+        )
         sample_time = now
         if host.get("last_sample_at"):
             try:

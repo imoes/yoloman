@@ -17,6 +17,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/inventory"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
+	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
@@ -47,6 +48,10 @@ type RESTConfig struct {
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
 	AllowSelfUpdate bool
+	// Piggyback collectors report guests (Docker containers, Proxmox/vSphere
+	// VMs) as their own hosts via GET /api/v1/hosts/overview — the CheckMK
+	// piggyback idea. Empty = none.
+	Piggyback []piggyback.Collector
 	// ConsoleEnabled activates the interactive web shell at GET /api/v1/console
 	// (a PTY over WebSocket — see internal/console). Default true.
 	ConsoleEnabled bool
