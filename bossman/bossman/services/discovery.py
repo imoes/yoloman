@@ -59,13 +59,13 @@ def _needs_params(options: dict[str, Any]) -> list[str]:
     return out
 
 
-def _delivery(name: str, star: str, sidecar: str, sidecar_format: str) -> dict[str, Any]:
-    """One module in the /api/v1/modules/apply push shape. The fqcn must be
-    dotted for the agent's fqcn split; checks are flat, so namespace them
-    under 'checks.<name>' — the module still registers under its sidecar
-    `name` (== <name>), which is what call_tool uses."""
+def _delivery(fqcn: str, star: str, sidecar: str, sidecar_format: str) -> dict[str, Any]:
+    """One module in the /api/v1/modules/apply push shape. `fqcn` must be dotted
+    (the agent splits it) — translated checks carry `checkmk.<name>`; custom
+    checks are namespaced `checks.<name>`. The agent registers the tool under
+    this fqcn, which is what run_check_discovery calls."""
     return {
-        "fqcn": f"checks.{name}",
+        "fqcn": fqcn,
         "star": star,
         "sidecar": sidecar,
         "sidecar_format": sidecar_format,
@@ -84,7 +84,10 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
     if not checks:
         return []
 
-    deliveries = [_delivery(c["name"], c["star"], c.get("sidecar", ""), c.get("sidecar_format", "yaml")) for c in checks]
+    deliveries = [
+        _delivery(c.get("fqcn") or f"checks.{c['name']}", c["star"], c.get("sidecar", ""), c.get("sidecar_format") or "nt")
+        for c in checks
+    ]
     try:
         await client.push_modules(deliveries)
     except Exception as exc:  # noqa: BLE001 — a push failure fails the whole run, surfaced per-check
@@ -100,7 +103,11 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
             needs_params=_needs_params(c.get("options", {})),
         )
         try:
-            result = await client.call_tool(name, {"_discover": True})
+            # The agent registers a pushed module under the fqcn from its
+            # sidecar metadata (StarModule.Name() == fqcn), e.g.
+            # "checkmk.3par_cpgs" — so call it by that fqcn, not the flat name
+            # (which 404s as "unknown tool").
+            result = await client.call_tool(c.get("fqcn") or name, {"_discover": True})
             data = (result or {}).get("data") if isinstance(result, dict) else None
             discovery = (data or {}).get("discovery") if isinstance(data, dict) else None
             for entry in discovery or []:
@@ -117,6 +124,8 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
             prop.error = str(exc)
         proposals.append(prop)
 
-    # Only surface checks that apply (found items) or errored; drop the
-    # silent "discovered nothing" ones — they don't apply to this host.
-    return [p for p in proposals if p.items or p.error]
+    # Only surface checks that actually apply to this host (found ≥1 item).
+    # A check that discovered nothing, or errored in discovery mode (the
+    # translated module needs hardware/agent sections this host doesn't have),
+    # does NOT apply here — surfacing hundreds of tracebacks was pure noise.
+    return [p for p in proposals if p.items]

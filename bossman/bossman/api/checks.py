@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import nestedtext
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -219,8 +220,17 @@ def _load_candidate_checks(settings: Settings, names: list[str] | None) -> list[
             sidecar = Path(yaml_path).read_text(encoding="utf-8")
         except OSError:
             continue
+        # The sidecar is NestedText (.nt); the agent registers the tool under
+        # its fqcn, so parse it out and pass it through (call_tool needs it).
+        fqcn = name
+        try:
+            meta = nestedtext.loads(sidecar, top="dict")
+            if isinstance(meta, dict) and meta.get("fqcn"):
+                fqcn = str(meta["fqcn"])
+        except nestedtext.NestedTextError:
+            pass
         out.append({
-            "name": name, "star": star, "sidecar": sidecar, "sidecar_format": "yaml",
+            "name": name, "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": "nt",
             "options": entry.get("options", {}), "short_description": entry.get("short_description", ""),
         })
     return out
