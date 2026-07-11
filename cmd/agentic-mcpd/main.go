@@ -33,6 +33,15 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
 )
 
+// version is the agent build version, stamped at build time via
+// -ldflags "-X main.version=$(cat VERSION)". Reported at startup and by
+// GET /healthz so an operator can tell which build a host is running (bump
+// VERSION on every agent change so deployed .debs are distinguishable).
+var version = "dev"
+
+// Version exposes the build version to the rest of the daemon (e.g. /healthz).
+func Version() string { return version }
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "agentic-mcpd:", err)
@@ -49,9 +58,15 @@ func run(args []string) error {
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml")
 	stdio := fs.Bool("stdio", false, "serve MCP over stdio instead of Streamable HTTP")
 	listen := fs.String("listen", "", "override the listen address from config")
+	showVersion := fs.Bool("version", false, "print the agent version and exit")
 	generateToken := fs.Bool("generate-token", false, "print a new cryptographically random bearer token and exit")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	if *showVersion {
+		fmt.Println(version)
+		return nil
 	}
 
 	if *generateToken {

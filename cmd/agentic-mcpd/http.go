@@ -28,10 +28,13 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 		return mcpServer
 	}, nil)
 
+	slog.Info("agentic-mcpd starting", "version", version)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		_, _ = w.Write([]byte(`{"status":"ok","version":"` + version + `"}`))
 	})
 
 	mcpFinal := withBearerAuth(cfg.Token, cfg.TokenEntries(), mcpHandler)
