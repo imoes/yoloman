@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/notifications', label: 'Notifications', icon: 'notifications' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
+  { path: '/security', label: 'Security', icon: 'security' },
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
   { path: '/modules', label: 'Modules', icon: 'extension' },

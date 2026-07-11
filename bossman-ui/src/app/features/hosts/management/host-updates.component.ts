@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
+import { SecurityService } from '../../../core/services/security.service';
 import { UpdatesResponse } from '../../../core/models/agent.model';
 
 /** Cockpit "Software updates" mapped onto the baked yoloman.package_updates
@@ -53,6 +54,38 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
             }
             @if (msg()) { <p class="bm-svc-ok">{{ msg() }}</p> }
             @if (err()) { <p class="bm-svc-err">{{ err() }}</p> }
+          </div>
+        </section>
+
+        <!-- Security: CVEs closed by the pending upgrades (Block 4-D) -->
+        <section class="bm-card">
+          <header class="bm-card-head">
+            <h3>CVEs fixed by these updates</h3>
+            @if (cveCount() >= 0) { <span class="bm-sec-badge">{{ cveCount() }}</span> }
+            <span class="bm-spacer"></span>
+            <button mat-stroked-button (click)="correlateCves()" [disabled]="cveBusy()">
+              @if (cveBusy()) { <mat-spinner diameter="16" /> } @else { <mat-icon>security</mat-icon> Correlate CVEs }
+            </button>
+          </header>
+          <div class="bm-summary">
+            @if (cveErr()) { <p class="bm-svc-err">{{ cveErr() }}</p> }
+            @if (cveCount() === 0) { <p class="bm-uptodate"><mat-icon>check_circle</mat-icon> No known CVEs closed by the pending updates.</p> }
+            @if (cves().length) {
+              <table class="bm-ct">
+                <thead><tr><th>CVE</th><th>Package</th><th>Installed</th><th>Fixed in</th><th>Severity</th></tr></thead>
+                <tbody>
+                  @for (c of cves(); track c.cve + c.package) {
+                    <tr>
+                      <td class="bm-mono">{{ c.cve }}</td>
+                      <td class="bm-mono">{{ c.package }}</td>
+                      <td class="bm-mono">{{ c.current_version || '—' }}</td>
+                      <td class="bm-mono">{{ c.fixed_version || '—' }}</td>
+                      <td>@if (c.severity) { <span class="bm-sec-badge">{{ c.severity }}</span> }</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
           </div>
         </section>
 
@@ -109,6 +142,7 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
 })
 export class HostUpdatesComponent {
   private agentService = inject(AgentService);
+  private security = inject(SecurityService);
 
   agentId = input.required<string>();
 
@@ -120,6 +154,21 @@ export class HostUpdatesComponent {
   msg = signal<string | null>(null);
   err = signal<string | null>(null);
   dryRun = signal(true);
+
+  cves = signal<{ cve: string; package: string; current_version: string; fixed_version: string; severity: string }[]>([]);
+  cveCount = signal(-1);
+  cveBusy = signal(false);
+  cveErr = signal<string | null>(null);
+
+  /** Correlate this host's pending updates to the CVEs they fix (Block 4-D). */
+  correlateCves(): void {
+    this.cveBusy.set(true);
+    this.cveErr.set(null);
+    this.security.hostCves(this.agentId()).subscribe({
+      next: (r) => { this.cveBusy.set(false); this.cves.set(r.cves); this.cveCount.set(r.count); },
+      error: (e) => { this.cveBusy.set(false); this.cveErr.set(e?.error?.detail ?? 'correlation failed (is the CVE feed refreshed?)'); },
+    });
+  }
 
   loadOnce(): void {
     if (this.loaded() || this.loading()) return;

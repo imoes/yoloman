@@ -66,6 +66,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/topology/topology.component').then((m) => m.TopologyComponent),
   },
   {
+    path: 'security',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/security/security.component').then((m) => m.SecurityComponent),
+  },
+  {
     path: 'ou',
     canActivate: [authGuard],
     loadComponent: () => import('./features/ou-policy/ou-policy.component').then((m) => m.OuPolicyComponent),
