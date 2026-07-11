@@ -37,6 +37,18 @@ async def gather_magic_vars(client: Any, agent: Agent) -> dict[str, Any]:
                 magic.update(facts)
     except Exception:  # noqa: BLE001 — facts are best-effort, never block the run
         pass
+    # The full HW/SW inventory document (Block H1) as the `inventory` magic var,
+    # reached in runbooks via dotted paths — ${inventory.product.serial},
+    # ${inventory.cpu.model}, ${inventory.memory.total_mb}, ${inventory.disks}.
+    try:
+        hosts = await client.hosts_overview()
+        if isinstance(hosts, list):
+            self_host = next((h for h in hosts if isinstance(h, dict) and not h.get("parent")), None)
+            inv = (self_host or {}).get("inventory") if self_host else None
+            if isinstance(inv, dict):
+                magic["inventory"] = inv
+    except Exception:  # noqa: BLE001 — best-effort, never block the run
+        pass
     return magic
 
 

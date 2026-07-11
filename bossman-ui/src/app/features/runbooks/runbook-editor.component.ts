@@ -51,6 +51,8 @@ const MAGIC_VARS = [
   'ansible_architecture', 'ansible_memtotal_mb', 'ansible_processor_vcpus',
   'ansible_board_vendor', 'ansible_board_name', 'ansible_product_serial',
   'ansible_system_vendor', 'ansible_bios_vendor', 'ansible_chassis_vendor',
+  'inventory.system.serial_number', 'inventory.cpu.model', 'inventory.memory_mb',
+  'inventory.os.pretty_name', 'inventory.disks', 'inventory.nics',
 ];
 
 /**

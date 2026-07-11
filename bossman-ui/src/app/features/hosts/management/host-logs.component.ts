@@ -15,15 +15,15 @@ import { LogEntry, LogFilters } from '../../../core/models/agent.model';
   template: `
     <div class="bm-mgmt-section">
       <div class="bm-mgmt-toolbar">
-        <input class="bm-log-in" type="text" placeholder="unit (e.g. nginx)" [value]="unit()" (input)="unit.set($any($event.target).value)" />
-        <select class="bm-log-in" [value]="priority()" (change)="priority.set($any($event.target).value)">
+        <input class="bm-log-in" type="text" placeholder="unit (e.g. nginx)" [value]="unit()" (input)="unit.set($any($event.target).value)" (keyup.enter)="load()" />
+        <select class="bm-log-in" [value]="priority()" (change)="priority.set($any($event.target).value); load()">
           <option value="">any priority</option>
           <option value="3">err+ (0-3)</option>
           <option value="4">warning+ (0-4)</option>
           <option value="6">info+ (0-6)</option>
         </select>
-        <input class="bm-log-in" type="text" placeholder="since (e.g. -1h, yesterday)" [value]="since()" (input)="since.set($any($event.target).value)" />
-        <input class="bm-log-in bm-log-grep" type="text" placeholder="grep MESSAGE…" [value]="grep()" (input)="grep.set($any($event.target).value)" />
+        <input class="bm-log-in" type="text" placeholder="since (e.g. -1h, yesterday)" [value]="since()" (input)="since.set($any($event.target).value)" (keyup.enter)="load()" />
+        <input class="bm-log-in bm-log-grep" type="text" placeholder="grep MESSAGE…" [value]="grep()" (input)="grep.set($any($event.target).value)" (keyup.enter)="load()" />
         <button mat-stroked-button (click)="load()" [disabled]="loading()">Load</button>
         <span class="bm-mgmt-count">{{ entries().length }} entries</span>
       </div>

@@ -33,14 +33,17 @@ class NTVarError(Exception):
 
 
 # One token in any supported style. Ordered so ${...} is tried before a bare
-# $name (else "${x}" would match "$" + stray). Groups:
+# $name (else "${x}" would match "$" + stray). A name may be a dotted path
+# (`inventory.cpu.model`) to reach into nested dicts — e.g. the `inventory`
+# magic var (the host's HW/SW inventory document). Groups:
 #   j        -> {{ name }}
 #   b/op/arg -> ${name}, ${name:-arg}, ${name:?arg}
 #   s        -> $name
+_NAME = r"\w+(?:\.\w+)*"
 _TOKEN = re.compile(
-    r"\{\{\s*(?P<j>\w+)\s*\}\}"
-    r"|\$\{(?P<b>\w+)(?:(?P<op>:-|:\?)(?P<arg>[^}]*))?\}"
-    r"|\$(?P<s>\w+)"
+    r"\{\{\s*(?P<j>" + _NAME + r")\s*\}\}"
+    r"|\$\{(?P<b>" + _NAME + r")(?:(?P<op>:-|:\?)(?P<arg>[^}]*))?\}"
+    r"|\$(?P<s>" + _NAME + r")"
 )
 
 
@@ -48,18 +51,31 @@ def _is_empty(v: Any) -> bool:
     return v is None or v == ""
 
 
+def _walk(name: str, vars: dict[str, Any]) -> tuple[bool, Any]:
+    """Resolve a (possibly dotted) name into vars, walking nested dicts.
+    Returns (found, value)."""
+    cur: Any = vars
+    for part in name.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return False, None
+    return True, cur
+
+
 def _resolve_one(name: str, op: str | None, arg: str | None, vars: dict[str, Any]) -> Any:
-    present = name in vars and not _is_empty(vars[name])
+    found, value = _walk(name, vars)
+    present = found and not _is_empty(value)
     if op == ":-":
-        return vars[name] if present else (arg if arg is not None else "")
+        return value if present else (arg if arg is not None else "")
     if op == ":?":
         if not present:
             raise NTVarError(arg or f"required variable {name!r} is unset")
-        return vars[name]
+        return value
     # no modifier: must be present
-    if name not in vars:
+    if not found:
         raise NTVarError(f"unresolved variable reference to {name!r}")
-    return vars[name]
+    return value
 
 
 def substitute_str(s: str, vars: dict[str, Any]) -> Any:

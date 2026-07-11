@@ -521,8 +521,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   <mat-button-toggle value="pid">PID</mat-button-toggle>
                 </mat-button-toggle-group>
                 <button mat-button (click)="loadProcesses()" [disabled]="processesLoading()">↻ Refresh</button>
+                <label class="bm-proc-idle">
+                  <input type="checkbox" [checked]="hideIdleProcesses()"
+                         (change)="hideIdleProcesses.set($any($event.target).checked)" />
+                  Hide idle (0 CPU &amp; 0 MEM)
+                </label>
                 @if (processesLoaded()) {
-                  <span class="bm-proc-meta">{{ processCount() }} processes · {{ sampleWindowMs() }}ms sample</span>
+                  <span class="bm-proc-meta">{{ visibleProcesses().length }} of {{ processCount() }} processes · {{ sampleWindowMs() }}ms sample</span>
                 }
               </div>
 
@@ -730,6 +735,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         background: transparent;
         color: inherit;
         font: inherit;
+      }
+      .bm-proc-idle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        opacity: 0.8;
+        cursor: pointer;
       }
       .bm-proc-meta {
         margin-left: auto;
@@ -1192,6 +1205,7 @@ export class HostDetailComponent implements OnInit {
 
   processFilter = signal('');
   processSort = signal<'cpu' | 'rss' | 'pid'>('cpu');
+  hideIdleProcesses = signal(true);
   processesLoading = signal(false);
   processesLoaded = signal(false);
   processCount = signal(0);
@@ -1204,6 +1218,11 @@ export class HostDetailComponent implements OnInit {
   visibleProcesses = computed(() => {
     const f = this.processFilter().trim().toLowerCase();
     let list = this.processes();
+    // Idle processes (no CPU AND no resident memory) are noise — hidden by
+    // default, toggleable.
+    if (this.hideIdleProcesses()) {
+      list = list.filter((p) => p.cpu_percent > 0 || p.rss_kib > 0);
+    }
     if (f) {
       list = list.filter(
         (p) =>

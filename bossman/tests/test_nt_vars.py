@@ -54,3 +54,28 @@ def test_merge_scopes_precedence():
     # weakest -> strongest, later wins; None skipped
     merged = merge_scopes({"a": 1, "b": 1}, None, {"b": 2, "c": 2}, {"c": 3})
     assert merged == {"a": 1, "b": 2, "c": 3}
+
+
+def test_dotted_access_into_nested_inventory():
+    """Block: the `inventory` magic var is reached via dotted paths."""
+    from bossman.services.nt_vars import substitute, substitute_str
+
+    v = {
+        "inventory": {
+            "product": {"serial": "ABC123"},
+            "cpu": {"model": "EPYC 7302", "count": 32},
+            "memory": {"total_mb": 64000},
+        },
+        "region": "eu",
+    }
+    # whole-match preserves native type
+    assert substitute_str("${inventory.cpu.count}", v) == 32
+    assert substitute_str("${inventory.product.serial}", v) == "ABC123"
+    # embedded stringifies
+    assert substitute_str("cpu ${inventory.cpu.model} in ${region}", v) == "cpu EPYC 7302 in eu"
+    # default for a missing nested path
+    assert substitute_str("${inventory.gpu.model:-none}", v) == "none"
+    # plain (non-dotted) vars still resolve
+    assert substitute_str("$region", v) == "eu"
+    # recursion into args
+    assert substitute({"m": "${inventory.memory.total_mb}"}, v) == {"m": 64000}
