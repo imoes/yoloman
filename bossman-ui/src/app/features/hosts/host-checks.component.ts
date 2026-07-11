@@ -333,12 +333,9 @@ export class HostChecksComponent {
       next: (r) => {
         this.proposals.set(r.proposals);
         this.discovering.set(false);
-        // fetch provisioning availability for each proposed check
-        for (const p of r.proposals) {
-          this.checkService.provisioning(p.check_name).subscribe((info) =>
-            this.provInfo.update((m) => ({ ...m, [p.check_name]: info })),
-          );
-        }
+        // Provisioning info is loaded lazily per check when it's selected (see
+        // toggleSel) — fetching it for every proposal here was an N+1 flood
+        // (hundreds of GET /checks/{name}/provisioning on a big discovery).
       },
       error: (e) => { this.fail(e); this.discovering.set(false); },
     });
@@ -392,6 +389,13 @@ export class HostChecksComponent {
       else n.add(name);
       return n;
     });
+    // Lazily fetch provisioning info the first time a check is selected — the
+    // wizard only shows it for selected proposals.
+    if (this.selected().has(name) && !(name in this.provInfo())) {
+      this.checkService.provisioning(name).subscribe((info) =>
+        this.provInfo.update((m) => ({ ...m, [name]: info })),
+      );
+    }
   }
 
   cred(check: string, key: string): string {
