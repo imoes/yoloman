@@ -21,6 +21,7 @@ from bossman.mcp.auth import McpBearerAuthMiddleware
 from bossman.mcp.server import build_mcp_server
 from bossman.services import keys, plan_store
 from bossman.services.catalog import CatalogCache
+from bossman.services.cve_collect import collect_all_hosts
 from bossman.services.cve_feed import CveFeed, CveFeedStats, cve_feed_loop
 from bossman.services.chat_client import chat_client_for
 from bossman.services.chat_oauth import ChatOAuthService
@@ -136,7 +137,12 @@ async def lifespan(app: FastAPI):
     reconciler_task = asyncio.create_task(
         reconciler_loop(app.state.session_factory, settings, stop_event, app.state.reconcile_stats)
     )
-    cve_feed_task = asyncio.create_task(cve_feed_loop(app.state.cve_feed, settings, stop_event))
+    async def _collect_cves() -> None:
+        await collect_all_hosts(app.state.session_factory, settings, app.state.cve_feed)
+
+    cve_feed_task = asyncio.create_task(
+        cve_feed_loop(app.state.cve_feed, settings, stop_event, after_refresh=_collect_cves)
+    )
     try:
         async with mcp_server.session_manager.run():
             yield

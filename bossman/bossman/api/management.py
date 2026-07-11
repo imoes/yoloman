@@ -20,16 +20,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, HostCve
+from bossman.db.models import Agent
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
-from bossman.services.cve_correlate import correlate as correlate_cves
+from bossman.services.cve_collect import collect_host
 
 router = APIRouter()
 
@@ -481,20 +480,6 @@ async def apply_agent_updates(
 # ---- CVEs fixed by pending updates (Block 4-C) ----------------------------
 
 
-async def collect_host_cves(session: AsyncSession, agent: Agent, client, feed) -> list[dict]:
-    """Fetch the host's pending updates, correlate them to the CVEs each would
-    fix (feed for apt/Ubuntu, agent's dnf updateinfo for RHEL), and persist as
-    the agent's HostCve rows (replace-on-collect). Returns the rows."""
-    result = await client.call_tool("yoloman.package_updates", {"state": "list"})
-    updates = _tool_data(result)
-    rows = correlate_cves(feed, updates)
-    await session.execute(sa_delete(HostCve).where(HostCve.agent_id == agent.id))
-    for r in rows:
-        session.add(HostCve(agent_id=agent.id, **r))
-    await session.commit()
-    return rows
-
-
 @router.get("/api/v1/agents/{agent_id}/cves")
 async def get_agent_cves(
     agent_id: UUID,
@@ -510,7 +495,7 @@ async def get_agent_cves(
     client = client_factory(agent, settings)
     feed = request.app.state.cve_feed
     try:
-        rows = await collect_host_cves(session, agent, client, feed)
+        rows = await collect_host(session, agent, client, feed)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "count": len(rows), "cves": rows}

@@ -196,17 +196,29 @@ def _debian_severity(urgency: str) -> str:
     return _DEBIAN_URGENCY.get(u, "")
 
 
-async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event) -> None:
+async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event, after_refresh=None) -> None:
     """Background loop: refresh the CVE feeds every cve_feed_interval_hours,
-    mirroring the poller/reconciler loop pattern. Skips entirely when disabled."""
+    mirroring the poller/reconciler loop pattern. Skips entirely when disabled.
+    ``after_refresh`` (optional async callable) runs after each successful
+    refresh — used to sweep the fleet and persist per-host CVE correlations."""
     if not settings.cve_feed_enabled:
         return
-    # A first refresh soon after startup, unless the disk cache is already warm.
-    if not (feed.has("debian") or feed.has("ubuntu")):
+
+    async def _refresh_and_collect(initial: bool) -> None:
         try:
             await feed.refresh()
         except Exception:  # noqa: BLE001
-            logger.warning("initial cve_feed refresh failed", exc_info=True)
+            logger.warning("cve_feed refresh failed", exc_info=True)
+            return
+        if after_refresh is not None:
+            try:
+                await after_refresh()
+            except Exception:  # noqa: BLE001
+                logger.warning("cve collect after refresh failed", exc_info=True)
+
+    # A first refresh + collect soon after startup, unless the cache is warm.
+    if not (feed.has("debian") or feed.has("ubuntu")):
+        await _refresh_and_collect(initial=True)
     interval = max(1, settings.cve_feed_interval_hours) * 3600
     while not stop_event.is_set():
         try:
@@ -215,7 +227,4 @@ async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event) -> N
             pass
         if stop_event.is_set():
             return
-        try:
-            await feed.refresh()
-        except Exception:  # noqa: BLE001
-            logger.warning("cve_feed refresh failed", exc_info=True)
+        await _refresh_and_collect(initial=False)

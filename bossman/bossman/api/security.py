@@ -17,6 +17,7 @@ from bossman.api.auth import get_current_identity, require_admin
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, HostCve
 from bossman.db.session import get_session
+from bossman.services.cve_collect import collect_all_hosts
 
 router = APIRouter()
 
@@ -41,11 +42,21 @@ async def feed_status(
 
 
 @router.post("/api/v1/security/refresh")
-async def refresh_feed(request: Request, _identity=Depends(require_admin)) -> dict[str, Any]:
-    """Force an immediate CVE-feed refresh (admin only)."""
+async def refresh_feed(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_admin),
+) -> dict[str, Any]:
+    """Force an immediate CVE-feed refresh + a fleet-wide correlation sweep
+    (admin only) so the Security page repopulates right away."""
     feed = request.app.state.cve_feed
     await feed.refresh()
-    return {"ok": request.app.state.cve_feed_stats.last_run_ok, "counts": request.app.state.cve_feed_stats.counts}
+    hosts = await collect_all_hosts(request.app.state.session_factory, settings, feed)
+    return {
+        "ok": request.app.state.cve_feed_stats.last_run_ok,
+        "counts": request.app.state.cve_feed_stats.counts,
+        "hosts_collected": hosts,
+    }
 
 
 @router.get("/api/v1/security/cves")
