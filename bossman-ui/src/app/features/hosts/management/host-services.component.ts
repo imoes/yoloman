@@ -40,7 +40,7 @@ import { ServiceUnit } from '../../../core/models/agent.model';
         <table class="bm-mgmt-table">
           <thead>
             <tr>
-              <th>Unit</th><th>Load</th><th>Active</th><th>Sub</th><th class="bm-mgmt-actions">Actions</th>
+              <th>Unit</th><th>Load</th><th>Active</th><th>Sub</th><th>Boot</th><th class="bm-mgmt-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -50,6 +50,11 @@ import { ServiceUnit } from '../../../core/models/agent.model';
                 <td>{{ u.load }}</td>
                 <td [class.bm-active]="u.active === 'active'" [class.bm-failed]="u.active === 'failed'">{{ u.active }}</td>
                 <td>{{ u.sub }}</td>
+                <td>
+                  @if (u.enabled) {
+                    <span class="bm-boot bm-boot-{{ u.enabled }}">{{ u.enabled }}</span>
+                  } @else { <span class="bm-dim">—</span> }
+                </td>
                 <td class="bm-mgmt-actions">
                   <button mat-button (click)="act(u, 'start')" [disabled]="busy() === u.unit">Start</button>
                   <button mat-button (click)="act(u, 'stop')" [disabled]="busy() === u.unit">Stop</button>
@@ -76,6 +81,11 @@ import { ServiceUnit } from '../../../core/models/agent.model';
       .bm-mgmt-unit { font-family: monospace; }
       .bm-mgmt-actions { white-space: nowrap; }
       .bm-active { color: #2e7d32; }
+      .bm-dim { opacity: 0.5; }
+      .bm-boot { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); }
+      .bm-boot-enabled { color: #2e7d32; }
+      .bm-boot-disabled { color: #b26a00; }
+      .bm-boot-static, .bm-boot-masked, .bm-boot-generated, .bm-boot-indirect { color: #888; }
       .bm-failed { color: #c62828; font-weight: 600; }
       .bm-svc-ok { color: #2e7d32; font-size: 12px; }
       .bm-svc-err { color: #c62828; font-size: 12px; }
@@ -100,7 +110,7 @@ export class HostServicesComponent {
     const f = this.filter().trim().toLowerCase();
     const list = this.units();
     if (!f) return list;
-    return list.filter((u) => u.name.toLowerCase().includes(f) || u.active.includes(f) || u.sub.includes(f));
+    return list.filter((u) => u.name.toLowerCase().includes(f) || u.active.includes(f) || u.sub.includes(f) || (u.enabled || '').includes(f));
   });
 
   /** Called by the parent when the Services tab is first opened. */

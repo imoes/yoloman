@@ -57,7 +57,35 @@ func (m *ServiceFacts) Run(ctx context.Context, params map[string]any, dryRun bo
 	if err != nil {
 		return Result{}, fmt.Errorf("service_facts: running systemctl: %w", err)
 	}
-	return Result{Changed: false, Data: parseSystemctlListUnits(out)}, nil
+	services := parseSystemctlListUnits(out)
+
+	// Enrich each unit with its boot state (enabled/disabled/static/…) from
+	// list-unit-files — list-units alone doesn't report it. Best-effort: on
+	// error the services still return, just without the `enabled` field.
+	if files, ferr := m.Runner(ctx, "systemctl", "list-unit-files", "--type=service", "--no-legend", "--no-pager", "--plain"); ferr == nil {
+		state := parseUnitFileStates(files)
+		for _, svc := range services {
+			if s, ok := state[svc["unit"].(string)]; ok {
+				svc["enabled"] = s
+			}
+		}
+	}
+	return Result{Changed: false, Data: services}, nil
+}
+
+// parseUnitFileStates maps "<unit> <state> [preset]" lines from
+// `systemctl list-unit-files` to unit -> UnitFileState (enabled, disabled,
+// static, masked, …).
+func parseUnitFileStates(out []byte) map[string]string {
+	states := map[string]string{}
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		fields := strings.Fields(strings.TrimSpace(scanner.Text()))
+		if len(fields) >= 2 {
+			states[fields[0]] = fields[1]
+		}
+	}
+	return states
 }
 
 // parseSystemctlListUnits parses the plain, legend-less output of

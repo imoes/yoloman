@@ -140,6 +140,8 @@ export interface ServiceUnit {
   load: string;
   active: string;
   sub: string;
+  /** UnitFileState from `systemctl list-unit-files`: enabled/disabled/static/… */
+  enabled?: string;
 }
 
 export interface ServicesResponse {

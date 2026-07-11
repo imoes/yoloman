@@ -49,3 +49,27 @@ func TestServiceFacts_IsReadOnly(t *testing.T) {
 		t.Error("service_facts must be read-only")
 	}
 }
+
+func TestServiceFacts_EnrichesBootState(t *testing.T) {
+	units := "nginx.service loaded active running web\ncron.service loaded active running cron\n"
+	files := "nginx.service enabled enabled\ncron.service disabled disabled\n"
+	m := &ServiceFacts{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		for _, a := range args {
+			if a == "list-unit-files" {
+				return []byte(files), nil
+			}
+		}
+		return []byte(units), nil
+	}}
+	res, err := m.Run(context.Background(), nil, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	services := res.Data.([]map[string]any)
+	if services[0]["enabled"] != "enabled" {
+		t.Errorf("nginx boot state = %v, want enabled", services[0]["enabled"])
+	}
+	if services[1]["enabled"] != "disabled" {
+		t.Errorf("cron boot state = %v, want disabled", services[1]["enabled"])
+	}
+}
