@@ -44,6 +44,7 @@ def _apt(ctx, params, state):
 
     res = ctx.run(["apt-get", "--just-print", "upgrade"], mutates=False)
     updates = _parse_apt_upgrade(res.stdout)
+    _apt_attach_sources(ctx, updates)
     security = _apt_security_count(ctx)
     return {
         "changed": False,
@@ -80,8 +81,30 @@ def _parse_apt_upgrade(out):
             if cand_toks:
                 candidate = cand_toks[0]
         security = "security" in line.lower()
-        updates.append({"name": name, "current": current, "candidate": candidate, "security": security})
+        updates.append({"name": name, "current": current, "candidate": candidate, "security": security, "source": name})
     return updates
+
+
+# _apt_attach_sources fills each update's source (binary→source) package — the
+# key the Debian Security Tracker / Ubuntu USN feeds are indexed by. One
+# dpkg-query call builds the whole map; source is blank when it equals the
+# binary name, so we keep the name as the fallback.
+def _apt_attach_sources(ctx, updates):
+    if not updates:
+        return
+    res = ctx.run(["dpkg-query", "-W", "-f=${Package} ${source:Package}\n"], mutates=False)
+    if res.rc != 0:
+        return
+    src = {}
+    for line in res.stdout.split("\n"):
+        toks = line.split()
+        if len(toks) >= 2:
+            src[toks[0]] = toks[1]
+        elif len(toks) == 1:
+            src[toks[0]] = toks[0]
+    for u in updates:
+        if u["name"] in src:
+            u["source"] = src[u["name"]]
 
 
 # _apt_security_count uses update-notifier's apt-check if present (the count
@@ -131,6 +154,7 @@ def _dnf(ctx, params, state, mgr):
     # check-update: rc 100 means updates are available, 0 means none
     res = ctx.run([mgr, "-q", "check-update"], mutates=False, ok_codes=[0, 100])
     updates = _parse_dnf_checkupdate(res.stdout)
+    _dnf_attach_cves(ctx, mgr, updates)
     security = _dnf_security_count(ctx, mgr)
     return {
         "changed": False,
@@ -163,8 +187,39 @@ def _parse_dnf_checkupdate(out):
         # ignore lines that don't look like a package row
         if "." not in name:
             continue
-        updates.append({"name": name, "current": "", "candidate": candidate, "security": False})
+        updates.append({"name": name, "current": "", "candidate": candidate, "security": False, "cves": [], "severity": ""})
     return updates
+
+
+# _dnf_attach_cves maps `dnf updateinfo list cves` onto the update list. Lines
+# look like: "CVE-2024-1234 Important/Sec. openssl-1.2-3.el9.x86_64". We match
+# a CVE to an update when the advisory's nevra starts with the update's base
+# package name, and flag the update as a security update.
+def _dnf_attach_cves(ctx, mgr, updates):
+    if not updates:
+        return
+    res = ctx.run([mgr, "-q", "updateinfo", "list", "cves"], mutates=False, ok_codes=[0, 100])
+    rows = []  # (cve, severity, nevra)
+    for line in res.stdout.split("\n"):
+        toks = line.split()
+        if len(toks) < 3 or not toks[0].startswith("CVE-"):
+            continue
+        sev = toks[1].split("/")[0]
+        rows.append((toks[0], sev, toks[2]))
+    for u in updates:
+        base = u["name"].rsplit(".", 1)[0]  # drop the .arch suffix
+        cves = []
+        sev = ""
+        for cve, s, nevra in rows:
+            if nevra.startswith(base + "-"):
+                if cve not in cves:
+                    cves.append(cve)
+                if not sev:
+                    sev = s
+        if cves:
+            u["cves"] = cves
+            u["severity"] = sev
+            u["security"] = True
 
 
 def _dnf_security_count(ctx, mgr):

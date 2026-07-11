@@ -179,9 +179,10 @@ func (c *RealCaps) Facts() (map[string]any, error) {
 	if b, err := os.ReadFile(c.procRoot + "/sys/kernel/osrelease"); err == nil {
 		facts["kernel"] = strings.TrimSpace(string(b))
 	}
-	id, version := parseOSRelease("/etc/os-release")
+	id, version, codename := parseOSRelease("/etc/os-release")
 	facts["distribution"] = id
 	facts["distribution_version"] = version
+	facts["distribution_codename"] = codename
 	facts["os_family"] = osFamily(id)
 	return facts, nil
 }
@@ -212,11 +213,13 @@ func osFamily(id string) string {
 	}
 }
 
-// parseOSRelease reads ID and VERSION_ID from an os-release file (best-effort).
-func parseOSRelease(path string) (id, version string) {
+// parseOSRelease reads ID, VERSION_ID and VERSION_CODENAME from an os-release
+// file (best-effort). The codename (e.g. "trixie", "jammy") is the Debian
+// Security Tracker / Ubuntu USN release key used for CVE correlation.
+func parseOSRelease(path string) (id, version, codename string) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
 	for _, line := range strings.Split(string(b), "\n") {
 		key, val, ok := strings.Cut(strings.TrimSpace(line), "=")
@@ -229,9 +232,11 @@ func parseOSRelease(path string) (id, version string) {
 			id = val
 		case "VERSION_ID":
 			version = val
+		case "VERSION_CODENAME":
+			codename = val
 		}
 	}
-	return id, version
+	return id, version, codename
 }
 
 // asExitError is a tiny wrapper so the exec error assertion reads cleanly.
