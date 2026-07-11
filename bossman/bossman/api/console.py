@@ -63,6 +63,12 @@ async def agent_console(websocket: WebSocket, agent_id: UUID) -> None:
     ctx.verify_mode = ssl.CERT_NONE  # same trade-off as the REST client (see agent_client)
 
     uri = f"wss://{address}/api/v1/console"
+    # Forward a bounded `run` selector (e.g. "updates") so the console can run a
+    # scoped interactive task instead of the login shell. Allow-listed here so
+    # only known selectors reach the agent.
+    run = websocket.query_params.get("run", "")
+    if run in ("updates",):
+        uri += f"?run={run}"
     headers = {"Authorization": f"Bearer {agent_token}"} if agent_token else {}
 
     await websocket.accept()

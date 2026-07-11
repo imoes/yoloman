@@ -16,9 +16,9 @@ import { HostConsoleComponent } from './host-console.component';
       @if (agent(); as a) {
         <div class="bm-cbar">
           <span class="bm-ctitle">{{ a.name }}</span>
-          <span class="bm-cdim">console</span>
+          <span class="bm-cdim">{{ run() === 'updates' ? 'package upgrade (interactive)' : 'console' }}</span>
         </div>
-        <div class="bm-cbody"><app-host-console [agent]="a" /></div>
+        <div class="bm-cbody"><app-host-console [agent]="a" [run]="run()" /></div>
       } @else if (error()) {
         <p class="bm-cerr">{{ error() }}</p>
       } @else {
@@ -42,9 +42,11 @@ export class ConsolePageComponent implements OnInit {
   private agentService = inject(AgentService);
   agent = signal<Agent | null>(null);
   error = signal<string>('');
+  run = signal<string>('');
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
+    this.run.set(this.route.snapshot.queryParamMap.get('run') ?? '');
     if (!id) { this.error.set('no host id'); return; }
     this.agentService.get(id).subscribe({
       next: (a) => { this.agent.set(a); document.title = `${a.name} — console`; },

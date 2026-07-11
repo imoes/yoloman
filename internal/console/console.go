@@ -62,9 +62,35 @@ func Handler(command []string) http.Handler {
 			return // Upgrade already wrote the error response
 		}
 		defer conn.Close()
-		serve(conn, command)
+		serve(conn, resolveCommand(r, command))
 	})
 }
+
+// resolveCommand maps a bounded `?run=` selector to a fixed command so the
+// console can run a scoped task (e.g. an interactive package upgrade) instead
+// of the default login shell. The selector is an enum, never free-form input,
+// so there is no command injection — the browser reaches this only via the
+// mTLS-authenticated Bossman proxy anyway. Empty/unknown → the login shell.
+func resolveCommand(r *http.Request, def []string) []string {
+	switch r.URL.Query().Get("run") {
+	case "updates":
+		return []string{"/bin/sh", "-c", updatesScript}
+	}
+	return def
+}
+
+// updatesScript runs the host's package upgrade INTERACTIVELY (no -y), so dpkg
+// conffile prompts ("keep the local version / install the maintainer's") and
+// the apt/dnf confirmation are shown and answerable in the terminal — the
+// thing the non-interactive module apply deliberately can't do. It never
+// `set -e`s (a declined prompt is a normal non-zero) and pauses at the end so
+// the output stays readable before the PTY closes.
+const updatesScript = `echo "== yoloman: interactive package upgrade =="
+if command -v apt-get >/dev/null 2>&1; then apt-get update; apt-get upgrade
+elif command -v dnf >/dev/null 2>&1; then dnf upgrade
+elif command -v yum >/dev/null 2>&1; then yum upgrade
+else echo "no supported package manager (apt/dnf/yum) found"; fi
+echo; printf "[update finished — press Enter to close] "; read _`
 
 func serve(conn *websocket.Conn, command []string) {
 	cmd := exec.Command(command[0], command[1:]...) // #nosec G204 — command is operator config, not request input

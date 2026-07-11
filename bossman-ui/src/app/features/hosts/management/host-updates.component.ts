@@ -44,6 +44,9 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
               <div class="bm-actions">
                 <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
                 <span class="bm-spacer"></span>
+                <button mat-stroked-button (click)="applyInTerminal()" [disabled]="busy()" title="Run the upgrade interactively in a terminal — see output and answer dpkg config prompts">
+                  <mat-icon>terminal</mat-icon> Apply in terminal
+                </button>
                 @if (u.security_count !== 0) {
                   <button mat-stroked-button (click)="apply(true)" [disabled]="busy()">Apply security updates</button>
                 }
@@ -51,6 +54,7 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
                   @if (busy()) { <mat-spinner diameter="16" /> } @else { Apply all updates }
                 </button>
               </div>
+              <p class="bm-hint">Non-interactive apply forces the existing config on prompts. Use <strong>Apply in terminal</strong> to see output and choose keep-config / maintainer's version yourself.</p>
             }
             @if (msg()) { <p class="bm-svc-ok">{{ msg() }}</p> }
             @if (err()) { <p class="bm-svc-err">{{ err() }}</p> }
@@ -137,6 +141,7 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
       .bm-prov-ic { font-size: 14px; width: 14px; height: 14px; }
       .bm-svc-ok { color: var(--bm-green, #2e7d32); font-size: 12px; margin: 0; }
       .bm-svc-err { color: #c62828; font-size: 12px; margin: 0; }
+      .bm-hint { font-size: 12px; opacity: 0.6; margin: 2px 0 0; }
     `,
   ],
 })
@@ -159,6 +164,17 @@ export class HostUpdatesComponent {
   cveCount = signal(-1);
   cveBusy = signal(false);
   cveErr = signal<string | null>(null);
+
+  /** Open a stand-alone terminal window running the interactive upgrade, so
+   * the user sees output and answers dpkg config prompts themselves. */
+  applyInTerminal(): void {
+    const id = this.agentId();
+    window.open(
+      `${location.origin}/console/${id}?run=updates`,
+      `bm-upd-${id}-${Date.now()}`,
+      'width=1000,height=640,menubar=no,toolbar=no,location=no',
+    );
+  }
 
   /** Correlate this host's pending updates to the CVEs they fix (Block 4-D). */
   correlateCves(): void {

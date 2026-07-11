@@ -50,6 +50,8 @@ type Status = 'connecting' | 'open' | 'closed';
 })
 export class HostConsoleComponent implements AfterViewInit, OnDestroy {
   agent = input.required<Agent>();
+  /** Optional bounded task to run instead of the login shell (e.g. "updates"). */
+  run = input<string>('');
   private auth = inject(AuthService);
   @ViewChild('term') termEl!: ElementRef<HTMLDivElement>;
 
@@ -84,7 +86,8 @@ export class HostConsoleComponent implements AfterViewInit, OnDestroy {
     const base = api.startsWith('http') ? new URL(api) : new URL(api, window.location.origin);
     const proto = base.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = this.auth.getToken() ?? '';
-    return `${proto}//${base.host}${base.pathname}/agents/${this.agent().id}/console?token=${encodeURIComponent(token)}`;
+    const runParam = this.run() ? `&run=${encodeURIComponent(this.run())}` : '';
+    return `${proto}//${base.host}${base.pathname}/agents/${this.agent().id}/console?token=${encodeURIComponent(token)}${runParam}`;
   }
 
   private open(): void {
