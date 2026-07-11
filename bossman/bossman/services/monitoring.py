@@ -995,6 +995,22 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
     mem_by_agent = await _latest_metric_by_agent(session, "mem_used_pct")
     disk_by_agent = await _latest_disk_used_pct_max(session)
 
+    # Piggyback hosts (Docker containers, Proxmox/vCenter VMs) report CPU/memory
+    # under container_*/vm_* names, not cpu_load1/mem_used_pct — fall back to
+    # those so a container/VM host isn't blank in the fleet table.
+    cpu_container = await _latest_metric_by_agent(session, "container_cpu_pct")
+    cpu_vm = await _latest_metric_by_agent(session, "vm_cpu_pct")
+    mem_container = await _latest_metric_by_agent(session, "container_mem_pct")
+    mem_vm = await _latest_metric_by_agent(session, "vm_mem_pct")
+
+    def _cpu(aid):
+        v = cpu_by_agent.get(aid)
+        return v if v is not None else cpu_container.get(aid, cpu_vm.get(aid))
+
+    def _mem(aid):
+        v = mem_by_agent.get(aid)
+        return v if v is not None else mem_container.get(aid, mem_vm.get(aid))
+
     out = []
     for agent in agents:
         agent_services = services_by_agent.get(agent.id, [])
@@ -1015,8 +1031,8 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
                 enrollment_state=agent.enrollment_state,
                 last_seen_at=agent.last_seen_at,
                 state_rollup=worst,
-                cpu_load=cpu_by_agent.get(agent.id),
-                mem_used_pct=mem_by_agent.get(agent.id),
+                cpu_load=_cpu(agent.id),
+                mem_used_pct=_mem(agent.id),
                 disk_used_pct_max=disk_by_agent.get(agent.id),
                 service_counts=counts,
             )
