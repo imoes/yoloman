@@ -241,6 +241,8 @@ export interface StorageResponse {
 export interface NetInterface {
   name: string;
   state: string;
+  mtu?: number;
+  mac?: string;
   addresses: { family: string; cidr: string }[];
 }
 
@@ -267,6 +269,8 @@ export interface NetworkConfig {
   address?: string;
   gateway?: string;
   dns?: string[];
+  mtu?: number;
+  mac?: string;
   /** Force a provider; omit to let the agent auto-detect. */
   provider?: string;
   dry_run?: boolean;

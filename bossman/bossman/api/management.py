@@ -355,6 +355,8 @@ class NetworkConfigRequest(BaseModel):
     address: str | None = None
     gateway: str | None = None
     dns: list[str] | None = None
+    mtu: int | None = None
+    mac: str | None = None
     provider: str | None = None  # networkmanager | netplan | networkd | ifupdown (auto if None)
     dry_run: bool = False
 

@@ -1,17 +1,19 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
-import { NetworkResponse } from '../../../core/models/agent.model';
+import { NetInterface, NetworkResponse } from '../../../core/models/agent.model';
+import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
+import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
 
-/** Block J4e — the Network section, redesigned in a RHEL-Cockpit style:
- * card-based, an Interfaces table with status pills + address chips and a
- * per-interface Configure action, and Routes / DNS as side cards. Configure
- * is provider-independent — the agent module auto-detects NetworkManager /
- * netplan / systemd-networkd / ifupdown; the detected provider is shown as a
- * badge. Configure defaults to dry-run. The "Add connection" card (bond/
- * bridge/VLAN) is nmcli-only, so it is shown only on NetworkManager hosts. */
+/** Block J4e, Cockpit-adaptation — the Network section restructured like
+ * Cockpit's networkmanager (../cockpit/pkg/networkmanager): an Interfaces
+ * table where selecting an interface reveals a description-list detail card
+ * with a per-facet inline "Edit" (IPv4, MTU, MAC), each opening a focused
+ * config dialog (the shared dialog framework). Provider-independent: the agent
+ * module auto-detects NetworkManager/netplan/systemd-networkd/ifupdown. Dry-run
+ * is the interim safety net until the checkpoint/auto-rollback module lands. */
 @Component({
   selector: 'app-host-network',
   standalone: true,
@@ -36,58 +38,59 @@ import { NetworkResponse } from '../../../core/models/agent.model';
             <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
           </header>
           <table class="bm-ct">
-            <thead><tr><th>Interface</th><th>Status</th><th>IP addresses</th><th></th></tr></thead>
+            <thead><tr><th>Interface</th><th>Status</th><th>IP addresses</th></tr></thead>
             <tbody>
               @for (i of n.interfaces; track i.name) {
-                <tr>
+                <tr class="bm-ifrow" [class.bm-sel]="selected() === i.name" (click)="select(i.name)">
                   <td class="bm-dev"><mat-icon class="bm-dev-ic">lan</mat-icon>{{ i.name }}</td>
                   <td><span class="bm-pill" [class.bm-up]="i.state === 'UP'" [class.bm-down]="i.state !== 'UP'">{{ i.state === 'UP' ? 'Up' : (i.state || 'Down') }}</span></td>
                   <td>
                     @for (a of i.addresses; track a.cidr) { <span class="bm-chip">{{ a.cidr }}</span> }
                     @if (!i.addresses.length) { <span class="bm-muted">—</span> }
                   </td>
-                  <td class="bm-right"><button mat-button class="bm-cfg-btn" (click)="configure(i.name)"><mat-icon>settings</mat-icon> Configure</button></td>
                 </tr>
               }
             </tbody>
           </table>
         </section>
 
-        <!-- Configure (Cockpit-style inline panel) -->
-        @if (showForm()) {
+        <!-- Detail (Cockpit-style description list with inline edit per facet) -->
+        @if (sel(); as i) {
           <section class="bm-card">
             <header class="bm-card-head">
-              <h3>Configure {{ cfgName() || 'interface' }}</h3>
-              @if (data()?.provider && data()!.provider !== 'unknown') {
-                <span class="bm-prov"><mat-icon class="bm-prov-ic">hub</mat-icon>{{ providerLabel(data()!.provider!) }}</span>
-              }
+              <h3>{{ i.name }}</h3>
+              <span class="bm-pill" [class.bm-up]="i.state === 'UP'" [class.bm-down]="i.state !== 'UP'">{{ i.state === 'UP' ? 'Up' : (i.state || 'Down') }}</span>
+              <span class="bm-spacer"></span>
+              @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
+              @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
             </header>
-            <div class="bm-form">
-              <div class="bm-frow">
-                <label>Interface</label>
-                <input type="text" placeholder="eth0" [value]="cfgName()" (input)="cfgName.set($any($event.target).value)" />
+            <dl class="bm-dl">
+              <div class="bm-dlrow">
+                <dt>IPv4</dt>
+                <dd>
+                  <span class="bm-dlval">{{ ipv4Summary(i) }}</span>
+                  <button mat-button class="bm-edit" (click)="editIpv4(i)"><mat-icon>edit</mat-icon> Edit</button>
+                </dd>
               </div>
-              <div class="bm-frow">
-                <label>IPv4 method</label>
-                <select [value]="cfgMethod()" (change)="cfgMethod.set($any($event.target).value)">
-                  <option value="dhcp">Automatic (DHCP)</option>
-                  <option value="static">Manual (static)</option>
-                </select>
+              <div class="bm-dlrow">
+                <dt>IPv6</dt>
+                <dd><span class="bm-dlval">{{ ipv6Summary(i) }}</span></dd>
               </div>
-              @if (cfgMethod() === 'static') {
-                <div class="bm-frow"><label>Address (CIDR)</label><input type="text" placeholder="10.0.0.5/24" [value]="cfgAddr()" (input)="cfgAddr.set($any($event.target).value)" /></div>
-                <div class="bm-frow"><label>Gateway</label><input type="text" placeholder="10.0.0.1 (optional)" [value]="cfgGw()" (input)="cfgGw.set($any($event.target).value)" /></div>
-                <div class="bm-frow"><label>DNS</label><input type="text" placeholder="1.1.1.1, 8.8.8.8 (optional)" [value]="cfgDns()" (input)="cfgDns.set($any($event.target).value)" /></div>
-              }
-              <div class="bm-factions">
-                <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
-                <span class="bm-spacer"></span>
-                @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
-                @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
-                <button mat-button (click)="showForm.set(false)">Cancel</button>
-                <button mat-raised-button color="primary" (click)="apply()" [disabled]="busy() || !cfgName().trim()">Apply</button>
+              <div class="bm-dlrow">
+                <dt>MTU</dt>
+                <dd>
+                  <span class="bm-dlval">{{ i.mtu || 'Automatic' }}</span>
+                  <button mat-button class="bm-edit" (click)="editMtu(i)"><mat-icon>edit</mat-icon> Edit</button>
+                </dd>
               </div>
-            </div>
+              <div class="bm-dlrow">
+                <dt>MAC</dt>
+                <dd>
+                  <span class="bm-dlval bm-mono">{{ i.mac || '—' }}</span>
+                  <button mat-button class="bm-edit" (click)="editMac(i)"><mat-icon>edit</mat-icon> Edit</button>
+                </dd>
+              </div>
+            </dl>
           </section>
         }
 
@@ -125,8 +128,6 @@ import { NetworkResponse } from '../../../core/models/agent.model';
             <div class="bm-factions">
               <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
               <span class="bm-spacer"></span>
-              @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
-              @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
               <button mat-raised-button color="primary" (click)="createConnection()" [disabled]="busy() || !connName().trim() || !connIf().trim()">Add</button>
             </div>
           </div>
@@ -166,7 +167,9 @@ import { NetworkResponse } from '../../../core/models/agent.model';
       .bm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 14px; font-size: 12px; }
       .bm-ct td { padding: 8px 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
-      .bm-right { text-align: right; }
+      .bm-ifrow { cursor: pointer; }
+      .bm-ifrow:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
+      .bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }
       .bm-dev { font-family: monospace; font-weight: 600; display: flex; align-items: center; gap: 6px; }
       .bm-dev-ic { font-size: 17px; width: 17px; height: 17px; opacity: 0.6; }
       .bm-mono { font-family: monospace; }
@@ -175,7 +178,13 @@ import { NetworkResponse } from '../../../core/models/agent.model';
       .bm-pill.bm-up { background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); color: var(--bm-green, #2e7d32); }
       .bm-pill.bm-down { background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); opacity: 0.8; }
       .bm-chip { display: inline-block; font-family: monospace; font-size: 12px; padding: 1px 8px; margin: 1px 4px 1px 0; border-radius: 6px; background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }
-      .bm-cfg-btn { font-size: 12.5px; }
+      .bm-dl { margin: 0; }
+      .bm-dlrow { display: grid; grid-template-columns: 120px 1fr; align-items: center; padding: 9px 14px; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-dlrow:first-child { border-top: none; }
+      .bm-dlrow dt { font-size: 12.5px; opacity: 0.6; }
+      .bm-dlrow dd { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+      .bm-dlval { flex: 1; }
+      .bm-edit { font-size: 12px; min-width: auto; }
       .bm-form { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
       .bm-frow { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 10px; max-width: 560px; }
       .bm-frow label { font-size: 13px; opacity: 0.8; }
@@ -195,6 +204,7 @@ import { NetworkResponse } from '../../../core/models/agent.model';
 })
 export class HostNetworkComponent {
   private agentService = inject(AgentService);
+  private dialogs = inject(ConfigDialogService);
 
   agentId = input.required<string>();
 
@@ -205,13 +215,7 @@ export class HostNetworkComponent {
   busy = signal(false);
   msg = signal<string | null>(null);
   err = signal<string | null>(null);
-  showForm = signal(false);
-
-  cfgName = signal('');
-  cfgMethod = signal<'dhcp' | 'static'>('dhcp');
-  cfgAddr = signal('');
-  cfgGw = signal('');
-  cfgDns = signal('');
+  selected = signal<string | null>(null);
   dryRun = signal(true);
 
   connType = signal<'vlan' | 'bond' | 'bridge' | 'ethernet'>('vlan');
@@ -221,17 +225,25 @@ export class HostNetworkComponent {
   connVlanId = signal('');
   connMode = signal('active-backup');
 
-  /** Human label for a detected provider id. */
+  /** The currently selected interface object. */
+  sel = computed<NetInterface | null>(() => {
+    const s = this.selected();
+    return s ? (this.data()?.interfaces.find((i) => i.name === s) ?? null) : null;
+  });
+
   providerLabel(p: string): string {
     return (
-      {
-        networkmanager: 'NetworkManager',
-        netplan: 'netplan',
-        networkd: 'systemd-networkd',
-        ifupdown: 'ifupdown',
-        unknown: 'unknown',
-      } as Record<string, string>
+      { networkmanager: 'NetworkManager', netplan: 'netplan', networkd: 'systemd-networkd', ifupdown: 'ifupdown', unknown: 'unknown' } as Record<string, string>
     )[p] ?? p;
+  }
+
+  ipv4Summary(i: NetInterface): string {
+    const v4 = i.addresses.filter((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
+    return v4.length ? v4.map((a) => a.cidr).join(', ') : 'Automatic (DHCP) or none';
+  }
+  ipv6Summary(i: NetInterface): string {
+    const v6 = i.addresses.filter((a) => a.family === 'inet6' || a.cidr.indexOf(':') >= 0);
+    return v6.length ? v6.map((a) => a.cidr).join(', ') : '—';
   }
 
   loadOnce(): void {
@@ -239,25 +251,10 @@ export class HostNetworkComponent {
     this.reload();
   }
 
-  configure(name: string): void {
-    this.cfgName.set(name);
+  select(name: string): void {
+    this.selected.set(this.selected() === name ? null : name);
     this.msg.set(null);
     this.err.set(null);
-    // Prefill from the interface's current state so Configure shows the
-    // existing config, not a blank form.
-    const iface = this.data()?.interfaces.find((i) => i.name === name);
-    const v4 = iface?.addresses.find((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
-    if (v4) {
-      this.cfgMethod.set('static');
-      this.cfgAddr.set(v4.cidr);
-    } else {
-      this.cfgMethod.set('dhcp');
-      this.cfgAddr.set('');
-    }
-    const gw = this.data()?.routes.find((r) => (r.dest === 'default' || r.dest === '0.0.0.0/0') && r.dev === name);
-    this.cfgGw.set(gw?.gateway || '');
-    this.cfgDns.set((this.data()?.dns.nameservers || []).join(', '));
-    this.showForm.set(true);
   }
 
   reload(): void {
@@ -269,48 +266,95 @@ export class HostNetworkComponent {
     });
   }
 
-  apply(): void {
-    const name = this.cfgName().trim();
-    if (!name) return;
-    this.busy.set(true);
-    this.msg.set(null);
-    this.err.set(null);
-    const dns = this.cfgDns().trim() ? this.cfgDns().split(',').map((s) => s.trim()).filter(Boolean) : undefined;
-    this.agentService
-      .configureNetwork(this.agentId(), {
-        name,
-        state: 'present',
-        method: this.cfgMethod(),
-        address: this.cfgMethod() === 'static' ? this.cfgAddr().trim() || undefined : undefined,
-        gateway: this.cfgMethod() === 'static' ? this.cfgGw().trim() || undefined : undefined,
-        dns: this.cfgMethod() === 'static' ? dns : undefined,
-        dry_run: this.dryRun(),
+  // ---- facet dialogs (via the shared config-dialog framework) ----
+
+  editIpv4(i: NetInterface): void {
+    const v4 = i.addresses.find((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
+    const gw = this.data()?.routes.find((r) => (r.dest === 'default' || r.dest === '0.0.0.0/0') && r.dev === i.name);
+    this.dialogs
+      .open({
+        title: `IPv4 — ${i.name}`,
+        fields: [
+          { tag: 'method', title: 'IPv4 method', type: 'select', initial: v4 ? 'static' : 'dhcp',
+            choices: [{ value: 'dhcp', title: 'Automatic (DHCP)' }, { value: 'static', title: 'Manual (static)' }] },
+          { tag: 'address', title: 'Address (CIDR)', type: 'text', initial: v4?.cidr ?? '', placeholder: '10.0.0.5/24',
+            visible: (v) => v['method'] === 'static',
+            validate: (val, v) => (v['method'] === 'static' && !String(val || '').trim() ? 'Address is required' : null) },
+          { tag: 'gateway', title: 'Gateway', type: 'text', initial: gw?.gateway ?? '', placeholder: '10.0.0.1 (optional)', visible: (v) => v['method'] === 'static' },
+          { tag: 'dns', title: 'DNS servers', type: 'stringList', initial: this.data()?.dns.nameservers ?? [], placeholder: '1.1.1.1', visible: (v) => v['method'] === 'static' },
+          { tag: 'dry_run', title: '', type: 'checkboxes', initial: ['on'], items: [{ tag: 'on', title: 'Dry run (preview only)' }] },
+        ],
+        submitLabel: 'Apply',
+        action: (v) => this.applyIpv4(i.name, v),
       })
-      .subscribe({
-        next: (res) => {
-          this.busy.set(false);
-          const r = res.result as { changed?: boolean; msg?: string } | undefined;
-          this.msg.set(`${r?.msg ?? 'ok'}${this.dryRun() ? ' (dry-run)' : ''}`);
-          if (!this.dryRun()) this.reload();
-        },
-        error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'configure failed'); },
-      });
+      .subscribe((r) => { if (r) { this.msg.set("applied"); this.reload(); } });
   }
 
-  /** Create a virtual interface (VLAN/bond/bridge/ethernet) via the nmcli
-   * module — Cockpit's Add bond/bridge/VLAN. Dry-run by default. */
+  editMtu(i: NetInterface): void {
+    this.dialogs
+      .open({
+        title: `MTU — ${i.name}`,
+        fields: [
+          { tag: 'mtu', title: 'MTU (bytes)', type: 'text', initial: String(i.mtu || 1500), placeholder: '1500',
+            validate: (val) => (String(val || '').trim() && isNaN(Number(val)) ? 'MTU must be a number' : null) },
+          { tag: 'dry_run', title: '', type: 'checkboxes', initial: ['on'], items: [{ tag: 'on', title: 'Dry run (preview only)' }] },
+        ],
+        submitLabel: 'Apply',
+        action: (v) => this.applyFacet(i, { mtu: Number(v['mtu']) || undefined }, v),
+      })
+      .subscribe((r) => { if (r) { this.msg.set("applied"); this.reload(); } });
+  }
+
+  editMac(i: NetInterface): void {
+    this.dialogs
+      .open({
+        title: `MAC — ${i.name}`,
+        fields: [
+          { tag: 'mac', title: 'MAC address', type: 'text', initial: i.mac ?? '', placeholder: 'aa:bb:cc:dd:ee:ff' },
+          { tag: 'dry_run', title: '', type: 'checkboxes', initial: ['on'], items: [{ tag: 'on', title: 'Dry run (preview only)' }] },
+        ],
+        submitLabel: 'Apply',
+        action: (v) => this.applyFacet(i, { mac: String(v['mac'] || '').trim() || undefined }, v),
+      })
+      .subscribe((r) => { if (r) { this.msg.set("applied"); this.reload(); } });
+  }
+
+  /** IPv4 apply: builds a full present-config from the dialog values. */
+  private applyIpv4(name: string, v: FieldValues) {
+    const method = v['method'] === 'static' ? 'static' : 'dhcp';
+    const dns = (v['dns'] as string[] | undefined)?.map((s) => s.trim()).filter(Boolean);
+    return this.agentService.configureNetwork(this.agentId(), {
+      name, state: 'present', method,
+      address: method === 'static' ? String(v['address'] || '').trim() || undefined : undefined,
+      gateway: method === 'static' ? String(v['gateway'] || '').trim() || undefined : undefined,
+      dns: method === 'static' ? (dns?.length ? dns : undefined) : undefined,
+      dry_run: this.isDry(v),
+    });
+  }
+
+  /** MTU/MAC apply: keep the existing method, just add the facet. Infers the
+   * current v4 method from the presence of a static address. */
+  private applyFacet(i: NetInterface, extra: { mtu?: number; mac?: string }, v: FieldValues) {
+    const v4 = i.addresses.find((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
+    return this.agentService.configureNetwork(this.agentId(), {
+      name: i.name, state: 'present',
+      method: v4 ? 'static' : 'dhcp',
+      address: v4 ? v4.cidr : undefined,
+      ...extra,
+      dry_run: this.isDry(v),
+    });
+  }
+
+  private isDry(v: FieldValues): boolean {
+    return (v['dry_run'] as string[] | undefined)?.includes('on') ?? true;
+  }
+
   createConnection(): void {
     const params: Record<string, unknown> = {
-      type: this.connType(),
-      conn_name: this.connName().trim(),
-      ifname: this.connIf().trim(),
-      state: 'present',
-      dry_run: this.dryRun(),
+      type: this.connType(), conn_name: this.connName().trim(), ifname: this.connIf().trim(),
+      state: 'present', dry_run: this.dryRun(),
     };
-    if (this.connType() === 'vlan') {
-      params['vlandev'] = this.connParent().trim();
-      params['vlanid'] = Number(this.connVlanId().trim()) || undefined;
-    }
+    if (this.connType() === 'vlan') { params['vlandev'] = this.connParent().trim(); params['vlanid'] = Number(this.connVlanId().trim()) || undefined; }
     if (this.connType() === 'bond') params['mode'] = this.connMode();
     this.busy.set(true);
     this.msg.set(null);

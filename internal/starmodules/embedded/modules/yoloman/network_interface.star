@@ -56,12 +56,17 @@ def _gather_interfaces(ctx):
         # drop an "@parent" suffix (e.g. vlan @eth0)
         ifname = ifname.split("@")[0]
         st = "unknown"
+        mtu = 0
+        mac = ""
         for i in range(len(toks) - 1):
             if toks[i] == "state":
                 st = toks[i + 1]
-                break
+            elif toks[i] == "mtu":
+                mtu = int(toks[i + 1]) if toks[i + 1].isdigit() else 0
+            elif toks[i] == "link/ether":
+                mac = toks[i + 1]
         if ifname not in ifaces:
-            ifaces[ifname] = {"name": ifname, "state": st, "addresses": []}
+            ifaces[ifname] = {"name": ifname, "state": st, "mtu": mtu, "mac": mac, "addresses": []}
             order.append(ifname)
 
     # Addresses: "2: eth0    inet 10.0.0.5/24 brd ... scope global eth0"
@@ -83,7 +88,7 @@ def _gather_interfaces(ctx):
         if not family:
             continue
         if ifname not in ifaces:
-            ifaces[ifname] = {"name": ifname, "state": "unknown", "addresses": []}
+            ifaces[ifname] = {"name": ifname, "state": "unknown", "mtu": 0, "mac": "", "addresses": []}
             order.append(ifname)
         ifaces[ifname]["addresses"].append({"family": family, "cidr": cidr})
 
@@ -173,7 +178,8 @@ def _configure(ctx, params, name, state, provider):
     fail("no supported network provider detected on this host (looked for NetworkManager, netplan, systemd-networkd, ifupdown)")
 
 
-# read + validate the common present-mode params (method/address/gateway/dns)
+# read + validate the common present-mode params (method/address/gateway/dns
+# + optional mtu/mac which apply to any method).
 def _present_params(params):
     method = params.get("method", "dhcp")
     if method not in ("dhcp", "static", "manual"):
@@ -183,7 +189,9 @@ def _present_params(params):
     dns = params.get("dns", []) or []
     if method != "dhcp" and not address:
         fail("address (CIDR, e.g. 10.0.0.5/24) is required for method=%s" % method)
-    return method, address, gateway, dns
+    mtu = params.get("mtu", 0) or 0
+    mac = params.get("mac", "") or ""
+    return method, address, gateway, dns, mtu, mac
 
 
 # --- NetworkManager (nmcli) ---
@@ -197,7 +205,7 @@ def _configure_nm(ctx, params, name, state):
             return {"changed": False, "msg": "connection %s already absent" % name, "data": {"name": name, "provider": "networkmanager"}}
         fail("failed to delete connection %s: %s" % (name, res.stderr))
 
-    method, address, gateway, dns = _present_params(params)
+    method, address, gateway, dns, mtu, mac = _present_params(params)
 
     existing = ctx.run(["nmcli", "-t", "-f", "NAME", "connection", "show"], mutates=False)
     have = False
@@ -219,6 +227,10 @@ def _configure_nm(ctx, params, name, state):
             cmd.extend(["ipv4.gateway", gateway])
         if dns:
             cmd.extend(["ipv4.dns", ",".join(dns)])
+    if mtu:
+        cmd.extend(["802-3-ethernet.mtu", str(mtu)])
+    if mac:
+        cmd.extend(["802-3-ethernet.cloned-mac-address", mac])
 
     res = ctx.run(cmd, mutates=True)
     if res.rc != 0:
@@ -247,7 +259,7 @@ def _configure_netplan(ctx, params, name, state):
         _netplan_apply(ctx)
         return {"changed": changed, "msg": "removed netplan config for %s" % name, "data": {"name": name, "path": path, "provider": "netplan"}}
 
-    method, address, gateway, dns = _present_params(params)
+    method, address, gateway, dns, mtu, mac = _present_params(params)
     lines = ["network:", "  version: 2", "  ethernets:", "    %s:" % name]
     if method == "dhcp":
         lines.append("      dhcp4: true")
@@ -262,6 +274,10 @@ def _configure_netplan(ctx, params, name, state):
         if dns:
             lines.append("      nameservers:")
             lines.append("        addresses: [%s]" % ", ".join(dns))
+    if mtu:
+        lines.append("      mtu: %d" % mtu)
+    if mac:
+        lines.append("      macaddress: %s" % mac)
     content = "\n".join(lines) + "\n"
     changed = ctx.file_write(path, content, mode="0600")
     _netplan_apply(ctx)
@@ -292,8 +308,16 @@ def _configure_networkd(ctx, params, name, state):
         ctx.run(["networkctl", "reload"], mutates=True)
         return {"changed": changed, "msg": "removed networkd config for %s" % name, "data": {"name": name, "path": path, "provider": "networkd"}}
 
-    method, address, gateway, dns = _present_params(params)
-    lines = ["[Match]", "Name=%s" % name, "", "[Network]"]
+    method, address, gateway, dns, mtu, mac = _present_params(params)
+    lines = ["[Match]", "Name=%s" % name, ""]
+    if mtu or mac:
+        lines.append("[Link]")
+        if mtu:
+            lines.append("MTUBytes=%d" % mtu)
+        if mac:
+            lines.append("MACAddress=%s" % mac)
+        lines.append("")
+    lines.append("[Network]")
     if method == "dhcp":
         lines.append("DHCP=ipv4")
     else:
@@ -329,7 +353,7 @@ def _configure_ifupdown(ctx, params, name, state):
         changed = ctx.file_write(path, "", mode="0644")
         return {"changed": changed, "msg": "removed ifupdown config for %s" % name, "data": {"name": name, "path": path, "provider": "ifupdown"}}
 
-    method, address, gateway, dns = _present_params(params)
+    method, address, gateway, dns, mtu, mac = _present_params(params)
     lines = ["auto %s" % name]
     if method == "dhcp":
         lines.append("iface %s inet dhcp" % name)
@@ -341,6 +365,10 @@ def _configure_ifupdown(ctx, params, name, state):
             lines.append("    gateway %s" % gateway)
         if dns:
             lines.append("    dns-nameservers %s" % " ".join(dns))
+    if mtu:
+        lines.append("    mtu %d" % mtu)
+    if mac:
+        lines.append("    hwaddress ether %s" % mac)
     content = "\n".join(lines) + "\n"
     changed = ctx.file_write(path, content, mode="0644")
     # apply: bring it down (ignore failure if never up) then up
