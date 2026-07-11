@@ -193,6 +193,8 @@ def build_describe_messages(name: str, short_description: str, options: dict[str
         "A bullet per emitted metric: `name` — what it measures and its unit. Write 'None.' if it "
         "emits no metrics.\n\n"
         "Be factual and specific to THIS check — never invent behavior not present in the source. "
+        "Do NOT mention Checkmk, 'translated', or the check's origin/provenance — describe it as a "
+        "native yolo-man monitoring check, in the present tense. "
         "Keep it tight (roughly 120-250 words)."
     )
     code = star_code if len(star_code) <= SOURCE_CHAR_BUDGET else star_code[:SOURCE_CHAR_BUDGET]

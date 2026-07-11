@@ -122,8 +122,8 @@ import { DashboardGridComponent } from './dashboard-grid.component';
               <tbody>
                 @for (p of problems(); track p.id) {
                   <tr>
-                    <td><a [routerLink]="['/hosts', p.agent_id]">{{ p.agent_name }}</a></td>
-                    <td>{{ p.name }}</td>
+                    <td><a [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.agent_name }}</a></td>
+                    <td><a class="bm-svc-link" [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.name }}</a></td>
                     <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
                     <td>{{ p.last_state_change | date: 'short' }}</td>
                     <td class="bm-actions">

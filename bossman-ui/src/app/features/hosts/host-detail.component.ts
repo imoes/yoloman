@@ -121,7 +121,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <app-status-badge [status]="healthStatus()" [label]="agent.enrollment_state" />
         </div>
 
-        <mat-tab-group (selectedTabChange)="onTabChange($event)">
+        <mat-tab-group [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
           <mat-tab label="Overview">
             <div class="bm-tab-content">
               @if (overview(); as ov) {
@@ -1268,8 +1268,16 @@ export class HostDetailComponent implements OnInit {
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
 
+  // Tabs in template order; a ?tab= query param (e.g. from the Overview
+  // problems panel → Services) selects the initial tab.
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'checks', 'console', 'relationships', 'processes', 'runs', 'management'];
+  initialTabIndex = 0;
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
+    const tab = (this.route.snapshot.queryParamMap.get('tab') || '').toLowerCase();
+    const idx = this.tabOrder.indexOf(tab);
+    if (idx >= 0) this.initialTabIndex = idx;
 
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
