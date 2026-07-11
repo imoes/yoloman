@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { switchMap, tap } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -25,6 +26,15 @@ import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
       } @else if (loadErr()) {
         <p class="bm-svc-err">{{ loadErr() }}</p>
       } @else if (data(); as n) {
+        @if (pending(); as p) {
+          <div class="bm-ckpt">
+            <mat-icon>warning</mat-icon>
+            <span>Applied to <strong>{{ p.name }}</strong>. Keep the change? Auto-reverting in <strong>{{ p.left }}s</strong> if your connection dropped.</span>
+            <span class="bm-spacer"></span>
+            <button mat-stroked-button (click)="revertNow()">Revert now</button>
+            <button mat-raised-button color="primary" (click)="keepChanges()">Keep changes</button>
+          </div>
+        }
         <!-- Interfaces -->
         <section class="bm-card">
           <header class="bm-card-head">
@@ -199,6 +209,8 @@ import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
       .bm-prov { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 10px; border-radius: 999px; font-weight: 500; background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); color: var(--mat-sys-primary); }
       .bm-prov-ic { font-size: 14px; width: 14px; height: 14px; }
       .bm-prov-none { background: color-mix(in srgb, #c62828 16%, transparent); color: #c62828; }
+      .bm-ckpt { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; font-size: 13px; background: color-mix(in srgb, #ed6c02 18%, transparent); color: #e65100; }
+      .bm-ckpt mat-icon { flex: none; }
     `,
   ],
 })
@@ -323,7 +335,7 @@ export class HostNetworkComponent {
   private applyIpv4(name: string, v: FieldValues) {
     const method = v['method'] === 'static' ? 'static' : 'dhcp';
     const dns = (v['dns'] as string[] | undefined)?.map((s) => s.trim()).filter(Boolean);
-    return this.agentService.configureNetwork(this.agentId(), {
+    return this.safeConfigure(name, {
       name, state: 'present', method,
       address: method === 'static' ? String(v['address'] || '').trim() || undefined : undefined,
       gateway: method === 'static' ? String(v['gateway'] || '').trim() || undefined : undefined,
@@ -336,7 +348,7 @@ export class HostNetworkComponent {
    * current v4 method from the presence of a static address. */
   private applyFacet(i: NetInterface, extra: { mtu?: number; mac?: string }, v: FieldValues) {
     const v4 = i.addresses.find((a) => a.family === 'inet' || a.cidr.indexOf(':') < 0);
-    return this.agentService.configureNetwork(this.agentId(), {
+    return this.safeConfigure(i.name, {
       name: i.name, state: 'present',
       method: v4 ? 'static' : 'dhcp',
       address: v4 ? v4.cidr : undefined,
@@ -345,8 +357,61 @@ export class HostNetworkComponent {
     });
   }
 
+  /** Cockpit-style safe apply: for a real (non-dry-run) change, arm a
+   * yoloman.network_checkpoint auto-revert BEFORE applying, then start the
+   * "keep changes / reverting in Ns" countdown so a lost connection self-heals. */
+  private safeConfigure(name: string, cfg: { dry_run?: boolean; [k: string]: unknown }) {
+    if (cfg.dry_run) return this.agentService.configureNetwork(this.agentId(), cfg as any);
+    const id = `ck-${name}-${Date.now()}`;
+    const timeout = 90;
+    return this.agentService
+      .callTool(this.agentId(), 'yoloman.network_checkpoint', { state: 'create', name, id, timeout })
+      .pipe(
+        switchMap(() => this.agentService.configureNetwork(this.agentId(), cfg as any)),
+        tap(() => this.armCountdown(id, name, timeout)),
+      );
+  }
+
   private isDry(v: FieldValues): boolean {
     return (v['dry_run'] as string[] | undefined)?.includes('on') ?? true;
+  }
+
+  // ---- checkpoint countdown (Cockpit "connection will be lost" safety) ----
+  pending = signal<{ id: string; name: string; left: number } | null>(null);
+  private pendingTimer: any = null;
+
+  private armCountdown(id: string, name: string, secs: number): void {
+    this.clearCountdown();
+    this.pending.set({ id, name, left: secs });
+    this.pendingTimer = setInterval(() => {
+      const p = this.pending();
+      if (!p) return;
+      const left = p.left - 1;
+      if (left <= 0) { this.clearCountdown(); this.pending.set(null); this.reload(); }
+      else this.pending.set({ ...p, left });
+    }, 1000);
+  }
+
+  private clearCountdown(): void {
+    if (this.pendingTimer) { clearInterval(this.pendingTimer); this.pendingTimer = null; }
+  }
+
+  keepChanges(): void {
+    const p = this.pending();
+    if (!p) return;
+    this.agentService.callTool(this.agentId(), 'yoloman.network_checkpoint', { state: 'confirm', id: p.id }).subscribe({
+      next: () => { this.clearCountdown(); this.pending.set(null); this.msg.set('changes kept'); },
+      error: (e) => this.err.set(e?.error?.detail ?? 'confirm failed'),
+    });
+  }
+
+  revertNow(): void {
+    const p = this.pending();
+    if (!p) return;
+    this.agentService.callTool(this.agentId(), 'yoloman.network_checkpoint', { state: 'rollback', id: p.id }).subscribe({
+      next: () => { this.clearCountdown(); this.pending.set(null); this.msg.set('reverted'); this.reload(); },
+      error: (e) => this.err.set(e?.error?.detail ?? 'rollback failed'),
+    });
   }
 
   createConnection(): void {
