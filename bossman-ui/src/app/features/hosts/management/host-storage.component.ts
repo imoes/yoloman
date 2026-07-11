@@ -131,6 +131,26 @@ import { StorageResponse } from '../../../core/models/agent.model';
           </div>
         </section>
 
+        <!-- Partitions (Cockpit: create partition table / add / delete partition) -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Partitions</h3></header>
+          <div class="bm-forms">
+            <div class="bm-inline-form">
+              <mat-icon class="bm-dev-ic">edit</mat-icon>
+              <input type="text" placeholder="disk (e.g. /dev/sdb)" [value]="partDevice()" (input)="partDevice.set($any($event.target).value)" />
+              <select [value]="partLabel()" (change)="partLabel.set($any($event.target).value)">
+                <option value="gpt">gpt</option><option value="msdos">msdos (MBR)</option>
+              </select>
+              <input type="text" placeholder="number (e.g. 1)" [value]="partNum()" (input)="partNum.set($any($event.target).value)" />
+              <input type="text" placeholder="start (0%)" [value]="partStart()" (input)="partStart.set($any($event.target).value)" />
+              <input type="text" placeholder="end (100%)" [value]="partEnd()" (input)="partEnd.set($any($event.target).value)" />
+              <button mat-stroked-button (click)="createPartition()" [disabled]="busy() || !partDevice().trim() || !partNum().trim()">Create</button>
+              <button mat-button (click)="deletePartition()" [disabled]="busy() || !partDevice().trim() || !partNum().trim()">Delete</button>
+            </div>
+            <p class="bm-hint">Create writes a {{ partLabel() }} label if the disk has none, then partition #{{ partNum() || 'N' }} from {{ partStart() || '0%' }} to {{ partEnd() || '100%' }}. Destructive — dry-run first.</p>
+          </div>
+        </section>
+
         <!-- ZFS / VDO (only meaningful when present) -->
         @if (s.zfs.available) {
           <section class="bm-card">
@@ -183,6 +203,7 @@ import { StorageResponse } from '../../../core/models/agent.model';
       .bm-inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       .bm-inline-form input { flex: 1 1 130px; padding: 6px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; }
       .bm-empty { opacity: 0.6; padding: 10px 14px; font-size: 13px; }
+      .bm-hint { opacity: 0.6; font-size: 12px; margin: 0; }
       .bm-chk { font-size: 12.5px; opacity: 0.85; display: flex; align-items: center; gap: 5px; }
       .bm-raw { max-height: 30vh; overflow: auto; background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); padding: 10px 12px; border-radius: 6px; font-size: 12px; margin: 12px 14px; }
       .bm-svc-ok { color: var(--bm-green, #2e7d32); font-size: 12px; }
@@ -214,6 +235,11 @@ export class HostStorageComponent {
   mntSrc = signal('');
   mntPath = signal('');
   mntType = signal('xfs');
+  partDevice = signal('');
+  partLabel = signal('gpt');
+  partNum = signal('');
+  partStart = signal('0%');
+  partEnd = signal('100%');
 
   usedBytes(vg: { vg_size?: unknown; vg_free?: unknown }): number {
     return Math.max(0, Number(vg.vg_size) - Number(vg.vg_free));
@@ -305,5 +331,20 @@ export class HostStorageComponent {
 
   unmountDev(): void {
     this.run('posix.mount', { path: this.mntPath().trim(), state: 'unmounted' }, `unmount ${this.mntPath().trim()}`);
+  }
+
+  createPartition(): void {
+    const device = this.partDevice().trim();
+    if (!confirm(`Create partition #${this.partNum()} on ${device}? This writes the partition table.`)) return;
+    this.run('community.general.parted', {
+      device, number: Number(this.partNum().trim()), label: this.partLabel(),
+      part_start: this.partStart().trim() || '0%', part_end: this.partEnd().trim() || '100%', state: 'present',
+    }, `partition ${device}#${this.partNum().trim()}`);
+  }
+
+  deletePartition(): void {
+    const device = this.partDevice().trim();
+    if (!confirm(`Delete partition #${this.partNum()} on ${device}? Data on it is lost.`)) return;
+    this.run('community.general.parted', { device, number: Number(this.partNum().trim()), state: 'absent' }, `delete ${device}#${this.partNum().trim()}`);
   }
 }

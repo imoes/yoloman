@@ -120,6 +120,16 @@ export class AgentService {
     );
   }
 
+  /** Push translated Starlark modules to the host so it can execute them
+   * (Block G3). Pass fqcns to push a specific subset (e.g. the management
+   * modules the Network/Storage actions need). */
+  syncModules(id: string, fqcns?: string[]) {
+    return this.http.post<{ pushed: number; result: { applied: number; results: { fqcn: string; ok: boolean }[] } }>(
+      `${this.base}/${id}/modules/sync`,
+      fqcns ? { fqcns } : {},
+    );
+  }
+
   /** Block J4e: current network config (interfaces/addresses/routes/DNS) via
    * the baked yoloman.network_interface module in gathered mode. */
   network(id: string) {
