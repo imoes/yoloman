@@ -14,6 +14,7 @@ export interface CheckCatalogEntry {
   kind: string;
   source: string;
   short_description?: string;
+  category?: string;
   options: Record<string, CheckOption>;
 }
 

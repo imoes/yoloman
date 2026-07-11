@@ -88,6 +88,7 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
             entry["short_description"] = meta.get("short_description", "")
             entry["source"] = meta.get("source", "translated")
             entry["options"] = meta.get("options", {}) or {}
+            entry["category"] = meta.get("category", "") or "Other"
         except (OSError, ModuleLibraryError):
             entry["options"] = {}
         out.append(entry)
