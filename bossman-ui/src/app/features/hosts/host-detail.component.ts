@@ -6,6 +6,7 @@ import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
@@ -99,6 +100,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatCardModule,
     MatButtonToggleModule,
     MatButtonModule,
+    MatIconModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
     HostChecksComponent,
@@ -445,6 +447,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             <!-- Lazy: the WebSocket/PTY only opens when this tab is selected. -->
             <ng-template matTabContent>
               <div class="bm-tab-content">
+                <div class="bm-console-actions">
+                  <button mat-stroked-button (click)="openConsoleWindow()">
+                    <mat-icon>open_in_new</mat-icon> Open in new window
+                  </button>
+                  <span class="bm-dim">Opens a stand-alone console window — you can open several.</span>
+                </div>
                 <app-host-console [agent]="agent" />
               </div>
             </ng-template>
@@ -698,6 +706,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tab-content {
         padding: 16px 4px;
       }
+      .bm-console-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
       .bm-facts {
         display: grid;
         grid-template-columns: 160px 1fr;
@@ -1368,6 +1377,18 @@ export class HostDetailComponent implements OnInit {
         this.svcErr.set(e?.error?.detail ?? `${action} failed`);
       },
     });
+  }
+
+  /** Pop the console out into its own browser window. A unique window name per
+   * click means several windows can be open at once. */
+  openConsoleWindow(): void {
+    const a = this.agent();
+    if (!a) return;
+    window.open(
+      `${location.origin}/console/${a.id}`,
+      `bm-console-${a.id}-${Date.now()}`,
+      'width=1000,height=640,menubar=no,toolbar=no,location=no',
+    );
   }
 
   loadProcesses(): void {

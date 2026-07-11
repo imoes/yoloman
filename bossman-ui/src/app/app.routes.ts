@@ -30,6 +30,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/hosts/host-detail.component').then((m) => m.HostDetailComponent),
   },
   {
+    // Chrome-less pop-out console window (opened via the host's Open console button).
+    path: 'console/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/hosts/console-page.component').then((m) => m.ConsolePageComponent),
+  },
+  {
     path: 'problems',
     canActivate: [authGuard],
     loadComponent: () => import('./features/problems/problems-list.component').then((m) => m.ProblemsListComponent),

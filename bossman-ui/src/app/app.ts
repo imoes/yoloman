@@ -1,5 +1,6 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/auth/auth.service';
@@ -40,6 +41,16 @@ const NAV_ITEMS: NavItem[] = [
 })
 export class App {
   auth = inject(AuthService);
+  private router = inject(Router);
+  // Chromeless routes (e.g. the pop-out console) render bare — no nav/chat —
+  // so a console window is just the terminal.
+  private url = signal(this.router.url);
+  chromeless = computed(() => this.url().startsWith('/console/'));
+  constructor() {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => this.url.set(e.urlAfterRedirects));
+  }
   // Block M: hide admin-only entries (Users & Access) for non-admins. The
   // route's adminGuard and the backend's require_admin are the real gates;
   // this just keeps the nav honest.

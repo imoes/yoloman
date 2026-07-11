@@ -38,11 +38,13 @@ import { HostVirtComponent } from './host-virt.component';
           <app-host-network [agentId]="agentId()" />
         </div>
       </mat-tab>
-      <mat-tab label="Firewall">
-        <div class="bm-mgmt-pane">
-          <app-host-firewall [agentId]="agentId()" />
-        </div>
-      </mat-tab>
+      @if (firewallAvailable()) {
+        <mat-tab label="Firewall">
+          <div class="bm-mgmt-pane">
+            <app-host-firewall [agentId]="agentId()" />
+          </div>
+        </mat-tab>
+      }
       <mat-tab label="Services">
         <div class="bm-mgmt-pane">
           <app-host-services [agentId]="agentId()" />
@@ -89,6 +91,21 @@ export class HostManagementComponent {
 
   syncing = signal(false);
   syncMsg = signal<string>('');
+  // The Firewall tab is only shown when firewalld's CLI exists on the host.
+  firewallAvailable = signal(true);
+  private firewallProbed = false;
+
+  private probeFirewall(): void {
+    if (this.firewallProbed) return;
+    this.firewallProbed = true;
+    this.agentService.callTool(this.agentId(), 'command', { argv: ['sh', '-c', 'command -v firewall-cmd'] }).subscribe({
+      next: (res) => {
+        const d = (res.result as { data?: { rc?: number; stdout?: string } })?.data;
+        this.firewallAvailable.set((d?.rc ?? 1) === 0 && !!(d?.stdout || '').trim());
+      },
+      error: () => this.firewallAvailable.set(false),
+    });
+  }
 
   /** The Starlark modules the Network/Storage/Firewall actions call. Pushing
    * them makes those actions executable on this host (a no-op if already present). */
@@ -136,5 +153,6 @@ export class HostManagementComponent {
    * default (Network) inner tab loads without needing a tab change first. */
   activate(): void {
     this.network()?.loadOnce();
+    this.probeFirewall();
   }
 }
