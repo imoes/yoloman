@@ -12,10 +12,19 @@ def main(ctx, params):
         fail("state must be one of: list, apply")
     mgr = params.get("manager") or _detect_manager(ctx)
     if mgr == "apt":
-        return _apt(ctx, params, state)
-    if mgr in ("dnf", "yum"):
-        return _dnf(ctx, params, state, mgr)
-    fail("no supported package manager detected (looked for apt, dnf, yum)")
+        res = _apt(ctx, params, state)
+    elif mgr in ("dnf", "yum"):
+        res = _dnf(ctx, params, state, mgr)
+    else:
+        fail("no supported package manager detected (looked for apt, dnf, yum)")
+    # Carry the host's distro + release codename on the list result so CVE
+    # correlation is self-contained (no separate facts call needed).
+    if state == "list" and type(res.get("data")) == "dict":
+        f = ctx.facts()
+        res["data"]["distribution"] = f.get("distribution", "")
+        res["data"]["codename"] = f.get("distribution_codename", "")
+        res["data"]["distribution_version"] = f.get("distribution_version", "")
+    return res
 
 
 def _cmd_exists(ctx, cmd):

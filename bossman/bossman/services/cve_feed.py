@@ -72,7 +72,10 @@ class CveFeed:
     # ---- refresh ----
 
     async def refresh(self) -> None:
-        os.makedirs(self.settings.cve_cache_dir, exist_ok=True)
+        try:
+            os.makedirs(self.settings.cve_cache_dir, exist_ok=True)
+        except OSError:
+            logger.warning("cve_feed cache dir not writable (%s); in-memory only", self.settings.cve_cache_dir)
         errors: list[str] = []
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
             for distro, url, parse in (

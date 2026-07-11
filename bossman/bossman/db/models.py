@@ -371,6 +371,33 @@ class AccessGrant(Base):
     )
 
 
+class HostCve(Base):
+    """Block 4-C — one CVE that a pending package upgrade on a host would fix,
+    produced by correlating the host's package_updates against the cached CVE
+    feed (Debian/Ubuntu trackers) or the agent's own dnf updateinfo (RHEL).
+    Replace-on-collect per agent: a collection wipes the agent's rows and
+    re-inserts, so the table always reflects the latest snapshot."""
+
+    __tablename__ = "host_cves"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    cve: Mapped[str] = mapped_column(String, nullable=False)
+    package: Mapped[str] = mapped_column(String, nullable=False)  # binary package
+    source_package: Mapped[str] = mapped_column(String, nullable=False, default="")
+    current_version: Mapped[str] = mapped_column(String, nullable=False, default="")
+    fixed_version: Mapped[str] = mapped_column(String, nullable=False, default="")
+    severity: Mapped[str] = mapped_column(String, nullable=False, default="")
+    distro: Mapped[str] = mapped_column(String, nullable=False, default="")
+    collected_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("idx_host_cves_agent", "agent_id"),
+        Index("idx_host_cves_cve", "cve"),
+        Index("idx_host_cves_severity", "severity"),
+    )
+
+
 class ChunkEmbedding(Base):
     """One translated plan chunk's foreign source text, embedded — the
     fuzzy, additive layer on top of plan_loader's exact chunk_id/
