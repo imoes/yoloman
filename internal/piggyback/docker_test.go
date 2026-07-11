@@ -44,3 +44,52 @@ func TestContainerName(t *testing.T) {
 		t.Error("empty names should yield empty")
 	}
 }
+
+func TestResourcesToHosts(t *testing.T) {
+	rs := []proxmoxResource{
+		{Type: "qemu", Name: "web01", Status: "running", CPU: 0.25, MaxCPU: 4, Mem: 2 << 30, MaxMem: 8 << 30, Uptime: 3600},
+		{Type: "lxc", Name: "db-ct", Status: "stopped", CPU: 0, MaxCPU: 2, Mem: 0, MaxMem: 4 << 30},
+		{Type: "node", Name: "pve1"}, // ignored
+		{Type: "storage", Name: "local"}, // ignored
+	}
+	hosts := resourcesToHosts(rs)
+	if len(hosts) != 2 {
+		t.Fatalf("got %d hosts, want 2 (qemu+lxc only)", len(hosts))
+	}
+	m := metricMap(hosts[0].Metrics)
+	if hosts[0].Name != "web01" || m["vm_cpu_pct"] != 25 || m["vm_running"] != 1 {
+		t.Errorf("web01 wrong: name=%s cpu=%v running=%v", hosts[0].Name, m["vm_cpu_pct"], m["vm_running"])
+	}
+	if m["vm_mem_pct"] != 25 {
+		t.Errorf("web01 mem_pct = %v, want 25", m["vm_mem_pct"])
+	}
+	if metricMap(hosts[1].Metrics)["vm_running"] != 0 {
+		t.Errorf("db-ct should be not running")
+	}
+}
+
+func TestVmsToHosts(t *testing.T) {
+	vms := []vsphereVM{
+		{VM: "vm-1", Name: "app01", PowerState: "POWERED_ON", CPUCount: 4, MemMiB: 8192},
+		{VM: "vm-2", Name: "", PowerState: "POWERED_OFF"},
+	}
+	hosts := vmsToHosts(vms)
+	if len(hosts) != 2 || hosts[0].Name != "app01" || hosts[1].Name != "vm-2" {
+		t.Fatalf("names wrong: %+v", hosts)
+	}
+	m := metricMap(hosts[0].Metrics)
+	if m["vm_running"] != 1 || m["vm_cpu_count"] != 4 || m["vm_mem_bytes"] != 8192*1024*1024 {
+		t.Errorf("app01 metrics wrong: %+v", m)
+	}
+	if metricMap(hosts[1].Metrics)["vm_running"] != 0 {
+		t.Errorf("vm-2 should be off")
+	}
+}
+
+func metricMap(ms []Metric) map[string]float64 {
+	m := map[string]float64{}
+	for _, x := range ms {
+		m[x.Name] = x.Value
+	}
+	return m
+}

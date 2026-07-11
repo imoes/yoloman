@@ -269,8 +269,26 @@ type Console struct {
 // hosts/overview (CheckMK-style piggyback). Docker is auto-detected: with
 // docker enabled but no daemon present, it's a silent no-op.
 type Piggyback struct {
-	Docker       bool   `yaml:"docker"`        // report Docker containers as hosts
-	DockerSocket string `yaml:"docker_socket"` // default /var/run/docker.sock
+	Docker       bool              `yaml:"docker"`        // report Docker containers as hosts
+	DockerSocket string            `yaml:"docker_socket"` // default /var/run/docker.sock
+	Proxmox      []ProxmoxEndpoint `yaml:"proxmox"`       // Proxmox VE endpoints → guests as hosts
+	VSphere      []VSphereEndpoint `yaml:"vsphere"`       // vCenter/ESXi endpoints → VMs as hosts
+}
+
+// ProxmoxEndpoint is one Proxmox VE API the agent queries to report its guests.
+type ProxmoxEndpoint struct {
+	Host     string `yaml:"host"` // host or host:port (default 8006)
+	User     string `yaml:"user"` // e.g. monitoring@pam
+	Password string `yaml:"password"`
+	Insecure bool   `yaml:"insecure"` // skip TLS verify (self-signed PVE certs)
+}
+
+// VSphereEndpoint is one vCenter/ESXi SOAP API the agent queries for its VMs.
+type VSphereEndpoint struct {
+	Host     string `yaml:"host"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 // Default returns a Config with safe, conservative defaults (write disabled).

@@ -210,6 +210,12 @@ func piggybackCollectors(cfg config.Config) []piggyback.Collector {
 	if cfg.Piggyback.Docker {
 		out = append(out, piggyback.NewDockerCollector(cfg.Piggyback.DockerSocket))
 	}
+	for _, e := range cfg.Piggyback.Proxmox {
+		out = append(out, piggyback.NewProxmoxCollector(e.Host, e.User, e.Password, e.Insecure))
+	}
+	for _, e := range cfg.Piggyback.VSphere {
+		out = append(out, piggyback.NewVSphereCollector(e.Host, e.User, e.Password, e.Insecure))
+	}
 	return out
 }
 
