@@ -90,6 +90,25 @@ export class AgentService {
     return this.http.get<LogsResponse>(`${this.base}/${id}/logs`, { params });
   }
 
+  /** /var/log file listing via the read-only, path-jailed `logfiles` module. */
+  logFiles(id: string, extraPaths: string[] = []) {
+    let params = new HttpParams();
+    for (const p of extraPaths) if (p.trim()) params = params.append('extra_paths', p.trim());
+    return this.http.get<{ agent_id: string; roots: string[]; files: { path: string; size: number; modified: number }[] }>(
+      `${this.base}/${id}/logs/files`, { params },
+    );
+  }
+
+  /** Tail one /var/log file (last N lines, optional grep) via `logfiles`. */
+  logFile(id: string, path: string, lines = 500, grep = '', extraPaths: string[] = []) {
+    let params = new HttpParams().set('path', path).set('lines', String(lines));
+    if (grep) params = params.set('grep', grep);
+    for (const p of extraPaths) if (p.trim()) params = params.append('extra_paths', p.trim());
+    return this.http.get<{ agent_id: string; path: string; lines: string[]; truncated: boolean; size: number }>(
+      `${this.base}/${id}/logs/file`, { params },
+    );
+  }
+
   /** Block J4c: the host's users + groups via the read-only `getent` module. */
   accounts(id: string) {
     return this.http.get<AccountsResponse>(`${this.base}/${id}/accounts`);

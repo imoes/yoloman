@@ -165,6 +165,68 @@ async def get_agent_logs(
     return {"agent_id": str(agent.id), "entries": data.get("entries") or [], "count": data.get("count") or 0}
 
 
+# ---- /var/log file logs (read-only, path-jailed logfiles module) ----------
+
+
+@router.get("/api/v1/agents/{agent_id}/logs/files")
+async def list_agent_log_files(
+    agent_id: UUID,
+    extra_paths: list[str] | None = Query(None, description="Extra custom log files/dirs to include"),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Enumerate the host's plain-text log files under /var/log (+ any custom
+    paths) via the read-only, path-jailed `logfiles` module."""
+    agent = await _agent_with_address(session, agent_id)
+    params: dict[str, Any] = {"state": "list"}
+    if extra_paths:
+        params["extra_paths"] = extra_paths
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("logfiles", params)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(result)
+    return {"agent_id": str(agent.id), "roots": data.get("roots", []), "files": data.get("files", [])}
+
+
+@router.get("/api/v1/agents/{agent_id}/logs/file")
+async def read_agent_log_file(
+    agent_id: UUID,
+    path: str = Query(..., description="Log file path (must resolve within an allowed root)"),
+    lines: int = Query(500, ge=1, le=5000),
+    grep: str | None = Query(None),
+    extra_paths: list[str] | None = Query(None),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Tail one log file (last N lines, optional grep) via `logfiles`. The
+    module rejects any path outside /var/log + the configured custom roots."""
+    agent = await _agent_with_address(session, agent_id)
+    params: dict[str, Any] = {"state": "read", "path": path, "lines": lines}
+    if grep:
+        params["grep"] = grep
+    if extra_paths:
+        params["extra_paths"] = extra_paths
+    client = client_factory(agent, settings)
+    try:
+        result = await client.call_tool("logfiles", params)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    data = _tool_data(result)
+    return {
+        "agent_id": str(agent.id),
+        "path": data.get("path", path),
+        "lines": data.get("lines", []),
+        "truncated": data.get("truncated", False),
+        "size": data.get("size", 0),
+    }
+
+
 # ---- J4c: accounts (users + groups) ---------------------------------------
 
 
