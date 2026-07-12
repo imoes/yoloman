@@ -1,9 +1,9 @@
-import { AfterViewInit, Component, ElementRef, Injector, OnDestroy, ViewChild, afterNextRender, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Injector, OnDestroy, ViewChild, afterNextRender, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { GridItemHTMLElement, GridStack } from 'gridstack';
-import { DashboardService } from '../../core/services/dashboard.service';
+import { Dashboard, DashboardService } from '../../core/services/dashboard.service';
 import { DashboardWidget, WidgetData } from '../../core/models/dashboard.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { AddWidgetDialogComponent } from './add-widget-dialog.component';
@@ -21,7 +21,19 @@ import { AddWidgetDialogComponent } from './add-widget-dialog.component';
   imports: [MatButtonModule, MatIconModule, DashboardWidgetComponent],
   template: `
     <div class="bm-dashboard-toolbar">
-      <h2>Dashboard</h2>
+      <div class="bm-dashboard-picker">
+        <select class="bm-dash-select" (change)="switchDashboard($any($event.target).value)">
+          @for (d of dashboards(); track d.id) {
+            <option [value]="d.id" [selected]="d.id === currentId()">{{ d.name }}{{ d.is_default ? ' ★' : '' }}{{ d.source === 'ai' ? ' (AI)' : '' }}</option>
+          }
+        </select>
+        <button mat-icon-button title="New dashboard" (click)="newDashboard()"><mat-icon>add_box</mat-icon></button>
+        @if (current(); as c) {
+          <button mat-icon-button title="Rename" (click)="renameDashboard()"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button title="Set as default" [disabled]="c.is_default" (click)="setDefault()"><mat-icon>{{ c.is_default ? 'star' : 'star_border' }}</mat-icon></button>
+          <button mat-icon-button title="Delete dashboard" [disabled]="dashboards().length <= 1" (click)="deleteDashboard()"><mat-icon>delete</mat-icon></button>
+        }
+      </div>
       <div class="bm-dashboard-actions">
         @if (editMode()) {
           <button mat-button (click)="addWidget()">
@@ -72,6 +84,21 @@ import { AddWidgetDialogComponent } from './add-widget-dialog.component';
         display: flex;
         gap: 8px;
       }
+      .bm-dashboard-picker {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .bm-dash-select {
+        padding: 6px 10px;
+        border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 6px;
+        background: var(--mat-sys-surface);
+        color: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        max-width: 260px;
+      }
       .bm-dashboard-empty {
         display: flex;
         flex-direction: column;
@@ -104,19 +131,72 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
   widgets = signal<DashboardWidget[]>([]);
   widgetData = signal<Record<string, WidgetData | undefined>>({});
   editMode = signal(false);
+  dashboards = signal<Dashboard[]>([]);
+  currentId = signal<string | null>(null);
+  current = computed(() => this.dashboards().find((d) => d.id === this.currentId()) ?? null);
   private grid?: GridStack;
 
   ngAfterViewInit(): void {
-    this.loadWidgets();
+    this.loadDashboards();
   }
 
   ngOnDestroy(): void {
     this.grid?.destroy(false);
   }
 
+  private loadDashboards(selectId?: string): void {
+    this.dashboardService.listDashboards().subscribe((dashboards) => {
+      this.dashboards.set(dashboards);
+      const pick =
+        (selectId && dashboards.find((d) => d.id === selectId)?.id) ||
+        dashboards.find((d) => d.is_default)?.id ||
+        dashboards[0]?.id ||
+        null;
+      this.currentId.set(pick);
+      if (pick) this.loadWidgets();
+      else this.widgets.set([]);
+    });
+  }
+
+  switchDashboard(id: string): void {
+    if (id === this.currentId()) return;
+    if (this.editMode()) this.toggleEditMode(); // save the layout of the one we're leaving
+    this.currentId.set(id);
+    this.loadWidgets();
+  }
+
+  newDashboard(): void {
+    const name = window.prompt('New dashboard name:')?.trim();
+    if (!name) return;
+    this.dashboardService.createDashboard({ name }).subscribe((d) => this.loadDashboards(d.id));
+  }
+
+  renameDashboard(): void {
+    const c = this.current();
+    if (!c) return;
+    const name = window.prompt('Rename dashboard:', c.name)?.trim();
+    if (!name || name === c.name) return;
+    this.dashboardService.updateDashboard(c.id, { name }).subscribe(() => this.loadDashboards(c.id));
+  }
+
+  setDefault(): void {
+    const c = this.current();
+    if (!c || c.is_default) return;
+    this.dashboardService.updateDashboard(c.id, { is_default: true }).subscribe(() => this.loadDashboards(c.id));
+  }
+
+  deleteDashboard(): void {
+    const c = this.current();
+    if (!c || this.dashboards().length <= 1) return;
+    if (!window.confirm(`Delete dashboard "${c.name}" and its widgets?`)) return;
+    this.dashboardService.deleteDashboard(c.id).subscribe(() => this.loadDashboards());
+  }
+
   private loadWidgets(): void {
-    this.dashboardService.list().subscribe((widgets) => {
+    const id = this.currentId() ?? undefined;
+    this.dashboardService.list(id).subscribe((widgets) => {
       this.widgets.set(widgets);
+      this.widgetData.set({});
       this.rebuildGrid(true);
     });
   }
@@ -188,7 +268,8 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
     const ref = this.dialog.open(AddWidgetDialogComponent, { width: '520px' });
     ref.afterClosed().subscribe((payload) => {
       if (!payload) return;
-      this.dashboardService.create(payload).subscribe((widget) => {
+      const withDash = { ...payload, dashboard_id: this.currentId() ?? undefined };
+      this.dashboardService.create(withDash).subscribe((widget) => {
         this.widgets.update((ws) => [...ws, widget]);
         this.rebuildGrid();
         this.loadWidgetData(widget.id);

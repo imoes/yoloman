@@ -35,6 +35,7 @@ export interface DashboardWidget {
 export interface CreateDashboardWidget {
   widget_type: WidgetType;
   title: string;
+  dashboard_id?: string;
   gs_x?: number;
   gs_y?: number;
   gs_w?: number;

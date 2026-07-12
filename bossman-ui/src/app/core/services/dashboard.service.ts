@@ -9,9 +9,26 @@ import { CreateDashboardWidget, DashboardWidget, UpdateDashboardWidget, WidgetDa
 export class DashboardService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/dashboard-widgets`;
+  private dbBase = `${environment.apiUrl}/dashboards`;
 
-  list() {
-    return this.http.get<DashboardWidget[]>(this.base);
+  // ---- dashboards (named, multiple per user) ----
+  listDashboards() {
+    return this.http.get<Dashboard[]>(this.dbBase);
+  }
+  createDashboard(body: { name: string; source?: string; prompt?: string }) {
+    return this.http.post<Dashboard>(this.dbBase, body);
+  }
+  updateDashboard(id: string, body: { name?: string; is_default?: boolean }) {
+    return this.http.patch<Dashboard>(`${this.dbBase}/${id}`, body);
+  }
+  deleteDashboard(id: string) {
+    return this.http.delete<void>(`${this.dbBase}/${id}`);
+  }
+
+  // ---- widgets (scoped to a dashboard) ----
+  list(dashboardId?: string) {
+    const q = dashboardId ? `?dashboard_id=${dashboardId}` : '';
+    return this.http.get<DashboardWidget[]>(`${this.base}${q}`);
   }
 
   create(body: CreateDashboardWidget) {
@@ -29,4 +46,14 @@ export class DashboardService {
   data(id: string) {
     return this.http.get<WidgetData>(`${this.base}/${id}/data`);
   }
+}
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  is_default: boolean;
+  source: 'manual' | 'ai';
+  prompt: string;
+  context: Record<string, unknown>;
+  created_at: string;
 }
