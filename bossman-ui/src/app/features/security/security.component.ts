@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BulkUpdateResult, CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/services/security.service';
+import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 
 /** Block 4-D — fleet-wide Security page: which pending package upgrades close
  * which CVEs across the fleet. Summary cards + a filterable table (severity,
@@ -14,7 +15,7 @@ import { BulkUpdateResult, CveFilters, CveSummary, FleetCve, SecurityService } f
 @Component({
   selector: 'app-security',
   standalone: true,
-  imports: [FormsModule, RouterLink, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule],
+  imports: [FormsModule, RouterLink, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, FilterBarComponent],
   template: `
     <div class="bm-sec">
       <header class="bm-head">
@@ -42,19 +43,8 @@ import { BulkUpdateResult, CveFilters, CveSummary, FleetCve, SecurityService } f
         </div>
       }
 
-      <!-- Filters -->
-      <div class="bm-filters">
-        <select [ngModel]="fSeverity()" (ngModelChange)="fSeverity.set($event); reload()">
-          <option value="">All severities</option>
-          @for (sev of severities; track sev) { <option [value]="sev">{{ sev }}</option> }
-        </select>
-        <select [ngModel]="fDistro()" (ngModelChange)="fDistro.set($event); reload()">
-          <option value="">All distros</option>
-          <option value="debian">debian</option><option value="ubuntu">ubuntu</option><option value="redhat">redhat</option>
-        </select>
-        <label class="bm-chk"><input type="checkbox" [ngModel]="fFix()" (ngModelChange)="fFix.set($event); reload()" /> fix available</label>
-        <input type="text" placeholder="search CVE / package" [ngModel]="fQ()" (ngModelChange)="onSearch($event)" />
-      </div>
+      <!-- Filters (shared fleet filter bar) -->
+      <app-filter-bar [filters]="filterDefs" [values]="fvals()" (valuesChange)="onFilters($event)" />
 
       @if (loading()) {
         <div class="bm-loading"><mat-spinner diameter="28" /></div>
@@ -173,11 +163,15 @@ export class SecurityComponent {
   refreshing = signal(false);
   feedMsg = signal<string | null>(null);
 
-  fSeverity = signal('');
-  fDistro = signal('');
-  fFix = signal(false);
-  fQ = signal('');
-  private searchTimer: any = null;
+  filterDefs: FilterDef[] = [
+    { ident: 'severity', label: 'Severity', kind: 'select', options: this.severities.map((s) => ({ value: s, label: s })) },
+    { ident: 'distro', label: 'Distro', kind: 'select', options: [
+      { value: 'debian', label: 'debian' }, { value: 'ubuntu', label: 'ubuntu' }, { value: 'redhat', label: 'redhat' },
+    ] },
+    { ident: 'fix_available', label: 'fix available', kind: 'checkbox' },
+    { ident: 'q', label: 'search CVE / package', kind: 'text', placeholder: 'search CVE / package' },
+  ];
+  fvals = signal<FilterValues>({});
 
   // Bulk security-update over the expanded CVE's affected hosts.
   selectedHosts = signal<Set<string>>(new Set());
@@ -191,11 +185,12 @@ export class SecurityComponent {
   }
 
   private filters(): CveFilters {
+    const v = this.fvals();
     return {
-      severity: this.fSeverity() || undefined,
-      distro: this.fDistro() || undefined,
-      fix_available: this.fFix() || undefined,
-      q: this.fQ() || undefined,
+      severity: (v['severity'] as string) || undefined,
+      distro: (v['distro'] as string) || undefined,
+      fix_available: v['fix_available'] === true || undefined,
+      q: (v['q'] as string) || undefined,
     };
   }
 
@@ -208,10 +203,9 @@ export class SecurityComponent {
     });
   }
 
-  onSearch(v: string): void {
-    this.fQ.set(v);
-    clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => this.reload(), 300);
+  onFilters(values: FilterValues): void {
+    this.fvals.set(values);
+    this.reload();
   }
 
   toggle(cve: string): void {

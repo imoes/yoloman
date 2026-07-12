@@ -13,7 +13,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { ServiceState } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { StatusFilterChipsComponent } from '../../shared/components/status-filter-chips/status-filter-chips.component';
+import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { serviceStateBadge } from '../../shared/status.util';
@@ -40,22 +40,13 @@ import { serviceStateBadge } from '../../shared/status.util';
     MatInputModule,
     MatCheckboxModule,
     HostStatusBadgeComponent,
-    StatusFilterChipsComponent,
+    FilterBarComponent,
   ],
   template: `
     <div class="bm-page">
       <h1>Problems</h1>
 
-      <div class="bm-filters">
-        <app-status-filter-chips [selected]="stateFilter()" [statuses]="states" (statusChange)="onStateChange($event)" />
-        <mat-form-field appearance="outline" class="bm-host-filter">
-          <mat-label>Host</mat-label>
-          <input matInput [(ngModel)]="hostFilter" (ngModelChange)="onHostFilterChange($event)" placeholder="Filter by host name" />
-        </mat-form-field>
-        <mat-slide-toggle [checked]="showAcknowledged()" (change)="onShowAcknowledgedChange($event.checked)">
-          Show acknowledged
-        </mat-slide-toggle>
-      </div>
+      <app-filter-bar class="bm-filters" [filters]="filterDefs" [values]="fvals()" (valuesChange)="onFilters($event)" />
 
       @if (selectedCount()) {
         <div class="bm-bulk-bar">
@@ -192,12 +183,16 @@ export class ProblemsListComponent implements OnInit {
   private monitoringService = inject(MonitoringService);
   private dialog = inject(MatDialog);
 
-  states = ['WARN', 'CRIT', 'UNKNOWN'];
+  filterDefs: FilterDef[] = [
+    { ident: 'state', label: 'State', kind: 'chips', options: [
+      { value: 'WARN', label: 'WARN' }, { value: 'CRIT', label: 'CRIT' }, { value: 'UNKNOWN', label: 'UNKNOWN' },
+    ] },
+    { ident: 'host', label: 'Host', kind: 'text', placeholder: 'Filter by host name' },
+    { ident: 'show_acknowledged', label: 'Show acknowledged', kind: 'checkbox' },
+  ];
+  fvals = signal<FilterValues>({});
   problems = signal<ServiceState[]>([]);
   loaded = signal(false);
-  stateFilter = signal<string | null>(null);
-  hostFilter = '';
-  showAcknowledged = signal(false);
   /** Multi-select for bulk acknowledge — set of selected service (problem) ids. */
   selected = signal<Set<string>>(new Set());
 
@@ -206,11 +201,12 @@ export class ProblemsListComponent implements OnInit {
   }
 
   reload(): void {
+    const v = this.fvals();
     this.monitoringService
       .problems({
-        state: this.stateFilter() ?? undefined,
-        host: this.hostFilter || undefined,
-        acknowledged: this.showAcknowledged() ? undefined : false,
+        state: (v['state'] as string) || undefined,
+        host: (v['host'] as string) || undefined,
+        acknowledged: v['show_acknowledged'] === true ? undefined : false,
       })
       .subscribe((problems) => {
         this.problems.set(problems);
@@ -264,17 +260,8 @@ export class ProblemsListComponent implements OnInit {
     });
   }
 
-  onStateChange(state: string | null): void {
-    this.stateFilter.set(state);
-    this.reload();
-  }
-
-  onHostFilterChange(_value: string): void {
-    this.reload();
-  }
-
-  onShowAcknowledgedChange(value: boolean): void {
-    this.showAcknowledged.set(value);
+  onFilters(values: FilterValues): void {
+    this.fvals.set(values);
     this.reload();
   }
 
