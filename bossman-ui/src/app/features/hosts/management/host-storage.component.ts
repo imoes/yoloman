@@ -96,12 +96,6 @@ interface DevRow {
                             <button mat-menu-item (click)="mount(d)"><mat-icon>save</mat-icon> Mount…</button>
                           }
                         }
-                        @if (d.fstype === 'LVM2_member') {
-                          <button mat-menu-item (click)="pvresize(d)"><mat-icon>open_in_full</mat-icon> Grow PV to fill device (pvresize)</button>
-                        }
-                        @if ((d.type === 'disk' || d.type === 'part') && !d.fstype && !d.mountpoint) {
-                          <button mat-menu-item (click)="createPv(d)"><mat-icon>album</mat-icon> Initialize as LVM PV (pvcreate)…</button>
-                        }
                         @if (d.type === 'part') {
                           <button mat-menu-item class="bm-danger" (click)="deletePartition(d)"><mat-icon>delete</mat-icon> Delete partition</button>
                         }
@@ -130,6 +124,7 @@ interface DevRow {
                   <button mat-icon-button [matMenuTriggerFor]="vgMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
                   <mat-menu #vgMenu="matMenu">
                     <button mat-menu-item (click)="createLv(vg.vg_name, num(vg.vg_free))"><mat-icon>add</mat-icon> Create logical volume…</button>
+                    <button mat-menu-item (click)="pvresizeVg(vg.vg_name)"><mat-icon>open_in_full</mat-icon> Grow VG (resize PVs)</button>
                     <button mat-menu-item class="bm-danger" (click)="deleteVg(vg.vg_name)"><mat-icon>delete</mat-icon> Delete volume group</button>
                   </mat-menu>
                 </div>
@@ -490,28 +485,15 @@ export class HostStorageComponent {
       .subscribe((r) => this.applied(r));
   }
 
-  /** pvresize — grow the PV to fill its (enlarged) partition/disk. Non-destructive. */
-  pvresize(d: DevRow): void {
+  /** Grow a VG by resizing its PVs to fill their (enlarged) devices — via the
+   * lvg module's pvresize option (not raw shell), non-destructive. */
+  pvresizeVg(vg: string): void {
     this.dialogs
       .open({
-        title: `Grow physical volume — ${d.name}`,
-        fields: [{ tag: 'c', title: '', type: 'message', text: `Runs pvresize ${d.path} so LVM uses the full size of the (grown) device.` }],
-        submitLabel: 'Resize PV',
-        action: () => this.tool('shell', { cmd: `pvresize ${shq(d.path)}` }),
-      })
-      .subscribe((r) => this.applied(r));
-  }
-
-  /** pvcreate — initialize a device as an LVM physical volume. Destructive. */
-  createPv(d: DevRow): void {
-    this.dialogs
-      .open({
-        title: `Initialize PV — ${d.name}`,
-        danger: 'Initializing writes LVM metadata and erases existing data on the device.',
-        dangerButton: true,
-        fields: [{ tag: 'c', title: '', type: 'message', text: `Runs pvcreate -y ${d.path}.` }],
-        submitLabel: 'Create PV',
-        action: () => this.tool('shell', { cmd: `pvcreate -y ${shq(d.path)}` }),
+        title: `Grow volume group — ${vg}`,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Runs pvresize on ${vg}'s physical volumes so LVM uses the full size of the (grown) devices.` }],
+        submitLabel: 'Resize PVs',
+        action: () => this.tool('community.general.lvg', { vg, pvresize: true }),
       })
       .subscribe((r) => this.applied(r));
   }

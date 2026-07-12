@@ -3,6 +3,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AgentService, ServiceAction } from '../../../core/services/agent.service';
 import { ServiceUnit } from '../../../core/models/agent.model';
 
@@ -15,7 +17,7 @@ import { ServiceUnit } from '../../../core/models/agent.model';
 @Component({
   selector: 'app-host-services',
   standalone: true,
-  imports: [MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSlideToggleModule, MatTooltipModule],
   template: `
     <div class="bm-mgmt-section">
       <div class="bm-mgmt-toolbar">
@@ -52,15 +54,16 @@ import { ServiceUnit } from '../../../core/models/agent.model';
                 <td>{{ u.sub }}</td>
                 <td>
                   @if (u.enabled) {
-                    <span class="bm-boot bm-boot-{{ u.enabled }}">{{ u.enabled }}</span>
+                    <mat-slide-toggle [checked]="u.enabled === 'enabled'" [disabled]="busy() === u.unit || !bootTogglable(u)"
+                      (change)="toggleBoot(u, $event.checked)" [matTooltip]="'Boot: ' + u.enabled">
+                      <span class="bm-boot bm-boot-{{ u.enabled }}">{{ u.enabled }}</span>
+                    </mat-slide-toggle>
                   } @else { <span class="bm-dim">—</span> }
                 </td>
                 <td class="bm-mgmt-actions">
                   <button mat-button (click)="act(u, 'start')" [disabled]="busy() === u.unit">Start</button>
                   <button mat-button (click)="act(u, 'stop')" [disabled]="busy() === u.unit">Stop</button>
                   <button mat-button (click)="act(u, 'restart')" [disabled]="busy() === u.unit">Restart</button>
-                  <button mat-button (click)="act(u, 'enable')" [disabled]="busy() === u.unit">Enable</button>
-                  <button mat-button (click)="act(u, 'disable')" [disabled]="busy() === u.unit">Disable</button>
                 </td>
               </tr>
             }
@@ -136,6 +139,17 @@ export class HostServicesComponent {
     });
   }
 
+  /** Only enabled/disabled units toggle cleanly; static/masked/generated/
+   * indirect boot states are shown read-only (no enable/disable semantics). */
+  bootTogglable(u: ServiceUnit): boolean {
+    return u.enabled === 'enabled' || u.enabled === 'disabled';
+  }
+
+  /** The Boot on/off switch → systemctl enable/disable via the service module. */
+  toggleBoot(u: ServiceUnit, on: boolean): void {
+    this.act(u, on ? 'enable' : 'disable');
+  }
+
   act(u: ServiceUnit, action: ServiceAction): void {
     if (this.busy()) return;
     this.busy.set(u.unit);
@@ -146,8 +160,8 @@ export class HostServicesComponent {
         this.busy.set(null);
         const r = res.result as { changed?: boolean; msg?: string } | undefined;
         this.msg.set(`${action} ${u.name}: ${r?.msg ?? 'ok'}${r?.changed === false ? ' (no change)' : ''}`);
-        // Refresh state after a running-state change so the table reflects reality.
-        if (action !== 'enable' && action !== 'disable') this.reload();
+        // Refresh so the table (running state + the boot toggle) reflects reality.
+        this.reload();
       },
       error: (e) => {
         this.busy.set(null);
