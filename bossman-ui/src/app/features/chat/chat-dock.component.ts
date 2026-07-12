@@ -363,7 +363,11 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       try {
         const spec = JSON.parse(String(body).trim());
         if (spec && Array.isArray(spec.fields)) {
-          forms.push({ intent: spec.intent ?? '', plan: spec.plan ?? null, needs_host: spec.needs_host, fields: spec.fields });
+          forms.push({
+            intent: spec.intent ?? '', plan: spec.plan ?? null,
+            generated_plan: spec.generated_plan ?? null,
+            needs_host: spec.needs_host, fields: spec.fields,
+          });
           return '';
         }
       } catch {

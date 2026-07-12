@@ -88,12 +88,15 @@ interface HostRun {
             </div>
           }
         </div>
-        @if (!form().plan) {
+        @if (form().generated_plan) {
+          <p class="bm-cform-note">AI-authored plan <strong>{{ form().generated_plan!.name }}</strong> — saved to the library, then run.</p>
+        } @else if (!form().plan) {
           <p class="bm-cform-note">No matching plan — this collects the inputs; nothing runs.</p>
         }
         <div class="bm-cform-actions">
           <span class="bm-cform-targets">{{ targetHosts().length }} host(s)</span>
           <button mat-stroked-button [disabled]="!canRun()" (click)="preview()"><mat-icon>science</mat-icon> Preview (dry run)</button>
+          <button mat-raised-button color="primary" [disabled]="!canRun()" (click)="apply()"><mat-icon>play_arrow</mat-icon> Ausführen</button>
         </div>
       }
 
@@ -206,7 +209,7 @@ export class ChatFormComponent implements OnInit {
   }
 
   canRun(): boolean {
-    if (!this.form().plan) return false;
+    if (!this.form().plan && !this.form().generated_plan) return false;
     return this.targetHosts().length > 0;
   }
 
@@ -232,17 +235,39 @@ export class ChatFormComponent implements OnInit {
   }
 
   private execute(dryRun: boolean, busy: Stage, doneStage: Stage): void {
-    const plan = this.form().plan;
     const hosts = this.targetHosts();
-    if (!plan || !hosts.length) return;
+    if (!this.canRun() || !hosts.length) return;
     this.error.set(null);
     this.runs.set([]);
     this.done.set(0);
     this.stage.set(busy);
+    const gp = this.form().generated_plan;
+    // AI-authored plan: save it to the library once, then run it from the store.
+    if (gp) {
+      // Preferred: plan_body is a nested object we serialize; fall back to a
+      // provided source_text (+ format) for older/explicit specs.
+      const fmt = gp.plan_body !== undefined && gp.plan_body !== null ? 'json' : (gp.source_format ?? 'json');
+      const text = gp.plan_body !== undefined && gp.plan_body !== null ? JSON.stringify(gp.plan_body) : (gp.source_text ?? '');
+      this.planService.save(gp.prefix, gp.name, fmt, text).subscribe({
+        next: () => this.runAll(hosts, dryRun, doneStage),
+        error: (err) => { this.error.set(err.error?.detail ?? 'could not save the authored plan'); this.stage.set('form'); },
+      });
+    } else {
+      this.runAll(hosts, dryRun, doneStage);
+    }
+  }
+
+  private runAll(hosts: string[], dryRun: boolean, doneStage: Stage): void {
     const params = this.params();
+    const gp = this.form().generated_plan;
+    const plan = this.form().plan;
     let finished = 0;
     hosts.forEach((host) => {
-      this.planService.run(plan, { agent: host, params, dry_run: dryRun }).subscribe({
+      const req = { agent: host, params, dry_run: dryRun };
+      const run$ = gp
+        ? this.planService.runStored(gp.prefix, gp.name, req)
+        : this.planService.run(plan!, req);
+      run$.subscribe({
         next: (res) => {
           this.runService.get(res.plan_run_id).subscribe({
             next: (d) => this.record(host, {

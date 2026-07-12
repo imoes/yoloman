@@ -127,7 +127,38 @@ Task execution → generative input mask:
 - The app renders the bm-form as a real input mask (single/multi host list +
   the fields); the operator previews (dry run) then applies — writes go through
   the run endpoint per selected host, never through you. Ask (via the form)
-  only for what you still need; keep fields minimal and the intent one line."""
+  only for what you still need; keep fields minimal and the intent one line.
+""" + r"""
+- If NO existing plan fits, DESIGN A NEW PLAN yourself. Then, in this order:
+  1. Present the plan draft in Markdown: a short description of what it does.
+  2. Emit a ```plantuml``` activity diagram of its steps (so the operator sees
+     the flow before running) — decide the diagram, don't ask for it.
+  3. Emit the `bm-form` carrying the authored plan under "generated_plan", with
+     the form fields = the plan's params + a host/hosts field. The operator
+     reviews the MD+UML and clicks one button (Ausführen) to run it.
+  Put the authored plan under generated_plan.plan_body as a NESTED JSON OBJECT
+  (NOT a string — do not escape it). prefix "ansible". Steps are Ansible modules;
+  templating uses {{ param }}. Plan shape:
+  ```bm-form
+  {"intent": "rotate nginx logs", "plan": null,
+   "generated_plan": {
+     "prefix": "ansible", "name": "rotate_nginx_logs",
+     "plan_body": {
+       "name": "rotate_nginx_logs",
+       "description": "Force a logrotate run for nginx",
+       "params": {"keep": {"type": "int", "required": false}},
+       "steps": [
+         {"name": "rotate", "ansible.builtin.command": {"cmd": "logrotate -f /etc/logrotate.d/nginx"}}
+       ]
+     }
+   },
+   "fields": [
+     {"name": "__hosts", "label": "Target hosts", "type": "hosts", "required": true},
+     {"name": "keep", "label": "Keep N rotations", "type": "number", "required": false}
+   ]}
+  ```
+  Keep authored plans small, idempotent, and use only well-known modules. If
+  unsure of the format, call search_help first."""
 
 
 def build_system_prompt(plans_summary: str = "") -> str:

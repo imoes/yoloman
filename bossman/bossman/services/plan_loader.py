@@ -509,7 +509,12 @@ def resolve_params(plan: Plan, host_vars: dict[str, Any], explicit: dict[str, An
         elif spec.default is not None:
             args[pname] = spec.default
 
-    unknown = set(merged_given) - set(plan.params)
+    # Only EXPLICIT params are rejected when unknown (operator/caller typos).
+    # host_vars are ambient host config (Ansible semantics): a plan uses the
+    # vars it declares and ignores the rest — so a host carrying vars unrelated
+    # to this plan (e.g. docker_apt_codename on a host, run with a timezone
+    # plan) must not fail the run.
+    unknown = set(explicit) - set(plan.params)
     if unknown:
         raise PlanError(f"unknown parameter(s): {', '.join(sorted(unknown))}")
     return args

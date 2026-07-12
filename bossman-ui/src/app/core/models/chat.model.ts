@@ -113,9 +113,21 @@ export interface ChatFormField {
   options?: string[];
   help?: string;
 }
+/** An AI-authored plan carried inside a bm-form: stored then run on Execute.
+ * Preferred shape: `plan_body` as a nested JSON object (the UI serializes it),
+ * which avoids the model having to escape a JSON-in-JSON string. Legacy
+ * source_text/source_format still accepted. */
+export interface GeneratedPlan {
+  prefix: string;
+  name: string;
+  plan_body?: unknown;
+  source_format?: string; // json | nestedtext | yaml
+  source_text?: string;
+}
 export interface ChatForm {
   intent: string;
   plan: string | null;
+  generated_plan?: GeneratedPlan | null;
   needs_host?: boolean;
   fields: ChatFormField[];
 }

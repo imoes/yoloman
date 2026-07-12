@@ -60,6 +60,13 @@ export class PlanService {
       `${this.base}/stored`, { prefix, name, source_format, source_text },
     );
   }
+
+  /** Run a plan straight from the store (used for AI-authored plans). */
+  runStored(prefix: string, name: string, body: RunPlanRequest) {
+    return this.http.post<RunPlanResponse>(
+      `${this.base}/stored/${prefix}/${encodeURIComponent(name)}/run`, body,
+    );
+  }
 }
 
 export interface PlanBriefing { markdown: string | null; error: string | null; }
