@@ -28,9 +28,7 @@ from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
-from bossman.services.chat_client import ChatClientError, chat_client_for
 from bossman.services.cve_collect import collect_host
-from bossman.services.error_analysis import analyze_host
 
 router = APIRouter()
 
@@ -563,31 +561,6 @@ async def get_agent_cves(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "count": len(rows), "cves": rows}
-
-
-# ---- AI error-source analysis (eBPF metrics + logs → LLM) -----------------
-
-
-@router.post("/api/v1/agents/{agent_id}/analyze")
-async def analyze_agent_errors(
-    agent_id: UUID,
-    session: AsyncSession = Depends(get_session),
-    settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent),
-    client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    """Correlate the host's journald errors + /var/log error lines + failed
-    services + latest eBPF/service metrics and let the LLM name the likely
-    error source(s), evidence, and fix. Read-only."""
-    agent = await _agent_with_address(session, agent_id)
-    client = client_factory(agent, settings)
-    chat = chat_client_for(settings)
-    try:
-        return await analyze_host(session, agent, client, chat)
-    except AgentClientError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    except ChatClientError as exc:
-        raise HTTPException(status_code=502, detail=f"LLM analysis failed: {exc}") from exc
 
 
 # ---- Virtualization (virt_facts detect/list; qm/virsh control) ------------

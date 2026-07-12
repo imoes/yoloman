@@ -1,15 +1,14 @@
-"""AI error-source analysis (roadmap block 3).
+"""Host error-signal gathering for the chat AI's root-cause analysis.
 
-Correlates a host's recent error signals — journald errors, error-ish lines
-from /var/log files, failed systemd services, and the latest eBPF/service
-metrics — and asks the LLM to name the likely error source(s), the evidence,
-and a recommended fix. Read-only: it only gathers and reasons, never changes
-the host.
+`gather_signals` collects a host's recent error evidence — journald errors,
+error-ish lines from /var/log files, failed systemd services, and the latest
+eBPF/service/resource metrics — for the chat `analyze_host` tool. The AI itself
+correlates them and produces the Markdown + PlantUML analysis in the chat, so
+this stays a pure, read-only gatherer (no LLM call here).
 """
 
 from __future__ import annotations
 
-import json
 import logging
 
 from sqlalchemy import select
@@ -25,32 +24,6 @@ KEY_LOGS = ("syslog", "messages", "kern.log", "daemon.log", "auth.log", "dmesg")
 ERROR_MARKERS = ("error", "fail", "fatal", "panic", "denied", "refused", "segfault", "oom", "cannot", "critical", "traceback")
 # Metrics that most often reveal a problem source.
 METRIC_PREFIXES = ("service_", "container_", "vm_", "cpu_", "mem", "disk", "load", "net")
-
-FINDINGS_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "summary": {"type": "string", "description": "One-paragraph overall assessment of the host's health."},
-        "findings": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "title": {"type": "string"},
-                    "component": {"type": "string", "description": "The service/unit/subsystem implicated."},
-                    "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
-                    "evidence": {"type": "string", "description": "The specific log lines / metrics that point to this."},
-                    "recommendation": {"type": "string"},
-                },
-                "required": ["title", "component", "severity", "evidence", "recommendation"],
-            },
-        },
-    },
-    "required": ["summary", "findings"],
-}
-
-
-def _lines(entry_list, key: str) -> list[str]:
-    return [str(e.get(key, "")) for e in (entry_list or []) if isinstance(e, dict)]
 
 
 async def _tool(client, name, params):
@@ -110,49 +83,9 @@ async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
             metrics.append(f'{m.metric}{("[" + label + "]") if label else ""}={round(m.value, 2)}')
 
     return {
+        "host": agent.name,
         "journal_errors": journal_errors,
         "file_errors": file_errors,
         "failed_services": failed,
         "metrics": metrics[:120],
-    }
-
-
-def _prompt(agent: Agent, signals: dict) -> list[dict[str, str]]:
-    system = (
-        "You are a senior SRE doing root-cause analysis on a single Linux host. You are given the "
-        "host's recent journald errors, error-ish lines from /var/log, failed systemd services, and "
-        "the latest resource/eBPF/service metrics. Correlate them: find the LIKELY SOURCE(S) of "
-        "errors, not just symptoms. For each finding give the implicated component, a severity, the "
-        "concrete evidence (cite the actual log line or metric), and a concrete recommendation. If the "
-        "host looks healthy, say so with an empty findings list. Do not invent evidence."
-    )
-    parts = [f"HOST: {agent.name}"]
-    if signals["failed_services"]:
-        parts.append("FAILED SERVICES:\n" + "\n".join(signals["failed_services"]))
-    if signals["journal_errors"]:
-        parts.append("JOURNALD ERRORS (priority err+):\n" + "\n".join(signals["journal_errors"]))
-    for path, lines in signals["file_errors"].items():
-        parts.append(f"{path} (error lines):\n" + "\n".join(lines))
-    if signals["metrics"]:
-        parts.append("LATEST METRICS (eBPF/service/resource):\n" + "\n".join(signals["metrics"]))
-    if len(parts) == 1:
-        parts.append("No errors, failed services, or notable metrics were found.")
-    return [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(parts)}]
-
-
-async def analyze_host(session: AsyncSession, agent: Agent, client, chat) -> dict:
-    signals = await gather_signals(session, agent, client)
-    messages = _prompt(agent, signals)
-    report = await chat.complete_json(messages, FINDINGS_SCHEMA, "error_analysis", max_tokens=3000)
-    return {
-        "agent_id": str(agent.id),
-        "host": agent.name,
-        "signals": {
-            "journal_errors": len(signals["journal_errors"]),
-            "file_errors": {p: len(v) for p, v in signals["file_errors"].items()},
-            "failed_services": signals["failed_services"],
-            "metrics": len(signals["metrics"]),
-        },
-        "summary": report.get("summary", ""),
-        "findings": report.get("findings", []),
     }

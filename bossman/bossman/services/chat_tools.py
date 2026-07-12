@@ -99,6 +99,46 @@ TOOL_DEFS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_host",
+            "description": (
+                "Investigate a host to find the SOURCE of a problem. Returns the host's recent "
+                "journald errors (priority err+), error-ish lines from key /var/log files "
+                "(syslog/kern/daemon/auth/…), failed systemd services, and the latest eBPF/"
+                "service/resource metrics. Call this whenever the user reports a problem (e.g. "
+                "'we have database problems', 'X is slow/failing') to gather EVIDENCE, then present "
+                "a root-cause analysis (Markdown + a plantuml diagram of the failure chain + "
+                "concrete recommendations). Use read_host_log to drill into any log it flags."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_host_log",
+            "description": (
+                "Tail one /var/log file on a host (optionally grep for a substring) to drill into a "
+                "log analyze_host flagged. Path-jailed to /var/log — read-only."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string"},
+                    "path": {"type": "string", "description": "Absolute log path under /var/log."},
+                    "grep": {"type": "string", "description": "Optional substring filter."},
+                    "lines": {"type": "integer", "description": "Trailing lines (default 200)."},
+                },
+                "required": ["host", "path"],
+            },
+        },
+    },
 ]
 
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_DEFS}
@@ -128,6 +168,8 @@ async def execute_tool(
         return {"query": args.get("query", ""), "results": help_svc.search_help(root, args.get("query", ""))}
     if name in ("discover_host_checks", "assign_host_check"):
         return await _check_tool(session, name, args, settings, client_factory)
+    if name in ("analyze_host", "read_host_log"):
+        return await _analysis_tool(session, name, args, settings, client_factory)
     if name == "list_hosts":
         agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
         return {
@@ -152,6 +194,35 @@ async def execute_tool(
 
 async def _resolve_agent(session: AsyncSession, host: str) -> Agent | None:
     return await session.scalar(select(Agent).where(Agent.name == host))
+
+
+async def _analysis_tool(session, name, args, settings, client_factory) -> dict[str, Any]:
+    """analyze_host / read_host_log — the AI's error-investigation tools. They
+    reach the host, so they need settings + client_factory (wired by the chat
+    path). Read-only: gather signals / tail a log, never mutate."""
+    from bossman.services.agent_client import AgentClientError
+    from bossman.services.error_analysis import gather_signals
+
+    if settings is None or client_factory is None:
+        return {"error": "host-reaching tools are not available in this chat context"}
+    host = args.get("host") or ""
+    agent = await _resolve_agent(session, host)
+    if agent is None:
+        return {"error": f"no such host {host!r}"}
+    if not agent.address:
+        return {"error": f"host {host!r} has no direct address (satellite/unenrolled)"}
+    client = client_factory(agent, settings)
+    try:
+        if name == "analyze_host":
+            return await gather_signals(session, agent, client)
+        # read_host_log
+        res = await client.call_tool("logfiles", {
+            "state": "read", "path": args.get("path", ""),
+            "lines": int(args.get("lines") or 200), **({"grep": args["grep"]} if args.get("grep") else {}),
+        })
+        return res.get("data", res) if isinstance(res, dict) else {"error": "unexpected result"}
+    except AgentClientError as exc:
+        return {"error": str(exc)}
 
 
 async def _check_tool(session, name, args, settings, client_factory) -> dict[str, Any]:
