@@ -71,6 +71,9 @@ export interface GeneratedDashboardResponse {
   prompt: string;
   widgets: GeneratedWidgetSpec[];
   created_at?: string | null;
+  /** Block A3: the persisted named dashboard the generation created. */
+  dashboard_id?: string;
+  dashboard_name?: string;
 }
 
 /** A widget the assistant emitted (a ```bm-widget {json}``` block), parsed

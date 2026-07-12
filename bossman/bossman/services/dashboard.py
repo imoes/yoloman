@@ -83,6 +83,51 @@ async def update_dashboard(
     return dash
 
 
+async def _unique_name(session: AsyncSession, username: str, base: str) -> str:
+    """A dashboard name unique per user — append (2), (3), … on collision."""
+    existing = {d.name for d in await list_dashboards(session, username)}
+    if base not in existing:
+        return base
+    for i in range(2, 100):
+        candidate = f"{base} ({i})"
+        if candidate not in existing:
+            return candidate
+    return f"{base} ({len(existing) + 1})"
+
+
+async def create_ai_dashboard(
+    session: AsyncSession, username: str, prompt: str, specs: list[dict]
+) -> Dashboard:
+    """Materialize an AI-designed widget spec list into a real, editable
+    source='ai' dashboard (Block A3 merge): each spec's inline `data` is stored
+    under config['static'] so it renders without recomputation, and the whole
+    thing then behaves like any other named dashboard (pick/rename/edit/delete)."""
+    name = await _unique_name(session, username, f"AI · {(prompt or 'dashboard').strip()[:32]}")
+    dash = Dashboard(username=username, name=name, source="ai", prompt=prompt, is_default=False)
+    session.add(dash)
+    await session.flush()  # need dash.id for the widgets
+    for spec in specs:
+        wtype = spec.get("widget_type")
+        if wtype not in WIDGET_TYPES_ALL:
+            continue
+        default_w, default_h = DEFAULT_SIZE.get(wtype, (4, 3))
+        session.add(
+            DashboardWidget(
+                dashboard_id=dash.id,
+                username=username,
+                widget_type=wtype,
+                title=spec.get("title", ""),
+                gs_x=int(spec.get("gs_x", 0) or 0),
+                gs_y=int(spec.get("gs_y", 0) or 0),
+                gs_w=int(spec.get("gs_w") or default_w),
+                gs_h=int(spec.get("gs_h") or default_h),
+                config={"static": spec.get("data")},
+            )
+        )
+    await session.commit()
+    return dash
+
+
 async def delete_dashboard(session: AsyncSession, username: str, dashboard_id: UUID) -> bool:
     dash = await session.get(Dashboard, dashboard_id)
     if dash is None or dash.username != username:

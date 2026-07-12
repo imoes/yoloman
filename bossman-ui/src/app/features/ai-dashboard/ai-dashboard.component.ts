@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -35,6 +36,14 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
 
       @if (err()) { <p class="bm-aidash-err">{{ err() }}</p> }
 
+      @if (saved(); as s) {
+        <div class="bm-aidash-saved">
+          <mat-icon>check_circle</mat-icon>
+          <span>Saved as dashboard <strong>{{ s.name }}</strong> — editable in Fleet Overview.</span>
+          <button mat-stroked-button (click)="openSaved()"><mat-icon>open_in_new</mat-icon> Open editable dashboard</button>
+        </div>
+      }
+
       @if (widgets().length) {
         <div class="bm-aidash-grid">
           @for (w of built(); track $index) {
@@ -58,6 +67,8 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
       .bm-aidash-spark { color: var(--mat-sys-tertiary); }
       .bm-aidash-prompt { flex: 1; padding: 10px 12px; border: 1px solid var(--mat-sys-outline); border-radius: 8px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
       .bm-aidash-err { color: var(--mat-sys-error); }
+      .bm-aidash-saved { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); border: 1px solid var(--mat-sys-primary); }
+      .bm-aidash-saved mat-icon { color: var(--mat-sys-primary); }
       .bm-aidash-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
       .bm-aidash-cell { min-height: 200px; }
       .bm-aidash-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--mat-sys-on-surface-variant); padding: 60px; text-align: center; }
@@ -68,11 +79,13 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
 })
 export class AiDashboardComponent implements OnInit {
   private chat = inject(ChatService);
+  private router = inject(Router);
 
   prompt = signal('');
   widgets = signal<GeneratedWidgetSpec[]>([]);
   busy = signal(false);
   err = signal<string | null>(null);
+  saved = signal<{ id: string; name: string } | null>(null);
 
   built = computed(() =>
     this.widgets().map((spec, i) => ({
@@ -97,6 +110,11 @@ export class AiDashboardComponent implements OnInit {
     return Math.max(2, Math.min(12, w || 4));
   }
 
+  openSaved(): void {
+    const s = this.saved();
+    if (s) this.router.navigate(['/fleet'], { queryParams: { dashboard: s.id } });
+  }
+
   ngOnInit(): void {
     this.chat.getDashboard().subscribe({
       next: (res) => {
@@ -115,6 +133,7 @@ export class AiDashboardComponent implements OnInit {
       next: (res) => {
         this.widgets.set(res.widgets ?? []);
         this.busy.set(false);
+        if (res.dashboard_id) this.saved.set({ id: res.dashboard_id, name: res.dashboard_name ?? 'AI dashboard' });
       },
       error: (e) => {
         this.busy.set(false);

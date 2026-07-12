@@ -247,8 +247,9 @@ async def get_dashboard_widget_data(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    widgets = await list_widgets(session, identity.name)
-    widget = next((w for w in widgets if w.id == widget_id), None)
-    if widget is None:
+    # Look the widget up directly (any of the user's dashboards), not just the
+    # default one — otherwise widgets on non-default dashboards get no data.
+    widget = await session.get(DashboardWidget, widget_id)
+    if widget is None or widget.username != identity.name:
         raise HTTPException(status_code=404, detail=f"no such widget {widget_id}")
     return await widget_data(session, widget)

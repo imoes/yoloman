@@ -40,6 +40,7 @@ from bossman.services.chat_backend import (
 )
 from bossman.services.chat_agent import backend_is_agentic, bind_executor, run_agentic
 from bossman.services.chat_dashboard import generate_dashboard
+from bossman.services.dashboard import create_ai_dashboard
 from bossman.services.chat_oauth import ChatOAuthError, ChatOAuthService, token_needs_refresh
 from bossman.services.chat_prompt import build_system_prompt
 
@@ -386,7 +387,10 @@ async def generate_dashboard_route(
         row.prompt = body.prompt
         row.widgets = widgets
     await session.commit()
-    return {"prompt": body.prompt, "widgets": widgets}
+    # Block A3: also persist it as a real, editable named dashboard so it shows
+    # up in the Fleet Overview picker alongside hand-built ones.
+    dash = await create_ai_dashboard(session, identity.name, body.prompt, widgets)
+    return {"prompt": body.prompt, "widgets": widgets, "dashboard_id": str(dash.id), "dashboard_name": dash.name}
 
 
 @router.post("/api/v1/chat/sessions/{sid}/message")

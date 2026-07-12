@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, Injector, OnDestroy, ViewChild, a
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { ActivatedRoute } from '@angular/router';
 import { GridItemHTMLElement, GridStack } from 'gridstack';
 import { Dashboard, DashboardService } from '../../core/services/dashboard.service';
 import { DashboardWidget, WidgetData } from '../../core/models/dashboard.model';
@@ -127,6 +128,7 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
   private dashboardService = inject(DashboardService);
   private dialog = inject(MatDialog);
   private injector = inject(Injector);
+  private route = inject(ActivatedRoute);
 
   widgets = signal<DashboardWidget[]>([]);
   widgetData = signal<Record<string, WidgetData | undefined>>({});
@@ -137,7 +139,8 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
   private grid?: GridStack;
 
   ngAfterViewInit(): void {
-    this.loadDashboards();
+    // ?dashboard=<id> (e.g. from the AI page's "open editable dashboard") preselects it.
+    this.loadDashboards(this.route.snapshot.queryParamMap.get('dashboard') ?? undefined);
   }
 
   ngOnDestroy(): void {
