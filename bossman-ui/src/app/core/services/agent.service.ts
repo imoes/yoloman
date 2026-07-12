@@ -166,6 +166,17 @@ export class AgentService {
     return this.http.get<VirtResponse>(`${this.base}/${id}/virt`);
   }
 
+  /** AI error-source analysis: correlate eBPF/service metrics + journald +
+   * /var/log logs and let the LLM name likely error sources. */
+  analyze(id: string) {
+    return this.http.post<{
+      agent_id: string; host: string;
+      signals: { journal_errors: number; file_errors: Record<string, number>; failed_services: string[]; metrics: number };
+      summary: string;
+      findings: { title: string; component: string; severity: string; evidence: string; recommendation: string }[];
+    }>(`${this.base}/${id}/analyze`, {});
+  }
+
   /** Cockpit "Software updates": pending OS package updates (apt/dnf/yum). */
   updates(id: string) {
     return this.http.get<UpdatesResponse>(`${this.base}/${id}/updates`);

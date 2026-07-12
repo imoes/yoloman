@@ -10,6 +10,7 @@ import { HostFirewallComponent } from './host-firewall.component';
 import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
+import { HostAnalysisComponent } from './host-analysis.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -21,7 +22,7 @@ import { HostUpdatesComponent } from './host-updates.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
+  imports: [MatTabsModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent, HostAnalysisComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Network">
@@ -44,6 +45,11 @@ import { HostUpdatesComponent } from './host-updates.component';
       <mat-tab label="Updates">
         <div class="bm-mgmt-pane">
           <app-host-updates [agentId]="agentId()" />
+        </div>
+      </mat-tab>
+      <mat-tab label="AI Analysis">
+        <div class="bm-mgmt-pane">
+          <app-host-analysis [agentId]="agentId()" />
         </div>
       </mat-tab>
       <mat-tab label="Logs">
