@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatForm, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatForm, ChatHistoryMessage, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
 import { ChatPlanGraphComponent } from './chat-plan-graph.component';
@@ -24,6 +24,7 @@ interface ChatTab {
   id: string | null;
   label: string;
   messages: ChatUiMessage[];
+  loaded: boolean; // false = a persisted session whose history isn't fetched yet
 }
 
 const BACKEND_LABELS: Record<string, string> = {
@@ -220,7 +221,7 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   messages = signal<ChatUiMessage[]>([]);
   // Multiple concurrent chats (tabs). `messages`/`sessionId` mirror the active
   // tab; switching persists the current one and loads the target.
-  tabs = signal<ChatTab[]>([{ id: null, label: 'Chat 1', messages: [] }]);
+  tabs = signal<ChatTab[]>([{ id: null, label: 'Chat 1', messages: [], loaded: true }]);
   active = signal(0);
   input = signal('');
   streaming = signal(false);
@@ -249,6 +250,61 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     // Per-user default backend + auth status.
     this.chat.getPrefs().subscribe({ next: (p) => this.backend.set(p.default_backend), error: () => {} });
     this.refreshAuth();
+    this.loadSessions();
+  }
+
+  /** Restore the user's persisted conversations as tabs so they're findable
+   * across reloads. The newest becomes the active tab (its history is fetched);
+   * the rest load lazily on switch. */
+  private loadSessions(): void {
+    this.chat.listSessions().subscribe({
+      next: (res) => {
+        const sessions = [...(res.sessions ?? [])].sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+        if (!sessions.length) return; // keep the default empty "Chat 1"
+        const tabs: ChatTab[] = sessions.slice(0, 15).map((s, i) => ({
+          id: s.id,
+          label: s.label || `Chat ${i + 1}`,
+          messages: [],
+          loaded: false,
+        }));
+        this.tabs.set(tabs);
+        this.active.set(0);
+        this.sessionId = tabs[0].id;
+        this.loadHistory(0);
+      },
+      error: () => {},
+    });
+  }
+
+  /** Fetch one tab's persisted history (once), re-parsing artifacts so widgets
+   * / diagrams / forms render on reload. */
+  private loadHistory(i: number): void {
+    const t = this.tabs()[i];
+    if (!t || !t.id || t.loaded) return;
+    this.chat.history(t.id).subscribe({
+      next: (res) => {
+        t.messages = this.historyToUi(res.messages ?? []);
+        t.loaded = true;
+        if (this.active() === i) this.messages.set(t.messages);
+      },
+      error: () => { t.loaded = true; },
+    });
+  }
+
+  private historyToUi(hist: ChatHistoryMessage[]): ChatUiMessage[] {
+    const out: ChatUiMessage[] = [];
+    for (const h of hist) {
+      if (h.role === 'system') continue;
+      if (h.role === 'user') { out.push({ role: 'user', text: h.content }); continue; }
+      const { cleaned, widgets, planGraphs, diagrams, forms } = this.parseArtifacts(h.content);
+      const m: ChatUiMessage = { role: 'assistant', text: cleaned };
+      if (widgets.length) m.widgets = widgets;
+      if (planGraphs.length) m.planGraphs = planGraphs;
+      if (diagrams.length) m.diagrams = diagrams;
+      if (forms.length) m.forms = forms;
+      out.push(m);
+    }
+    return out;
   }
 
   ngOnDestroy(): void {
@@ -302,12 +358,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     const t = this.tabs()[i];
     this.sessionId = t.id;
     this.messages.set(t.messages);
+    this.loadHistory(i);
   }
 
   newTab(): void {
     if (this.streaming()) return;
     this.persistActive();
-    const next = [...this.tabs(), { id: null, label: `Chat ${this.tabs().length + 1}`, messages: [] }];
+    const next = [...this.tabs(), { id: null, label: `Chat ${this.tabs().length + 1}`, messages: [], loaded: true }];
     this.tabs.set(next);
     this.active.set(next.length - 1);
     this.sessionId = null;
@@ -336,7 +393,12 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     );
     this.sessionId = s;
     const t = this.tabs();
-    if (t[this.active()]) t[this.active()].id = s;
+    const cur = t[this.active()];
+    if (cur) {
+      cur.id = s;
+      // Persist the tab's name as the session label so the chat is findable later.
+      if (cur.label && !/^Chat \d+$/.test(cur.label)) this.chat.rename(s, cur.label).subscribe({ error: () => {} });
+    }
     return s;
   }
 

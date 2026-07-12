@@ -24,6 +24,9 @@ KEY_LOGS = ("syslog", "messages", "kern.log", "daemon.log", "auth.log", "dmesg")
 ERROR_MARKERS = ("error", "fail", "fatal", "panic", "denied", "refused", "segfault", "oom", "cannot", "critical", "traceback")
 # Metrics that most often reveal a problem source.
 METRIC_PREFIXES = ("service_", "container_", "vm_", "cpu_", "mem", "disk", "load", "net")
+# Cap on the combined error evidence handed to the analysis LLM — an unbounded
+# payload (thousands of matched lines) made the agentic analysis round stall.
+MAX_EVIDENCE_LINES = 2000
 
 
 async def _tool(client, name, params):
@@ -37,10 +40,10 @@ async def _tool(client, name, params):
 async def gather_signals(session: AsyncSession, agent: Agent, client, since: str | None = None) -> dict:
     """Collect the raw error signals from the host (live) + stored metrics.
 
-    By default the full recent evidence is gathered (no trimming — the user
-    prefers complete data). When `since` is given (a journalctl time spec like
-    "-2h", "yesterday 14:00"), the journal is scoped to that window so the
-    analysis focuses on when the error actually occurred."""
+    The combined error evidence is capped at MAX_EVIDENCE_LINES (2000) so the
+    analysis LLM round stays responsive. When `since` is given (a journalctl
+    time spec like "-2h", "yesterday 14:00"), the journal is scoped to that
+    window so the analysis focuses on when the error actually occurred."""
     # journald errors (priority err and worse)
     jparams: dict = {"priority": "3", "lines": 2000}
     if since:
@@ -90,10 +93,32 @@ async def gather_signals(session: AsyncSession, agent: Agent, client, since: str
             label = m.labels.get("service") or m.labels.get("unit") or m.labels.get("name") or ""
             metrics.append(f'{m.metric}{("[" + label + "]") if label else ""}={round(m.value, 2)}')
 
+    # Trim the combined error evidence to MAX_EVIDENCE_LINES (journal first,
+    # then files), keeping the most recent lines of each source — a large
+    # unbounded payload makes the analysis LLM round painfully slow.
+    budget = MAX_EVIDENCE_LINES
+    truncated = False
+    if len(journal_errors) > budget:
+        journal_errors = journal_errors[-budget:]
+        truncated = True
+    budget -= len(journal_errors)
+    trimmed_files: dict[str, list[str]] = {}
+    for path, hits in file_errors.items():
+        if budget <= 0:
+            truncated = True
+            break
+        if len(hits) > budget:
+            hits = hits[-budget:]
+            truncated = True
+        trimmed_files[path] = hits
+        budget -= len(hits)
+    file_errors = trimmed_files
+
     return {
         "host": agent.name,
         "journal_errors": journal_errors,
         "file_errors": file_errors,
         "failed_services": failed,
         "metrics": metrics,
+        "truncated": truncated,
     }
