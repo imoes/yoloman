@@ -99,4 +99,23 @@ export interface ChatUiMessage {
   widgets?: ChatWidget[];
   planGraphs?: PlanGraphSpec[];
   diagrams?: string[]; // rendered PlantUML image URLs
+  forms?: ChatForm[]; // task → input-mask (bm-form blocks)
+}
+
+/** A ```bm-form``` block the assistant emitted for the task → input-mask flow:
+ * the AI-chosen fields for an actionable task, optionally mapped to a plan. */
+export interface ChatFormField {
+  name: string;
+  label?: string;
+  type: 'text' | 'textarea' | 'number' | 'bool' | 'select' | 'multiselect' | 'host' | 'hosts';
+  required?: boolean;
+  default?: unknown;
+  options?: string[];
+  help?: string;
+}
+export interface ChatForm {
+  intent: string;
+  plan: string | null;
+  needs_host?: boolean;
+  fields: ChatFormField[];
 }

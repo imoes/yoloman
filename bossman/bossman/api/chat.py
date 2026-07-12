@@ -393,10 +393,26 @@ async def generate_dashboard_route(
     return {"prompt": body.prompt, "widgets": widgets, "dashboard_id": str(dash.id), "dashboard_name": dash.name}
 
 
+def _plans_summary(request: Request) -> str:
+    """Compact catalog of runnable plans (name · description · params) for the
+    task→bm-form doctrine, so the assistant can map a task to a plan."""
+    cache = getattr(request.app.state, "catalog_cache", None)
+    plans = getattr(cache, "plans", None) or []
+    lines: list[str] = []
+    for p in plans:
+        params = ", ".join(
+            f"{n}({spec.type}{'*' if spec.required else ''})" for n, spec in (p.params or {}).items()
+        )
+        desc = (p.description or "").splitlines()[0][:100]
+        lines.append(f"- {p.name}: {desc}" + (f" | params: {params}" if params else ""))
+    return "\n".join(lines)
+
+
 @router.post("/api/v1/chat/sessions/{sid}/message")
 async def send_message(
     sid: UUID,
     body: MessageRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     identity=Depends(get_current_identity),
@@ -437,7 +453,7 @@ async def send_message(
     # Inject the (non-persisted) system prompt so the model knows how to emit
     # Markdown + bm-widget/plantuml blocks. Backends route a system message to
     # their own system slot (OpenAI system / claude --system-prompt).
-    messages = [{"role": "system", "content": build_system_prompt()}]
+    messages = [{"role": "system", "content": build_system_prompt(_plans_summary(request))}]
     messages += [{"role": m.role, "content": m.content} for m in history_rows]
     assistant_seq = next_seq + 1
 

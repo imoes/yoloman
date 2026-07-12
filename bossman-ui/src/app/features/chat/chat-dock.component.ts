@@ -5,10 +5,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatForm, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
 import { ChatPlanGraphComponent } from './chat-plan-graph.component';
+import { ChatFormComponent } from './chat-form.component';
 
 const WIDGET_TYPES: WidgetType[] = [
   'top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat',
@@ -33,7 +34,7 @@ const BACKEND_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-chat-dock',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent],
   template: `
     <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [style.height.px]="open() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
@@ -95,6 +96,11 @@ const BACKEND_LABELS: Record<string, string> = {
                     <img class="bm-msg-diagram" [src]="src" alt="diagram" loading="lazy" />
                   }
                 </div>
+              }
+              @if (m.forms?.length) {
+                @for (f of m.forms!; track $index) {
+                  <app-chat-form [form]="f" />
+                }
               }
             </div>
           }
@@ -298,11 +304,12 @@ export class ChatDockComponent implements OnInit, OnDestroy {
         if (!assistant.error) {
           // Extract widget / plan-graph / plantuml blocks into rendered
           // artifacts and strip them from the markdown (once, at stream end).
-          const { cleaned, widgets, planGraphs, diagrams } = this.parseArtifacts(assistant.text);
+          const { cleaned, widgets, planGraphs, diagrams, forms } = this.parseArtifacts(assistant.text);
           assistant.text = cleaned;
           if (widgets.length) assistant.widgets = widgets;
           if (planGraphs.length) assistant.planGraphs = planGraphs;
           if (diagrams.length) assistant.diagrams = diagrams;
+          if (forms.length) assistant.forms = forms;
         }
         this.mdCache.delete(assistant);
         this.messages.update((m) => [...m]); // trigger re-render (markdown now)
@@ -320,10 +327,12 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     widgets: ChatWidget[];
     planGraphs: PlanGraphSpec[];
     diagrams: string[];
+    forms: ChatForm[];
   } {
     const widgets: ChatWidget[] = [];
     const planGraphs: PlanGraphSpec[] = [];
     const diagrams: string[] = [];
+    const forms: ChatForm[] = [];
 
     let cleaned = text.replace(/```bm-widget\s*([\s\S]*?)```/g, (full, body) => {
       try {
@@ -349,7 +358,21 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       return '';
     });
 
-    return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams };
+    // Task → input-mask: pull ```bm-form``` blocks into rendered forms.
+    cleaned = cleaned.replace(/```bm-form\s*([\s\S]*?)```/g, (full, body) => {
+      try {
+        const spec = JSON.parse(String(body).trim());
+        if (spec && Array.isArray(spec.fields)) {
+          forms.push({ intent: spec.intent ?? '', plan: spec.plan ?? null, needs_host: spec.needs_host, fields: spec.fields });
+          return '';
+        }
+      } catch {
+        /* leave a malformed block visible as-is */
+      }
+      return full;
+    });
+
+    return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams, forms };
   }
 
   /** PlantUML server URL via the ~h hex encoding (no deflate dependency). */
