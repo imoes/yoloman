@@ -329,24 +329,46 @@ async def move_plan(
     return {"prefix": prefix, "name": name, "folder": row.folder}
 
 
-@router.get("/api/v1/plans/stored/{prefix}/{name}/document")
-async def plan_document(
+@router.get("/api/v1/plans/stored/{prefix}/{name}/versions")
+async def plan_versions(
     prefix: str,
     name: str,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    """The latest stored version of a plan rendered in ALL THREE authoring
-    formats (NestedText / YAML / JSON) from the one canonical JSON body, so the
-    editor's format toggle is instant. Also returns the original source_text +
-    source_format + folder."""
+    """Every stored version of a plan (newest first) for the diff/version picker."""
     if prefix not in VALID_PREFIXES:
         raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
-    doc = await session.scalar(
+    rows = (await session.scalars(
         select(PlanDocument)
         .where(PlanDocument.prefix == prefix, PlanDocument.name == name)
         .order_by(PlanDocument.version.desc())
-    )
+    )).all()
+    return {"versions": [
+        {"version": r.version, "source_format": r.source_format, "content_hash": r.content_hash,
+         "created_at": r.created_at.isoformat() if r.created_at else None, "created_by": r.created_by}
+        for r in rows
+    ]}
+
+
+@router.get("/api/v1/plans/stored/{prefix}/{name}/document")
+async def plan_document(
+    prefix: str,
+    name: str,
+    version: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """A stored plan version rendered in ALL THREE authoring formats (NestedText
+    / YAML / JSON) from the one canonical JSON body, so the editor's format
+    toggle is instant. Defaults to the latest version; `version` selects an
+    older one (for diffing). Also returns source_text + source_format + folder."""
+    if prefix not in VALID_PREFIXES:
+        raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
+    q = select(PlanDocument).where(PlanDocument.prefix == prefix, PlanDocument.name == name)
+    if version is not None:
+        q = q.where(PlanDocument.version == version)
+    doc = await session.scalar(q.order_by(PlanDocument.version.desc()))
     if doc is None:
         raise HTTPException(status_code=404, detail=f"no stored plan {prefix}/{name}")
     folders = await plan_library.placement_map(session)

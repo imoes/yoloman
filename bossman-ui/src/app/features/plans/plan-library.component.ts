@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import * as monaco from 'monaco-editor';
-import { PlanDocument, PlanService, StoredPlan } from '../../core/services/plan.service';
+import { PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
 
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
   getWorker() {
@@ -54,11 +54,19 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
         @if (doc(); as d) {
           <div class="bm-pl-bar">
             <span class="bm-pl-name">{{ d.prefix }}/{{ d.name }} <span class="bm-dim">v{{ d.version }}</span></span>
-            <mat-button-toggle-group [value]="fmt()" (change)="setFmt($event.value)" hideSingleSelectionIndicator>
+            <mat-button-toggle-group [value]="fmt()" (change)="setFmt($event.value)" hideSingleSelectionIndicator [disabled]="diffMode()">
               <mat-button-toggle value="nt">NT</mat-button-toggle>
               <mat-button-toggle value="yaml">YAML</mat-button-toggle>
               <mat-button-toggle value="json">JSON</mat-button-toggle>
             </mat-button-toggle-group>
+            @if (versions().length > 1) {
+              <select class="bm-diff-sel" [ngModel]="diffVersion()" (ngModelChange)="onDiff($event)" title="Compare with an older version">
+                <option [ngValue]="null">edit (v{{ d.version }})</option>
+                @for (v of versions(); track v.version) {
+                  @if (v.version !== d.version) { <option [ngValue]="v.version">diff ⟷ v{{ v.version }}</option> }
+                }
+              </select>
+            }
             <span class="bm-spacer"></span>
             <input class="bm-move" type="text" placeholder="folder (linux/base)" [(ngModel)]="moveFolder" (keyup.enter)="doMove()" />
             <button mat-stroked-button (click)="doMove()" [disabled]="busy()"><mat-icon>drive_file_move</mat-icon> Move</button>
@@ -70,8 +78,9 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
           <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (NT · YAML · JSON).</p>
         }
         <!-- Single, stable editor element (Monaco lives here for the panel's
-             lifetime); hidden until a plan is opened. -->
-        <div class="bm-pl-mon" #editor [style.display]="doc() ? 'block' : 'none'"></div>
+             lifetime); hidden until a plan is opened or when diffing. -->
+        <div class="bm-pl-mon" #editor [style.display]="doc() && !diffMode() ? 'block' : 'none'"></div>
+        <div class="bm-pl-mon" #diffEditor [style.display]="diffMode() ? 'block' : 'none'"></div>
       </section>
     </div>
   `,
@@ -96,6 +105,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       .bm-dim { opacity: 0.5; font-weight: 400; }
       .bm-spacer { flex: 1; }
       .bm-move { padding: 5px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-size: 12px; width: 150px; }
+      .bm-diff-sel { padding: 5px 7px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-size: 12px; }
       .bm-pl-mon { flex: 1; min-height: 340px; }
       .bm-ok { color: #2e7d32; font-size: 12px; margin: 4px 10px; }
       .bm-err { color: #c62828; font-size: 12px; margin: 4px 10px; }
@@ -105,8 +115,13 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
 export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   private planService = inject(PlanService);
   @ViewChild('editor') editorEl!: ElementRef<HTMLDivElement>;
+  @ViewChild('diffEditor') diffEditorEl!: ElementRef<HTMLDivElement>;
 
   plans = signal<StoredPlan[]>([]);
+  versions = signal<PlanVersion[]>([]);
+  diffVersion = signal<number | null>(null);
+  diffMode = computed(() => this.diffVersion() !== null);
+  private diffEd?: monaco.editor.IStandaloneDiffEditor;
   loading = signal(false);
   loadErr = signal<string | null>(null);
   expanded = signal<Set<string>>(new Set(['']));
@@ -158,7 +173,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     this.reload();
   }
 
-  ngOnDestroy(): void { this.ed?.dispose(); }
+  ngOnDestroy(): void { this.ed?.dispose(); this.diffEd?.dispose(); }
 
   reload(): void {
     this.loading.set(true);
@@ -178,7 +193,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   isSel(p: StoredPlan): boolean { const d = this.doc(); return !!d && d.prefix === p.prefix && d.name === p.name; }
 
   open(p: { prefix: string; name: string }): void {
-    this.msg.set(null); this.saveErr.set(null);
+    this.msg.set(null); this.saveErr.set(null); this.diffVersion.set(null);
     this.planService.document(p.prefix, p.name).subscribe({
       next: (d) => {
         this.doc.set(d);
@@ -187,6 +202,30 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
         this.applyFmt();
       },
       error: (e) => this.saveErr.set(e?.error?.detail ?? 'failed to load document'),
+    });
+    this.planService.versions(p.prefix, p.name).subscribe({ next: (r) => this.versions.set(r.versions ?? []), error: () => this.versions.set([]) });
+  }
+
+  /** Compare the current version with an older one in a Monaco diff editor
+   * (JSON both sides). null → back to the normal edit view. */
+  onDiff(version: number | null): void {
+    this.diffVersion.set(version);
+    const d = this.doc();
+    if (version === null || !d) return;
+    this.planService.document(d.prefix, d.name, version).subscribe({
+      next: (old) => {
+        if (!this.diffEd) {
+          this.diffEd = monaco.editor.createDiffEditor(this.diffEditorEl.nativeElement, {
+            readOnly: true, automaticLayout: true, fontSize: 12, renderSideBySide: true,
+            theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
+          });
+        }
+        this.diffEd.setModel({
+          original: monaco.editor.createModel(old.formats.json, 'json'),
+          modified: monaco.editor.createModel(d.formats.json, 'json'),
+        });
+      },
+      error: (e) => this.saveErr.set(e?.error?.detail ?? 'failed to load version'),
     });
   }
 

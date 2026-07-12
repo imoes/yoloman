@@ -31,9 +31,15 @@ export class PlanService {
     return this.http.get<{ plans: StoredPlan[]; folders: string[] }>(`${environment.apiUrl}/plan-library`);
   }
 
-  /** The latest stored version rendered in all three authoring formats. */
-  document(prefix: string, name: string) {
-    return this.http.get<PlanDocument>(`${this.base}/stored/${prefix}/${encodeURIComponent(name)}/document`);
+  /** A stored version rendered in all three authoring formats (latest by default). */
+  document(prefix: string, name: string, version?: number) {
+    const q = version ? `?version=${version}` : '';
+    return this.http.get<PlanDocument>(`${this.base}/stored/${prefix}/${encodeURIComponent(name)}/document${q}`);
+  }
+
+  /** All stored versions of a plan (newest first) for the diff picker. */
+  versions(prefix: string, name: string) {
+    return this.http.get<{ versions: PlanVersion[] }>(`${this.base}/stored/${prefix}/${encodeURIComponent(name)}/versions`);
   }
 
   /** Place a plan/role into a folder path ("" = root). */
@@ -52,6 +58,7 @@ export class PlanService {
 }
 
 export interface StoredPlan { prefix: string; name: string; version: number; source_format: string; content_hash: string; folder: string; }
+export interface PlanVersion { version: number; source_format: string; content_hash: string; created_at: string | null; created_by: string | null; }
 export interface PlanDocument {
   prefix: string; name: string; version: number; source_format: string; folder: string;
   formats: { nt: string; yaml: string; json: string };
