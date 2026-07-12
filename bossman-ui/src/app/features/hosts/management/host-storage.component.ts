@@ -58,6 +58,7 @@ interface DevRow {
             <button mat-icon-button [matMenuTriggerFor]="createMenu" [disabled]="busy()" title="Create storage device"><mat-icon>add</mat-icon></button>
             <mat-menu #createMenu="matMenu">
               <button mat-menu-item (click)="createVg()"><mat-icon>dns</mat-icon> Create LVM volume group</button>
+              <button mat-menu-item (click)="createZpool()"><mat-icon>waves</mat-icon> Create ZFS pool</button>
               <button mat-menu-item (click)="wizard()"><mat-icon>auto_awesome</mat-icon> Create storage (thin/VDO/ZFS)…</button>
             </mat-menu>
           </header>
@@ -94,6 +95,12 @@ interface DevRow {
                           } @else {
                             <button mat-menu-item (click)="mount(d)"><mat-icon>save</mat-icon> Mount…</button>
                           }
+                        }
+                        @if (d.fstype === 'LVM2_member') {
+                          <button mat-menu-item (click)="pvresize(d)"><mat-icon>open_in_full</mat-icon> Grow PV to fill device (pvresize)</button>
+                        }
+                        @if ((d.type === 'disk' || d.type === 'part') && !d.fstype && !d.mountpoint) {
+                          <button mat-menu-item (click)="createPv(d)"><mat-icon>album</mat-icon> Initialize as LVM PV (pvcreate)…</button>
                         }
                         @if (d.type === 'part') {
                           <button mat-menu-item class="bm-danger" (click)="deletePartition(d)"><mat-icon>delete</mat-icon> Delete partition</button>
@@ -152,14 +159,33 @@ interface DevRow {
           }
         </section>
 
-        @if (s.zfs.available) {
-          <section class="bm-card">
-            <header class="bm-card-head"><h3>ZFS pools</h3></header>
-            <table class="bm-ct"><tbody>
-              @for (p of s.zfs.pools || []; track $index) { <tr><td class="bm-dev"><mat-icon class="bm-dev-ic">waves</mat-icon>{{ p.name || p }}</td></tr> }
-            </tbody></table>
-          </section>
-        }
+        <!-- ZFS: always listed (even without tooling/pools) so it's discoverable. -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>ZFS pools</h3>
+            @if (!s.zfs.available) { <span class="bm-na">zfs tooling not installed</span> }
+            <span class="bm-spacer"></span>
+            <button mat-icon-button (click)="createZpool()" [disabled]="busy()" title="Create ZFS pool"><mat-icon>add</mat-icon></button>
+          </header>
+          @if ((s.zfs.pools || []).length) {
+            <table class="bm-ct">
+              <tbody>
+                @for (p of s.zfs.pools || []; track $index) {
+                  <tr>
+                    <td class="bm-dev"><mat-icon class="bm-dev-ic">waves</mat-icon>{{ p.name || p }}</td>
+                    <td class="bm-right">
+                      <button mat-icon-button [matMenuTriggerFor]="zpMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
+                      <mat-menu #zpMenu="matMenu">
+                        <button mat-menu-item (click)="createDataset(p.name || p)"><mat-icon>add</mat-icon> Create dataset…</button>
+                      </mat-menu>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="bm-empty">No ZFS pools. Use “Create ZFS pool” to make one from free devices.</p>
+          }
+        </section>
       }
     </div>
   `,
@@ -445,7 +471,8 @@ export class HostStorageComponent {
           { tag: 'size', title: 'New size', type: 'sizeSlider', min: 1024 * 1024, max: currentBytes + (freeBytes || 0), round: 4 * 1024 * 1024, initial: currentBytes },
         ],
         submitLabel: 'Resize',
-        action: (v) => this.tool('community.general.lvol', { vg, lv, size: `${Math.round(this.num(v['size']) / (1024 * 1024))}M` }),
+        // resizefs → lvresize --resizefs, so the filesystem grows/shrinks with the LV.
+        action: (v) => this.tool('community.general.lvol', { vg, lv, size: `${Math.round(this.num(v['size']) / (1024 * 1024))}M`, resizefs: true }),
       })
       .subscribe((r) => this.applied(r));
   }
@@ -459,6 +486,63 @@ export class HostStorageComponent {
         fields: [{ tag: 'c', title: '', type: 'message', text: `Delete logical volume ${vg}/${lv}?` }],
         submitLabel: 'Delete',
         action: () => this.tool('community.general.lvol', { vg, lv, state: 'absent', force: true }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  /** pvresize — grow the PV to fill its (enlarged) partition/disk. Non-destructive. */
+  pvresize(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Grow physical volume — ${d.name}`,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Runs pvresize ${d.path} so LVM uses the full size of the (grown) device.` }],
+        submitLabel: 'Resize PV',
+        action: () => this.tool('shell', { cmd: `pvresize ${shq(d.path)}` }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  /** pvcreate — initialize a device as an LVM physical volume. Destructive. */
+  createPv(d: DevRow): void {
+    this.dialogs
+      .open({
+        title: `Initialize PV — ${d.name}`,
+        danger: 'Initializing writes LVM metadata and erases existing data on the device.',
+        dangerButton: true,
+        fields: [{ tag: 'c', title: '', type: 'message', text: `Runs pvcreate -y ${d.path}.` }],
+        submitLabel: 'Create PV',
+        action: () => this.tool('shell', { cmd: `pvcreate -y ${shq(d.path)}` }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  /** Create a ZFS pool from free devices (zpool create). */
+  createZpool(): void {
+    const spaces = this.rows().filter((d) => (d.type === 'disk' || d.type === 'part') && !d.mountpoint && !d.fstype)
+      .map((d) => ({ value: d.path, title: d.path, size: d.size }));
+    this.dialogs
+      .open({
+        title: 'Create ZFS pool',
+        danger: 'The selected devices are wiped and added to the new pool.',
+        dangerButton: true,
+        fields: [
+          { tag: 'name', title: 'Pool name', type: 'text', placeholder: 'tank', validate: (v) => (String(v || '').trim() ? null : 'Name required') },
+          { tag: 'devs', title: 'Devices', type: 'selectSpaces', spaces, minSelected: 1, emptyWarning: 'Select at least one device' },
+        ],
+        submitLabel: 'Create pool',
+        action: (v) => this.tool('shell', { cmd: `zpool create -f ${shq(String(v['name']).trim())} ${(v['devs'] as string[]).map(shq).join(' ')}` }),
+      })
+      .subscribe((r) => this.applied(r));
+  }
+
+  /** Create a dataset inside an existing ZFS pool (community.general.zfs). */
+  createDataset(pool: string): void {
+    this.dialogs
+      .open({
+        title: `Create dataset in ${pool}`,
+        fields: [{ tag: 'name', title: 'Dataset name', type: 'text', placeholder: 'data', validate: (v) => (String(v || '').trim() ? null : 'Name required') }],
+        submitLabel: 'Create',
+        action: (v) => this.tool('community.general.zfs', { name: `${pool}/${String(v['name']).trim()}`, state: 'present' }),
       })
       .subscribe((r) => this.applied(r));
   }

@@ -1,7 +1,5 @@
 import { Component, inject, input, signal, viewChild } from '@angular/core';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { AgentService } from '../../../core/services/agent.service';
 import { HostServicesComponent } from './host-services.component';
 import { HostLogsComponent } from './host-logs.component';
@@ -23,16 +21,8 @@ import { HostUpdatesComponent } from './host-updates.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, MatButtonModule, MatIconModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
+  imports: [MatTabsModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
   template: `
-    <div class="bm-mgmt-bar">
-      <span class="bm-mgmt-hint">Network/Storage actions need their modules on the host.</span>
-      <span class="bm-spacer"></span>
-      @if (syncMsg()) { <span class="bm-sync-msg">{{ syncMsg() }}</span> }
-      <button mat-stroked-button (click)="enableModules()" [disabled]="syncing()">
-        <mat-icon>download_for_offline</mat-icon> {{ syncing() ? 'Enabling…' : 'Enable management modules' }}
-      </button>
-    </div>
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Network">
         <div class="bm-mgmt-pane">
@@ -85,21 +75,16 @@ import { HostUpdatesComponent } from './host-updates.component';
   `,
   styles: [`
     .bm-mgmt-pane { padding: 12px 4px; }
-    .bm-mgmt-bar { display: flex; align-items: center; gap: 10px; padding: 4px 4px 10px; }
-    .bm-spacer { flex: 1; }
-    .bm-mgmt-hint { font-size: 12.5px; opacity: 0.6; }
-    .bm-sync-msg { font-size: 12.5px; opacity: 0.8; }
   `],
 })
 export class HostManagementComponent {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
 
-  syncing = signal(false);
-  syncMsg = signal<string>('');
   // The Firewall tab is only shown when firewalld's CLI exists on the host.
   firewallAvailable = signal(true);
   private firewallProbed = false;
+  private modulesSynced = false;
 
   private probeFirewall(): void {
     if (this.firewallProbed) return;
@@ -113,25 +98,21 @@ export class HostManagementComponent {
     });
   }
 
-  /** The Starlark modules the Network/Storage/Firewall actions call. Pushing
-   * them makes those actions executable on this host (a no-op if already present). */
+  /** The Starlark modules the Network/Storage/Firewall actions call. They are
+   * pushed automatically when the Management tab is opened (idempotent, a no-op
+   * if already present) — no manual "enable" step. Includes ZFS (zpool + zfs
+   * dataset) alongside LVM/VDO. */
   private static readonly MGMT_MODULES = [
     'community.general.nmcli', 'posix.mount', 'community.general.filesystem',
     'community.general.parted', 'posix.firewalld', 'community.general.lvg',
     'community.general.lvol', 'community.general.vdo', 'community.general.zfs',
   ];
 
-  enableModules(): void {
-    this.syncing.set(true);
-    this.syncMsg.set('');
-    this.agentService.syncModules(this.agentId(), HostManagementComponent.MGMT_MODULES).subscribe({
-      next: (r) => {
-        this.syncing.set(false);
-        const failed = (r.result?.results || []).filter((x) => !x.ok).map((x) => x.fqcn);
-        this.syncMsg.set(failed.length ? `pushed ${r.pushed}, failed: ${failed.join(', ')}` : `✓ ${r.result.applied} modules ready`);
-      },
-      error: (e) => { this.syncing.set(false); this.syncMsg.set(e?.error?.detail ?? 'push failed'); },
-    });
+  /** Push the management module set once per view, silently. */
+  private ensureModules(): void {
+    if (this.modulesSynced) return;
+    this.modulesSynced = true;
+    this.agentService.syncModules(this.agentId(), HostManagementComponent.MGMT_MODULES).subscribe({ next: () => {}, error: () => {} });
   }
 
   private network = viewChild(HostNetworkComponent);
@@ -162,5 +143,6 @@ export class HostManagementComponent {
   activate(): void {
     this.network()?.loadOnce();
     this.probeFirewall();
+    this.ensureModules();
   }
 }
