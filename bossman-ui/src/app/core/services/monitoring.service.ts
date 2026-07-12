@@ -66,6 +66,14 @@ export class MonitoringService {
     return this.http.delete<ServiceState>(`${this.base}/services/${serviceId}/acknowledge`);
   }
 
+  /** Acknowledge many problems at once (multi-select on the Problems table). */
+  bulkAcknowledge(serviceIds: string[], comment: string, expireAfterMinutes: number | null = null) {
+    return this.http.post<{ acknowledged: string[]; missing: string[]; count: number }>(
+      `${this.base}/services/acknowledge-bulk`,
+      { service_ids: serviceIds, comment, expire_after_minutes: expireAfterMinutes },
+    );
+  }
+
   listDowntimes(agentId?: string) {
     let params = new HttpParams();
     if (agentId) params = params.set('agent_id', agentId);

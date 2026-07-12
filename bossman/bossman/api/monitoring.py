@@ -264,6 +264,39 @@ async def acknowledge_service_route(
     return ServiceOut.from_view(await to_view(session, service))
 
 
+class BulkAcknowledgeRequest(BaseModel):
+    service_ids: list[UUID]
+    comment: str = ""
+    expire_after_minutes: int | None = None
+
+
+class BulkAcknowledgeResponse(BaseModel):
+    acknowledged: list[str]
+    missing: list[str]
+    count: int
+
+
+@router.post("/api/v1/services/acknowledge-bulk", response_model=BulkAcknowledgeResponse)
+async def bulk_acknowledge_services(
+    body: BulkAcknowledgeRequest,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> BulkAcknowledgeResponse:
+    """Acknowledge many problems at once (multi-select on the Problems table),
+    the same mutation as the per-service route applied over a list — mirrors
+    the mass_update_agent_groups bulk shape. Unknown ids are reported in
+    `missing` rather than failing the whole batch."""
+    expires_at = None
+    if body.expire_after_minutes and body.expire_after_minutes > 0:
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=body.expire_after_minutes)
+    acked: list[str] = []
+    missing: list[str] = []
+    for sid in body.service_ids:
+        service = await acknowledge_service(session, sid, body.comment, identity.name, expires_at)
+        (acked if service is not None else missing).append(str(sid))
+    return BulkAcknowledgeResponse(acknowledged=acked, missing=missing, count=len(acked))
+
+
 @router.delete("/api/v1/services/{service_id}/acknowledge", response_model=ServiceOut)
 async def unacknowledge_service_route(
     service_id: UUID,

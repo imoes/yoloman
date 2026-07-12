@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { ServiceState } from '../../core/models/monitoring.model';
@@ -37,6 +38,7 @@ import { serviceStateBadge } from '../../shared/status.util';
     MatSlideToggleModule,
     MatFormFieldModule,
     MatInputModule,
+    MatCheckboxModule,
     HostStatusBadgeComponent,
     StatusFilterChipsComponent,
   ],
@@ -55,11 +57,25 @@ import { serviceStateBadge } from '../../shared/status.util';
         </mat-slide-toggle>
       </div>
 
+      @if (selectedCount()) {
+        <div class="bm-bulk-bar">
+          <span class="bm-bulk-count">{{ selectedCount() }} selected</span>
+          <button mat-raised-button color="primary" (click)="bulkAcknowledge()">
+            <mat-icon>done_all</mat-icon> Acknowledge selected
+          </button>
+          <button mat-button (click)="clearSelection()">Clear</button>
+        </div>
+      }
+
       <mat-card>
         @if (problems().length) {
           <table class="bm-table">
             <thead>
               <tr>
+                <th class="bm-cb">
+                  <mat-checkbox [checked]="allSelected()" [indeterminate]="someSelected()"
+                                (change)="toggleAll($event.checked)" title="Select all shown" />
+                </th>
                 <th>Host</th>
                 <th>Service</th>
                 <th>State</th>
@@ -70,7 +86,10 @@ import { serviceStateBadge } from '../../shared/status.util';
             </thead>
             <tbody>
               @for (p of problems(); track p.id) {
-                <tr>
+                <tr [class.bm-row-sel]="isSelected(p.id)">
+                  <td class="bm-cb">
+                    <mat-checkbox [checked]="isSelected(p.id)" (change)="toggle(p.id)" />
+                  </td>
                   <td><a [routerLink]="['/hosts', p.agent_id]">{{ p.agent_name }}</a></td>
                   <td>{{ p.name }}</td>
                   <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
@@ -136,6 +155,26 @@ import { serviceStateBadge } from '../../shared/status.util';
         white-space: nowrap;
         text-align: right;
       }
+      .bm-cb {
+        width: 40px;
+        padding-left: 12px;
+      }
+      .bm-row-sel {
+        background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+      }
+      .bm-bulk-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+        border: 1px solid var(--mat-sys-primary);
+      }
+      .bm-bulk-count {
+        font-weight: 600;
+      }
       .bm-tag {
         font-size: 12px;
         opacity: 0.75;
@@ -159,6 +198,8 @@ export class ProblemsListComponent implements OnInit {
   stateFilter = signal<string | null>(null);
   hostFilter = '';
   showAcknowledged = signal(false);
+  /** Multi-select for bulk acknowledge — set of selected service (problem) ids. */
+  selected = signal<Set<string>>(new Set());
 
   ngOnInit(): void {
     this.reload();
@@ -174,7 +215,53 @@ export class ProblemsListComponent implements OnInit {
       .subscribe((problems) => {
         this.problems.set(problems);
         this.loaded.set(true);
+        // Drop selections that are no longer in the (re)filtered list.
+        const ids = new Set(problems.map((p) => p.id));
+        const kept = new Set([...this.selected()].filter((id) => ids.has(id)));
+        this.selected.set(kept);
       });
+  }
+
+  // ---- multi-select ----
+  selectedCount(): number {
+    return this.selected().size;
+  }
+  isSelected(id: string): boolean {
+    return this.selected().has(id);
+  }
+  allSelected(): boolean {
+    const rows = this.problems();
+    return rows.length > 0 && rows.every((p) => this.selected().has(p.id));
+  }
+  someSelected(): boolean {
+    return this.selectedCount() > 0 && !this.allSelected();
+  }
+  toggle(id: string): void {
+    const next = new Set(this.selected());
+    next.has(id) ? next.delete(id) : next.add(id);
+    this.selected.set(next);
+  }
+  toggleAll(checked: boolean): void {
+    this.selected.set(checked ? new Set(this.problems().map((p) => p.id)) : new Set());
+  }
+  clearSelection(): void {
+    this.selected.set(new Set());
+  }
+
+  bulkAcknowledge(): void {
+    const ids = [...this.selected()];
+    if (!ids.length) return;
+    const ref = this.dialog.open(AcknowledgeDialogComponent, {
+      width: '420px',
+      data: { serviceName: `${ids.length} problems`, hostName: 'multiple hosts' },
+    });
+    ref.afterClosed().subscribe((result: AcknowledgeDialogResult | undefined) => {
+      if (!result) return;
+      this.monitoringService.bulkAcknowledge(ids, result.comment, result.expireAfterMinutes).subscribe(() => {
+        this.clearSelection();
+        this.reload();
+      });
+    });
   }
 
   onStateChange(state: string | null): void {
