@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/runbooks', label: 'Runbooks', icon: 'terminal' },
   { path: '/plans', label: 'Plans', icon: 'checklist' },
+  { path: '/plan-library', label: 'Plan library', icon: 'folder_special' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },

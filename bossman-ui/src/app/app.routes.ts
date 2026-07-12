@@ -71,6 +71,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/security/security.component').then((m) => m.SecurityComponent),
   },
   {
+    path: 'plan-library',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/plans/plan-library.component').then((m) => m.PlanLibraryComponent),
+  },
+  {
     path: 'ou',
     canActivate: [authGuard],
     loadComponent: () => import('./features/ou-policy/ou-policy.component').then((m) => m.OuPolicyComponent),
