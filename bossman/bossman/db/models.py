@@ -1351,20 +1351,51 @@ class Downtime(Base):
     __table_args__ = (Index("idx_downtimes_agent_window", "agent_id", "starts_at", "ends_at"),)
 
 
+class Dashboard(Base):
+    """A named operator dashboard (Checkmk-style dashboard management). Each
+    user owns several; one is `is_default`. `source` distinguishes a hand-built
+    dashboard ('manual') from an AI-generated one ('ai', which keeps its
+    `prompt`). `context` holds the dashboard's filter context (Block B) — a
+    {filter_ident: {var: value}} map applied to every widget's query. Widgets
+    belong to a dashboard via DashboardWidget.dashboard_id; unifying the old
+    per-user single grid + the separate AI blob into one model."""
+
+    __tablename__ = "dashboards"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    username: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="manual")  # manual | ai
+    prompt: Mapped[str] = mapped_column(String, nullable=False, default="")
+    context: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    widgets: Mapped[list["DashboardWidget"]] = relationship(
+        back_populates="dashboard", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("username", "name", name="uq_dashboards_username_name"),
+        Index("idx_dashboards_username", "username"),
+    )
+
+
 class DashboardWidget(Base):
-    """One GridStack widget on a Bossman operator's own Fleet Overview
-    dashboard (see docs/plan.md's monitoring-cockpit ergänzung Block F5,
-    modeled directly on CentralStation's own dashboard-widget shape).
-    Keyed by `username`, not a `bossman_users.id` foreign key: services.
-    auth.Identity (what every REST route actually authenticates against)
-    carries a username, not that row's UUID, and looking it up per widget
-    request would be one more join for no real benefit at this project's
-    single-admin-mostly scale — an accepted simplification, not an
-    oversight."""
+    """One GridStack widget on an operator dashboard (see docs/plan.md's
+    monitoring-cockpit ergänzung Block F5, modeled on CentralStation's
+    dashboard-widget shape). Belongs to a Dashboard via `dashboard_id`;
+    `username` is retained for scoping/back-compat. An AI-generated widget
+    carries its inline data in `config['static']` (rendered as-is) instead of
+    being computed server-side."""
 
     __tablename__ = "dashboard_widgets"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    dashboard_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dashboards.id", ondelete="CASCADE"), nullable=True
+    )
     username: Mapped[str] = mapped_column(String, nullable=False)
     widget_type: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -1377,12 +1408,16 @@ class DashboardWidget(Base):
     hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
+    dashboard: Mapped["Dashboard | None"] = relationship(back_populates="widgets")
+
     __table_args__ = (
         CheckConstraint(
-            "widget_type IN ('top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat')",
+            "widget_type IN ('top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat', "
+            "'bar', 'table', 'status_tiles', 'progress', 'ai_summary', 'war_room', 'log', 'callout')",
             name="ck_dashboard_widgets_type",
         ),
         Index("idx_dashboard_widgets_username", "username"),
+        Index("idx_dashboard_widgets_dashboard", "dashboard_id"),
     )
 
 

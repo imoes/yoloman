@@ -13,17 +13,90 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import DashboardWidget, Metric
+from bossman.db.models import Dashboard, DashboardWidget, Metric
 from bossman.services.monitoring import fleet_hosts, fleet_summary, query_problems
 
-# The widget catalog this dashboard actually supports — deliberately a
-# small, honest subset of CentralStation's own type union: only types
-# with a real Bossman data source behind them (no "grafana_panel",
-# "war_room", "ai_summary", ... which nothing in this project produces).
+# The widget catalog this dashboard actually computes data for — the honest
+# data-backed subset offered in the add-widget dialog.
 WIDGET_TYPES = ("top_hosts", "problems", "gauge", "timeseries", "donut", "stat")
+
+# The full render set (matches the DB check constraint + the UI renderer). The
+# extra 8 are AI-emitted widgets that carry their payload in config['static']
+# rather than being computed here — valid to persist, just not in the catalog.
+WIDGET_TYPES_ALL = WIDGET_TYPES + (
+    "bar", "table", "status_tiles", "progress", "ai_summary", "war_room", "log", "callout",
+)
+
+
+async def list_dashboards(session: AsyncSession, username: str) -> list[Dashboard]:
+    return list(
+        (
+            await session.scalars(
+                select(Dashboard).where(Dashboard.username == username).order_by(Dashboard.created_at)
+            )
+        ).all()
+    )
+
+
+async def ensure_default_dashboard(session: AsyncSession, username: str) -> Dashboard:
+    """Every operator has at least one dashboard. Returns the user's default,
+    creating a first "Fleet Overview" if they have none yet (new users)."""
+    existing = await list_dashboards(session, username)
+    if existing:
+        return next((d for d in existing if d.is_default), existing[0])
+    dash = Dashboard(username=username, name="Fleet Overview", is_default=True, source="manual")
+    session.add(dash)
+    await session.commit()
+    return dash
+
+
+async def create_dashboard(
+    session: AsyncSession, username: str, *, name: str, source: str = "manual", prompt: str = "",
+) -> Dashboard:
+    make_default = not await list_dashboards(session, username)
+    dash = Dashboard(username=username, name=name, source=source, prompt=prompt, is_default=make_default)
+    session.add(dash)
+    await session.commit()
+    return dash
+
+
+async def update_dashboard(
+    session: AsyncSession, username: str, dashboard_id: UUID, *,
+    name: str | None = None, is_default: bool | None = None,
+) -> Dashboard | None:
+    dash = await session.get(Dashboard, dashboard_id)
+    if dash is None or dash.username != username:
+        return None
+    if name is not None:
+        dash.name = name
+    if is_default:
+        # Exactly one default per user.
+        await session.execute(
+            sa_update(Dashboard).where(Dashboard.username == username).values(is_default=False)
+        )
+        dash.is_default = True
+    dash.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return dash
+
+
+async def delete_dashboard(session: AsyncSession, username: str, dashboard_id: UUID) -> bool:
+    dash = await session.get(Dashboard, dashboard_id)
+    if dash is None or dash.username != username:
+        return False
+    was_default = dash.is_default
+    await session.delete(dash)  # cascades to its widgets
+    await session.commit()
+    if was_default:
+        # Promote another dashboard to default so the user always has one.
+        remaining = await list_dashboards(session, username)
+        if remaining:
+            remaining[0].is_default = True
+            await session.commit()
+    return True
 
 # Default GridStack geometry per type when a caller doesn't specify one —
 # mirrors CentralStation's add-widget-dialog defaults.
@@ -37,11 +110,20 @@ DEFAULT_SIZE = {
 }
 
 
-async def list_widgets(session: AsyncSession, username: str) -> list[DashboardWidget]:
+async def list_widgets(
+    session: AsyncSession, username: str, dashboard_id: UUID | None = None
+) -> list[DashboardWidget]:
+    """Widgets of one dashboard (scoped by username for authz). Without a
+    dashboard_id, falls back to the user's default dashboard so the legacy
+    flat endpoint keeps working during the UI transition."""
+    if dashboard_id is None:
+        dashboard_id = (await ensure_default_dashboard(session, username)).id
     return list(
         (
             await session.scalars(
-                select(DashboardWidget).where(DashboardWidget.username == username).order_by(DashboardWidget.created_at)
+                select(DashboardWidget)
+                .where(DashboardWidget.username == username, DashboardWidget.dashboard_id == dashboard_id)
+                .order_by(DashboardWidget.created_at)
             )
         ).all()
     )
@@ -51,6 +133,7 @@ async def create_widget(
     session: AsyncSession,
     username: str,
     *,
+    dashboard_id: UUID | None = None,
     widget_type: str,
     title: str,
     gs_x: int = 0,
@@ -59,8 +142,11 @@ async def create_widget(
     gs_h: int | None = None,
     config: dict | None = None,
 ) -> DashboardWidget:
+    if dashboard_id is None:
+        dashboard_id = (await ensure_default_dashboard(session, username)).id
     default_w, default_h = DEFAULT_SIZE.get(widget_type, (4, 3))
     widget = DashboardWidget(
+        dashboard_id=dashboard_id,
         username=username,
         widget_type=widget_type,
         title=title,
@@ -181,6 +267,10 @@ async def widget_data(session: AsyncSession, widget: DashboardWidget) -> dict[st
     deliberately minimal JSON the frontend's polymorphic renderer maps
     straight onto an ECharts option builder."""
     cfg = widget.config or {}
+    # AI-generated widgets carry their payload inline (Block W2 → unified model);
+    # serve it as-is rather than recomputing from a data source.
+    if "static" in cfg:
+        return cfg["static"] or {}
     if widget.widget_type == "top_hosts":
         hosts = await fleet_hosts(session)
         limit = cfg.get("limit", 10)
