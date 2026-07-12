@@ -20,6 +20,11 @@ export class PlanService {
     return this.http.post<RunPlanResponse>(`${this.base}/${encodeURIComponent(name)}/run`, body);
   }
 
+  /** AI briefing (md + optional UML) shown above the run form. */
+  briefing(name: string) {
+    return this.http.post<PlanBriefing>(`${this.base}/${encodeURIComponent(name)}/briefing`, {});
+  }
+
   reload() {
     return this.http.post<{ reloaded: boolean; catalog_length: number }>(`${this.base}/reload`, {});
   }
@@ -57,6 +62,7 @@ export class PlanService {
   }
 }
 
+export interface PlanBriefing { markdown: string | null; error: string | null; }
 export interface StoredPlan { prefix: string; name: string; version: number; source_format: string; content_hash: string; folder: string; }
 export interface PlanVersion { version: number; source_format: string; content_hash: string; created_at: string | null; created_by: string | null; }
 export interface PlanDocument {

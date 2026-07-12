@@ -15,6 +15,7 @@ import { PlanDetail, PlanParam } from '../../core/models/plan.model';
 import { PlanRunDetail } from '../../core/models/run.model';
 import { HostPickerComponent } from '../../shared/components/host-picker/host-picker.component';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
+import { MarkdownViewComponent } from '../../shared/components/markdown-view/markdown-view.component';
 import { runStatusBadge } from '../../shared/status.util';
 
 export interface RunPlanDialogData {
@@ -48,6 +49,7 @@ interface ParamEntry {
     MatProgressSpinnerModule,
     HostPickerComponent,
     HostStatusBadgeComponent,
+    MarkdownViewComponent,
   ],
   template: `
     <h2 mat-dialog-title>Run {{ data.plan.name }}</h2>
@@ -60,6 +62,17 @@ interface ParamEntry {
             enrollment command.
           </p>
         } @else {
+          <div class="bm-briefing">
+            @if (briefingLoading()) {
+              <div class="bm-briefing-loading">
+                <mat-spinner diameter="16" /> <span>AI is reviewing this task…</span>
+              </div>
+            } @else if (briefing(); as b) {
+              <app-markdown-view [text]="b" />
+            } @else if (briefingError()) {
+              <p class="bm-briefing-skip">AI briefing unavailable — {{ briefingError() }}</p>
+            }
+          </div>
           <app-host-picker [agents]="agents()" (selected)="selectedHost.set($event)" />
           <form [formGroup]="form" class="bm-param-form">
             @for (p of paramEntries; track p.name) {
@@ -155,6 +168,24 @@ interface ParamEntry {
         opacity: 0.8;
         line-height: 1.5;
       }
+      .bm-briefing {
+        margin-bottom: 12px;
+        padding: 12px;
+        border-radius: 6px;
+        background: var(--mat-sys-surface-container-low, rgba(0, 0, 0, 0.04));
+        border-left: 3px solid var(--mat-sys-primary, #6750a4);
+      }
+      .bm-briefing-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        opacity: 0.8;
+      }
+      .bm-briefing-skip {
+        margin: 0;
+        opacity: 0.6;
+        font-size: 0.85em;
+      }
     `,
   ],
 })
@@ -172,6 +203,9 @@ export class RunPlanDialogComponent implements OnInit {
   previewResult = signal<PlanRunDetail | null>(null);
   applyResult = signal<PlanRunDetail | null>(null);
   error = signal<string | null>(null);
+  briefing = signal<string | null>(null);
+  briefingLoading = signal(true);
+  briefingError = signal<string | null>(null);
 
   paramEntries: ParamEntry[] = [];
   form = new FormGroup<Record<string, FormControl>>({});
@@ -193,6 +227,19 @@ export class RunPlanDialogComponent implements OnInit {
     this.agentService.list().subscribe((agents) => {
       this.agents.set(agents);
       this.agentsLoaded.set(true);
+    });
+    // AI briefing — the model decides itself whether a UML diagram helps.
+    // Best-effort: a form-only fallback if the LLM endpoint is unavailable.
+    this.planService.briefing(this.data.plan.name).subscribe({
+      next: (b) => {
+        this.briefing.set(b.markdown);
+        this.briefingError.set(b.markdown ? null : b.error);
+        this.briefingLoading.set(false);
+      },
+      error: (err) => {
+        this.briefingError.set(err.error?.detail ?? 'briefing failed');
+        this.briefingLoading.set(false);
+      },
     });
   }
 

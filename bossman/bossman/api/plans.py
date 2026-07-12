@@ -36,6 +36,7 @@ from bossman.services.plan_store import (
 )
 from bossman.services import plan_library
 from bossman.services.nt_convert import doc_to_nt, doc_to_yaml
+from bossman.services.chat_client import ChatClient, ChatClientError
 from bossman.db.models import PlanDocument
 
 router = APIRouter()
@@ -118,6 +119,80 @@ async def get_plan(
 ) -> PlanDetailOut:
     plan = _find_plan_or_404(cache, name)
     return PlanDetailOut(**_plan_out(plan).model_dump(), steps=[_step_out(s) for s in plan.steps])
+
+
+class PlanBriefingOut(BaseModel):
+    """AI briefing shown above the run form (mirrors the chat's md+UML
+    doctrine): what the task does, per-parameter guidance, and — when the
+    model judges it useful — a ```plantuml``` flow diagram. `markdown` is
+    None with `error` set when the LLM is unavailable; the form still works."""
+
+    markdown: str | None
+    error: str | None = None
+
+
+_BRIEFING_SYSTEM = (
+    "You brief an operator who is about to run an automation task on a host. "
+    "You are given the plan: its steps and its parameters. Produce a concise "
+    "Markdown briefing, in this order:\n"
+    "1. One or two sentences on what the task does overall.\n"
+    "2. A short bullet for each parameter the operator must set — what it "
+    "controls and a sensible value; mark the required ones. Skip this if the "
+    "task has no parameters.\n"
+    "3. Explicitly call out any step that WRITES or changes the system, so the "
+    "operator knows what a real (non-dry-run) apply will do.\n"
+    "DECIDE YOURSELF whether a diagram helps: if the task is a multi-step or "
+    "branching flow, include exactly ONE ```plantuml``` activity or sequence "
+    "diagram of the execution order; if it is a single trivial step, use prose "
+    "only and do NOT force a diagram. Be terse — this sits above the input "
+    "form the operator is about to fill in. Do not ask questions."
+)
+
+
+def _briefing_payload(plan: Plan) -> dict[str, Any]:
+    """Compact plan view for the briefing LLM — steps by name/kind/module and
+    the parameter specs, without the full step bodies (which bloat the prompt
+    and rarely change the operator-facing explanation)."""
+    return {
+        "name": plan.name,
+        "description": plan.description,
+        "parameters": {
+            name: {"type": spec.type, "required": spec.required, "default": spec.default}
+            for name, spec in plan.params.items()
+        },
+        "steps": [
+            {"name": s.name, "kind": s.kind, "module": s.module, "on_failure": s.on_failure}
+            for s in plan.steps
+        ],
+    }
+
+
+@router.post("/api/v1/plans/{name}/briefing", response_model=PlanBriefingOut)
+async def plan_briefing(
+    name: str,
+    cache: CatalogCache = Depends(get_catalog_cache),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> PlanBriefingOut:
+    plan = _find_plan_or_404(cache, name)
+    # A tighter timeout than the chat's — this blocks the run dialog, so we'd
+    # rather fall back to a form-only view than hang on an overloaded endpoint.
+    client = ChatClient(
+        base_url=settings.chat_base_url, model=settings.chat_model,
+        token=settings.chat_token, timeout=90.0,
+    )
+    messages = [
+        {"role": "system", "content": _BRIEFING_SYSTEM},
+        {"role": "user", "content": json.dumps(_briefing_payload(plan), indent=2)},
+    ]
+    try:
+        text = await client.complete_text(
+            messages, max_tokens=1500,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        )
+    except ChatClientError as exc:
+        return PlanBriefingOut(markdown=None, error=str(exc)[:300])
+    return PlanBriefingOut(markdown=text.strip())
 
 
 class ReloadResponse(BaseModel):
