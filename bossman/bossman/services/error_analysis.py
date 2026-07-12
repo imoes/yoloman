@@ -37,9 +37,9 @@ async def _tool(client, name, params):
 async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
     """Collect the raw error signals from the host (live) + stored metrics."""
     # journald errors (priority err and worse)
-    journal = await _tool(client, "journal", {"priority": "3", "lines": 80})
+    journal = await _tool(client, "journal", {"priority": "3", "lines": 40})
     journal_errors = [f'{e.get("timestamp", "")} {e.get("unit", "")}: {e.get("message", "")}'
-                      for e in (journal.get("entries") or []) if isinstance(e, dict)][:80]
+                      for e in (journal.get("entries") or []) if isinstance(e, dict)][:40]
 
     # error-ish lines from key /var/log files
     listing = await _tool(client, "logfiles", {"state": "list"})
@@ -52,7 +52,7 @@ async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
         content = await _tool(client, "logfiles", {"state": "read", "path": match, "lines": 200})
         hits = [ln for ln in (content.get("lines") or []) if any(m in ln.lower() for m in ERROR_MARKERS)]
         if hits:
-            file_errors[match] = hits[-30:]
+            file_errors[match] = hits[-12:]
 
     # failed systemd services (service_facts' data may be a list of units or a
     # dict {services|units: ...} depending on the module version)
@@ -87,5 +87,5 @@ async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
         "journal_errors": journal_errors,
         "file_errors": file_errors,
         "failed_services": failed,
-        "metrics": metrics[:120],
+        "metrics": metrics[:60],
     }
