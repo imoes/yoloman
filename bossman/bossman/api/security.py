@@ -9,14 +9,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_admin
+from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, HostCve
 from bossman.db.session import get_session
+from bossman.services.agent_client import AgentClientError
+from bossman.services.auth import user_can_manage_agent
 from bossman.services.cve_collect import collect_all_hosts
 
 router = APIRouter()
@@ -123,3 +129,52 @@ async def fleet_summary(
         "by_severity": by_sev,
         "by_distro": by_distro,
     }
+
+
+class BulkUpdateRequest(BaseModel):
+    agent_ids: list[UUID]
+    security_only: bool = True
+    dry_run: bool = True
+
+
+@router.post("/api/v1/security/bulk-update")
+async def bulk_update_hosts(
+    body: BulkUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Apply (security) package updates to many hosts at once — the "bulk
+    update" over the CVE view's affected hosts. Each host is authorized
+    individually (user_can_manage_agent, like the per-host route) and applied
+    best-effort: a per-host failure lands in `results` with its error, it does
+    not abort the batch. dry_run is honored (check_mode preview)."""
+    results: list[dict[str, Any]] = []
+    for agent_id in body.agent_ids:
+        entry: dict[str, Any] = {"agent_id": str(agent_id)}
+        agent = await session.get(Agent, agent_id)
+        if agent is None:
+            entry["status"] = "not_found"
+            results.append(entry)
+            continue
+        entry["host"] = agent.name
+        if not await user_can_manage_agent(session, identity, agent_id):
+            entry["status"] = "forbidden"
+            results.append(entry)
+            continue
+        if not agent.address:
+            entry["status"] = "unreachable"
+            results.append(entry)
+            continue
+        client = client_factory(agent, settings)
+        params = {"state": "apply", "security_only": body.security_only, "dry_run": body.dry_run}
+        try:
+            entry["result"] = await client.call_tool("yoloman.package_updates", params)
+            entry["status"] = "ok"
+        except AgentClientError as exc:
+            entry["status"] = "error"
+            entry["error"] = str(exc)
+        results.append(entry)
+    ok = sum(1 for r in results if r["status"] == "ok")
+    return {"dry_run": body.dry_run, "security_only": body.security_only, "applied": ok, "results": results}

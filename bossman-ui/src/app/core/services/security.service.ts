@@ -64,4 +64,27 @@ export class SecurityService {
   hostCves(agentId: string) {
     return this.http.get<{ agent_id: string; count: number; cves: any[] }>(`${environment.apiUrl}/agents/${agentId}/cves`);
   }
+
+  /** Bulk: apply (security) package updates to many hosts at once. */
+  bulkUpdate(agentIds: string[], securityOnly = true, dryRun = true) {
+    return this.http.post<BulkUpdateResult>(`${this.base}/bulk-update`, {
+      agent_ids: agentIds,
+      security_only: securityOnly,
+      dry_run: dryRun,
+    });
+  }
+}
+
+export interface BulkUpdateHostResult {
+  agent_id: string;
+  host?: string;
+  status: 'ok' | 'error' | 'forbidden' | 'unreachable' | 'not_found';
+  error?: string;
+  result?: unknown;
+}
+export interface BulkUpdateResult {
+  dry_run: boolean;
+  security_only: boolean;
+  applied: number;
+  results: BulkUpdateHostResult[];
 }

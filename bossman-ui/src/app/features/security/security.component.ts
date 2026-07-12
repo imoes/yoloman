@@ -3,8 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/services/security.service';
+import { BulkUpdateResult, CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/services/security.service';
 
 /** Block 4-D — fleet-wide Security page: which pending package upgrades close
  * which CVEs across the fleet. Summary cards + a filterable table (severity,
@@ -13,7 +14,7 @@ import { CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/se
 @Component({
   selector: 'app-security',
   standalone: true,
-  imports: [FormsModule, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [FormsModule, RouterLink, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-sec">
       <header class="bm-head">
@@ -73,11 +74,31 @@ import { CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/se
               </tr>
               @if (expanded() === c.cve) {
                 <tr class="bm-detail"><td></td><td colspan="4">
+                  <div class="bm-bulkbar">
+                    @if (selectedHosts().size) {
+                      <span class="bm-bulkcount">{{ selectedHosts().size }} host(s) selected</span>
+                      <button mat-stroked-button [disabled]="bulkBusy()" (click)="bulkUpdate(true)">
+                        <mat-icon>science</mat-icon> Preview security updates (dry run)
+                      </button>
+                      <button mat-raised-button color="primary" [disabled]="bulkBusy()" (click)="bulkUpdate(false)">
+                        <mat-icon>system_update_alt</mat-icon> Apply security updates
+                      </button>
+                      <button mat-button (click)="clearHosts()">Clear</button>
+                    } @else {
+                      <span class="bm-hint">Select hosts to bulk-apply security updates.</span>
+                    }
+                    @if (bulkBusy()) { <mat-spinner diameter="16" /> }
+                  </div>
+                  @if (bulkMsg()) { <p class="bm-bulkmsg" [class.bm-bulkerr]="bulkHadError()">{{ bulkMsg() }}</p> }
                   <table class="bm-hosts">
-                    <thead><tr><th>Host</th><th>Package</th><th>Installed</th><th>Fixed in</th><th></th></tr></thead>
+                    <thead><tr>
+                      <th class="bm-cb"><mat-checkbox [checked]="allHostsSelected(c)" [indeterminate]="someHostsSelected(c)" (change)="toggleAllHosts(c, $event.checked)" /></th>
+                      <th>Host</th><th>Package</th><th>Installed</th><th>Fixed in</th><th></th>
+                    </tr></thead>
                     <tbody>
                       @for (h of c.hosts; track h.agent_id + h.package) {
-                        <tr>
+                        <tr [class.bm-hsel]="hostSelected(h.agent_id)">
+                          <td class="bm-cb"><mat-checkbox [checked]="hostSelected(h.agent_id)" (change)="toggleHost(h.agent_id)" /></td>
                           <td class="bm-mono">{{ h.host }}</td>
                           <td class="bm-mono">{{ h.package }}</td>
                           <td class="bm-mono">{{ h.current_version || '—' }}</td>
@@ -129,6 +150,13 @@ import { CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/se
       .bm-sev-moderate { color: #f9a825; }
       .bm-empty { opacity: 0.6; padding: 16px 12px; }
       .bm-err { color: #c62828; }
+      .bm-cb { width: 34px; }
+      .bm-hsel { background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
+      .bm-bulkbar { display: flex; align-items: center; gap: 10px; padding: 6px 0 10px; flex-wrap: wrap; }
+      .bm-bulkcount { font-weight: 600; font-size: 12.5px; }
+      .bm-hint { font-size: 12px; opacity: 0.6; }
+      .bm-bulkmsg { font-size: 12.5px; margin: 0 0 8px; padding: 6px 10px; border-radius: 6px; background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); white-space: pre-line; }
+      .bm-bulkerr { background: color-mix(in srgb, #c62828 14%, transparent); }
     `,
   ],
 })
@@ -150,6 +178,12 @@ export class SecurityComponent {
   fFix = signal(false);
   fQ = signal('');
   private searchTimer: any = null;
+
+  // Bulk security-update over the expanded CVE's affected hosts.
+  selectedHosts = signal<Set<string>>(new Set());
+  bulkBusy = signal(false);
+  bulkMsg = signal<string | null>(null);
+  bulkHadError = signal(false);
 
   constructor() {
     this.reload();
@@ -182,6 +216,58 @@ export class SecurityComponent {
 
   toggle(cve: string): void {
     this.expanded.set(this.expanded() === cve ? null : cve);
+    // Selection + result are scoped to one expanded CVE.
+    this.clearHosts();
+    this.bulkMsg.set(null);
+  }
+
+  // ---- per-CVE host multi-select ----
+  hostSelected(agentId: string): boolean {
+    return this.selectedHosts().has(agentId);
+  }
+  toggleHost(agentId: string): void {
+    const next = new Set(this.selectedHosts());
+    next.has(agentId) ? next.delete(agentId) : next.add(agentId);
+    this.selectedHosts.set(next);
+  }
+  private hostIds(c: FleetCve): string[] {
+    return [...new Set(c.hosts.map((h) => h.agent_id))];
+  }
+  allHostsSelected(c: FleetCve): boolean {
+    const ids = this.hostIds(c);
+    return ids.length > 0 && ids.every((id) => this.selectedHosts().has(id));
+  }
+  someHostsSelected(c: FleetCve): boolean {
+    return this.selectedHosts().size > 0 && !this.allHostsSelected(c);
+  }
+  toggleAllHosts(c: FleetCve, checked: boolean): void {
+    this.selectedHosts.set(checked ? new Set(this.hostIds(c)) : new Set());
+  }
+  clearHosts(): void {
+    this.selectedHosts.set(new Set());
+  }
+
+  bulkUpdate(dryRun: boolean): void {
+    const ids = [...this.selectedHosts()];
+    if (!ids.length) return;
+    this.bulkBusy.set(true);
+    this.bulkMsg.set(null);
+    this.security.bulkUpdate(ids, true, dryRun).subscribe({
+      next: (r: BulkUpdateResult) => {
+        this.bulkBusy.set(false);
+        const bad = r.results.filter((x) => x.status !== 'ok');
+        this.bulkHadError.set(bad.length > 0);
+        const verb = dryRun ? 'Preview' : 'Applied';
+        const lines = [`${verb}: ${r.applied}/${r.results.length} host(s) ok${dryRun ? ' (dry run — nothing changed)' : ''}.`];
+        for (const b of bad) lines.push(`• ${b.host ?? b.agent_id}: ${b.status}${b.error ? ' — ' + b.error : ''}`);
+        this.bulkMsg.set(lines.join('\n'));
+      },
+      error: (e) => {
+        this.bulkBusy.set(false);
+        this.bulkHadError.set(true);
+        this.bulkMsg.set(e?.error?.detail ?? 'bulk update failed');
+      },
+    });
   }
 
   refreshFeed(): void {
