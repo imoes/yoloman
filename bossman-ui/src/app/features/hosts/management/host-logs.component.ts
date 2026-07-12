@@ -1,19 +1,31 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
 import { LogEntry, LogFilters } from '../../../core/models/agent.model';
+import { HostLogfilesComponent } from './host-logfiles.component';
 
-/** Block J4b — the "Logs (journald)" section of the host-management page.
- * Reads the systemd journal through the read-only `journal` module
- * (journalctl -o json) with unit/priority/since filters. Nothing is pulled
- * until the tab is opened (loadOnce) or the user hits Load. */
+/** Block J4b — the unified "Logs" section of the host-management page. One
+ * place for both log sources, switchable via a Journal / Files toggle so the
+ * experience stays consistent: "Journal" reads systemd/journald (read-only
+ * `journal` module) with unit/priority/since filters; "Files" browses/tails
+ * /var/log via the path-jailed `logfiles` module (Monaco). Nothing is pulled
+ * until the tab is opened (loadOnce) or the user acts. */
 @Component({
   selector: 'app-host-logs',
   standalone: true,
-  imports: [MatButtonModule, MatProgressSpinnerModule],
+  imports: [MatButtonModule, MatButtonToggleModule, MatProgressSpinnerModule, HostLogfilesComponent],
   template: `
     <div class="bm-mgmt-section">
+      <mat-button-toggle-group class="bm-log-mode" [value]="mode()" (change)="setMode($event.value)" hideSingleSelectionIndicator>
+        <mat-button-toggle value="journal">Journal (journald)</mat-button-toggle>
+        <mat-button-toggle value="files">Files (/var/log)</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      @if (mode() === 'files') {
+        <app-host-logfiles [agentId]="agentId()" />
+      } @else {
       <div class="bm-mgmt-toolbar">
         <input class="bm-log-in" type="text" placeholder="unit (e.g. nginx)" [value]="unit()" (input)="unit.set($any($event.target).value)" (keyup.enter)="load()" />
         <select class="bm-log-in" [value]="priority()" (change)="priority.set($any($event.target).value); load()">
@@ -40,9 +52,11 @@ import { LogEntry, LogFilters } from '../../../core/models/agent.model';
         <pre class="bm-log-view">@for (e of entries(); track $index) {<span class="bm-log-line" [class.bm-log-err]="isErr(e)"><span class="bm-log-ts">{{ e.timestamp }}</span> <span class="bm-log-unit">{{ e.unit }}</span>: {{ e.message }}
 </span>}</pre>
       }
+      }
     </div>
   `,
   styles: [
+    `.bm-log-mode { margin-bottom: 12px; }`,
     `
       .bm-mgmt-section { padding: 8px 0; }
       .bm-mgmt-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -64,6 +78,15 @@ export class HostLogsComponent {
   private agentService = inject(AgentService);
 
   agentId = input.required<string>();
+
+  private logfiles = viewChild(HostLogfilesComponent);
+  mode = signal<'journal' | 'files'>('journal');
+
+  setMode(m: 'journal' | 'files'): void {
+    this.mode.set(m);
+    if (m === 'files') setTimeout(() => this.logfiles()?.loadOnce());
+    else this.loadOnce();
+  }
 
   unit = signal('');
   priority = signal('');

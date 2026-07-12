@@ -10,7 +10,6 @@ import { HostFirewallComponent } from './host-firewall.component';
 import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
-import { HostLogfilesComponent } from './host-logfiles.component';
 
 /** Block J4 — the Cockpit-like per-host management shell. Sits under one
  * "Management" tab of host-detail and holds an inner tab-group with one child
@@ -22,7 +21,7 @@ import { HostLogfilesComponent } from './host-logfiles.component';
 @Component({
   selector: 'app-host-management',
   standalone: true,
-  imports: [MatTabsModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostLogfilesComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
+  imports: [MatTabsModule, HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostLogsComponent, HostAccountsComponent, HostStorageComponent, HostFreeipaComponent, HostVirtComponent, HostUpdatesComponent],
   template: `
     <mat-tab-group animationDuration="0ms" (selectedTabChange)="onInnerTab($event)">
       <mat-tab label="Network">
@@ -50,11 +49,6 @@ import { HostLogfilesComponent } from './host-logfiles.component';
       <mat-tab label="Logs">
         <div class="bm-mgmt-pane">
           <app-host-logs [agentId]="agentId()" />
-        </div>
-      </mat-tab>
-      <mat-tab label="Log files">
-        <div class="bm-mgmt-pane">
-          <app-host-logfiles [agentId]="agentId()" />
         </div>
       </mat-tab>
       <mat-tab label="Accounts">
@@ -126,7 +120,6 @@ export class HostManagementComponent {
   private services = viewChild(HostServicesComponent);
   private updates = viewChild(HostUpdatesComponent);
   private logs = viewChild(HostLogsComponent);
-  private logfiles = viewChild(HostLogfilesComponent);
   private accounts = viewChild(HostAccountsComponent);
   private freeipa = viewChild(HostFreeipaComponent);
   private storage = viewChild(HostStorageComponent);
@@ -139,7 +132,6 @@ export class HostManagementComponent {
     if (event.tab.textLabel === 'Services') this.services()?.loadOnce();
     if (event.tab.textLabel === 'Updates') this.updates()?.loadOnce();
     if (event.tab.textLabel === 'Logs') this.logs()?.loadOnce();
-    if (event.tab.textLabel === 'Log files') this.logfiles()?.loadOnce();
     if (event.tab.textLabel === 'Accounts') this.accounts()?.loadOnce();
     if (event.tab.textLabel === 'FreeIPA') this.freeipa()?.loadOnce();
     if (event.tab.textLabel === 'Storage') this.storage()?.loadOnce();
