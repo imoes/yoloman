@@ -20,6 +20,12 @@ const PLANTUML_SERVER = 'https://www.plantuml.com/plantuml/svg/~h';
 
 marked.setOptions({ gfm: true, breaks: true });
 
+interface ChatTab {
+  id: string | null;
+  label: string;
+  messages: ChatUiMessage[];
+}
+
 const BACKEND_LABELS: Record<string, string> = {
   claude_cli: 'Claude CLI',
   codex: 'ChatGPT Codex',
@@ -48,10 +54,19 @@ const BACKEND_LABELS: Record<string, string> = {
           @for (b of backends(); track b) { <option [value]="b">{{ label(b) }}{{ authed()[b] === false ? ' ⚠' : '' }}</option> }
         </select>
         <span class="bm-dock-spacer"></span>
-        <button mat-icon-button (click)="newSession()" [disabled]="streaming()" title="New conversation"><mat-icon>add_comment</mat-icon></button>
+        <button mat-icon-button (click)="newTab()" [disabled]="streaming()" title="New chat"><mat-icon>add_comment</mat-icon></button>
       </div>
 
       @if (open()) {
+        <div class="bm-dock-tabs">
+          @for (t of tabs(); track $index) {
+            <button class="bm-tab" [class.bm-tab-active]="$index === active()" (click)="switchTab($index)" [title]="t.label">
+              <span class="bm-tab-lbl">{{ t.label }}</span>
+              @if (tabs().length > 1) { <mat-icon class="bm-tab-x" (click)="closeTab($index, $event)">close</mat-icon> }
+            </button>
+          }
+          <button mat-icon-button class="bm-tab-new" (click)="newTab()" [disabled]="streaming()" title="New chat"><mat-icon>add</mat-icon></button>
+        </div>
         <div class="bm-dock-body">
           @if (loadErr()) { <p class="bm-dock-err">{{ loadErr() }}</p> }
           @for (m of messages(); track $index) {
@@ -157,6 +172,13 @@ const BACKEND_LABELS: Record<string, string> = {
       .bm-dock-title { font: var(--mat-sys-title-small); }
       .bm-dock-backend { background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); border: 1px solid var(--mat-sys-outline); border-radius: 4px; padding: 2px 6px; }
       .bm-dock-spacer { flex: 1; }
+      .bm-dock-tabs { display: flex; align-items: center; gap: 4px; padding: 4px 8px 0; flex: none; overflow-x: auto; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-tab { display: inline-flex; align-items: center; gap: 4px; max-width: 170px; padding: 4px 8px; border: 1px solid var(--mat-sys-outline-variant); border-bottom: none; border-radius: 6px 6px 0 0; background: transparent; color: inherit; font-size: 12px; cursor: pointer; }
+      .bm-tab-lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+      .bm-tab-active { background: var(--mat-sys-surface); box-shadow: inset 0 -2px 0 var(--mat-sys-primary); font-weight: 600; }
+      .bm-tab-x { font-size: 15px; width: 15px; height: 15px; opacity: 0.55; }
+      .bm-tab-x:hover { opacity: 1; }
+      .bm-tab-new { transform: scale(0.8); }
       .bm-dock-body { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
       .bm-msg { max-width: 90%; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
       .bm-msg-user { align-self: flex-end; background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); }
@@ -191,10 +213,15 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
 
   open = signal(false);
-  height = signal(320);
+  // Default to ~55% of the viewport (at least half a page), still resizable.
+  height = signal(Math.max(380, Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.55)));
   backends = signal<ChatBackendName[]>(['claude_cli', 'codex', 'hermes_web']);
   backend = signal<ChatBackendName>('claude_cli');
   messages = signal<ChatUiMessage[]>([]);
+  // Multiple concurrent chats (tabs). `messages`/`sessionId` mirror the active
+  // tab; switching persists the current one and loads the target.
+  tabs = signal<ChatTab[]>([{ id: null, label: 'Chat 1', messages: [] }]);
+  active = signal(0);
   input = signal('');
   streaming = signal(false);
   loadErr = signal<string | null>(null);
@@ -255,8 +282,51 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   }
 
   newSession(): void {
+    // Reset the ACTIVE tab (used when the backend changes — sessions are pinned).
     this.sessionId = null;
     this.messages.set([]);
+    const t = this.tabs();
+    if (t[this.active()]) { t[this.active()].id = null; t[this.active()].messages = []; }
+  }
+
+  // ---- multiple chats (tabs) ----
+  private persistActive(): void {
+    const t = this.tabs();
+    if (t[this.active()]) { t[this.active()].messages = this.messages(); t[this.active()].id = this.sessionId; }
+  }
+
+  switchTab(i: number): void {
+    if (i === this.active() || this.streaming()) return;
+    this.persistActive();
+    this.active.set(i);
+    const t = this.tabs()[i];
+    this.sessionId = t.id;
+    this.messages.set(t.messages);
+  }
+
+  newTab(): void {
+    if (this.streaming()) return;
+    this.persistActive();
+    const next = [...this.tabs(), { id: null, label: `Chat ${this.tabs().length + 1}`, messages: [] }];
+    this.tabs.set(next);
+    this.active.set(next.length - 1);
+    this.sessionId = null;
+    this.messages.set([]);
+    this.open.set(true);
+  }
+
+  closeTab(i: number, ev: Event): void {
+    ev.stopPropagation();
+    if (this.tabs().length <= 1) return;
+    if (i !== this.active()) this.persistActive();
+    const next = this.tabs().filter((_, idx) => idx !== i);
+    let act = this.active();
+    if (i === act) act = Math.min(i, next.length - 1);
+    else if (i < act) act -= 1;
+    this.tabs.set(next);
+    this.active.set(act);
+    this.sessionId = next[act].id;
+    this.messages.set(next[act].messages);
   }
 
   private async ensureSession(): Promise<string> {
@@ -265,6 +335,8 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       this.chat.createSession(this.backend()).subscribe({ next: (r) => resolve(r.id), error: reject }),
     );
     this.sessionId = s;
+    const t = this.tabs();
+    if (t[this.active()]) t[this.active()].id = s;
     return s;
   }
 
@@ -275,6 +347,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     this.open.set(true);
     this.input.set('');
     this.loadErr.set(null);
+    // Name the active tab after its first message.
+    const tabs = this.tabs();
+    const cur = tabs[this.active()];
+    if (cur && /^Chat \d+$/.test(cur.label)) {
+      cur.label = text.length > 26 ? text.slice(0, 26) + '…' : text;
+      this.tabs.set([...tabs]);
+    }
     this.messages.update((m) => [...m, { role: 'user', text }]);
     const assistant: ChatUiMessage = { role: 'assistant', text: '', streaming: true, tools: [] };
     this.messages.update((m) => [...m, assistant]);
