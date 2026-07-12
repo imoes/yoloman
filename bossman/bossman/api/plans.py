@@ -6,6 +6,7 @@ Bossman plan, section B.7): this is what turns the whole Nordstern-UX goal
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -33,6 +34,9 @@ from bossman.services.plan_store import (
     load_plan as store_load_plan,
     store_plan,
 )
+from bossman.services import plan_library
+from bossman.services.nt_convert import doc_to_nt, doc_to_yaml
+from bossman.db.models import PlanDocument
 
 router = APIRouter()
 
@@ -286,6 +290,83 @@ async def create_stored_plan(
     return StoredPlanOut(
         prefix=doc.prefix, name=doc.name, version=doc.version, source_format=doc.source_format, content_hash=doc.content_hash
     )
+
+
+# ---- Plan library: folder tree + format views (ltree + Monaco) -----------
+
+
+class MovePlanRequest(BaseModel):
+    folder: str  # human path, e.g. "linux/base" ("" = root)
+
+
+@router.get("/api/v1/plan-library")
+async def plan_library_list(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Every stored plan/role (latest version) with its folder placement, for
+    the plan-library tree. Un-placed plans report folder "" (root)."""
+    plans = await store_list_plans(session)
+    folders = await plan_library.placement_map(session)
+    for p in plans:
+        p["folder"] = folders.get((p["prefix"], p["name"]), "")
+    return {"plans": plans, "folders": sorted({f for f in folders.values() if f})}
+
+
+@router.post("/api/v1/plans/stored/{prefix}/{name}/move")
+async def move_plan(
+    prefix: str,
+    name: str,
+    body: MovePlanRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Place a plan/role into a folder path (creates the folder implicitly)."""
+    if prefix not in VALID_PREFIXES:
+        raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
+    row = await plan_library.set_placement(session, prefix, name, body.folder)
+    await session.commit()
+    return {"prefix": prefix, "name": name, "folder": row.folder}
+
+
+@router.get("/api/v1/plans/stored/{prefix}/{name}/document")
+async def plan_document(
+    prefix: str,
+    name: str,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """The latest stored version of a plan rendered in ALL THREE authoring
+    formats (NestedText / YAML / JSON) from the one canonical JSON body, so the
+    editor's format toggle is instant. Also returns the original source_text +
+    source_format + folder."""
+    if prefix not in VALID_PREFIXES:
+        raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
+    doc = await session.scalar(
+        select(PlanDocument)
+        .where(PlanDocument.prefix == prefix, PlanDocument.name == name)
+        .order_by(PlanDocument.version.desc())
+    )
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"no stored plan {prefix}/{name}")
+    folders = await plan_library.placement_map(session)
+    try:
+        nt = doc_to_nt(doc.body)
+    except Exception:  # noqa: BLE001 — never let one renderer break the view
+        nt = ""
+    try:
+        yml = doc_to_yaml(doc.body)
+    except Exception:  # noqa: BLE001
+        yml = ""
+    return {
+        "prefix": prefix,
+        "name": name,
+        "version": doc.version,
+        "source_format": doc.source_format,
+        "folder": folders.get((prefix, name), ""),
+        "formats": {"nt": nt, "yaml": yml, "json": json.dumps(doc.body, indent=2, ensure_ascii=False)},
+        "source_text": doc.source_text,
+    }
 
 
 @router.post("/api/v1/plans/stored/{prefix}/{name}/run", response_model=RunPlanResponse)

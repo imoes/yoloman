@@ -62,3 +62,10 @@ def doc_to_nt(doc: dict[str, Any]) -> str:
     """Canonical JSON doc → NestedText authoring text (for the editor).
     NestedText leaves must be strings; default=str coerces bools/numbers."""
     return nestedtext.dumps(_authoring_dict(doc), default=str)
+
+
+def doc_to_yaml(doc: dict[str, Any]) -> str:
+    """Canonical JSON doc → YAML authoring text (for the editor's YAML view).
+    Uses the same authoring reshape as NestedText, so all three formats
+    (NT/YAML/JSON) round-trip through the same canonical body."""
+    return yaml.safe_dump(_authoring_dict(doc), sort_keys=False, default_flow_style=False, allow_unicode=True)

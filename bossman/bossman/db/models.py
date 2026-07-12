@@ -298,6 +298,32 @@ class PlanDocument(Base):
     )
 
 
+class PlanPlacement(Base):
+    """Where a logical plan/role (prefix+name, across all its versions) sits in
+    the plan-library directory tree. One row per logical plan (not per version).
+    `folder` is the human path ("linux/base"); `ltree_path` is the sanitized
+    ltree for subtree queries (mirrors OUNode.path/ltree_path). Un-placed plans
+    are treated as living at the root."""
+
+    __tablename__ = "plan_placements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False,
+        server_default=text(f"'{DEFAULT_TENANT_ID}'"),
+    )
+    prefix: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    folder: Mapped[str] = mapped_column(String, nullable=False, default="")
+    ltree_path: Mapped[str] = mapped_column(LTREE, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "prefix", "name", name="uq_plan_placements_plan"),
+        Index("idx_plan_placements_lookup", "tenant_id", "prefix", "name"),
+    )
+
+
 class Metric(Base):
     """A metrics-dump data point pulled from an agent — a TimescaleDB
     hypertable (see the Alembic migration), the direct RRD replacement."""
