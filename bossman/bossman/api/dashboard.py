@@ -63,6 +63,7 @@ class CreateDashboardRequest(BaseModel):
 class UpdateDashboardRequest(BaseModel):
     name: str | None = None
     is_default: bool | None = None
+    context: dict[str, Any] | None = None
 
 
 @router.get("/api/v1/dashboards", response_model=list[DashboardOut])
@@ -91,7 +92,10 @@ async def update_dashboard_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DashboardOut:
-    dash = await update_dashboard(session, identity.name, dashboard_id, name=body.name, is_default=body.is_default)
+    dash = await update_dashboard(
+        session, identity.name, dashboard_id,
+        name=body.name, is_default=body.is_default, context=body.context,
+    )
     if dash is None:
         raise HTTPException(status_code=404, detail=f"no such dashboard {dashboard_id}")
     return DashboardOut.from_model(dash)
@@ -252,4 +256,10 @@ async def get_dashboard_widget_data(
     widget = await session.get(DashboardWidget, widget_id)
     if widget is None or widget.username != identity.name:
         raise HTTPException(status_code=404, detail=f"no such widget {widget_id}")
-    return await widget_data(session, widget)
+    # Scope the data by the owning dashboard's filter context (Block B2).
+    context = {}
+    if widget.dashboard_id is not None:
+        dash = await session.get(Dashboard, widget.dashboard_id)
+        if dash is not None:
+            context = dash.context or {}
+    return await widget_data(session, widget, context)

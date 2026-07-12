@@ -18,7 +18,7 @@ export class DashboardService {
   createDashboard(body: { name: string; source?: string; prompt?: string }) {
     return this.http.post<Dashboard>(this.dbBase, body);
   }
-  updateDashboard(id: string, body: { name?: string; is_default?: boolean }) {
+  updateDashboard(id: string, body: { name?: string; is_default?: boolean; context?: Record<string, unknown> }) {
     return this.http.patch<Dashboard>(`${this.dbBase}/${id}`, body);
   }
   deleteDashboard(id: string) {

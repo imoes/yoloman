@@ -65,13 +65,15 @@ async def create_dashboard(
 
 async def update_dashboard(
     session: AsyncSession, username: str, dashboard_id: UUID, *,
-    name: str | None = None, is_default: bool | None = None,
+    name: str | None = None, is_default: bool | None = None, context: dict | None = None,
 ) -> Dashboard | None:
     dash = await session.get(Dashboard, dashboard_id)
     if dash is None or dash.username != username:
         return None
     if name is not None:
         dash.name = name
+    if context is not None:
+        dash.context = context
     if is_default:
         # Exactly one default per user.
         await session.execute(
@@ -305,24 +307,49 @@ async def _metric_series(session: AsyncSession, cfg: dict) -> dict[str, Any]:
     return {"points": [{"time": r.time.isoformat(), "value": r.value} for r in rows]}
 
 
-async def widget_data(session: AsyncSession, widget: DashboardWidget) -> dict[str, Any]:
+def _apply_host_context(hosts: list, context: dict) -> list:
+    """Scope a host list by the dashboard's filter context (Checkmk-style):
+    `host` = case-insensitive name substring, `state` = host state rollup."""
+    host_q = (context.get("host") or "").strip().lower()
+    state = (context.get("state") or "").strip().upper()
+    out = hosts
+    if host_q:
+        out = [h for h in out if host_q in (h.name or "").lower()]
+    if state:
+        out = [h for h in out if getattr(h, "state_rollup", None) == state]
+    return out
+
+
+def _apply_problem_context(problems: list, context: dict) -> list:
+    host_q = (context.get("host") or "").strip().lower()
+    state = (context.get("state") or "").strip().upper()
+    out = problems
+    if host_q:
+        out = [p for p in out if host_q in (getattr(p, "agent_name", "") or "").lower()]
+    if state:
+        out = [p for p in out if getattr(p, "state", None) == state]
+    return out
+
+
+async def widget_data(session: AsyncSession, widget: DashboardWidget, context: dict | None = None) -> dict[str, Any]:
     """Computes the current data payload for one widget, dispatched on its
     widget_type — the counterpart to CentralStation's own per-widget
     `/dashboard-widgets/{id}/data` endpoint. Each type's shape is
     deliberately minimal JSON the frontend's polymorphic renderer maps
     straight onto an ECharts option builder."""
     cfg = widget.config or {}
+    ctx = context or {}
     # AI-generated widgets carry their payload inline (Block W2 → unified model);
     # serve it as-is rather than recomputing from a data source.
     if "static" in cfg:
         return cfg["static"] or {}
     if widget.widget_type == "top_hosts":
-        hosts = await fleet_hosts(session)
+        hosts = _apply_host_context(await fleet_hosts(session), ctx)
         limit = cfg.get("limit", 10)
         return {"hosts": [_host_dict(h) for h in hosts[:limit]]}
     if widget.widget_type == "problems":
         limit = cfg.get("limit", 10)
-        problems = await query_problems(session)
+        problems = _apply_problem_context(await query_problems(session), ctx)
         return {"problems": [_problem_dict(p) for p in problems[:limit]]}
     if widget.widget_type == "donut":
         summary = await fleet_summary(session)

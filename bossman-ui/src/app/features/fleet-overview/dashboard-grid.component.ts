@@ -7,6 +7,7 @@ import { GridItemHTMLElement, GridStack } from 'gridstack';
 import { Dashboard, DashboardService } from '../../core/services/dashboard.service';
 import { DashboardWidget, WidgetData } from '../../core/models/dashboard.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
+import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 import { AddWidgetDialogComponent } from './add-widget-dialog.component';
 
 /** The GridStack-backed, server-persisted widget dashboard on Fleet
@@ -19,7 +20,7 @@ import { AddWidgetDialogComponent } from './add-widget-dialog.component';
 @Component({
   selector: 'app-dashboard-grid',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, DashboardWidgetComponent],
+  imports: [MatButtonModule, MatIconModule, DashboardWidgetComponent, FilterBarComponent],
   template: `
     <div class="bm-dashboard-toolbar">
       <div class="bm-dashboard-picker">
@@ -48,6 +49,10 @@ import { AddWidgetDialogComponent } from './add-widget-dialog.component';
         </button>
       </div>
     </div>
+
+    @if (current()) {
+      <app-filter-bar class="bm-dash-filters" [filters]="contextFilters" [values]="contextValues()" (valuesChange)="onContext($event)" />
+    }
 
     @if (!widgets().length && !editMode()) {
       <div class="bm-dashboard-empty">
@@ -89,6 +94,13 @@ import { AddWidgetDialogComponent } from './add-widget-dialog.component';
         display: flex;
         align-items: center;
         gap: 2px;
+      }
+      .bm-dash-filters {
+        display: block;
+        margin-bottom: 12px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent);
       }
       .bm-dash-select {
         padding: 6px 10px;
@@ -136,6 +148,14 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
   dashboards = signal<Dashboard[]>([]);
   currentId = signal<string | null>(null);
   current = computed(() => this.dashboards().find((d) => d.id === this.currentId()) ?? null);
+  contextValues = computed<FilterValues>(() => (this.current()?.context as FilterValues) ?? {});
+  contextFilters: FilterDef[] = [
+    { ident: 'host', label: 'Host', kind: 'text', placeholder: 'Scope widgets to host…' },
+    { ident: 'state', label: 'State', kind: 'select', options: [
+      { value: 'OK', label: 'OK' }, { value: 'WARN', label: 'WARN' },
+      { value: 'CRIT', label: 'CRIT' }, { value: 'UNKNOWN', label: 'UNKNOWN' },
+    ] },
+  ];
   private grid?: GridStack;
 
   ngAfterViewInit(): void {
@@ -201,6 +221,18 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
       this.widgets.set(widgets);
       this.widgetData.set({});
       this.rebuildGrid(true);
+    });
+  }
+
+  /** Persist the dashboard's filter context and re-fetch widget data so the
+   * item widgets (top_hosts/problems) rescope — Checkmk's per-dashboard context. */
+  onContext(values: FilterValues): void {
+    const c = this.current();
+    if (!c) return;
+    this.dashboards.update((ds) => ds.map((d) => (d.id === c.id ? { ...d, context: values as Record<string, unknown> } : d)));
+    this.dashboardService.updateDashboard(c.id, { context: values as Record<string, unknown> }).subscribe({
+      next: () => this.widgets().forEach((w) => this.loadWidgetData(w.id)),
+      error: () => this.widgets().forEach((w) => this.loadWidgetData(w.id)),
     });
   }
 
