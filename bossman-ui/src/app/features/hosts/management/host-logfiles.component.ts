@@ -54,12 +54,15 @@ interface LogFile { path: string; size: number; modified: number; }
           <button type="button" class="bm-tgl" [class.bm-on]="regex" (click)="regex = !regex; refreshContent()"
                   title="Extended regex (grep -E)">.*</button>
           <button type="button" class="bm-tgl" [class.bm-on]="invert" (click)="invert = !invert; refreshContent()"
-                  title="Invert match — keep non-matching lines (grep -v)">≠</button>
-          <select [(ngModel)]="lines" (ngModelChange)="refreshContent()">
+                  title="Invert match — keep lines that do NOT match (grep -v)">!</button>
+          <select [(ngModel)]="lines" (ngModelChange)="refreshContent()" title="Tail: number of trailing lines">
             <option [ngValue]="200">200</option><option [ngValue]="500">500</option>
             <option [ngValue]="2000">2000</option><option [ngValue]="5000">5000</option>
           </select>
-          <button mat-icon-button (click)="refreshContent()" [disabled]="!selected() || contentBusy()" title="Reload content"><mat-icon>refresh</mat-icon></button>
+          <button mat-icon-button (click)="refreshContent()" [disabled]="!selected() || contentBusy() || following()" title="Reload content"><mat-icon>refresh</mat-icon></button>
+          <button mat-icon-button [class.bm-follow-on]="following()" (click)="toggleFollow()" [disabled]="!selected()"
+                  [title]="following() ? 'Stop following' : 'Follow (tail -f)'"><mat-icon>{{ following() ? 'pause' : 'play_arrow' }}</mat-icon></button>
+          @if (following()) { <span class="bm-live" title="Live tail — refreshes every 3 s">● live</span> }
           @if (truncated()) { <span class="bm-trunc" title="Only the tail is shown">tail</span> }
         </div>
         <div class="bm-lf-editor" #editor></div>
@@ -90,6 +93,9 @@ interface LogFile { path: string; size: number; modified: number; }
       .bm-tgl { min-width: 26px; height: 26px; padding: 0 5px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-family: monospace; font-size: 13px; cursor: pointer; }
       .bm-tgl:hover { background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
       .bm-tgl.bm-on { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); border-color: var(--mat-sys-primary); font-weight: 700; }
+      .bm-follow-on { color: #2e7d32; }
+      .bm-live { font-size: 11px; color: #2e7d32; font-weight: 600; animation: bm-pulse 1.6s ease-in-out infinite; }
+      @keyframes bm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       .bm-lf-bar select { padding: 4px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; }
       .bm-trunc { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, #ed6c02 18%, transparent); color: #e65100; }
       .bm-lf-editor { flex: 1; min-height: 260px; }
@@ -114,9 +120,12 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
   regex = false;
   invert = false;
   lines = 500;
+  following = signal(false);
   private extraPaths: string[] = [];
   private ed?: monaco.editor.IStandaloneCodeEditor;
   private pendingContent: string | null = null;
+  private followTimer: ReturnType<typeof setInterval> | null = null;
+  private inFlight = false;
 
   ngAfterViewInit(): void {
     this.ed = monaco.editor.create(this.editorEl.nativeElement, {
@@ -133,7 +142,24 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopFollow();
     this.ed?.dispose();
+  }
+
+  /** tail -f: poll the file every 3 s and show the newest tail (auto-scrolled
+   * to the bottom by setContent). Client-side follow — no agent streaming; a
+   * slow read simply skips the next tick via the inFlight guard. */
+  toggleFollow(): void {
+    if (this.following()) { this.stopFollow(); return; }
+    if (!this.selected()) return;
+    this.following.set(true);
+    this.refreshContent(true);
+    this.followTimer = setInterval(() => this.refreshContent(true), 3000);
+  }
+
+  private stopFollow(): void {
+    this.following.set(false);
+    if (this.followTimer) { clearInterval(this.followTimer); this.followTimer = null; }
   }
 
   /** Called when the tab is first shown. */
@@ -164,17 +190,24 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
     this.refreshContent();
   }
 
-  refreshContent(): void {
+  refreshContent(silent = false): void {
     const path = this.selected();
-    if (!path) return;
-    this.contentBusy.set(true);
+    if (!path || this.inFlight) return; // skip overlapping follow ticks
+    this.inFlight = true;
+    if (!silent) this.contentBusy.set(true);
     this.agentService.logFile(this.agentId(), path, this.lines, this.grep, this.extraPaths, this.regex, this.invert).subscribe({
       next: (res) => {
+        this.inFlight = false;
         this.contentBusy.set(false);
         this.truncated.set(!!res.truncated);
         this.setContent((res.lines ?? []).join('\n'));
       },
-      error: (e) => { this.contentBusy.set(false); this.setContent(`# failed to read: ${e?.error?.detail ?? 'error'}`); },
+      error: (e) => {
+        this.inFlight = false;
+        this.contentBusy.set(false);
+        this.stopFollow();
+        this.setContent(`# failed to read: ${e?.error?.detail ?? 'error'}`);
+      },
     });
   }
 
