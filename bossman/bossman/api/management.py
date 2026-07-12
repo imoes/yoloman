@@ -198,18 +198,26 @@ async def read_agent_log_file(
     path: str = Query(..., description="Log file path (must resolve within an allowed root)"),
     lines: int = Query(500, ge=1, le=5000),
     grep: str | None = Query(None),
+    regex: bool = Query(False, description="Treat grep as an extended regex (grep -E)"),
+    invert: bool = Query(False, description="Keep lines that do NOT match grep (grep -v)"),
     extra_paths: list[str] | None = Query(None),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Tail one log file (last N lines, optional grep) via `logfiles`. The
-    module rejects any path outside /var/log + the configured custom roots."""
+    """Tail one log file (last N lines, optional grep) via `logfiles`. `grep`
+    is a plain substring, an extended regex when regex=true (grep -E), and
+    inverted when invert=true (grep -v). The module rejects any path outside
+    /var/log + the configured custom roots."""
     agent = await _agent_with_address(session, agent_id)
     params: dict[str, Any] = {"state": "read", "path": path, "lines": lines}
     if grep:
         params["grep"] = grep
+        if regex:
+            params["regex"] = True
+        if invert:
+            params["invert"] = True
     if extra_paths:
         params["extra_paths"] = extra_paths
     client = client_factory(agent, settings)

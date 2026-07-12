@@ -66,6 +66,53 @@ func TestLogFilesGrep(t *testing.T) {
 	}
 }
 
+func TestLogFilesGrepRegexAndInvert(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "s.log"),
+		[]byte("info ok\nERROR code=500\nwarn slow\nERROR code=404\ndebug trace\n"), 0o644)
+	m := &LogFiles{Roots: []string{root}}
+	p := filepath.Join(root, "s.log")
+
+	// regex=true: extended regexp (grep -E). "ERROR code=(500|404)" matches both errors.
+	res, err := m.Run(context.Background(), map[string]any{
+		"state": "read", "path": p, "grep": "ERROR code=(500|404)", "regex": true}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, _ := logData(t, res)["lines"].([]string)
+	if len(lines) != 2 || lines[0] != "ERROR code=500" || lines[1] != "ERROR code=404" {
+		t.Fatalf("regex expected 2 ERROR lines, got %v", lines)
+	}
+
+	// invert=true (grep -v): drop the ERROR lines, keep the other 3.
+	res, err = m.Run(context.Background(), map[string]any{
+		"state": "read", "path": p, "grep": "ERROR", "invert": true}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, _ = logData(t, res)["lines"].([]string)
+	if len(lines) != 3 || lines[0] != "info ok" || lines[2] != "debug trace" {
+		t.Fatalf("invert expected 3 non-ERROR lines, got %v", lines)
+	}
+
+	// regex + invert together: keep lines NOT matching the digit-code pattern.
+	res, err = m.Run(context.Background(), map[string]any{
+		"state": "read", "path": p, "grep": "code=[0-9]+", "regex": true, "invert": true}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, _ = logData(t, res)["lines"].([]string)
+	if len(lines) != 3 {
+		t.Fatalf("regex+invert expected 3 lines, got %v", lines)
+	}
+
+	// A malformed regex is a caller error, surfaced (not a silent empty result).
+	if _, err := m.Run(context.Background(), map[string]any{
+		"state": "read", "path": p, "grep": "ERROR code=(", "regex": true}, false); err == nil {
+		t.Fatal("expected invalid regex to be rejected")
+	}
+}
+
 func TestLogFilesPathJail(t *testing.T) {
 	root := t.TempDir()
 	os.WriteFile(filepath.Join(root, "ok.log"), []byte("x\n"), 0o644)

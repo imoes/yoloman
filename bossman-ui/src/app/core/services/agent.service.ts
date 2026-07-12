@@ -99,10 +99,15 @@ export class AgentService {
     );
   }
 
-  /** Tail one /var/log file (last N lines, optional grep) via `logfiles`. */
-  logFile(id: string, path: string, lines = 500, grep = '', extraPaths: string[] = []) {
+  /** Tail one /var/log file (last N lines, optional grep) via `logfiles`.
+   * grep is a substring by default; regex=true → grep -E, invert=true → grep -v. */
+  logFile(id: string, path: string, lines = 500, grep = '', extraPaths: string[] = [], regex = false, invert = false) {
     let params = new HttpParams().set('path', path).set('lines', String(lines));
-    if (grep) params = params.set('grep', grep);
+    if (grep) {
+      params = params.set('grep', grep);
+      if (regex) params = params.set('regex', 'true');
+      if (invert) params = params.set('invert', 'true');
+    }
     for (const p of extraPaths) if (p.trim()) params = params.append('extra_paths', p.trim());
     return this.http.get<{ agent_id: string; path: string; lines: string[]; truncated: boolean; size: number }>(
       `${this.base}/${id}/logs/file`, { params },

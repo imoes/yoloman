@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -49,7 +50,9 @@ func (m *LogFiles) Description() string {
 		"allowed root (/var/log plus extra_paths), so it can never read arbitrary files like /etc/shadow.\n\n" +
 		"state=list (default) enumerates the log files (path, size, modified) under the roots, skipping " +
 		"the binary journal dir and utmp/wtmp-style databases. state=read tails a single file — the last " +
-		"`lines` lines (default 200, capped at 5000), optionally filtered by a `grep` substring.\n\n" +
+		"`lines` lines (default 200, capped at 5000), optionally filtered by `grep`: a plain substring, " +
+		"an extended regular expression when regex=true (like grep -E), and inverted when invert=true " +
+		"(keep non-matching lines, like grep -v).\n\n" +
 		"Companion to the `journal` module (journald); together they give the operator a full log view " +
 		"and feed the AI's error-source analysis alongside the eBPF metrics."
 }
@@ -59,7 +62,9 @@ func (m *LogFiles) InputSchema() map[string]any {
 		"state":       stringProp(`"list" (default) enumerates log files; "read" tails one file.`),
 		"path":        stringProp("For state=read: the log file to tail (must resolve within an allowed root)."),
 		"lines":       map[string]any{"type": "integer", "description": fmt.Sprintf("For state=read: how many trailing lines (default %d, capped at %d).", logDefaultLines, logMaxLines)},
-		"grep":        stringProp("For state=read: only return lines containing this substring."),
+		"grep":        stringProp("For state=read: keep only lines matching this pattern (plain substring by default; an extended regular expression when regex=true). Like grep's PATTERN."),
+		"regex":       boolProp("For state=read: interpret `grep` as an extended regular expression (like grep -E) instead of a plain substring.", false),
+		"invert":      boolProp("For state=read: return the lines that do NOT match `grep` (like grep -v).", false),
 		"extra_paths": stringArrayProp("Additional custom log files or directories to include (operator-configured)."),
 	})
 }
@@ -195,6 +200,22 @@ func (m *LogFiles) read(params map[string]any, roots []string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	useRegex, err := boolParam(params, "regex", false)
+	if err != nil {
+		return Result{}, err
+	}
+	invert, err := boolParam(params, "invert", false)
+	if err != nil {
+		return Result{}, err
+	}
+	// Build the line matcher once: a compiled RE2 pattern (~grep -E) or a plain
+	// substring test. A bad regex is a caller error, not a module fault.
+	var re *regexp.Regexp
+	if grep != "" && useRegex {
+		if re, err = regexp.Compile(grep); err != nil {
+			return Result{}, fmt.Errorf("invalid regex %q: %w", grep, err)
+		}
+	}
 
 	f, err := os.Open(path) // #nosec G304 — path is jailed to the allowed roots above
 	if err != nil {
@@ -223,7 +244,8 @@ func (m *LogFiles) read(params map[string]any, roots []string) (Result, error) {
 	if grep != "" {
 		filtered := all[:0]
 		for _, l := range all {
-			if strings.Contains(l, grep) {
+			match := re != nil && re.MatchString(l) || re == nil && strings.Contains(l, grep)
+			if match != invert { // invert flips the keep decision (grep -v)
 				filtered = append(filtered, l)
 			}
 		}
@@ -239,5 +261,8 @@ func (m *LogFiles) read(params map[string]any, roots []string) (Result, error) {
 		"lines":     all,
 		"truncated": truncated || info.Size() > logTailMaxBytes,
 		"size":      info.Size(),
+		"grep":      grep,
+		"regex":     useRegex,
+		"invert":    invert,
 	}}, nil
 }

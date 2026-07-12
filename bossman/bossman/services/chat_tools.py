@@ -128,15 +128,18 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "function": {
             "name": "read_host_log",
             "description": (
-                "Tail one /var/log file on a host (optionally grep for a substring) to drill into a "
-                "log analyze_host flagged. Path-jailed to /var/log — read-only."
+                "Tail one /var/log file on a host to drill into a log analyze_host flagged. "
+                "Filter with `grep`: a plain substring, an extended regex when regex=true (grep -E), "
+                "inverted when invert=true (grep -v). Path-jailed to /var/log — read-only."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "host": {"type": "string"},
                     "path": {"type": "string", "description": "Absolute log path under /var/log."},
-                    "grep": {"type": "string", "description": "Optional substring filter."},
+                    "grep": {"type": "string", "description": "Optional pattern (substring, or regex if regex=true)."},
+                    "regex": {"type": "boolean", "description": "Treat grep as an extended regex (grep -E). Default false."},
+                    "invert": {"type": "boolean", "description": "Keep lines that do NOT match grep (grep -v). Default false."},
                     "lines": {"type": "integer", "description": "Trailing lines (default 200)."},
                 },
                 "required": ["host", "path"],
@@ -220,10 +223,17 @@ async def _analysis_tool(session, name, args, settings, client_factory) -> dict[
         if name == "analyze_host":
             return await gather_signals(session, agent, client, since=(args.get("since") or None))
         # read_host_log
-        res = await client.call_tool("logfiles", {
+        call: dict[str, Any] = {
             "state": "read", "path": args.get("path", ""),
-            "lines": int(args.get("lines") or 200), **({"grep": args["grep"]} if args.get("grep") else {}),
-        })
+            "lines": int(args.get("lines") or 200),
+        }
+        if args.get("grep"):
+            call["grep"] = args["grep"]
+            if args.get("regex"):
+                call["regex"] = True
+            if args.get("invert"):
+                call["invert"] = True
+        res = await client.call_tool("logfiles", call)
         return res.get("data", res) if isinstance(res, dict) else {"error": "unexpected result"}
     except AgentClientError as exc:
         return {"error": str(exc)}

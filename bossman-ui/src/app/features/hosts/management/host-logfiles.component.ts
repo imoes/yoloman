@@ -51,6 +51,10 @@ interface LogFile { path: string; size: number; modified: number; }
           <span class="bm-lf-path">{{ selected() || 'select a file' }}</span>
           <span class="bm-spacer"></span>
           <input type="text" class="bm-grep" placeholder="grep…" [(ngModel)]="grep" (keyup.enter)="refreshContent()" />
+          <button type="button" class="bm-tgl" [class.bm-on]="regex" (click)="regex = !regex; refreshContent()"
+                  title="Extended regex (grep -E)">.*</button>
+          <button type="button" class="bm-tgl" [class.bm-on]="invert" (click)="invert = !invert; refreshContent()"
+                  title="Invert match — keep non-matching lines (grep -v)">≠</button>
           <select [(ngModel)]="lines" (ngModelChange)="refreshContent()">
             <option [ngValue]="200">200</option><option [ngValue]="500">500</option>
             <option [ngValue]="2000">2000</option><option [ngValue]="5000">5000</option>
@@ -83,6 +87,9 @@ interface LogFile { path: string; size: number; modified: number; }
       .bm-lf-path { font-family: monospace; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bm-spacer { flex: 1; }
       .bm-grep { padding: 5px 7px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-size: 12px; width: 130px; }
+      .bm-tgl { min-width: 26px; height: 26px; padding: 0 5px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-family: monospace; font-size: 13px; cursor: pointer; }
+      .bm-tgl:hover { background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
+      .bm-tgl.bm-on { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); border-color: var(--mat-sys-primary); font-weight: 700; }
       .bm-lf-bar select { padding: 4px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; }
       .bm-trunc { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, #ed6c02 18%, transparent); color: #e65100; }
       .bm-lf-editor { flex: 1; min-height: 260px; }
@@ -104,6 +111,8 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
   truncated = signal(false);
   customPath = '';
   grep = '';
+  regex = false;
+  invert = false;
   lines = 500;
   private extraPaths: string[] = [];
   private ed?: monaco.editor.IStandaloneCodeEditor;
@@ -159,7 +168,7 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
     const path = this.selected();
     if (!path) return;
     this.contentBusy.set(true);
-    this.agentService.logFile(this.agentId(), path, this.lines, this.grep, this.extraPaths).subscribe({
+    this.agentService.logFile(this.agentId(), path, this.lines, this.grep, this.extraPaths, this.regex, this.invert).subscribe({
       next: (res) => {
         this.contentBusy.set(false);
         this.truncated.set(!!res.truncated);
