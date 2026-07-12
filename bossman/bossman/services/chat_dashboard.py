@@ -26,9 +26,13 @@ ALLOWED_WIDGETS = {
 MAX_WIDGETS = 12
 
 DESIGN_PROMPT = f"""\
-You are designing an operations dashboard for a fleet-management app. Use the
-available tools to fetch REAL fleet data first (e.g. list_hosts, fleet_health),
-then design 2–8 widgets that best summarize the situation.
+You are designing an operations dashboard for a fleet-management app. The user
+gives you a short intent (e.g. "show me fleet health") — it is YOUR job to
+decide, autonomously, which widgets best answer it and how big each should be.
+Do not ask the user anything back.
+
+First use the available tools to fetch REAL fleet data (e.g. list_hosts,
+fleet_health). Then design 3–8 widgets that together tell the story.
 
 Output ONLY a JSON array (no prose, no markdown fences) of widget specs:
 [{{"widget_type": "...", "title": "...", "data": {{ ... }}, "gs_w": 4, "gs_h": 4}}]
@@ -36,9 +40,16 @@ Output ONLY a JSON array (no prose, no markdown fences) of widget specs:
 The `data` object MUST use the exact shape for its widget_type:
 {WIDGET_VOCAB}
 
-Fill `data` with the REAL data you gathered from tools (never invent host
-counts). gs_w is 2–12 columns, gs_h 2–8 rows. Prefer a stat/donut/status_tiles
-overview plus a table or ai_summary."""
+Rules:
+- Fill `data` with the REAL data you gathered from tools — never invent counts.
+- Choose widgets that fit the intent: lead with a few compact KPI tiles
+  (stat/gauge, gs_w 2–3, gs_h 2), then wider charts (donut/bar, gs_w 4–6,
+  gs_h 4), then a full-width table/ai_summary (gs_w 12, gs_h 4–6) if useful.
+- Size each widget by importance: gs_w 2–12 columns, gs_h 2–8 rows.
+- You do NOT need to set x/y positions — the app arranges the widgets into a
+  tidy 12-column grid in the order you list them, using your sizes. So ORDER
+  them the way they should read: overview KPIs first, details last.
+- 12 columns total per row; keep individual widgets ≤ 12 wide."""
 
 
 def _parse_specs(text: str) -> list[dict[str, Any]]:
@@ -73,6 +84,29 @@ def _clean_spec(spec: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _pack_layout(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Assign gs_x/gs_y by shelf-packing the widgets left-to-right in a
+    12-column grid, in the order the model listed them, using each widget's
+    chosen size. Deterministic, overlap-free layout — so "position it correctly
+    in the grid" doesn't depend on the model getting x/y right (it rarely does).
+    A widget wider than the remaining row wraps to a new shelf."""
+    x = 0
+    y = 0
+    row_h = 0
+    for s in specs:
+        w = min(12, s["gs_w"])
+        h = s["gs_h"]
+        if x + w > 12:
+            x = 0
+            y += row_h
+            row_h = 0
+        s["gs_x"] = x
+        s["gs_y"] = y
+        x += w
+        row_h = max(row_h, h)
+    return specs
+
+
 async def generate_dashboard(backend, executor, user_prompt: str) -> list[dict[str, Any]]:
     """Run the AI to design a dashboard and return the validated widget specs."""
     messages = [
@@ -90,4 +124,4 @@ async def generate_dashboard(backend, executor, user_prompt: str) -> list[dict[s
                 parts.append(ev["text"])
     specs = _parse_specs("".join(parts))
     cleaned = [c for s in specs if isinstance(s, dict) and (c := _clean_spec(s))]
-    return cleaned[:MAX_WIDGETS]
+    return _pack_layout(cleaned[:MAX_WIDGETS])
