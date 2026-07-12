@@ -34,14 +34,22 @@ async def _tool(client, name, params):
         return {}
 
 
-async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
-    """Collect the raw error signals from the host (live) + stored metrics."""
-    # journald errors (priority err and worse)
-    journal = await _tool(client, "journal", {"priority": "3", "lines": 40})
-    journal_errors = [f'{e.get("timestamp", "")} {e.get("unit", "")}: {e.get("message", "")}'
-                      for e in (journal.get("entries") or []) if isinstance(e, dict)][:40]
+async def gather_signals(session: AsyncSession, agent: Agent, client, since: str | None = None) -> dict:
+    """Collect the raw error signals from the host (live) + stored metrics.
 
-    # error-ish lines from key /var/log files
+    By default the full recent evidence is gathered (no trimming — the user
+    prefers complete data). When `since` is given (a journalctl time spec like
+    "-2h", "yesterday 14:00"), the journal is scoped to that window so the
+    analysis focuses on when the error actually occurred."""
+    # journald errors (priority err and worse)
+    jparams: dict = {"priority": "3", "lines": 2000}
+    if since:
+        jparams["since"] = since
+    journal = await _tool(client, "journal", jparams)
+    journal_errors = [f'{e.get("timestamp", "")} {e.get("unit", "")}: {e.get("message", "")}'
+                      for e in (journal.get("entries") or []) if isinstance(e, dict)]
+
+    # error-ish lines from key /var/log files (full recent tail, no trimming)
     listing = await _tool(client, "logfiles", {"state": "list"})
     paths = {f.get("path") for f in (listing.get("files") or []) if isinstance(f, dict)}
     file_errors: dict[str, list[str]] = {}
@@ -49,10 +57,10 @@ async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
         match = next((p for p in paths if p and p.split("/")[-1] == base), None)
         if not match:
             continue
-        content = await _tool(client, "logfiles", {"state": "read", "path": match, "lines": 200})
+        content = await _tool(client, "logfiles", {"state": "read", "path": match, "lines": 2000})
         hits = [ln for ln in (content.get("lines") or []) if any(m in ln.lower() for m in ERROR_MARKERS)]
         if hits:
-            file_errors[match] = hits[-12:]
+            file_errors[match] = hits
 
     # failed systemd services (service_facts' data may be a list of units or a
     # dict {services|units: ...} depending on the module version)
@@ -87,5 +95,5 @@ async def gather_signals(session: AsyncSession, agent: Agent, client) -> dict:
         "journal_errors": journal_errors,
         "file_errors": file_errors,
         "failed_services": failed,
-        "metrics": metrics[:60],
+        "metrics": metrics,
     }

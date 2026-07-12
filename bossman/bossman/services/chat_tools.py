@@ -109,12 +109,16 @@ TOOL_DEFS: list[dict[str, Any]] = [
                 "(syslog/kern/daemon/auth/…), failed systemd services, and the latest eBPF/"
                 "service/resource metrics. Call this whenever the user reports a problem (e.g. "
                 "'we have database problems', 'X is slow/failing') to gather EVIDENCE, then present "
-                "a root-cause analysis (Markdown + a plantuml diagram of the failure chain + "
-                "concrete recommendations). Use read_host_log to drill into any log it flags."
+                "a root-cause analysis with concrete recommendations. Use read_host_log to drill "
+                "into any log it flags. If the user says WHEN the error occurred, pass `since` to "
+                "focus the journal on that window; otherwise omit it to get the full recent picture."
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "properties": {
+                    "host": {"type": "string", "description": "The host (agent) name."},
+                    "since": {"type": "string", "description": "Optional journalctl time spec to focus on when the error occurred, e.g. '-2h', '2026-07-12 14:00', 'yesterday'."},
+                },
                 "required": ["host"],
             },
         },
@@ -214,7 +218,7 @@ async def _analysis_tool(session, name, args, settings, client_factory) -> dict[
     client = client_factory(agent, settings)
     try:
         if name == "analyze_host":
-            return await gather_signals(session, agent, client)
+            return await gather_signals(session, agent, client, since=(args.get("since") or None))
         # read_host_log
         res = await client.call_tool("logfiles", {
             "state": "read", "path": args.get("path", ""),
