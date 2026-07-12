@@ -176,7 +176,11 @@ def build_translation_messages(contract: str, record: dict[str, Any]) -> list[di
 _ERROR_HINTS: list[tuple[str, str]] = [
     ("got is", "You used the `is`/`is not` operator, which does not exist in Starlark. Replace every "
                "`X is None` with `X == None` and every `X is not None` with `X != None`."),
-    ("try", "Starlark has no try/except. Remove it and call fail(\"msg\") to abort; ctx.* builtins already fail() on error."),
+    ("try", "Starlark has NO try/except — it is a hard syntax error. Delete the try/except and GUARD "
+            "before the risky call instead: `v = int(x) if x.isdigit() else 0`; `if not s: return ...` "
+            "then `json.decode(s)`. Only use fail(\"msg\") when the check truly cannot proceed."),
+    ("got nonlocal", "Starlark has no `nonlocal`/`global`. Accumulate in a mutable dict/list "
+                     "(`acc = {\"n\": 0}`; `acc[\"n\"] += 1`) or return values; never rebind an outer name."),
     ("undefined: re", "There is no regex module. Use string methods (split, find, startswith, strip, replace)."),
     ("undefined: os", "There is no os module. Touch the system only through ctx.* builtins."),
     ("undefined: json", "There is no json module. Parse/emit strings with str methods."),

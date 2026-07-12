@@ -137,6 +137,34 @@ changed=True:
 
 Keep it focused (typically 50-160 lines). Reproduce the check's discovery +
 core threshold logic; skip clustering / SNMP-only / cluster-section paths.
+
+## STARLARK IS NOT PYTHON — these Python constructs DO NOT PARSE
+
+Every one of the following is a hard syntax/name error in Starlark. Do not emit
+them even though the source you are translating is Python. Rewrite as shown:
+
+- NO `try:` / `except:` / `finally:` / `raise` — Starlark has no exceptions.
+  Instead GUARD before the risky operation:
+    WRONG:  try: v = int(x)
+            except: v = 0
+    RIGHT:  v = int(x) if x.isdigit() else 0
+    WRONG:  try: d = json.decode(res.stdout)
+            except: return {...UNKNOWN...}
+    RIGHT:  if not res.stdout: return {...UNKNOWN...}
+            d = json.decode(res.stdout)   # the agent output is well-formed
+- NO `nonlocal` / `global` — you cannot reassign a name from an enclosing or
+  module scope. Accumulate via a mutable object instead, or return values:
+    WRONG:  total = 0
+            def add(n): nonlocal total; total += n
+    RIGHT:  acc = {"total": 0}          # mutating a dict/list is allowed
+            def add(n): acc["total"] += n
+- NO `while` loops (use `for ... in`), NO `class`, NO `lambda`, NO f-strings
+  (use `"%s" % x` or `"...".format(...)`), NO `import`, NO `re`, NO `is`/`is not`
+  (use `== None` / `!= None`), NO comprehension `if` with walrus, NO `assert`.
+- Every CONSTANT/name you reference (e.g. a metrics map) MUST be DEFINED at the
+  module top level or bound before use — a name defined only inside an `if`
+  branch and used elsewhere is `undefined:` at runtime. Define maps at top level.
+- List/dict comprehensions and `for` loops ARE supported; use them freely.
 """
 
 
@@ -273,8 +301,10 @@ def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[s
         "Rules for your answer:\n"
         "- Output ONLY the Starlark module code — no prose, no JSON. One ```python fenced block.\n"
         "- The module is READ-ONLY: never mutates=True, never ctx.file_write, always changed=False.\n"
-        "- Starlark is NOT Python: NEVER `is`/`is not` (use `== None`), no try/except/raise (fail()), "
-        "no imports, no classes, no f-strings, no regex, no lambda. Use d.get(k) for optional keys.\n"
+        "- Starlark is NOT Python (see the addendum's forbidden-constructs block): NO try/except/"
+        "finally/raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports/regex, NO `is`/"
+        "`is not` (use `== None`). Guard instead of try; use d.get(k) for optional keys; define every "
+        "constant at module top level.\n"
         "- Gather data ONLY through ctx.* builtins; map warn/crit from params."
     )
     user = (
