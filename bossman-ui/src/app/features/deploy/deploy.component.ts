@@ -88,11 +88,6 @@ interface RunbookRef { id: string; name: string; kind: string; }
                 @if (!groups().length) { <span class="bm-dim">No host groups.</span> }
               </div>
             </div>
-            <div class="bm-col bm-grow">
-              <strong>…or paste a hostname list</strong>
-              <textarea [(ngModel)]="hostnamesText" rows="6" placeholder="web01.example.com&#10;web02.example.com&#10;one host per line or comma-separated"></textarea>
-              <span class="bm-dim">Matched against enrolled host names; unknowns are reported, not run.</span>
-            </div>
           </div>
         </mat-card-content>
       </mat-card>
@@ -153,14 +148,16 @@ interface RunbookRef { id: string; name: string; kind: string; }
     .bm-err { color: var(--bm-red); }
     .bm-wide { width: 100%; max-width: 480px; }
     .bm-badge { font-size: 10.5px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); margin-left: 6px; }
-    .bm-kind { display: flex; gap: 20px; margin-bottom: 12px; }
-    .bm-kind label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    .bm-targets { display: flex; gap: 20px; flex-wrap: wrap; }
-    .bm-col { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
-    .bm-grow { flex: 1; min-width: 260px; }
-    .bm-checklist { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; padding: 6px 8px; }
-    .bm-checklist label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-    .bm-col textarea { padding: 8px 10px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: transparent; color: inherit; font-family: monospace; font-size: 12.5px; resize: vertical; }
+    .bm-kind { display: flex; gap: 10px; margin-bottom: 14px; }
+    .bm-kind label { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; font-weight: 500; }
+    .bm-kind label:has(input:checked) { border-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+    .bm-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 720px) { .bm-targets { grid-template-columns: 1fr; } }
+    .bm-col { display: flex; flex-direction: column; gap: 8px; }
+    .bm-col > strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; }
+    .bm-checklist { display: flex; flex-direction: column; gap: 1px; max-height: 240px; overflow: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px; }
+    .bm-checklist label { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 8px; border-radius: 6px; }
+    .bm-checklist label:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
     .bm-prow { display: flex; gap: 8px; align-items: center; }
     .bm-prow mat-form-field { flex: 1; }
     .bm-actions { display: flex; align-items: center; gap: 12px; }
@@ -192,15 +189,13 @@ export class DeployComponent implements OnInit {
   selectedRunbook = signal<string | null>(null);     // runbook id
   selectedAgents = signal<Set<string>>(new Set());
   selectedGroups = signal<Set<string>>(new Set());
-  hostnamesText = signal('');
   paramRows = signal<ParamRow[]>([]);
 
   running = signal(false);
   result = signal<DeploymentRun | null>(null);
   error = signal<string | null>(null);
 
-  targetCount = computed(() =>
-    this.selectedAgents().size + this.selectedGroups().size + this.parsedHostnames().length);
+  targetCount = computed(() => this.selectedAgents().size + this.selectedGroups().size);
 
   canRun = computed(() => {
     const hasArtifact = this.kind() === 'stored_plan' ? !!this.selectedPlan() : !!this.selectedRunbook();
@@ -222,10 +217,6 @@ export class DeployComponent implements OnInit {
   setParamKey(i: number, v: string): void { this.paramRows.update((r) => r.map((row, idx) => (idx === i ? { ...row, key: v } : row))); }
   setParamVal(i: number, v: string): void { this.paramRows.update((r) => r.map((row, idx) => (idx === i ? { ...row, value: v } : row))); }
 
-  private parsedHostnames(): string[] {
-    return this.hostnamesText().split(/[\n,]/).map((h) => h.trim()).filter(Boolean);
-  }
-
   private coerce(v: string): unknown {
     if (v === 'true' || v === 'false') return v === 'true';
     if (/^-?\d+$/.test(v)) return parseInt(v, 10);
@@ -241,7 +232,6 @@ export class DeployComponent implements OnInit {
     const targets = {
       agent_ids: [...this.selectedAgents()],
       group_ids: [...this.selectedGroups()],
-      hostnames: this.parsedHostnames(),
     };
 
     const post = (extra: Record<string, unknown>) => {

@@ -51,9 +51,14 @@ interface AppliedPolicy {
     <div class="bm-page">
       <div class="bm-header">
         <h1>Host placement</h1>
-        <button mat-stroked-button (click)="createOu(null)">
-          <mat-icon>create_new_folder</mat-icon> New root OU
-        </button>
+        <span class="bm-header-actions">
+          <button mat-stroked-button (click)="newGroup()">
+            <mat-icon>group_add</mat-icon> New host group
+          </button>
+          <button mat-stroked-button (click)="createOu(null)">
+            <mat-icon>create_new_folder</mat-icon> New root OU
+          </button>
+        </span>
       </div>
       <p class="bm-sub">
         Sort servers into OUs — a host inherits every rule on its OU path. Double-click an OU to
@@ -212,6 +217,7 @@ interface AppliedPolicy {
       .bm-page { padding: 24px; max-width: 1100px; margin: 0 auto; }
       .bm-header { display: flex; align-items: center; gap: 16px; }
       .bm-header h1 { margin: 0; }
+      .bm-header-actions { margin-left: auto; display: flex; gap: 8px; }
       .bm-sub { opacity: 0.7; margin-top: 4px; }
       .bm-split { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; }
       .bm-tree, .bm-detail {
@@ -443,6 +449,18 @@ export class HostPlacementComponent implements OnInit {
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
       this.hostGroup.create({ ...input, ou_id: ou.id }).subscribe(() => this.reload());
+    });
+  }
+
+  /** Top-level "New host group" — the OU is chosen in the dialog (optional),
+   * so groups can be created without right-clicking a specific OU first. */
+  newGroup(): void {
+    const ref = this.dialog.open<HostGroupDialogComponent, HostGroupDialogData, HostGroupInput>(HostGroupDialogComponent, {
+      width: '420px', data: { nodes: this.ous() },
+    });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      this.hostGroup.create(input).subscribe(() => this.reload());
     });
   }
 

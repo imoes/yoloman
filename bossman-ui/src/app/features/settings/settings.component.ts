@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -70,35 +71,38 @@ import { EnrollInfo } from '../../core/models/enroll.model';
             @if (info.deploy_configured) {
               <hr class="bm-sep" />
               <p>
-                …or let Bossman deploy it for you: enter a host's IP or DNS name and Bossman will SSH
-                in with its pre-configured operator identity, install the agent, and enroll it — no
-                command to run on the host.
+                …or let Bossman deploy it for you: list one or more hosts (IP or DNS, one per line)
+                and Bossman will SSH in with its pre-configured operator identity, install the agent,
+                and enroll each — no command to run on the hosts.
               </p>
-              <div class="bm-command-row">
+              <div class="bm-deploy-row">
                 <mat-form-field appearance="outline" class="bm-deploy-field">
-                  <mat-label>Host (IP or DNS)</mat-label>
-                  <input
+                  <mat-label>Hosts (one per line)</mat-label>
+                  <textarea
                     matInput
-                    [(ngModel)]="deployHost"
-                    placeholder="e.g. host.example.internal"
+                    rows="4"
+                    [(ngModel)]="deployHosts"
+                    placeholder="host.example.internal&#10;host5.example.internal"
                     [disabled]="deploying()"
-                    (keyup.enter)="deployNewHost()"
-                  />
+                  ></textarea>
                 </mat-form-field>
                 <button
                   mat-raised-button
                   color="primary"
-                  [disabled]="deploying() || !deployHost.trim()"
+                  [disabled]="deploying() || !deployHosts.trim()"
                   (click)="deployNewHost()"
                 >
                   {{ deploying() ? 'Deploying…' : 'Deploy & enroll' }}
                 </button>
               </div>
-              @if (deployMessage()) {
-                <p class="bm-success">{{ deployMessage() }}</p>
-              }
-              @if (deployError()) {
-                <p class="bm-error">{{ deployError() }}</p>
+              @if (deployResults().length) {
+                <ul class="bm-deploy-results">
+                  @for (r of deployResults(); track r.host) {
+                    <li [class.bm-success]="r.ok" [class.bm-error]="!r.ok">
+                      <mat-icon>{{ r.ok ? 'check_circle' : 'error' }}</mat-icon> {{ r.host }} — {{ r.detail }}
+                    </li>
+                  }
+                </ul>
               }
             }
           }
@@ -295,6 +299,30 @@ import { EnrollInfo } from '../../core/models/enroll.model';
       .bm-deploy-field {
         flex: 1;
       }
+      .bm-deploy-row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .bm-deploy-results {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .bm-deploy-results li {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+      }
+      .bm-deploy-results mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
       .bm-command-row {
         display: flex;
         align-items: center;
@@ -364,10 +392,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   reloadMessage = signal<string | null>(null);
   enrollInfo = signal<EnrollInfo | null>(null);
   copied = signal(false);
-  deployHost = '';
+  deployHosts = '';
   deploying = signal(false);
-  deployMessage = signal<string | null>(null);
-  deployError = signal<string | null>(null);
+  deployResults = signal<{ host: string; ok: boolean; detail: string }[]>([]);
 
   // AI Assistant / LLM config.
   prefs = signal<ChatPrefs | null>(null);
@@ -531,26 +558,25 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Block N-enroll: kick off a server-driven SSH deploy of a new host.
-   * Bossman does all the work (SSH + install + provision + enroll); we just
-   * surface progress and the result. */
-  deployNewHost(): void {
-    const host = this.deployHost.trim();
-    if (!host || this.deploying()) return;
+  /** Block N-enroll: server-driven SSH deploy of one or more new hosts.
+   * Bossman does all the work (SSH + install + provision + enroll) per host;
+   * we deploy them sequentially and surface a per-host result. */
+  async deployNewHost(): Promise<void> {
+    const hosts = this.deployHosts.split(/[\n,]/).map((h) => h.trim()).filter(Boolean);
+    if (!hosts.length || this.deploying()) return;
     this.deploying.set(true);
-    this.deployMessage.set(null);
-    this.deployError.set(null);
-    this.enrollService.deploy(host).subscribe({
-      next: (res) => {
-        this.deploying.set(false);
-        this.deployHost = '';
-        this.deployMessage.set(`Deployed and enrolled "${res.name}"${res.address ? ' (' + res.address + ')' : ''}. It will appear in Hosts shortly.`);
-      },
-      error: (e) => {
-        this.deploying.set(false);
-        this.deployError.set(e?.error?.detail ?? 'deploy failed');
-      },
-    });
+    this.deployResults.set([]);
+    for (const host of hosts) {
+      try {
+        const res = await firstValueFrom(this.enrollService.deploy(host));
+        this.deployResults.update((r) => [...r, { host, ok: true, detail: `enrolled${res.address ? ' (' + res.address + ')' : ''}` }]);
+      } catch (e: unknown) {
+        const detail = (e as { error?: { detail?: string } })?.error?.detail ?? 'deploy failed';
+        this.deployResults.update((r) => [...r, { host, ok: false, detail }]);
+      }
+    }
+    this.deploying.set(false);
+    this.deployHosts = '';
   }
 
   copyCommand(command: string | null): void {
