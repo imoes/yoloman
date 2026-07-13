@@ -259,10 +259,14 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
         # agents.mode is an operational role (standalone|satellite|proxy). A
         # piggyback guest (container/proxmox/vsphere) is satellite-role from
         # Bossman's view; keep its real type in agent_metadata.piggyback_kind.
+        # A relayed host is Bossman-managed, so it's a Duppy (satellite) or a
+        # Selecta (proxy) — never "standalone" (that's an un-enrolled agent);
+        # a self-reported "standalone" maps to satellite.
         raw_mode = host.get("mode") or "satellite"
-        valid = raw_mode in ("standalone", "satellite", "proxy")
+        valid = raw_mode in ("satellite", "proxy")
         satellite = await _find_or_create_satellite(
-            session, host_name, agent.id, raw_mode if valid else "satellite", kind=None if valid else raw_mode
+            session, host_name, agent.id, raw_mode if valid else "satellite",
+            kind=None if valid or raw_mode == "standalone" else raw_mode,
         )
         sample_time = now
         if host.get("last_sample_at"):
@@ -335,6 +339,12 @@ async def poll_agent(
             result.satellites_discovered, ingest_touched = await _ingest_hosts_overview(session, agent, hosts)
             touched += ingest_touched
             reached_agent = True
+            # A Bossman-managed agent is never "standalone" — that's an
+            # un-enrolled agent running on its own (bearer-only, no Bossman).
+            # Once we reach it, it's a Selecta (proxy) if it fronts satellites,
+            # else a Duppy (satellite role). Only set when hosts_overview
+            # succeeded, so a transient failure can't flip a proxy to duppy.
+            agent.mode = "proxy" if result.satellites_discovered > 0 else "satellite"
         except AgentClientError as exc:
             result.errors.append(f"hosts_overview: {exc}")
 

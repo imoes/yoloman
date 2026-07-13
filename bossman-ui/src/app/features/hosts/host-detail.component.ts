@@ -428,7 +428,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <dt>Address</dt>
                 <dd>{{ agent.address || '—' }}</dd>
                 <dt>Mode</dt>
-                <dd>{{ agent.mode }}</dd>
+                <dd>{{ modeLabel(agent.mode) }}</dd>
                 <dt>Enrollment state</dt>
                 <dd>{{ agent.enrollment_state }}</dd>
                 <dt>Last seen</dt>
@@ -1305,6 +1305,12 @@ export class HostDetailComponent implements OnInit {
 
   /** Expand/collapse a service row inline (CheckMK-style, Block H3) —
    * expanding loads its chart + state history via selectService. */
+  /** Friendly agent-role label: a managed agent is a Duppy (satellite) or a
+   * Selecta (proxy, fronts satellites); 'standalone' = un-enrolled/self-managed. */
+  modeLabel(mode: string | null | undefined): string {
+    return { satellite: 'Duppy', proxy: 'Selecta (proxy)', standalone: 'Standalone (unmanaged)' }[mode ?? ''] ?? (mode || '—');
+  }
+
   toggleService(svc: ServiceState): void {
     if (this.selectedService()?.id === svc.id) {
       this.selectedService.set(null);

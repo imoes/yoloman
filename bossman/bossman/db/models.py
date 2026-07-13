@@ -87,7 +87,11 @@ class Agent(Base):
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     address: Mapped[str | None] = mapped_column(String)
     token: Mapped[str] = mapped_column(String, nullable=False)
-    mode: Mapped[str] = mapped_column(String, nullable=False, default="standalone")
+    # Operational role from Bossman's view: a managed agent is a Duppy
+    # (satellite) or a Selecta (proxy, fronts satellites). "standalone" means
+    # un-enrolled/self-managed (bearer-only, no Bossman) — never stored for an
+    # agent Bossman actually polls; the poller reclassifies on first contact.
+    mode: Mapped[str] = mapped_column(String, nullable=False, default="satellite")
     enrollment_state: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     enrolled_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
     last_seen_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
