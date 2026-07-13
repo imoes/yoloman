@@ -840,6 +840,10 @@ async def query_agent_services(session: AsyncSession, agent_id: UUID) -> list[Se
 _DEFAULT_CHECK_RULES = [
     {"service_name": "Memory", "metric": "mem_used_pct", "comparison": "ge", "warn_threshold": 80.0, "crit_threshold": 90.0},
     {"service_name": "Disk", "metric": "disk_used_pct", "comparison": "ge", "warn_threshold": 80.0, "crit_threshold": 90.0},
+    # Consumed IOPS per server. No universal threshold (hardware-dependent), so
+    # the defaults sit high and rarely fire — the value is the point; operators
+    # tighten it per host/OU. Surfaces IOPS as a first-class service.
+    {"service_name": "Disk IOPS", "metric": "disk_iops", "comparison": "ge", "warn_threshold": 5000.0, "crit_threshold": 10000.0},
 ]
 
 
