@@ -37,6 +37,32 @@ VALID_PREFIXES = ("ansible", "salt", "puppet", "chef")
 SUPPORTED_FORMATS = ("nestedtext", "yaml", "json", "salt", "chef", "puppet")
 
 
+_ANSIBLE_BUILTIN_PREFIX = "ansible.builtin."
+
+
+def _strip_ansible_builtin(raw: Any) -> None:
+    """Rewrite step module keys of the form `ansible.builtin.<mod>` to the bare
+    native name (`<mod>`), in place, wherever they appear (flat `steps` or
+    per-chunk `steps`). yolo-man is not Ansible: the canonical body must never
+    persist the `ansible.builtin.` prefix (the loader would strip it at run
+    time anyway, but it must not leak into the library/editor). Collection
+    FQCNs like `community.crypto.openssl_privatekey` are real translated
+    modules and are left untouched."""
+    if not isinstance(raw, dict):
+        return
+    for chunk in raw.get("chunks", []) if isinstance(raw.get("chunks"), list) else []:
+        _strip_ansible_builtin(chunk)
+    steps = list(raw.get("steps") or []) if isinstance(raw.get("steps"), list) else []
+    handler = raw.get("final_handler")
+    if isinstance(handler, dict):
+        steps.append(handler)
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        for key in [k for k in step if isinstance(k, str) and k.startswith(_ANSIBLE_BUILTIN_PREFIX)]:
+            step[key[len(_ANSIBLE_BUILTIN_PREFIX):]] = step.pop(key)
+
+
 def canonical_from_source(source_format: str, source_text: str, *, name: str | None = None) -> dict[str, Any]:
     """Convert a plan's source text (in `source_format`) into the canonical
     raw dict, validated by building it into a Plan. Raises PlanError on any
@@ -79,6 +105,9 @@ def canonical_from_source(source_format: str, source_text: str, *, name: str | N
 
     if not isinstance(raw, dict):
         raise PlanError("plan must be a mapping")
+    # Normalize away the legacy `ansible.builtin.` module prefix before it can
+    # persist into the canonical body (yolo-man is not Ansible).
+    _strip_ansible_builtin(raw)
     # Validate + normalize by building; the returned Plan is discarded here,
     # the raw dict is what we persist as the canonical body.
     build_plan_from_raw(raw, Path(str(raw.get("name", "plan"))))

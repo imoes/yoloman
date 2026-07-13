@@ -137,8 +137,10 @@ Task execution → generative input mask:
      the form fields = the plan's params + a host/hosts field. The operator
      reviews the MD+UML and clicks one button (Ausführen) to run it.
   Put the authored plan under generated_plan.plan_body as a NESTED JSON OBJECT
-  (NOT a string — do not escape it). prefix "ansible". Steps are Ansible modules;
-  templating uses {{ param }}. Plan shape:
+  (NOT a string — do not escape it). prefix "ansible". A step names its module
+  with the BARE native module name as the key (`command`, `copy`, `file`,
+  `service`, `apt`, …) — NEVER an `ansible.builtin.`/collection prefix (yolo-man
+  is not Ansible). Templating uses {{ param }}. Plan shape:
   ```bm-form
   {"intent": "rotate nginx logs", "plan": null,
    "generated_plan": {
@@ -148,7 +150,7 @@ Task execution → generative input mask:
        "description": "Force a logrotate run for nginx",
        "params": {"keep": {"type": "int", "required": false}},
        "steps": [
-         {"name": "rotate", "ansible.builtin.command": {"cmd": "logrotate -f /etc/logrotate.d/nginx"}}
+         {"name": "rotate", "command": {"cmd": "logrotate -f /etc/logrotate.d/nginx"}}
        ]
      }
    },
