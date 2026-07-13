@@ -29,6 +29,7 @@ from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_va
 from bossman.services.plan_search import index_plan_catalog, search_plans
 from bossman.services.plan_store import (
     VALID_PREFIXES,
+    delete_plan as store_delete_plan,
     import_plans_dir as store_import_plans_dir,
     list_plans as store_list_plans,
     load_plan as store_load_plan,
@@ -386,6 +387,26 @@ async def plan_library_list(
     for p in plans:
         p["folder"] = folders.get((p["prefix"], p["name"]), "")
     return {"plans": plans, "folders": sorted({f for f in folders.values() if f})}
+
+
+@router.delete("/api/v1/plans/stored/{prefix}/{name}")
+async def delete_stored_plan(
+    prefix: str,
+    name: str,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Delete a stored plan (all versions + its folder placement)."""
+    if prefix not in VALID_PREFIXES:
+        raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
+    try:
+        removed = await store_delete_plan(session, prefix, name)
+    except PlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if removed == 0:
+        raise HTTPException(status_code=404, detail=f"no stored plan {prefix}/{name}")
+    await session.commit()
+    return {"prefix": prefix, "name": name, "deleted_versions": removed}
 
 
 @router.post("/api/v1/plans/stored/{prefix}/{name}/move")

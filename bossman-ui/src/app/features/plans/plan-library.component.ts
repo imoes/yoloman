@@ -30,6 +30,8 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       <aside class="bm-pl-tree">
         <div class="bm-pl-head">
           <strong>Plan library</strong>
+          <span class="bm-spacer"></span>
+          <button mat-icon-button (click)="openImport()" title="Import a plan (Ansible / Salt / Puppet / Chef)"><mat-icon>upload_file</mat-icon></button>
           <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>
         </div>
         @if (loadErr()) { <p class="bm-err">{{ loadErr() }}</p> }
@@ -71,11 +73,35 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
             <input class="bm-move" type="text" placeholder="folder (linux/base)" [(ngModel)]="moveFolder" (keyup.enter)="doMove()" />
             <button mat-stroked-button (click)="doMove()" [disabled]="busy()"><mat-icon>drive_file_move</mat-icon> Move</button>
             <button mat-raised-button color="primary" (click)="doSave()" [disabled]="busy()"><mat-icon>save</mat-icon> Save</button>
+            <button mat-stroked-button color="warn" (click)="doDelete()" [disabled]="busy()"><mat-icon>delete</mat-icon> Delete</button>
           </div>
           @if (msg()) { <p class="bm-ok">{{ msg() }}</p> }
           @if (saveErr()) { <p class="bm-err">{{ saveErr() }}</p> }
+        } @else if (importOpen()) {
+          <div class="bm-import">
+            <h3>Import a plan</h3>
+            <p class="bm-dim">Paste an Ansible / Salt / Puppet / Chef source; Bossman parses it into the canonical plan format.</p>
+            <label>Source type
+              <select [(ngModel)]="impKind">
+                @for (k of importKinds; track k.label; let i = $index) { <option [ngValue]="i">{{ k.label }}</option> }
+              </select>
+            </label>
+            <label>Plan name
+              <input type="text" [(ngModel)]="impName" placeholder="e.g. install_nginx" />
+            </label>
+            <label>Source
+              <textarea [(ngModel)]="impText" rows="12" placeholder="paste the {{ importKinds[impKind()].label }} source here"></textarea>
+            </label>
+            <div class="bm-import-actions">
+              <button mat-raised-button color="primary" (click)="doImport()" [disabled]="impBusy() || !impName.trim() || !impText.trim()">
+                <mat-icon>upload_file</mat-icon> Import
+              </button>
+              <button mat-stroked-button (click)="importOpen.set(false)" [disabled]="impBusy()">Cancel</button>
+            </div>
+            @if (impErr()) { <p class="bm-err">{{ impErr() }}</p> }
+          </div>
         } @else {
-          <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (NT · YAML · JSON).</p>
+          <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (NT · YAML · JSON), or import one.</p>
         }
         <!-- Single, stable editor element (Monaco lives here for the panel's
              lifetime); hidden until a plan is opened or when diffing. -->
@@ -109,6 +135,15 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       .bm-pl-mon { flex: 1; min-height: 340px; }
       .bm-ok { color: #2e7d32; font-size: 12px; margin: 4px 10px; }
       .bm-err { color: #c62828; font-size: 12px; margin: 4px 10px; }
+      .bm-import { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+      .bm-import h3 { margin: 0; }
+      .bm-import label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
+      .bm-import select, .bm-import input, .bm-import textarea {
+        padding: 7px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px;
+        background: var(--mat-sys-surface); color: inherit; font-size: 13px; font-weight: 400;
+      }
+      .bm-import textarea { font-family: monospace; font-size: 12.5px; resize: vertical; }
+      .bm-import-actions { display: flex; gap: 10px; }
     `,
   ],
 })
@@ -132,6 +167,22 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   saveErr = signal<string | null>(null);
   moveFolder = '';
   private ed?: monaco.editor.IStandaloneCodeEditor;
+
+  // Import a foreign-DSL source as a stored plan.
+  readonly importKinds = [
+    { label: 'Ansible (YAML)', prefix: 'ansible', format: 'yaml' },
+    { label: 'Ansible (JSON)', prefix: 'ansible', format: 'json' },
+    { label: 'Ansible (NestedText)', prefix: 'ansible', format: 'nestedtext' },
+    { label: 'Salt (SLS)', prefix: 'salt', format: 'salt' },
+    { label: 'Puppet (manifest)', prefix: 'puppet', format: 'puppet' },
+    { label: 'Chef (recipe)', prefix: 'chef', format: 'chef' },
+  ];
+  importOpen = signal(false);
+  impKind = signal(0);
+  impName = '';
+  impText = '';
+  impBusy = signal(false);
+  impErr = signal<string | null>(null);
 
   /** Flatten plans into an indented folder tree honoring the expanded set. */
   rows = computed<Row[]>(() => {
@@ -259,6 +310,47 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     this.planService.move(d.prefix, d.name, this.moveFolder.trim()).subscribe({
       next: (r) => { this.busy.set(false); this.msg.set(`moved to ${r.folder || 'root'}`); this.doc.set({ ...d, folder: r.folder }); this.reload(); },
       error: (e) => { this.busy.set(false); this.saveErr.set(e?.error?.detail ?? 'move failed'); },
+    });
+  }
+
+  openImport(): void {
+    this.doc.set(null);
+    this.impErr.set(null);
+    this.importOpen.set(true);
+  }
+
+  doImport(): void {
+    const kind = this.importKinds[this.impKind()];
+    const name = this.impName.trim();
+    const text = this.impText.trim();
+    if (!name || !text) return;
+    this.impBusy.set(true); this.impErr.set(null);
+    this.planService.import(kind.prefix, name, kind.format, text).subscribe({
+      next: (r) => {
+        this.impBusy.set(false);
+        this.importOpen.set(false);
+        this.impName = ''; this.impText = '';
+        this.reload();
+        this.open({ prefix: r.prefix, name: r.name });
+      },
+      error: (e) => { this.impBusy.set(false); this.impErr.set(e?.error?.detail ?? 'import failed'); },
+    });
+  }
+
+  doDelete(): void {
+    const d = this.doc();
+    if (!d) return;
+    if (!confirm(`Delete plan "${d.prefix}/${d.name}" and all its versions? This cannot be undone.`)) return;
+    this.busy.set(true); this.msg.set(null); this.saveErr.set(null);
+    this.planService.delete(d.prefix, d.name).subscribe({
+      next: (r) => {
+        this.busy.set(false);
+        this.doc.set(null);
+        this.versions.set([]);
+        this.msg.set(`deleted ${r.deleted_versions} version(s)`);
+        this.reload();
+      },
+      error: (e) => { this.busy.set(false); this.saveErr.set(e?.error?.detail ?? 'delete failed'); },
     });
   }
 

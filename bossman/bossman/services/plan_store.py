@@ -24,7 +24,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import DEFAULT_TENANT_ID, PlanDocument
+from bossman.db.models import DEFAULT_TENANT_ID, PlanDocument, PlanPlacement
 from bossman.services.nt_plan_loader import _coerce_plan_raw
 from bossman.services.plan_loader import Plan, PlanError, build_plan_from_raw
 
@@ -171,6 +171,39 @@ async def store_plan(
     session.add(doc)
     await session.flush()
     return doc
+
+
+async def delete_plan(
+    session: AsyncSession,
+    prefix: str,
+    name: str,
+    *,
+    tenant_id: str | uuid.UUID = DEFAULT_TENANT_ID,
+) -> int:
+    """Delete every stored version of a plan (and its folder placement).
+    Returns the number of versions removed (0 if it did not exist). The caller
+    commits. Plans are otherwise immutable/versioned; this is the one explicit
+    removal path (a user deleting a plan from the library)."""
+    if prefix not in VALID_PREFIXES:
+        raise PlanError(f"invalid prefix {prefix!r} (want one of {VALID_PREFIXES})")
+    tenant = _tenant_uuid(tenant_id)
+    docs = (
+        await session.scalars(
+            select(PlanDocument).where(
+                PlanDocument.tenant_id == tenant, PlanDocument.prefix == prefix, PlanDocument.name == name
+            )
+        )
+    ).all()
+    for doc in docs:
+        await session.delete(doc)
+    placement = await session.scalar(
+        select(PlanPlacement).where(
+            PlanPlacement.tenant_id == tenant, PlanPlacement.prefix == prefix, PlanPlacement.name == name
+        )
+    )
+    if placement is not None:
+        await session.delete(placement)
+    return len(docs)
 
 
 async def load_plan(

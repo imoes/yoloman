@@ -67,6 +67,22 @@ export class PlanService {
       `${this.base}/stored/${prefix}/${encodeURIComponent(name)}/run`, body,
     );
   }
+
+  /** Delete a stored plan (all versions + folder placement). */
+  delete(prefix: string, name: string) {
+    return this.http.delete<{ prefix: string; name: string; deleted_versions: number }>(
+      `${this.base}/stored/${prefix}/${encodeURIComponent(name)}`,
+    );
+  }
+
+  /** Import a foreign-DSL source (ansible/salt/puppet/chef) as a stored plan.
+   * The backend parses source_format into the canonical body. prefix picks the
+   * origin system; source_format is the DSL/authoring syntax. */
+  import(prefix: string, name: string, source_format: string, source_text: string) {
+    return this.http.post<{ prefix: string; name: string; version: number }>(
+      `${this.base}/stored`, { prefix, name, source_format, source_text },
+    );
+  }
 }
 
 export interface PlanBriefing { markdown: string | null; error: string | null; }
