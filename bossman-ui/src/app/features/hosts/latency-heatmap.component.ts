@@ -1,0 +1,104 @@
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { NgxEchartsDirective } from 'ngx-echarts';
+import { AgentService } from '../../core/services/agent.service';
+
+interface Cell { t: number; le: string; count: number; }
+
+/**
+ * A Coroot-style latency heatmap: the agent emits per-interval latency
+ * histograms (conn_latency_bucket / disk_io_latency_bucket, one series per `le`
+ * bucket); this pivots them into a buckets×time grid where color intensity is
+ * the event count in that latency bucket during that interval. Rendered with
+ * ECharts' heatmap (the same lib the topology map uses).
+ */
+@Component({
+  selector: 'app-latency-heatmap',
+  standalone: true,
+  imports: [NgxEchartsDirective],
+  template: `
+    <div class="bm-hm">
+      <div class="bm-hm-title">{{ title() }}</div>
+      @if (empty()) {
+        <p class="bm-hm-empty">No {{ title().toLowerCase() }} recorded in this window.</p>
+      } @else {
+        <div echarts [options]="options()" class="bm-hm-chart"></div>
+      }
+    </div>
+  `,
+  styles: [`
+    .bm-hm { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 10px 12px; }
+    .bm-hm-title { font-weight: 600; margin-bottom: 6px; }
+    .bm-hm-chart { height: 220px; width: 100%; }
+    .bm-hm-empty { opacity: 0.6; font-size: 13px; padding: 24px 0; text-align: center; }
+  `],
+})
+export class LatencyHeatmapComponent {
+  private agentService = inject(AgentService);
+  agentId = input.required<string>();
+  metric = input.required<string>();
+  title = input('Latency');
+
+  private cells = signal<Cell[]>([]);
+  empty = computed(() => this.cells().length === 0);
+
+  constructor() {
+    // Reload whenever the bound agent/metric changes.
+    let last = '';
+    setInterval(() => {
+      const key = this.agentId() + '|' + this.metric();
+      if (key !== last && this.agentId()) { last = key; this.load(); }
+    }, 500);
+  }
+
+  private load(): void {
+    const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    this.agentService.metricSeries(this.agentId(), this.metric(), since).subscribe({
+      next: (r) => {
+        const cells: Cell[] = (r.points || [])
+          .filter((p) => p.labels && p.labels['le'] != null && p.value > 0)
+          .map((p) => ({ t: new Date(p.time).getTime(), le: String(p.labels['le']), count: p.value }));
+        this.cells.set(cells);
+      },
+      error: () => this.cells.set([]),
+    });
+  }
+
+  // Sort le buckets numerically, with "+Inf" last.
+  private leOrder = (a: string, b: string) =>
+    (a === '+Inf' ? Infinity : parseFloat(a)) - (b === '+Inf' ? Infinity : parseFloat(b));
+
+  options = computed(() => {
+    const cells = this.cells();
+    const times = [...new Set(cells.map((c) => c.t))].sort((a, b) => a - b);
+    const les = [...new Set(cells.map((c) => c.le))].sort(this.leOrder);
+    const tIdx = new Map(times.map((t, i) => [t, i]));
+    const leIdx = new Map(les.map((l, i) => [l, i]));
+    const data = cells.map((c) => [tIdx.get(c.t), leIdx.get(c.le), Math.round(c.count)]);
+    const maxCount = Math.max(1, ...cells.map((c) => c.count));
+    const txt = getComputedStyle(document.documentElement).getPropertyValue('--mat-sys-on-surface').trim() || '#888';
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        formatter: (p: { data: [number, number, number] }) =>
+          `≤ ${les[p.data[1]]} ms<br/>${p.data[2]} events`,
+      },
+      grid: { top: 10, bottom: 40, left: 55, right: 15 },
+      xAxis: {
+        type: 'category',
+        data: times.map((t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+        axisLabel: { color: txt, fontSize: 10, hideOverlap: true },
+        splitArea: { show: false },
+      },
+      yAxis: {
+        type: 'category', name: 'ms', nameTextStyle: { color: txt, fontSize: 10 },
+        data: les, axisLabel: { color: txt, fontSize: 10 },
+      },
+      visualMap: {
+        min: 0, max: maxCount, calculable: false, orient: 'horizontal', left: 'center', bottom: 0,
+        inRange: { color: ['#0b3d2e', '#1e9600', '#ffdd57', '#f44034'] },
+        textStyle: { color: txt, fontSize: 10 },
+      },
+      series: [{ type: 'heatmap', data, emphasis: { itemStyle: { borderColor: txt, borderWidth: 1 } } }],
+    };
+  });
+}

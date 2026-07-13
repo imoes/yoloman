@@ -26,6 +26,7 @@ import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../share
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
+import { LatencyHeatmapComponent } from './latency-heatmap.component';
 import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
@@ -112,6 +113,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MetricGaugeComponent,
     TimeRangePickerComponent,
     PerfOMeterComponent,
+    LatencyHeatmapComponent,
   ],
   template: `
     @if (agent(); as agent) {
@@ -491,6 +493,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </mat-tab>
 
+          <mat-tab label="eBPF">
+            <div class="bm-tab-content">
+              <p class="bm-dim">Kernel-level (eBPF) signals — outbound connect latency and block-device
+                I/O latency, as Coroot-style heatmaps (buckets × time, color = event count).</p>
+              <div class="bm-ebpf-grid">
+                <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket" title="Outbound connect latency" />
+                <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket" title="Disk I/O latency" />
+              </div>
+            </div>
+          </mat-tab>
+
           <mat-tab label="Processes">
             <div class="bm-tab-content">
               <!-- Block J2: safe systemd service control (restart/stop/start)
@@ -710,6 +723,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tab-content {
         padding: 16px 4px;
       }
+      .bm-ebpf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+      @media (max-width: 900px) { .bm-ebpf-grid { grid-template-columns: 1fr; } }
       .bm-console-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
       .bm-rel-map { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; }
       .bm-rel-h { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
