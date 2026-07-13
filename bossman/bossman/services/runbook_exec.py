@@ -26,8 +26,9 @@ DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 async def gather_magic_vars(client: Any, agent: Agent) -> dict[str, Any]:
     """The agent's own facts (hostname, distribution, hardware/DMI) as
-    Ansible-style ${ansible_*}/${inventory_hostname}. Best-effort: a failed
-    `setup` never blocks the run — the runbook proceeds with what it has."""
+    ${yoloman_*}/${inventory_hostname} (the agent also emits ${ansible_*}
+    aliases for imported content). Best-effort: a failed `setup` never blocks
+    the run — the runbook proceeds with what it has."""
     magic: dict[str, Any] = {"inventory_hostname": agent.name}
     try:
         facts_resp = await client.call_tool("setup", {})

@@ -63,9 +63,10 @@ func (s *Setup) Description() string {
 		"planning changes.\n\n" +
 		"Cross-tool equivalents (use this mapping to translate other formats into agentic-mcp calls):\n" +
 		"- Ansible: ansible.builtin.setup / the automatic 'gather_facts' step at play start. " +
-		"Returned keys mirror Ansible's fact names (ansible_hostname, ansible_kernel, " +
-		"ansible_architecture, ansible_distribution, ansible_distribution_version, " +
-		"ansible_memtotal_mb, ansible_processor_vcpus).\n" +
+		"Native keys use the yoloman_ prefix (yoloman_hostname, yoloman_kernel, " +
+		"yoloman_architecture, yoloman_distribution, yoloman_distribution_version, " +
+		"yoloman_memtotal_mb, yoloman_processor_vcpus); the ansible_ keys are also " +
+		"returned as compat aliases for imported Ansible content.\n" +
 		"- Chef: the automatic Ohai run that populates node attributes (node['hostname'], " +
 		"node['kernel'], node['platform'], node['platform_version'], node['memory']['total'], " +
 		"node['cpu']['total']).\n" +
@@ -130,6 +131,17 @@ func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Re
 			if v, err := readFirstLine(filepath.Join(s.DMIRoot, file)); err == nil && v != "" {
 				facts[factName] = v
 			}
+		}
+	}
+
+	// yolo-man's native fact names use the yoloman_ prefix (the product is
+	// yolo-man, not Ansible) — expose those as the primary names. The ansible_
+	// keys are kept as compat aliases so imported Ansible content
+	// ({{ ansible_distribution }}) and existing runbook when: clauses keep
+	// resolving. Runbooks/plans and the UI are authored against yoloman_*.
+	for k, v := range facts {
+		if strings.HasPrefix(k, "ansible_") {
+			facts["yoloman_"+strings.TrimPrefix(k, "ansible_")] = v
 		}
 	}
 

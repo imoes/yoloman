@@ -160,21 +160,24 @@ We deliberately do NOT take bash's `$(command)`, `$((math))`, or `${var//x/y}`
 So the rule of thumb: **bash syntax for referencing and defaulting values;
 Starlark (or `run:`) for computing them.**
 
-**Magic variables (Ansible-style facts).** Before a runbook runs, the agent's
-own facts are gathered (the read-only `setup` module) and made available as
-variables — no need to declare them:
+**Magic variables (facts).** Before a runbook runs, the agent's own facts are
+gathered (the read-only `setup` module) and made available as variables — no
+need to declare them. Native fact names use the `yoloman_` prefix:
 
 ```
 ${inventory_hostname}          the host's name
-${ansible_hostname}            ${ansible_distribution}   ${ansible_kernel}
-${ansible_architecture}        ${ansible_memtotal_mb}    ${ansible_processor_vcpus}
-${ansible_board_vendor}        ${ansible_board_name}     ${ansible_product_serial}
-${ansible_system_vendor}       ${ansible_bios_vendor}    ${ansible_chassis_vendor}
+${yoloman_hostname}            ${yoloman_distribution}   ${yoloman_kernel}
+${yoloman_architecture}        ${yoloman_memtotal_mb}    ${yoloman_processor_vcpus}
+${yoloman_board_vendor}        ${yoloman_board_name}     ${yoloman_product_serial}
+${yoloman_system_vendor}       ${yoloman_bios_vendor}    ${yoloman_chassis_vendor}
 ```
 
-So a runbook can branch on hardware — e.g. `when: ansible_board_vendor ==
-"Supermicro"` or `${ansible_distribution}`. Everything the agent collects is
-reachable; explicit variables (below) override a fact of the same name.
+So a runbook can branch on hardware — e.g. `when: yoloman_board_vendor ==
+"Supermicro"` or `${yoloman_distribution}`. Everything the agent collects is
+reachable; explicit variables (below) override a fact of the same name. For
+compatibility with imported Ansible content, the agent also exposes each fact
+under its old `ansible_*` name (e.g. `${ansible_distribution}`), so pasted
+`{{ ansible_distribution }}` templates keep resolving.
 
 **Precedence (GPO, reusing the check-assignment resolver):**
 
@@ -234,7 +237,7 @@ yolo-man runbook run  web-baseline.nt --host web01 --var port=8080  # override a
 
 Each run records a `RunbookRun` audit row (same as a UI run), reaches the host
 directly over mTLS, and layers variables weakest→strongest: agent facts (magic
-`${ansible_*}`) < filesystem `host_vars` < GPO scope vars (group < OU root→leaf
+`${yoloman_*}`) < filesystem `host_vars` < GPO scope vars (group < OU root→leaf
 < host) < `--var`. (The bare `yolo-man run`/`store`/`ls` commands drive the
 legacy Plan store — a separate subsystem the NT runbook format replaces.)
 

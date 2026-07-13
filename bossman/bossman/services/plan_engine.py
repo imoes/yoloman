@@ -371,5 +371,9 @@ async def _resolve_distribution_family_from_agent(client: AgentClient) -> tuple[
     except AgentClientError as exc:
         return None, str(exc)
     data = facts.get("data") if isinstance(facts, dict) else None
-    raw_distribution = data.get("ansible_distribution") if isinstance(data, dict) else None
+    # Prefer the native yoloman_ fact; fall back to the ansible_ compat alias
+    # for agents that predate the rename.
+    raw_distribution = None
+    if isinstance(data, dict):
+        raw_distribution = data.get("yoloman_distribution") or data.get("ansible_distribution")
     return _distribution_family(raw_distribution), None

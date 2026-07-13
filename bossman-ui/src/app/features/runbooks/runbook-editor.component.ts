@@ -46,11 +46,13 @@ steps:
       state: reloaded
 `;
 
+// Native fact names use the yoloman_ prefix (the agent also emits ansible_
+// aliases for imported Ansible content, but these are what we advertise).
 const MAGIC_VARS = [
-  'inventory_hostname', 'ansible_hostname', 'ansible_distribution', 'ansible_kernel',
-  'ansible_architecture', 'ansible_memtotal_mb', 'ansible_processor_vcpus',
-  'ansible_board_vendor', 'ansible_board_name', 'ansible_product_serial',
-  'ansible_system_vendor', 'ansible_bios_vendor', 'ansible_chassis_vendor',
+  'inventory_hostname', 'yoloman_hostname', 'yoloman_distribution', 'yoloman_kernel',
+  'yoloman_architecture', 'yoloman_memtotal_mb', 'yoloman_processor_vcpus',
+  'yoloman_board_vendor', 'yoloman_board_name', 'yoloman_product_serial',
+  'yoloman_system_vendor', 'yoloman_bios_vendor', 'yoloman_chassis_vendor',
   'inventory.system.serial_number', 'inventory.cpu.model', 'inventory.memory_mb',
   'inventory.os.pretty_name', 'inventory.disks', 'inventory.nics',
 ];
@@ -321,7 +323,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     if (confirm('Apply this runbook for real (not a dry run)?')) this.run(false);
   }
 
-  /** Render a magic-variable reference like ${ansible_hostname} without
+  /** Render a magic-variable reference like ${yoloman_hostname} without
    * colliding with Angular's {{ }} interpolation. */
   ref(v: string): string {
     return '$' + '{' + v + '}';

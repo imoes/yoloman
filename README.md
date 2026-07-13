@@ -239,7 +239,7 @@ yolo-man runbook run web-baseline.nt --host web01           # apply
 
 The agent's own facts (hostname, distribution, and hardware/DMI like the
 motherboard vendor) are available as magic variables — `${inventory_hostname}`,
-`${ansible_distribution}`, `${ansible_board_vendor}` — with no declaration.
+`${yoloman_distribution}`, `${yoloman_board_vendor}` — with no declaration.
 Every run is recorded as an audit trail (visible in the UI's runbook editor).
 
 ### A role

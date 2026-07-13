@@ -52,6 +52,15 @@ func TestSetup_GathersFacts(t *testing.T) {
 	}
 
 	want := map[string]any{
+		// Native yoloman_ names (primary).
+		"yoloman_hostname":             "test-host",
+		"yoloman_architecture":         "x86_64",
+		"yoloman_kernel":               "6.17.0-35-generic",
+		"yoloman_distribution":         "Ubuntu",
+		"yoloman_distribution_version": "24.04",
+		"yoloman_memtotal_mb":          int64(2),
+		"yoloman_processor_vcpus":      2,
+		// ansible_ compat aliases (kept for imported Ansible content).
 		"ansible_hostname":             "test-host",
 		"ansible_architecture":         "x86_64",
 		"ansible_kernel":               "6.17.0-35-generic",
