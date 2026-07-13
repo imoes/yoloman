@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -118,7 +119,61 @@ type Collector struct {
 	disks     []DiskIOEvent
 	maxEvents int
 
+	// Per-interval latency histograms (Coroot-style heatmap source): counts of
+	// events falling in each LatencyBucketsMs bucket since the last Snapshot.
+	// len == len(LatencyBucketsMs)+1 (last is the +Inf overflow bucket).
+	connLatHist []uint64
+	diskLatHist []uint64
+
 	edgeSink EdgeSink
+}
+
+// LatencyBucketsMs are the upper bounds (le, in ms) of the latency histogram
+// buckets, matching Coroot's default SLI boundaries (.005..10s → 5..10000ms).
+var LatencyBucketsMs = []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
+
+// latencyBucket returns the index of the first bucket whose upper bound is
+// >= ms, or the overflow bucket (len(LatencyBucketsMs)) for anything larger.
+func latencyBucket(ms float64) int {
+	for i, le := range LatencyBucketsMs {
+		if ms <= le {
+			return i
+		}
+	}
+	return len(LatencyBucketsMs)
+}
+
+// SnapshotLatencyHistograms returns the per-bucket event counts accumulated
+// since the previous call and resets them — {le-label: count}, with the
+// overflow bucket keyed "+Inf". Called once per metric-sampling tick.
+func (c *Collector) SnapshotLatencyHistograms() (conn, disk map[string]uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	conn = histToMap(c.connLatHist)
+	disk = histToMap(c.diskLatHist)
+	c.connLatHist = make([]uint64, len(LatencyBucketsMs)+1)
+	c.diskLatHist = make([]uint64, len(LatencyBucketsMs)+1)
+	return conn, disk
+}
+
+func histToMap(h []uint64) map[string]uint64 {
+	out := make(map[string]uint64, len(h))
+	for i, n := range h {
+		le := "+Inf"
+		if i < len(LatencyBucketsMs) {
+			le = strconv.FormatFloat(LatencyBucketsMs[i], 'g', -1, 64)
+		}
+		out[le] = n
+	}
+	return out
+}
+
+// recordLatency adds one observation (ms) to a histogram; caller holds c.mu.
+func (c *Collector) recordLatency(hist *[]uint64, ms float64) {
+	if *hist == nil {
+		*hist = make([]uint64, len(LatencyBucketsMs)+1)
+	}
+	(*hist)[latencyBucket(ms)]++
 }
 
 // SetEdgeSink wires an optional destination for durable connection-edge
@@ -263,7 +318,18 @@ func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 		// Block A) — best-effort: a nil sink (the default) just skips this.
 		if newState == "ESTABLISHED" {
 			if sink := c.getEdgeSink(); sink != nil {
-				if err := sink.UpsertEdge(ctx, comm, dstAddr, ev.Dport, nil); err != nil {
+				// conn_latency_ns is the SYN_SENT→ESTABLISHED connect latency,
+				// set by the eBPF program only for outbound connects (0 for
+				// inbound accepts, which have no connect timing) → pass nil then.
+				var latencyNs *int64
+				if ev.ConnLatencyNs > 0 {
+					l := int64(ev.ConnLatencyNs)
+					latencyNs = &l
+					c.mu.Lock()
+					c.recordLatency(&c.connLatHist, float64(ev.ConnLatencyNs)/1e6)
+					c.mu.Unlock()
+				}
+				if err := sink.UpsertEdge(ctx, comm, dstAddr, ev.Dport, latencyNs); err != nil {
 					slog.Warn("ebpf: persisting connection edge", "error", err)
 				}
 			}
@@ -289,6 +355,9 @@ func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 			Error:       ev.DiskError,
 			ContainerID: containerIDForPID(ev.Pid),
 		})
+		c.mu.Lock()
+		c.recordLatency(&c.diskLatHist, float64(ev.DiskLatencyNs)/1e6)
+		c.mu.Unlock()
 	}
 }
 

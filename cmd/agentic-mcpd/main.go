@@ -105,8 +105,18 @@ func run(args []string) error {
 	// file across restarts.
 	dsApplier := desiredstate.NewApplier(filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json"))
 
+	// eBPF collector — created before the collect loop so that loop can emit
+	// its per-interval latency histograms (Coroot-style heatmap source).
+	collector := startEBPFCollector(cfg)
+	if collector != nil {
+		defer collector.Close()
+		// st (store.Store) already satisfies ebpf.EdgeSink structurally —
+		// no adapter needed. See docs/plan.md's Bossman "v3" Block A.
+		collector.SetEdgeSink(st)
+	}
+
 	checkRegistry := collect.NewCheckRegistry()
-	startCollectLoop(cfg, st, checkRegistry, dsApplier)
+	startCollectLoop(cfg, st, checkRegistry, dsApplier, collector)
 	startConfiguredCheckLoops(cfg, st, checkRegistry)
 
 	hostName, err := os.Hostname()
@@ -140,14 +150,6 @@ func run(args []string) error {
 	if cfg.PAM.Enabled {
 		pamAuth = authz.NewPAMAuthenticator(cfg.PAM.Service)
 		sessions = authz.NewSessionStore(cfg.PAM.SessionTTL.Duration())
-	}
-
-	collector := startEBPFCollector(cfg)
-	if collector != nil {
-		defer collector.Close()
-		// st (store.Store) already satisfies ebpf.EdgeSink structurally —
-		// no adapter needed. See docs/plan.md's Bossman "v3" Block A.
-		collector.SetEdgeSink(st)
 	}
 
 	// Audit entries are written to stderr as JSON lines: under systemd
@@ -397,7 +399,7 @@ func runDownsample(cfg config.Config, st store.Store) {
 // /api/v1/hosts/overview — see docs/plan.md's monitoring-cockpit
 // ergänzung. This is the fix for the agent previously writing no real
 // metric beyond the one-shot startup marker.
-func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry, dsApplier *desiredstate.Applier) {
+func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.CheckRegistry, dsApplier *desiredstate.Applier, collector *ebpf.Collector) {
 	if !cfg.Collect.Enabled {
 		slog.Warn("metric collection disabled (collect.enabled: false) — GET /api/v1/hosts/overview will report no metrics/checks")
 		return
@@ -461,6 +463,17 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 			}
 			for dev, aw := range io.PerDeviceAwait {
 				points = append(points, store.Point{Metric: "disk_await_ms_device", Timestamp: now, Value: aw, Labels: map[string]string{"device": dev}})
+			}
+		}
+		// eBPF latency histograms (Coroot-style heatmap source): per-interval
+		// bucket counts of outbound connect latency + disk I/O latency.
+		if collector != nil {
+			connH, diskH := collector.SnapshotLatencyHistograms()
+			for le, n := range connH {
+				points = append(points, store.Point{Metric: "conn_latency_bucket", Timestamp: now, Value: float64(n), Labels: map[string]string{"le": le}})
+			}
+			for le, n := range diskH {
+				points = append(points, store.Point{Metric: "disk_io_latency_bucket", Timestamp: now, Value: float64(n), Labels: map[string]string{"le": le}})
 			}
 		}
 		if dockerCollector != nil {
