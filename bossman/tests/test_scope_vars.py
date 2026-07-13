@@ -61,3 +61,31 @@ async def test_only_reaching_scopes(db_session):
     await _vars(db_session, "ou", {"x": "1"}, ou=other_ou)     # unrelated OU
     await db_session.flush()
     assert await resolve_scope_vars(db_session, agent) == {}
+
+
+# --- secret (vaulted) scope vars -------------------------------------------
+
+from bossman.api.runbooks import _mask_vars  # noqa: E402
+from bossman.services.vault import Vault  # noqa: E402
+
+
+def test_mask_vars_masks_only_encrypted():
+    v = Vault(key="", key_path="/tmp/claude-vault-test.key")
+    stored = {"plain": "hello", "db_pw": v.encrypt("s3cr3t")}
+    display, secret_keys = _mask_vars(stored)
+    assert display["plain"] == "hello"
+    assert display["db_pw"] == Vault.mask()
+    assert secret_keys == ["db_pw"]
+    assert "s3cr3t" not in str(display)
+
+
+async def test_resolve_keeps_secret_encrypted_until_decrypt(db_session):
+    """resolve_scope_vars returns the stored (encrypted) value verbatim; only
+    the run-time decrypt step (runbook_exec) turns it back into plaintext."""
+    v = Vault(key="", key_path="/tmp/claude-vault-test.key")
+    agent = await _agent(db_session)
+    await _vars(db_session, "host", {"api_key": v.encrypt("k-123")}, agent=agent)
+    merged = await resolve_scope_vars(db_session, agent)
+    assert Vault.is_encrypted(merged["api_key"])          # still encrypted at this layer
+    assert merged["api_key"] != "k-123"
+    assert v.decrypt(merged["api_key"]) == "k-123"        # run-time decrypt recovers it

@@ -14,7 +14,8 @@ export interface ScopeVarsDialogData {
   scopeLabel: string; // e.g. "OU /Databases" or "host db01"
 }
 
-interface Row { key: string; value: string; }
+interface Row { key: string; value: string; secret: boolean; }
+const MASK = '••••••••';
 
 /**
  * Block G11 — set the variables directly on one scope (OU/group/host). These
@@ -39,9 +40,16 @@ interface Row { key: string; value: string; }
             <input matInput [ngModel]="r.key" (ngModelChange)="setKey($index, $event)" placeholder="mysql_port" />
           </mat-form-field>
           <mat-form-field appearance="outline" class="bm-val">
-            <mat-label>value</mat-label>
-            <input matInput [ngModel]="r.value" (ngModelChange)="setVal($index, $event)" placeholder="3306" />
+            <mat-label>{{ r.secret ? 'secret value' : 'value' }}</mat-label>
+            <input matInput [type]="r.secret ? 'password' : 'text'" [ngModel]="r.value"
+                   (ngModelChange)="setVal($index, $event)" (focus)="onSecretFocus($index)"
+                   [placeholder]="r.secret ? '••••••••' : '3306'" />
           </mat-form-field>
+          <button mat-icon-button (click)="toggleSecret($index)"
+                  [color]="r.secret ? 'primary' : undefined"
+                  [title]="r.secret ? 'Secret — encrypted at rest' : 'Mark as secret (encrypt at rest)'">
+            <mat-icon>{{ r.secret ? 'lock' : 'lock_open' }}</mat-icon>
+          </button>
           <button mat-icon-button (click)="remove($index)" title="Remove"><mat-icon>close</mat-icon></button>
         </div>
       }
@@ -75,18 +83,28 @@ export class ScopeVarsDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.http.get<{ vars: Record<string, unknown> }>(
+    this.http.get<{ vars: Record<string, unknown>; secret_keys?: string[] }>(
       `${this.base}/scope-vars?scope_type=${this.data.scopeType}&${this.idParam()}`,
     ).subscribe((r) => {
-      const rows = Object.entries(r.vars || {}).map(([key, value]) => ({ key, value: String(value) }));
-      this.rows.set(rows.length ? rows : [{ key: '', value: '' }]);
+      const secret = new Set(r.secret_keys || []);
+      const rows = Object.entries(r.vars || {}).map(([key, value]) => ({
+        key, value: String(value), secret: secret.has(key),
+      }));
+      this.rows.set(rows.length ? rows : [{ key: '', value: '', secret: false }]);
     });
   }
 
-  add(): void { this.rows.update((r) => [...r, { key: '', value: '' }]); }
+  add(): void { this.rows.update((r) => [...r, { key: '', value: '', secret: false }]); }
   remove(i: number): void { this.rows.update((r) => r.filter((_, idx) => idx !== i)); }
   setKey(i: number, v: string): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, key: v } : row))); }
   setVal(i: number, v: string): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, value: v } : row))); }
+  toggleSecret(i: number): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, secret: !row.secret } : row))); }
+
+  /** Clicking into a still-masked secret clears the mask so a real edit
+   * replaces it; leaving it untouched (mask) preserves the stored ciphertext. */
+  onSecretFocus(i: number): void {
+    this.rows.update((r) => r.map((row, idx) => (idx === i && row.secret && row.value === MASK ? { ...row, value: '' } : row)));
+  }
 
   private coerce(v: string): unknown {
     if (v === 'true' || v === 'false') return v === 'true';
@@ -97,11 +115,20 @@ export class ScopeVarsDialogComponent implements OnInit {
 
   save(): void {
     const vars: Record<string, unknown> = {};
-    for (const { key, value } of this.rows()) {
+    const secretKeys: string[] = [];
+    for (const { key, value, secret } of this.rows()) {
       const k = key.trim();
-      if (k) vars[k] = this.coerce(value);
+      if (!k) continue;
+      if (secret) {
+        secretKeys.push(k);
+        // A secret left as the mask means "unchanged" → send the mask so the
+        // backend keeps the existing ciphertext. Never coerce a secret.
+        vars[k] = value === '' ? MASK : value;
+      } else {
+        vars[k] = this.coerce(value);
+      }
     }
-    const body: Record<string, unknown> = { scope_type: this.data.scopeType, vars };
+    const body: Record<string, unknown> = { scope_type: this.data.scopeType, vars, secret_keys: secretKeys };
     body[{ ou: 'ou_id', group: 'host_group_id', host: 'agent_id' }[this.data.scopeType]] = this.data.scopeId;
     this.http.put(`${this.base}/scope-vars`, body).subscribe({
       next: () => this.dialogRef.close(true),

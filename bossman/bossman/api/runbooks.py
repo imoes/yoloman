@@ -28,6 +28,7 @@ from bossman.db.session import get_session
 from bossman.services import nt_compile, nt_convert, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.runbook_exec import execute_runbook
+from bossman.services.vault import Vault
 
 router = APIRouter()
 
@@ -166,6 +167,10 @@ class ScopeVarsBody(BaseModel):
     host_group_id: UUID | None = None
     agent_id: UUID | None = None
     vars: dict[str, Any] = {}
+    # Keys whose value is a secret: stored encrypted (vault:v1:…), masked on
+    # read, decrypted only at run time. A secret key whose incoming value is
+    # the mask means "unchanged" — keep the already-stored ciphertext.
+    secret_keys: list[str] = []
 
 
 def _scope_filter(stmt, scope_type: str, ou_id, host_group_id, agent_id):
@@ -174,25 +179,45 @@ def _scope_filter(stmt, scope_type: str, ou_id, host_group_id, agent_id):
     return stmt.where(ScopeVars.scope_type == scope_type, col[0] == col[1])
 
 
+def _mask_vars(stored: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Return (display_vars, secret_keys): secret (encrypted) values replaced
+    with the mask so plaintext never leaves the server; secret_keys lists which
+    keys are secrets so the UI renders them as password fields."""
+    display: dict[str, Any] = {}
+    secret_keys: list[str] = []
+    for k, v in (stored or {}).items():
+        if Vault.is_encrypted(v):
+            display[k] = Vault.mask()
+            secret_keys.append(k)
+        else:
+            display[k] = v
+    return display, secret_keys
+
+
 @router.get("/api/v1/scope-vars")
 async def get_scope_vars(
     scope_type: str, ou_id: UUID | None = None, host_group_id: UUID | None = None, agent_id: UUID | None = None,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
     """The variables set directly on one scope target (not the resolved
-    inheritance — a runbook run resolves that GPO-style)."""
+    inheritance — a runbook run resolves that GPO-style). Secret values are
+    masked; `secret_keys` tells the UI which to render as password fields."""
     if scope_type not in ("ou", "group", "host"):
         raise HTTPException(status_code=422, detail="scope_type must be ou|group|host")
     row = await session.scalar(_scope_filter(select(ScopeVars).where(ScopeVars.tenant_id == DEFAULT_TENANT_ID), scope_type, ou_id, host_group_id, agent_id))
-    return {"vars": row.vars if row else {}}
+    display, secret_keys = _mask_vars(row.vars if row else {})
+    return {"vars": display, "secret_keys": secret_keys}
 
 
 @router.put("/api/v1/scope-vars")
 async def put_scope_vars(
-    body: ScopeVarsBody, session: AsyncSession = Depends(get_session), identity: Identity = Depends(get_current_identity),
+    body: ScopeVarsBody, session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity), settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """Set (upsert) the variables on a host/group/OU. Host scope needs manage
-    rights on the host; group/OU scope is admin-only (broad blast radius)."""
+    rights on the host; group/OU scope is admin-only (broad blast radius).
+    Keys named in `secret_keys` are encrypted at rest; a secret whose incoming
+    value is the mask keeps its existing ciphertext (edit-without-revealing)."""
     if body.scope_type not in ("ou", "group", "host"):
         raise HTTPException(status_code=422, detail="scope_type must be ou|group|host")
     scope_id = {"ou": body.ou_id, "group": body.host_group_id, "host": body.agent_id}[body.scope_type]
@@ -205,14 +230,32 @@ async def put_scope_vars(
         raise HTTPException(status_code=403, detail="group/OU vars are admin-only")
 
     row = await session.scalar(_scope_filter(select(ScopeVars).where(ScopeVars.tenant_id == DEFAULT_TENANT_ID), body.scope_type, body.ou_id, body.host_group_id, body.agent_id))
+    existing = (row.vars if row else {}) or {}
+    vault = Vault(settings.vault_key, settings.vault_key_path)
+    secret = set(body.secret_keys)
+    new_vars: dict[str, Any] = {}
+    for k, v in body.vars.items():
+        if k in secret:
+            if v == Vault.mask():
+                # Unchanged secret → keep existing ciphertext; a mask with no
+                # prior ciphertext is an empty secret → drop it (don't encrypt
+                # the mask placeholder itself).
+                if Vault.is_encrypted(existing.get(k)):
+                    new_vars[k] = existing[k]
+            else:
+                new_vars[k] = vault.encrypt(v if isinstance(v, str) else str(v))
+        else:
+            new_vars[k] = v
+
     if row is None:
         row = ScopeVars(tenant_id=DEFAULT_TENANT_ID, scope_type=body.scope_type,
-                        ou_id=body.ou_id, host_group_id=body.host_group_id, agent_id=body.agent_id, vars=body.vars)
+                        ou_id=body.ou_id, host_group_id=body.host_group_id, agent_id=body.agent_id, vars=new_vars)
         session.add(row)
     else:
-        row.vars = body.vars
+        row.vars = new_vars
     await session.commit()
-    return {"id": str(row.id), "scope_type": row.scope_type, "vars": row.vars}
+    display, secret_keys = _mask_vars(row.vars)
+    return {"id": str(row.id), "scope_type": row.scope_type, "vars": display, "secret_keys": secret_keys}
 
 
 @router.get("/api/v1/runbook-runs")

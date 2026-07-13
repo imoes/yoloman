@@ -20,6 +20,7 @@ from bossman.db.models import Agent, RunbookRun
 from bossman.services import nt_engine, nt_runbook
 from bossman.services.plan_loader import load_host_vars
 from bossman.services.scope_vars import resolve_scope_vars
+from bossman.services.vault import Vault
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
@@ -64,7 +65,12 @@ async def resolve_run_variables(
     except Exception:  # noqa: BLE001
         host_vars = {}
     scope_v = await resolve_scope_vars(session, agent)
-    return {**magic, **host_vars, **scope_v, **(request_vars or {})}
+    merged = {**magic, **host_vars, **scope_v, **(request_vars or {})}
+    # Decrypt any vault-encrypted secret values only now, at the last moment
+    # before they're handed to the agent over the already-secure channel — they
+    # were never plaintext at rest and are still masked in the UI/audit.
+    vault = Vault(settings.vault_key, settings.vault_key_path)
+    return {k: (vault.decrypt(v) if Vault.is_encrypted(v) else v) for k, v in merged.items()}
 
 
 async def execute_runbook(
