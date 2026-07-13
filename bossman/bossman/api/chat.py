@@ -482,7 +482,9 @@ async def send_message(
                     async for frame in pump(run_agentic(backend, messages, executor, model=model)):
                         yield frame
             else:
-                async for frame in pump(backend.stream(messages)):
+                # Pass our session id so a CLI backend (Claude) can resume its
+                # own durable transcript by id instead of re-sending history.
+                async for frame in pump(backend.stream(messages, session_id=str(sid))):
                     yield frame
         except ChatBackendError as exc:
             yield f"data: {json.dumps({'type': 'error', 'text': str(exc)})}\n\n".encode("utf-8")

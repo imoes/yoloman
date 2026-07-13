@@ -21,6 +21,7 @@ an injectable async `spawn` so a fake subprocess can be supplied.
 from __future__ import annotations
 
 import asyncio
+import glob
 import json
 import logging
 import os
@@ -131,7 +132,9 @@ class CodexBackend:
         return self.access_token
 
     async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
-                     model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+                     model: str | None = None, session_id: str | None = None) -> AsyncIterator[dict[str, Any]]:
+        # session_id is accepted for a uniform call site; the OpenAI-compatible
+        # Codex endpoint is stateless, so full history is re-sent via `messages`.
         sys_prompt, turns = _system_and_turns(messages)
         instructions = system or sys_prompt or "You are a helpful assistant."
         payload = {
@@ -192,17 +195,27 @@ class ClaudeCliBackend:
         self._spawn = spawn or _default_spawn
 
     async def stream(self, messages: list[dict[str, str]], *, system: str | None = None,
-                     model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+                     model: str | None = None, session_id: str | None = None) -> AsyncIterator[dict[str, Any]]:
         sys_prompt, turns = _system_and_turns(messages)
         system_prompt = system or sys_prompt
-        prompt = _render_transcript(turns)
-        argv = [self.cli_path, "--print", "--output-format", "json",
-                "--no-session-persistence", "--model", model or self.model]
+        env = {**os.environ, "HOME": self.home} if self.home else None
+        argv = [self.cli_path, "--print", "--output-format", "json", "--model", model or self.model]
         if system_prompt:
             argv += ["--system-prompt", system_prompt]
-        env = None
-        if self.home:
-            env = {**os.environ, "HOME": self.home}
+
+        # History like CentralStation: when we have a durable HOME + our own
+        # session id, let Claude keep its native transcript — resume it by id and
+        # send ONLY the new user turn, instead of re-rendering the whole history
+        # into the prompt each call. Falls back to the flattened-transcript,
+        # no-persistence mode when there's no session id / home.
+        if session_id and self.home:
+            home = self.home
+            existing = glob.glob(f"{home}/.claude/projects/*/{session_id}.jsonl")
+            argv += ["--resume", session_id] if existing else ["--session-id", session_id]
+            prompt = _last_user(turns)
+        else:
+            argv += ["--no-session-persistence"]
+            prompt = _render_transcript(turns)
         try:
             rc, out, err = await self._spawn(argv, prompt, env)
         except (OSError, FileNotFoundError) as exc:
@@ -212,6 +225,15 @@ class ClaudeCliBackend:
         text = _claude_result_text(out)
         if text:
             yield {"type": "delta", "text": text}
+
+
+def _last_user(turns: list[dict[str, str]]) -> str:
+    """The latest user turn — the only thing to send when Claude resumes its
+    own transcript by session id (it already has the prior turns)."""
+    for m in reversed(turns):
+        if m.get("role") == "user":
+            return m.get("content", "")
+    return turns[-1].get("content", "") if turns else ""
 
 
 def _render_transcript(turns: list[dict[str, str]]) -> str:

@@ -42,7 +42,7 @@ const BACKEND_LABELS: Record<string, string> = {
   standalone: true,
   imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent],
   template: `
-    <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [style.height.px]="open() ? height() : null">
+    <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [class.bm-dock-max]="maximized() && open()" [style.height.px]="open() && !maximized() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
       <div class="bm-dock-head">
         <button mat-icon-button (click)="open.set(!open())" [title]="open() ? 'Collapse' : 'Expand'">
@@ -55,6 +55,7 @@ const BACKEND_LABELS: Record<string, string> = {
         </select>
         <span class="bm-dock-spacer"></span>
         <button mat-icon-button (click)="newTab()" [disabled]="streaming()" title="New chat"><mat-icon>add_comment</mat-icon></button>
+        <button mat-icon-button (click)="toggleMax()" [title]="maximized() ? 'Restore' : 'Maximize'"><mat-icon>{{ maximized() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon></button>
       </div>
 
       @if (open()) {
@@ -166,6 +167,7 @@ const BACKEND_LABELS: Record<string, string> = {
     `
       .bm-dock { display: flex; flex-direction: column; flex: none; border-top: 2px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); min-height: 42px; max-height: 80vh; position: relative; }
       .bm-dock-collapsed { height: 42px; }
+      .bm-dock-max { position: fixed; inset: 0; height: 100vh !important; max-height: 100vh; z-index: 1000; border-top: none; }
       .bm-dock-resize { position: absolute; top: -3px; left: 0; right: 0; height: 6px; cursor: ns-resize; }
       .bm-dock-head { display: flex; align-items: center; gap: 8px; padding: 2px 10px; flex: none; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-dock-icon { color: var(--mat-sys-primary); }
@@ -213,6 +215,7 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
 
   open = signal(false);
+  maximized = signal(false);
   // Default to ~55% of the viewport (at least half a page), still resizable.
   height = signal(Math.max(380, Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.55)));
   backends = signal<ChatBackendName[]>(['claude_cli', 'codex', 'hermes_web']);
@@ -243,6 +246,11 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   private mdCache = new WeakMap<ChatUiMessage, SafeHtml>();
 
   label = (b: string) => BACKEND_LABELS[b] ?? b;
+
+  toggleMax(): void {
+    this.maximized.set(!this.maximized());
+    if (this.maximized()) this.open.set(true);
+  }
 
   ngOnInit(): void {
     this.chat.backends().subscribe({ next: (res) => this.backends.set(res.backends), error: () => {} });
@@ -374,6 +382,10 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   closeTab(i: number, ev: Event): void {
     ev.stopPropagation();
     if (this.tabs().length <= 1) return;
+    // Deleting a tab deletes its persisted conversation server-side, so it does
+    // NOT reappear on reload (a bare in-memory tab with no id has nothing to delete).
+    const closing = this.tabs()[i];
+    if (closing?.id) this.chat.deleteSession(closing.id).subscribe({ error: () => {} });
     if (i !== this.active()) this.persistActive();
     const next = this.tabs().filter((_, idx) => idx !== i);
     let act = this.active();
