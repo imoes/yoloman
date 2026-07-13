@@ -51,7 +51,7 @@ const BACKEND_LABELS: Record<string, string> = {
         <mat-icon class="bm-dock-icon">smart_toy</mat-icon>
         <span class="bm-dock-title">Assistant</span>
         <select class="bm-dock-backend" [value]="backend()" (change)="onBackendChange($any($event.target).value)" [disabled]="streaming()">
-          @for (b of backends(); track b) { <option [value]="b">{{ label(b) }}{{ authed()[b] === false ? ' ⚠' : '' }}</option> }
+          @for (b of visibleBackends(); track b) { <option [value]="b">{{ label(b) }}</option> }
         </select>
         <span class="bm-dock-spacer"></span>
         <button mat-icon-button (click)="newTab()" [disabled]="streaming()" title="New chat"><mat-icon>add_comment</mat-icon></button>
@@ -167,7 +167,7 @@ const BACKEND_LABELS: Record<string, string> = {
     `
       .bm-dock { display: flex; flex-direction: column; flex: none; border-top: 2px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); min-height: 42px; max-height: 80vh; position: relative; }
       .bm-dock-collapsed { height: 42px; }
-      .bm-dock-max { position: fixed; inset: 0; height: 100vh !important; max-height: 100vh; z-index: 1000; border-top: none; }
+      .bm-dock-max { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh !important; max-height: 100dvh; z-index: 2000; border-top: none; }
       .bm-dock-resize { position: absolute; top: -3px; left: 0; right: 0; height: 6px; cursor: ns-resize; }
       .bm-dock-head { display: flex; align-items: center; gap: 8px; padding: 2px 10px; flex: none; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-dock-icon { color: var(--mat-sys-primary); }
@@ -216,8 +216,9 @@ export class ChatDockComponent implements OnInit, OnDestroy {
 
   open = signal(false);
   maximized = signal(false);
-  // Default to ~55% of the viewport (at least half a page), still resizable.
-  height = signal(Math.max(380, Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.55)));
+  // Default to ~72% of the viewport (clearly more than half), still resizable;
+  // the maximize toggle takes it to the full window.
+  height = signal(Math.max(420, Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.72)));
   backends = signal<ChatBackendName[]>(['claude_cli', 'codex', 'hermes_web']);
   backend = signal<ChatBackendName>('claude_cli');
   messages = signal<ChatUiMessage[]>([]);
@@ -239,6 +240,14 @@ export class ChatDockComponent implements OnInit, OnDestroy {
 
   /** hermes_web needs no per-user login; codex/claude do. */
   needsAuth = computed(() => this.backend() !== 'hermes_web' && this.authed()[this.backend()] === false);
+
+  /** Only the CONFIGURED / usable LLMs are offered: hermes_web (server-side, no
+   * login) plus any CLI backend the user is actually logged in to. Not-logged-in
+   * CLI tools are hidden rather than shown with a ⚠. The current backend stays
+   * visible so the selector never shows an empty/blank value. */
+  visibleBackends = computed(() =>
+    this.backends().filter((b) => b === 'hermes_web' || this.authed()[b] === true || b === this.backend()),
+  );
 
   private sessionId: string | null = null;
   private abort: AbortController | null = null;
