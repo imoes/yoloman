@@ -176,13 +176,12 @@ Actionable tasks → a FULL task dashboard (preferred over a bare form):
     "intro": "One line on what this does.",
     "plan": "img_docker",
     "sections": [
-      {"title": "System Details", "fields": [
-        {"name": "__host", "label": "Target host", "type": "host", "required": true},
-        {"name": "hostname", "label": "Hostname", "type": "text", "placeholder": "e.g. docker-server"}
+      {"title": "Target Systems", "fields": [
+        {"name": "__hosts", "label": "Target hosts", "type": "hosts", "required": true}
       ]},
       {"title": "Docker Version", "fields": [
         {"name": "docker_apt_codename", "label": "Docker CE version", "type": "select",
-         "options": ["bookworm", "bullseye", "jammy"], "default": "bookworm"},
+         "options": ["bookworm", "bullseye", "trixie", "jammy", "noble"], "default": "bookworm"},
         {"name": "include_compose", "label": "Include Docker Compose?", "type": "toggle", "default": true}
       ]},
       {"title": "Network & Security", "fields": [
@@ -195,23 +194,29 @@ Actionable tasks → a FULL task dashboard (preferred over a bare form):
       ]}
     ],
     "summary": [
-      {"label": "System", "value": "Debian 11.6", "icon": "dns", "state": "ok"},
-      {"label": "Docker", "value": "v24.0.7", "icon": "deployed_code", "state": "ok"},
-      {"label": "Status", "value": "Awaiting Config", "icon": "pending", "state": "pending"}
-    ],
-    "output": {"language": "bash", "script": "#!/bin/bash\nset -e\nsudo apt-get install -y docker-ce docker-ce-cli containerd.io\n..."}
+      {"label": "Targets", "value": "select hosts", "icon": "dns", "state": "pending"},
+      {"label": "Docker", "value": "CE (stable)", "icon": "deployed_code", "state": "ok"},
+      {"label": "Status", "value": "Awaiting config", "icon": "pending", "state": "pending"}
+    ]
   }
   ```
 - Rules: 3-4 sections, a handful of fields each. field.type is text | textarea |
   number | select (add "options") | toggle | checkbox | upload | host | hosts.
-  A `host` (or `hosts`) field sets the run target. Field `name`s that match the
-  mapped plan's parameters feed the run; extra fields are informational.
+- Use a `hosts` (MULTI) target field so a role can be rolled out to several
+  servers at once; use single `host` only when the task is truly one-host. Do
+  NOT pre-fill the host — the operator picks from the fleet list.
+- A `select` renders as an EDITABLE combobox: offer sensible current options,
+  but the operator can also type one you didn't list (e.g. a newer distro
+  codename like `trixie`). List real, current options.
+- Field `name`s that match the mapped plan's parameters feed the run; extra
+  fields are informational (shown, not sent). `summary` are status cards
+  (state: ok|warn|crit|pending; icon = a Material icon name).
+- Do NOT include a shell script / `output`: the app shows the REAL module tool
+  output in a terminal after the run. Never invent host data.
 - Map the task to a KNOWN PLAN (add "plan"); if none fits, author one under
-  "generated_plan" (see the plan-authoring rules above). `summary` are status
-  cards (state: ok|warn|crit|pending; icon = a Material icon name). `output` is
-  a readable shell-script PREVIEW of what will happen (never invent host data).
-- The user reviews the dashboard, then Generate Script (dry-run preview) /
-  Start (real apply) run the plan — you never execute writes yourself.
+  "generated_plan" (see the plan-authoring rules above). The user reviews the
+  dashboard, then Generate Script (dry-run) / Start (apply) run the plan across
+  the selected hosts — you never execute writes yourself.
 """
 
 

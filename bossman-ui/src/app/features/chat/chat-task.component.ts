@@ -7,10 +7,11 @@ import { PlanService } from '../../core/services/plan.service';
 import { RunService } from '../../core/services/run.service';
 import { AgentService } from '../../core/services/agent.service';
 import { Agent } from '../../core/models/agent.model';
+import { PlanRunDetail } from '../../core/models/run.model';
 import { ChatTask, ChatTaskField } from '../../core/models/chat.model';
 
 type Stage = 'config' | 'running' | 'previewed' | 'applied';
-interface HostRun { host: string; status: string; changed: number; failed: number; error?: string; }
+interface HostRun { host: string; status: string; lines: string[]; error?: string; }
 
 /**
  * Renders a ```bm-task``` block — the full, AI-designed task dashboard (a
@@ -53,9 +54,10 @@ interface HostRun { host: string; status: string; changed: number; failed: numbe
                   }
                   @case ('select') {
                     <label class="bm-task-flabel">{{ f.label || f.name }}</label>
-                    <select [(ngModel)]="values[f.name]">
-                      @for (o of f.options ?? []; track o) { <option [value]="o">{{ o }}</option> }
-                    </select>
+                    <input [attr.list]="'dl-' + f.name" [(ngModel)]="values[f.name]" [placeholder]="f.placeholder || 'select or type'" />
+                    <datalist [id]="'dl-' + f.name">
+                      @for (o of f.options ?? []; track o) { <option [value]="o"></option> }
+                    </datalist>
                   }
                   @case ('textarea') {
                     <label class="bm-task-flabel">{{ f.label || f.name }}</label>
@@ -105,27 +107,18 @@ interface HostRun { host: string; status: string; changed: number; failed: numbe
         </div>
       }
 
-      <!-- Generated output (shell script) -->
-      @if (task().output?.script) {
-        <div class="bm-task-label">Generated Output ({{ task().output!.language || 'shell' }})
-          <button class="bm-task-copy" (click)="copy()" [title]="copied() ? 'Copied' : 'Copy'"><mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon></button>
-        </div>
-        <pre class="bm-task-output">{{ task().output!.script }}</pre>
-      }
+      <!-- Terminal: the REAL tool output of the modules (per host), not a
+           hand-written bash script. Before a run it shows a hint. -->
+      <div class="bm-task-label">Terminal — module tool output
+        @if (terminalText()) { <button class="bm-task-copy" (click)="copyTerminal()" [title]="copied() ? 'Copied' : 'Copy'"><mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon></button> }
+      </div>
+      <pre class="bm-task-output">{{ terminalText() || placeholder() }}</pre>
 
-      <!-- Run results -->
       @if (stage() === 'running') {
         <div class="bm-task-busy"><mat-spinner diameter="18" /> Running… ({{ done() }}/{{ targetHosts().length }})</div>
       }
       @if ((stage() === 'previewed' || stage() === 'applied') && runs().length) {
-        <div class="bm-task-label">{{ stage() === 'applied' ? 'Installation result' : 'Dry-run preview' }} — {{ okCount() }}/{{ runs().length }} ok</div>
-        <ul class="bm-task-runs">
-          @for (r of runs(); track r.host) {
-            <li><span [class.bm-ok]="r.status === 'succeeded'" [class.bm-bad]="r.status !== 'succeeded'">{{ r.status === 'succeeded' ? '✓' : '✗' }}</span>
-              <strong>{{ r.host }}</strong> — {{ r.status }}
-              @if (r.error) { <span class="bm-bad">{{ r.error }}</span> } @else { <span class="bm-task-help">{{ r.changed }} changed, {{ r.failed }} failed</span> }</li>
-          }
-        </ul>
+        <div class="bm-task-runsummary">{{ stage() === 'applied' ? 'Applied' : 'Dry-run' }}: {{ okCount() }}/{{ runs().length }} host(s) ok</div>
       }
       @if (error()) { <p class="bm-bad">{{ error() }}</p> }
 
@@ -174,7 +167,8 @@ interface HostRun { host: string; status: string; changed: number; failed: numbe
       .bm-st-pending { border-left: 3px solid var(--mat-sys-outline); }
       .bm-task-copy { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.7; }
       .bm-task-copy:hover { opacity: 1; }
-      .bm-task-output { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; max-height: 260px; }
+      .bm-task-output { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 12px; overflow: auto; font-size: 12px; max-height: 320px; white-space: pre-wrap; word-break: break-word; }
+      .bm-task-runsummary { font-size: 12.5px; font-weight: 600; margin-top: 8px; }
       .bm-task-busy { display: flex; align-items: center; gap: 8px; opacity: 0.8; margin-top: 10px; }
       .bm-task-runs { list-style: none; padding: 0; margin: 4px 0; font-size: 12.5px; }
       .bm-task-runs li { padding: 3px 0; display: flex; gap: 6px; align-items: baseline; }
@@ -249,9 +243,24 @@ export class ChatTaskComponent implements OnInit {
     return this.targetHosts().length > 0;
   }
 
-  copy(): void {
-    const s = this.task().output?.script ?? '';
-    navigator.clipboard?.writeText(s).then(() => {
+  /** The terminal transcript: each host's real per-step module output. When
+   * rolling to several hosts the output can differ, so it's grouped per host. */
+  terminalText(): string {
+    const rs = this.runs();
+    if (!rs.length) return '';
+    if (rs.length === 1) return rs[0].lines.join('\n');
+    return rs.map((r) => `──── ${r.host} (${r.status}) ────\n${r.lines.join('\n')}`).join('\n\n');
+  }
+
+  placeholder(): string {
+    const n = this.targetHosts().length;
+    return n
+      ? `# Ready. "Generate Script" = dry-run preview, "Start Installation" = apply.\n# The real module tool output for ${n} host(s) appears here.`
+      : '# Select a target host, then run to see the module tool output here.';
+  }
+
+  copyTerminal(): void {
+    navigator.clipboard?.writeText(this.terminalText()).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 1500);
     });
@@ -312,11 +321,27 @@ export class ChatTaskComponent implements OnInit {
       const run$ = gp ? this.planService.runStored(gp.prefix, gp.name, req) : this.planService.run(plan!, req);
       run$.subscribe({
         next: (res) => this.runService.get(res.plan_run_id).subscribe({
-          next: (d) => this.record({ host, status: d.status, changed: d.steps.filter((s) => s.changed).length, failed: d.steps.filter((s) => s.error).length }, ++finished, hosts.length, doneStage),
-          error: () => this.record({ host, status: 'error', changed: 0, failed: 0, error: 'run detail failed' }, ++finished, hosts.length, doneStage),
+          next: (d) => this.record({ host, status: d.status, lines: this.stepLines(d.steps) }, ++finished, hosts.length, doneStage),
+          error: () => this.record({ host, status: 'error', lines: ['run detail could not be loaded'], error: 'run detail failed' }, ++finished, hosts.length, doneStage),
         }),
-        error: (err) => this.record({ host, status: 'error', changed: 0, failed: 0, error: err.error?.detail ?? 'run failed' }, ++finished, hosts.length, doneStage),
+        error: (err) => this.record({ host, status: 'error', lines: [err.error?.detail ?? 'run failed'], error: err.error?.detail ?? 'run failed' }, ++finished, hosts.length, doneStage),
       });
+    });
+  }
+
+  /** Render each step's REAL module result as a terminal line (tag + step +
+   * module + msg/data or error) — the module tool output the operator wanted. */
+  private stepLines(steps: PlanRunDetail['steps']): string[] {
+    return steps.map((s) => {
+      const rb = (s.response_body ?? {}) as Record<string, unknown>;
+      const tag = s.error ? 'ERR' : s.changed ? 'chg' : 'ok ';
+      let out = s.error || (rb['msg'] as string) || '';
+      if (!out) {
+        const data = rb['data'];
+        out = data && Object.keys(data as object).length ? JSON.stringify(data).slice(0, 300)
+          : rb['changed'] !== undefined ? `changed=${rb['changed']}` : 'ok';
+      }
+      return `[${tag}] ${s.step_name} (${s.module ?? '-'}): ${out}`;
     });
   }
 
