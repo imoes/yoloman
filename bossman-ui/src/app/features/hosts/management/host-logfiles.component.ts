@@ -136,6 +136,8 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
       minimap: { enabled: false },
       lineNumbers: 'on',
       scrollBeyondLastLine: false,
+      // Wrap long log lines instead of truncating / horizontal-scrolling them.
+      wordWrap: 'on',
       fontSize: 12,
       theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
     });
