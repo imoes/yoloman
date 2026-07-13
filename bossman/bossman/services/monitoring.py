@@ -24,7 +24,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory, ValueMap
-from bossman.services import gpo
+from bossman.services import gpo, render
 
 _COMPARISONS = {
     "gt": lambda value, threshold: value > threshold,
@@ -219,26 +219,51 @@ def hysteresis_blocks_recovery(comparison: str, value: float, recovery_threshold
     return _COMPARISONS[comparison](value, recovery_threshold)
 
 
-def unit_for_metric(metric: str | None) -> str:
-    """The display unit inferred from a metric's name (our metrics encode it in
-    the suffix): `*_pct` → percent, `*_mib`/`*_mb` → MiB. Empty for unitless
-    metrics like load averages."""
+# How a metric's value is rendered in summaries. Keyed by exact metric name
+# (a name's `_pct` suffix is only a hint — cpu_pct actually carries a load
+# average, not a percentage, so it must NOT get a % sign). Unknown metrics fall
+# back to the suffix heuristic in _metric_kind.
+_METRIC_KINDS: dict[str, str] = {
+    "disk_used_pct": "percent",
+    "mem_used_pct": "percent",
+    "cpu_pct": "number",  # despite the name this is a load average, not a percent
+}
+
+# Comparison → symbol for readable summaries (">= crit" reads better as "≥ crit").
+_CMP_SYMBOLS = {"gt": ">", "lt": "<", "ge": "≥", "le": "≤", "eq": "=", "ne": "≠"}
+
+
+def _metric_kind(metric: str | None) -> str:
     m = (metric or "").lower()
-    if m.endswith("_pct") or m.endswith("_percent") or "percent" in m:
-        return "%"
-    if m.endswith("_mib") or m.endswith("_mb") or "_mib_" in m:
-        return " MiB"
-    return ""
+    if m in _METRIC_KINDS:
+        return _METRIC_KINDS[m]
+    if m.endswith("_pct") or m.endswith("_percent"):
+        return "percent"
+    if m.endswith("_bytes"):
+        return "bytes"
+    if m.endswith("_mib") or m.endswith("_mb"):
+        return "mib"
+    if "uptime" in m or m.endswith("_seconds") or m.endswith("_secs"):
+        return "timespan"
+    return "number"
 
 
 def format_value(value: float | None, metric: str | None = None) -> str:
-    """A human-readable metric value: rounded to 2 decimals (trailing zeros
-    stripped) with its unit, instead of a raw float repr like
-    0.36648034236027804 — see monitoring service-summary output."""
+    """A human-readable metric value (Checkmk-style, see services/render.py):
+    percentages, byte sizes, time spans, or a plain rounded number — instead of
+    a raw float repr like 0.36648034236027804."""
     if value is None:
         return "n/a"
-    s = f"{value:.2f}".rstrip("0").rstrip(".")
-    return f"{s}{unit_for_metric(metric)}"
+    kind = _metric_kind(metric)
+    if kind == "percent":
+        return render.percent(value)
+    if kind == "bytes":
+        return render.bytes(value)
+    if kind == "mib":
+        return render.bytes(value * 1024 * 1024)
+    if kind == "timespan":
+        return render.timespan(value)
+    return render.number(value)
 
 
 def compute_state(
@@ -247,17 +272,18 @@ def compute_state(
     """Nagios-style threshold evaluation: CRIT is checked before WARN (a
     value that would trip both is CRIT, not WARN); UNKNOWN when there's no
     metric value at all (a stale/never-polled host), not silently OK. The
-    summary formats the value (and thresholds) with the metric's unit."""
+    summary renders the value (and thresholds) in the metric's unit."""
     if value is None:
         return "UNKNOWN", "no recent metric value"
 
     v = format_value(value, metric)
+    sym = _CMP_SYMBOLS.get(comparison, comparison)
     cmp_fn = _COMPARISONS[comparison]
     if crit is not None and cmp_fn(value, crit):
-        return "CRIT", f"value {v} {comparison} crit threshold {format_value(crit, metric)}"
+        return "CRIT", f"{v} {sym} crit {format_value(crit, metric)}"
     if warn is not None and cmp_fn(value, warn):
-        return "WARN", f"value {v} {comparison} warn threshold {format_value(warn, metric)}"
-    return "OK", f"value {v} within thresholds"
+        return "WARN", f"{v} {sym} warn {format_value(warn, metric)}"
+    return "OK", f"{v} within thresholds"
 
 
 def _condition_trips(comparison: str, value: float | None, threshold: float | None) -> bool:
@@ -533,6 +559,11 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
                 break
             except (TypeError, ValueError):
                 continue
+
+        # Uptime is a duration in seconds — render it split into days/hours
+        # (Checkmk-style) rather than the agent's raw "up 290.6 hours".
+        if name.lower() == "uptime" and value is not None:
+            output = f"up {render.timespan(value)}"
 
         existing = await session.scalar(select(Service).where(Service.agent_id == agent.id, Service.name == name))
         # Rule authority (Block H6): once a Bossman check_rule owns a service

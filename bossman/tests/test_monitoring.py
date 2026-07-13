@@ -812,3 +812,35 @@ async def test_compute_availability_leading_gap_is_unmonitored(db_session):
     assert abs(report.ok_percent - 100.0) < 0.01
 
     await _cleanup(db_session, agent)
+
+
+# render helpers (Checkmk-ported) + uptime/cpu formatting
+
+
+def test_render_timespan_and_units():
+    from bossman.services import render
+
+    assert render.timespan(1046258) == "12 days 2 hours"
+    assert render.timespan(90) == "1 minute 30 seconds"
+    assert render.percent(0.366) == "0.37%"
+    assert render.percent(0.0) == "0%"
+    assert render.bytes(536870912) == "512 MiB"
+    assert render.number(0.0668) == "0.07"
+
+
+def test_cpu_load_is_not_percent():
+    from bossman.services.monitoring import format_value
+
+    # cpu_pct carries a load average despite the name — no % sign.
+    assert format_value(0.0668, "cpu_pct") == "0.07"
+    assert "%" not in format_value(0.0668, "cpu_pct")
+
+
+def test_summary_drops_value_prefix_and_uses_symbol():
+    from bossman.services.monitoring import compute_state
+
+    _, ok = compute_state("gt", 0.366, 80, 95, metric="disk_used_pct")
+    assert ok == "0.37% within thresholds"
+    assert not ok.startswith("value")
+    _, crit = compute_state("ge", 27.56, 15, 20, metric="mem_used_pct")
+    assert crit == "27.56% ≥ crit 20.00%"
