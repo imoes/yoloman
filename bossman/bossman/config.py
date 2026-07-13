@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     client_key_path: str = "/etc/bossman/tls/bossman-client.key"
     client_cert_path: str = "/etc/bossman/tls/bossman-client.crt"
 
+    # Secrets vault (services/vault.py): the Fernet key used to encrypt
+    # sensitive variable values at rest (no plaintext passwords in the DB).
+    # When vault_key is empty, a key is generated once and persisted to
+    # vault_key_path, so a restart keeps the same key and existing ciphertexts
+    # stay decryptable — mirroring the TLS keypair above.
+    vault_key: str = ""
+    vault_key_path: str = "/etc/bossman/vault.key"
+
     # Server-driven SSH deploy (Block N-enroll): Bossman connects to a new
     # host over SSH with a PRE-CONFIGURED operator identity, installs the
     # agent .deb, and provisions a complete config.yaml (token + Bossman's
