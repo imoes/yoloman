@@ -410,6 +410,9 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	// across ticks, so it lives here (not in the pure Sample()) and is primed
 	// on the first tick.
 	cpuMeter := &collect.CPUMeter{}
+	// Consumed IOPS per server (and per device) — like cpuMeter, stateful
+	// across ticks (rate of the diskstats completed-I/O counters).
+	diskMeter := &collect.DiskIOMeter{}
 	// Block J3: per-container Docker metrics on the same tick (nil when
 	// disabled). Degrades silently when the socket is absent.
 	var dockerCollector *collect.DockerCollector
@@ -444,6 +447,14 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		// cpu_pct: only once the meter has two readings to rate against.
 		if pct, ok := cpuMeter.Sample("/proc"); ok {
 			points = append(points, store.Point{Metric: "cpu_pct", Timestamp: now, Value: pct})
+		}
+		// disk_iops: consumed I/O operations per second — per server (no label)
+		// plus a per-device breakdown. Primed on the first tick like cpu_pct.
+		if io, ok := diskMeter.Sample("/proc", now); ok {
+			points = append(points, store.Point{Metric: "disk_iops", Timestamp: now, Value: io.Total})
+			for dev, iops := range io.PerDevice {
+				points = append(points, store.Point{Metric: "disk_iops", Timestamp: now, Value: iops, Labels: map[string]string{"device": dev}})
+			}
 		}
 		if dockerCollector != nil {
 			if dpts, derr := dockerCollector.Sample(now); derr != nil {
