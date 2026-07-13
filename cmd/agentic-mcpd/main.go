@@ -452,8 +452,12 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		// plus a per-device breakdown. Primed on the first tick like cpu_pct.
 		if io, ok := diskMeter.Sample("/proc", now); ok {
 			points = append(points, store.Point{Metric: "disk_iops", Timestamp: now, Value: io.Total})
+			points = append(points, store.Point{Metric: "disk_await_ms", Timestamp: now, Value: io.AwaitMs})
 			for dev, iops := range io.PerDevice {
 				points = append(points, store.Point{Metric: "disk_iops", Timestamp: now, Value: iops, Labels: map[string]string{"device": dev}})
+			}
+			for dev, aw := range io.PerDeviceAwait {
+				points = append(points, store.Point{Metric: "disk_await_ms", Timestamp: now, Value: aw, Labels: map[string]string{"device": dev}})
 			}
 		}
 		if dockerCollector != nil {

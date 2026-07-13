@@ -96,3 +96,26 @@ func TestWholeDisks_ExcludesPartitions(t *testing.T) {
 		}
 	}
 }
+
+func TestDiskIOMeter_ComputesAwait(t *testing.T) {
+	dir := t.TempDir()
+	t0 := time.Now()
+	// sda: reads=100 ms_read=1000 writes=0 ms_write=0
+	line1 := "   8       0 sda 100 0 500 1000 0 0 0 0 0 0 0\n"
+	os.WriteFile(filepath.Join(dir, "diskstats"), []byte(line1), 0o644)
+	m := &DiskIOMeter{}
+	m.Sample(dir, t0) // prime
+	// +100 reads, +500ms service time → await = 500/100 = 5 ms/IO
+	line2 := "   8       0 sda 200 0 900 1500 0 0 0 0 0 0 0\n"
+	os.WriteFile(filepath.Join(dir, "diskstats"), []byte(line2), 0o644)
+	io, ok := m.Sample(dir, t0.Add(10*time.Second))
+	if !ok {
+		t.Fatal("ok should be true")
+	}
+	if io.AwaitMs != 5.0 {
+		t.Errorf("AwaitMs = %v, want 5", io.AwaitMs)
+	}
+	if io.PerDeviceAwait["sda"] != 5.0 {
+		t.Errorf("sda await = %v, want 5", io.PerDeviceAwait["sda"])
+	}
+}

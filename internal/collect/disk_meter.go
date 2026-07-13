@@ -8,21 +8,30 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/proc"
 )
 
+// diskCounters is the per-device state the DiskIOMeter diffs between ticks.
+type diskCounters struct {
+	ops    uint64 // reads_completed + writes_completed
+	timeMs uint64 // ms_reading + ms_writing (service time)
+}
+
 // DiskIOMeter turns the monotonically-increasing completed-I/O counters in
-// /proc/diskstats into IOPS (I/O operations per second). Like CPUMeter it is
-// stateful across ticks — it remembers the previous per-device (reads+writes)
-// totals and the time they were read, so the first Sample only primes.
+// /proc/diskstats into IOPS and average await (service time per I/O). Like
+// CPUMeter it is stateful across ticks — it remembers the previous per-device
+// counters and the time they were read, so the first Sample only primes.
 type DiskIOMeter struct {
-	prev   map[string]uint64 // physical device -> reads_completed + writes_completed
+	prev   map[string]diskCounters
 	prevAt time.Time
 	primed bool
 }
 
-// DiskIOPS is the result of a Sample: the whole-server IOPS (sum over physical
-// disks) plus the per-device breakdown.
+// DiskIOPS is the result of a Sample: whole-server IOPS + average await, plus
+// the per-device breakdown. AwaitMs is the mean service time per I/O over the
+// interval (Δservice_time / Δops), Coroot's disk "await".
 type DiskIOPS struct {
-	Total     float64
-	PerDevice map[string]float64
+	Total          float64
+	AwaitMs        float64
+	PerDevice      map[string]float64
+	PerDeviceAwait map[string]float64
 }
 
 // Sample reads <procRoot>/diskstats and returns the consumed IOPS since the
@@ -44,12 +53,15 @@ func (m *DiskIOMeter) Sample(procRoot string, now time.Time) (DiskIOPS, bool) {
 		names[i] = d.Device
 	}
 	whole := wholeDisks(names) // whole disks only — don't double-count partitions
-	cur := make(map[string]uint64, len(disks))
+	cur := make(map[string]diskCounters, len(disks))
 	for _, d := range disks {
 		if !whole[d.Device] {
 			continue
 		}
-		cur[d.Device] = d.ReadsCompleted + d.WritesCompleted
+		cur[d.Device] = diskCounters{
+			ops:    d.ReadsCompleted + d.WritesCompleted,
+			timeMs: d.MsReading + d.MsWriting,
+		}
 	}
 
 	if !m.primed {
@@ -61,13 +73,30 @@ func (m *DiskIOMeter) Sample(procRoot string, now time.Time) (DiskIOPS, bool) {
 		return DiskIOPS{}, false
 	}
 
-	out := DiskIOPS{PerDevice: make(map[string]float64, len(cur))}
-	for dev, ops := range cur {
-		if prev, ok := m.prev[dev]; ok && ops >= prev { // ignore counter resets (reboot/hotplug)
-			iops := float64(ops-prev) / dt
-			out.PerDevice[dev] = iops
-			out.Total += iops
+	out := DiskIOPS{
+		PerDevice:      make(map[string]float64, len(cur)),
+		PerDeviceAwait: make(map[string]float64, len(cur)),
+	}
+	var totalOps, totalTimeMs float64
+	for dev, c := range cur {
+		prev, ok := m.prev[dev]
+		if !ok || c.ops < prev.ops { // ignore counter resets (reboot/hotplug)
+			continue
 		}
+		dOps := float64(c.ops - prev.ops)
+		out.PerDevice[dev] = dOps / dt
+		out.Total += dOps / dt
+		if c.timeMs >= prev.timeMs {
+			dTime := float64(c.timeMs - prev.timeMs)
+			totalOps += dOps
+			totalTimeMs += dTime
+			if dOps > 0 {
+				out.PerDeviceAwait[dev] = dTime / dOps // mean ms per I/O
+			}
+		}
+	}
+	if totalOps > 0 {
+		out.AwaitMs = totalTimeMs / totalOps
 	}
 	m.prev, m.prevAt = cur, now
 	return out, true
