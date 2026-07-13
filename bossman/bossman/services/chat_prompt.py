@@ -161,11 +161,65 @@ Task execution → generative input mask:
   unsure of the format, call search_help first."""
 
 
+TASK_DASHBOARD_DOCTRINE = r"""
+
+Actionable tasks → a FULL task dashboard (preferred over a bare form):
+- For any real task (install/configure/deploy/change something) DESIGN A
+  COMPLETE DASHBOARD and emit it as ONE fenced `bm-task` block — a single JSON
+  object. It renders as a designed view: a multi-section config grid, status
+  cards, a generated shell-script preview, and Cancel / Generate Script / Start
+  actions. Use `bm-form` only for a trivial single-input ask.
+- Shape:
+  ```bm-task
+  {
+    "title": "Install Docker on System",
+    "intro": "One line on what this does.",
+    "plan": "img_docker",
+    "sections": [
+      {"title": "System Details", "fields": [
+        {"name": "__host", "label": "Target host", "type": "host", "required": true},
+        {"name": "hostname", "label": "Hostname", "type": "text", "placeholder": "e.g. docker-server"}
+      ]},
+      {"title": "Docker Version", "fields": [
+        {"name": "docker_apt_codename", "label": "Docker CE version", "type": "select",
+         "options": ["bookworm", "bullseye", "jammy"], "default": "bookworm"},
+        {"name": "include_compose", "label": "Include Docker Compose?", "type": "toggle", "default": true}
+      ]},
+      {"title": "Network & Security", "fields": [
+        {"name": "enable_firewall", "label": "Enable Firewall (UFW)?", "type": "checkbox"},
+        {"name": "docker_proxy_url", "label": "Proxy URL", "type": "text"}
+      ]},
+      {"title": "Storage & Logging", "fields": [
+        {"name": "storage_driver", "label": "Storage driver", "type": "text", "default": "overlay2"},
+        {"name": "max_log_size", "label": "Max log size", "type": "text", "default": "50m"}
+      ]}
+    ],
+    "summary": [
+      {"label": "System", "value": "Debian 11.6", "icon": "dns", "state": "ok"},
+      {"label": "Docker", "value": "v24.0.7", "icon": "deployed_code", "state": "ok"},
+      {"label": "Status", "value": "Awaiting Config", "icon": "pending", "state": "pending"}
+    ],
+    "output": {"language": "bash", "script": "#!/bin/bash\nset -e\nsudo apt-get install -y docker-ce docker-ce-cli containerd.io\n..."}
+  }
+  ```
+- Rules: 3-4 sections, a handful of fields each. field.type is text | textarea |
+  number | select (add "options") | toggle | checkbox | upload | host | hosts.
+  A `host` (or `hosts`) field sets the run target. Field `name`s that match the
+  mapped plan's parameters feed the run; extra fields are informational.
+- Map the task to a KNOWN PLAN (add "plan"); if none fits, author one under
+  "generated_plan" (see the plan-authoring rules above). `summary` are status
+  cards (state: ok|warn|crit|pending; icon = a Material icon name). `output` is
+  a readable shell-script PREVIEW of what will happen (never invent host data).
+- The user reviews the dashboard, then Generate Script (dry-run preview) /
+  Start (real apply) run the plan — you never execute writes yourself.
+"""
+
+
 def build_system_prompt(plans_summary: str = "") -> str:
     """The console system prompt, optionally with a compact catalog of the
     runnable plans appended so the assistant can map a task to a plan and emit
-    a `bm-form` with that plan's parameters (the task → input-mask flow)."""
-    prompt = SYSTEM_PROMPT + TASK_FORM_DOCTRINE
+    a `bm-task` dashboard (or `bm-form`) with that plan's parameters."""
+    prompt = SYSTEM_PROMPT + TASK_FORM_DOCTRINE + TASK_DASHBOARD_DOCTRINE
     if plans_summary.strip():
         prompt += "\nKNOWN PLANS (map actionable tasks to these when one fits):\n" + plans_summary.strip() + "\n"
     return prompt

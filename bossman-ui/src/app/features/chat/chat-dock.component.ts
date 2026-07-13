@@ -5,11 +5,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { marked } from 'marked';
 import { ChatService } from '../../core/services/chat.service';
-import { ChatBackendName, ChatEvent, ChatForm, ChatHistoryMessage, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
+import { ChatBackendName, ChatEvent, ChatForm, ChatHistoryMessage, ChatTask, ChatUiMessage, ChatWidget, CodexStartResponse, ClaudeStartResponse, PlanGraphSpec } from '../../core/models/chat.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
 import { ChatPlanGraphComponent } from './chat-plan-graph.component';
 import { ChatFormComponent } from './chat-form.component';
+import { ChatTaskComponent } from './chat-task.component';
 import { plantumlToGraph } from './plantuml-graph';
 
 const WIDGET_TYPES: WidgetType[] = [
@@ -40,7 +41,7 @@ const BACKEND_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-chat-dock',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent, ChatTaskComponent],
   template: `
     <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [class.bm-dock-max]="maximized() && open()" [style.height.px]="open() && !maximized() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
@@ -118,6 +119,11 @@ const BACKEND_LABELS: Record<string, string> = {
                   <app-chat-form [form]="f" />
                 }
               }
+              @if (m.tasks?.length) {
+                @for (t of m.tasks!; track $index) {
+                  <app-chat-task [task]="t" />
+                }
+              }
             </div>
           }
         </div>
@@ -185,6 +191,10 @@ const BACKEND_LABELS: Record<string, string> = {
       .bm-msg { max-width: 90%; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
       .bm-msg-user { align-self: flex-end; background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); }
       .bm-msg-ai { align-self: flex-start; background: var(--mat-sys-surface); border: 1px solid var(--mat-sys-outline-variant); }
+      /* A designed dashboard / form / graph uses the full width, not the 90% bubble. */
+      .bm-msg-ai:has(app-chat-task), .bm-msg-ai:has(app-chat-form), .bm-msg-ai:has(app-chat-plan-graph) {
+        max-width: 100%; width: 100%; background: none; border: none; padding: 0;
+      }
       .bm-msg-stream { white-space: pre-wrap; word-break: break-word; margin: 0; font-family: inherit; }
       .bm-msg-err { color: var(--mat-sys-error); }
       .bm-md :first-child { margin-top: 0; } .bm-md :last-child { margin-bottom: 0; }
@@ -312,12 +322,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     for (const h of hist) {
       if (h.role === 'system') continue;
       if (h.role === 'user') { out.push({ role: 'user', text: h.content }); continue; }
-      const { cleaned, widgets, planGraphs, diagrams, forms } = this.parseArtifacts(h.content);
+      const { cleaned, widgets, planGraphs, diagrams, forms, tasks } = this.parseArtifacts(h.content);
       const m: ChatUiMessage = { role: 'assistant', text: cleaned };
       if (widgets.length) m.widgets = widgets;
       if (planGraphs.length) m.planGraphs = planGraphs;
       if (diagrams.length) m.diagrams = diagrams;
       if (forms.length) m.forms = forms;
+      if (tasks.length) m.tasks = tasks;
       out.push(m);
     }
     return out;
@@ -465,12 +476,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
         if (!assistant.error) {
           // Extract widget / plan-graph / plantuml blocks into rendered
           // artifacts and strip them from the markdown (once, at stream end).
-          const { cleaned, widgets, planGraphs, diagrams, forms } = this.parseArtifacts(assistant.text);
+          const { cleaned, widgets, planGraphs, diagrams, forms, tasks } = this.parseArtifacts(assistant.text);
           assistant.text = cleaned;
           if (widgets.length) assistant.widgets = widgets;
           if (planGraphs.length) assistant.planGraphs = planGraphs;
           if (diagrams.length) assistant.diagrams = diagrams;
           if (forms.length) assistant.forms = forms;
+          if (tasks.length) { assistant.tasks = tasks; this.maximized.set(true); this.open.set(true); }
         }
         this.mdCache.delete(assistant);
         this.messages.update((m) => [...m]); // trigger re-render (markdown now)
@@ -489,11 +501,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     planGraphs: PlanGraphSpec[];
     diagrams: string[];
     forms: ChatForm[];
+    tasks: ChatTask[];
   } {
     const widgets: ChatWidget[] = [];
     const planGraphs: PlanGraphSpec[] = [];
     const diagrams: string[] = [];
     const forms: ChatForm[] = [];
+    const tasks: ChatTask[] = [];
 
     let cleaned = text.replace(/```bm-widget\s*([\s\S]*?)```/g, (full, body) => {
       try {
@@ -540,7 +554,25 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       return full;
     });
 
-    return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams, forms };
+    // Full task dashboards.
+    cleaned = cleaned.replace(/```bm-task\s*([\s\S]*?)```/g, (full, body) => {
+      try {
+        const spec = JSON.parse(String(body).trim());
+        if (spec && Array.isArray(spec.sections)) {
+          tasks.push({
+            title: spec.title ?? 'Task', intro: spec.intro, plan: spec.plan ?? null,
+            generated_plan: spec.generated_plan ?? null, sections: spec.sections,
+            summary: spec.summary, output: spec.output,
+          });
+          return '';
+        }
+      } catch {
+        /* leave malformed block as text */
+      }
+      return full;
+    });
+
+    return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams, forms, tasks };
   }
 
   private toChatWidget(spec: any): ChatWidget | null {

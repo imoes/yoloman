@@ -100,6 +100,7 @@ export interface ChatUiMessage {
   planGraphs?: PlanGraphSpec[];
   diagrams?: string[]; // rendered PlantUML image URLs
   forms?: ChatForm[]; // task → input-mask (bm-form blocks)
+  tasks?: ChatTask[]; // full task dashboards (bm-task blocks)
 }
 
 /** A ```bm-form``` block the assistant emitted for the task → input-mask flow:
@@ -130,4 +131,42 @@ export interface ChatForm {
   generated_plan?: GeneratedPlan | null;
   needs_host?: boolean;
   fields: ChatFormField[];
+}
+
+/** A ```bm-task``` block — a full, designed task dashboard the AI generates for
+ * an actionable task: a multi-section config grid, status cards, a generated
+ * output (shell script) preview, and run actions. All JSON, so a rendered view
+ * is fully cacheable (persisted in the message + re-parsed on reload). */
+export interface ChatTaskField {
+  name: string;
+  label?: string;
+  type: 'text' | 'textarea' | 'number' | 'select' | 'toggle' | 'checkbox' | 'upload' | 'host' | 'hosts';
+  default?: unknown;
+  options?: string[];
+  help?: string;
+  readonly?: boolean;
+  placeholder?: string;
+}
+export interface ChatTaskSection {
+  title: string;
+  fields: ChatTaskField[];
+}
+export interface ChatTaskSummaryItem {
+  label: string;
+  value: string;
+  icon?: string;
+  state?: 'ok' | 'warn' | 'crit' | 'pending';
+}
+export interface ChatTaskOutput {
+  language?: string;
+  script?: string;
+}
+export interface ChatTask {
+  title: string;
+  intro?: string;
+  plan: string | null;
+  generated_plan?: GeneratedPlan | null;
+  sections: ChatTaskSection[];
+  summary?: ChatTaskSummaryItem[];
+  output?: ChatTaskOutput;
 }
