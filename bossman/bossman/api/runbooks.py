@@ -41,6 +41,7 @@ DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 class SaveRunbookBody(BaseModel):
     nt: str | None = None
     yaml: str | None = None  # import an existing YAML playbook
+    folder: str | None = None  # library folder path ("linux/base"); "" = root
 
 
 def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
@@ -54,7 +55,7 @@ def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
 @router.get("/api/v1/runbooks")
 async def list_runbooks(session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
     rows = (await session.scalars(select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID).order_by(Runbook.name))).all()
-    return {"runbooks": [{"id": str(r.id), "name": r.name, "kind": r.kind,
+    return {"runbooks": [{"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "",
                           "updated_at": r.updated_at.isoformat() if r.updated_at else None} for r in rows]}
 
 
@@ -63,7 +64,7 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
     r = await session.get(Runbook, runbook_id)
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")
-    return {"id": str(r.id), "name": r.name, "kind": r.kind, "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "", "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
 
 
 @router.post("/api/v1/runbooks")
@@ -72,7 +73,8 @@ async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(
         doc = _to_doc(body)
     except nt_runbook.NTRunbookError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    r = Runbook(tenant_id=DEFAULT_TENANT_ID, name=doc["name"], kind=doc.get("kind", "runbook"), doc=doc, created_by=identity.name)
+    r = Runbook(tenant_id=DEFAULT_TENANT_ID, name=doc["name"], kind=doc.get("kind", "runbook"),
+                folder=(body.folder or "").strip("/"), doc=doc, created_by=identity.name)
     session.add(r)
     try:
         await session.commit()
@@ -93,9 +95,11 @@ async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: Async
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     r.name = doc["name"]
     r.kind = doc.get("kind", "runbook")
+    if body.folder is not None:
+        r.folder = body.folder.strip("/")
     r.doc = doc
     await session.commit()
-    return {"id": str(r.id), "name": r.name, "kind": r.kind}
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or ""}
 
 
 @router.delete("/api/v1/runbooks/{runbook_id}", status_code=204)

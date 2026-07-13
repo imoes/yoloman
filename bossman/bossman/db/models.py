@@ -937,6 +937,10 @@ class Runbook(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     kind: Mapped[str] = mapped_column(String, nullable=False, default="runbook")  # runbook | role
+    # Folder path for the library tree (e.g. "linux/base"); "" = root. Mirrors
+    # the plan-library's folder organization so the runbook editor can show the
+    # same directory tree.
+    folder: Mapped[str] = mapped_column(String, nullable=False, default="")
     doc: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)

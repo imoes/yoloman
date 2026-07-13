@@ -1,10 +1,11 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import * as monaco from 'monaco-editor';
 import { environment } from '../../../environments/environment';
@@ -28,6 +29,7 @@ interface RunResult {
 }
 interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number; error?: string; line?: number; }
 interface RunRow { id: string; runbook: string; status: string; dry_run: boolean; created_at: string; }
+interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string }; }
 
 const STARTER = `name: web baseline
 targets: group:web-servers
@@ -69,7 +71,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -78,14 +80,31 @@ const MAGIC_VARS = [
       </div>
 
       <div class="bm-split">
+        <aside class="bm-tree">
+          <div class="bm-tree-head">
+            <strong>Library</strong>
+            <button mat-icon-button (click)="newRunbook()" title="New runbook"><mat-icon>note_add</mat-icon></button>
+          </div>
+          <ul>
+            @for (row of rows(); track row.kind + (row.path || '') + (row.rb?.id || '')) {
+              @if (row.kind === 'folder') {
+                <li class="bm-fold" [style.padding-left.px]="8 + row.depth * 14" (click)="toggle(row.path!)">
+                  <mat-icon>{{ expanded().has(row.path!) ? 'folder_open' : 'folder' }}</mat-icon>{{ row.label }}
+                </li>
+              } @else {
+                <li class="bm-rb" [class.bm-sel]="currentId() === row.rb!.id" [style.padding-left.px]="8 + row.depth * 14" (click)="load(row.rb!.id)">
+                  <mat-icon>{{ row.rb!.kind === 'role' ? 'assignment' : 'terminal' }}</mat-icon>{{ row.label }}
+                </li>
+              }
+            }
+            @if (!rows().length) { <li class="bm-dim" style="padding:8px">No saved runbooks.</li> }
+          </ul>
+        </aside>
         <div class="bm-left">
           <div class="bm-toolbar">
             <mat-form-field appearance="outline" class="bm-host">
-              <mat-label>Saved runbook</mat-label>
-              <mat-select [ngModel]="currentId()" (ngModelChange)="load($event)">
-                <mat-option [value]="''">— new —</mat-option>
-                @for (r of saved(); track r.id) { <mat-option [value]="r.id">{{ r.name }} ({{ r.kind }})</mat-option> }
-              </mat-select>
+              <mat-label>Folder</mat-label>
+              <input matInput [(ngModel)]="moveFolder" placeholder="linux/base (empty = root)" />
             </mat-form-field>
             <button mat-stroked-button (click)="save()"><mat-icon>save</mat-icon> {{ currentId() ? 'Save' : 'Save as new' }}</button>
             @if (currentId()) { <button mat-button (click)="newRunbook()">New</button> }
@@ -167,7 +186,15 @@ const MAGIC_VARS = [
       .bm-header-row { display: flex; align-items: baseline; gap: 14px; }
       .bm-subtitle { opacity: 0.7; }
       .bm-split { display: flex; gap: 16px; margin-top: 12px; align-items: flex-start; }
-      .bm-left { flex: 1 1 70%; min-width: 0; }
+      .bm-tree { flex: 0 0 220px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: auto; max-height: 560px; }
+      .bm-tree-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-tree ul { list-style: none; margin: 0; padding: 4px 0; }
+      .bm-tree li { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; font-size: 13px; }
+      .bm-tree li mat-icon { font-size: 17px; width: 17px; height: 17px; opacity: 0.7; }
+      .bm-fold { font-weight: 600; }
+      .bm-rb:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
+      .bm-rb.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+      .bm-left { flex: 1 1 60%; min-width: 0; }
       .bm-right { flex: 1 1 30%; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
       .bm-editor { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; }
       .bm-toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
@@ -209,11 +236,43 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   lint = signal<LintResult | null>(null);
   result = signal<RunResult | null>(null);
   running = signal(false);
-  saved = signal<{ id: string; name: string; kind: string }[]>([]);
+  saved = signal<{ id: string; name: string; kind: string; folder: string }[]>([]);
   currentId = signal<string>('');
   saveMsg = signal<string>('');
   runs = signal<RunRow[]>([]);
   magicVars = MAGIC_VARS;
+  // Library folder tree (mirrors Plan library): runbooks grouped by `folder`.
+  expanded = signal<Set<string>>(new Set(['']));
+  moveFolder = ''; // folder the current runbook is saved into
+
+  /** Flatten runbooks into an indented folder tree honoring the expanded set. */
+  rows = computed<RbRow[]>(() => {
+    const byFolder = new Map<string, { id: string; name: string; kind: string; folder: string }[]>();
+    for (const r of this.saved()) {
+      const f = r.folder || '';
+      (byFolder.get(f) ?? byFolder.set(f, []).get(f)!).push(r);
+    }
+    const folders = new Set<string>(['']);
+    for (const f of byFolder.keys()) {
+      const segs = f ? f.split('/') : [];
+      for (let i = 0; i <= segs.length; i++) folders.add(segs.slice(0, i).join('/'));
+    }
+    const childFolders = (parent: string) =>
+      [...folders].filter((f) => f && (parent ? f.startsWith(parent + '/') : true) &&
+        f.split('/').length === (parent ? parent.split('/').length + 1 : 1)).sort();
+    const out: RbRow[] = [];
+    const walk = (folder: string, depth: number) => {
+      for (const cf of childFolders(folder)) {
+        out.push({ kind: 'folder', label: cf.split('/').pop()!, depth, path: cf });
+        if (this.expanded().has(cf)) walk(cf, depth + 1);
+      }
+      for (const rb of (byFolder.get(folder) ?? []).sort((a, b) => a.name.localeCompare(b.name))) {
+        out.push({ kind: 'rb', label: rb.name, depth, rb });
+      }
+    };
+    walk('', 0);
+    return out;
+  });
 
   ngOnInit(): void {
     this.agentService.list().subscribe((a) => this.hosts.set(a));
@@ -237,29 +296,40 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private reloadList(): void {
-    this.http.get<{ runbooks: { id: string; name: string; kind: string }[] }>(`${this.base}/runbooks`)
+    this.http.get<{ runbooks: { id: string; name: string; kind: string; folder: string }[] }>(`${this.base}/runbooks`)
       .subscribe((r) => this.saved.set(r.runbooks));
+  }
+
+  toggle(path: string): void {
+    const s = new Set(this.expanded());
+    s.has(path) ? s.delete(path) : s.add(path);
+    this.expanded.set(s);
   }
 
   load(id: string): void {
     this.currentId.set(id);
     this.saveMsg.set('');
-    if (!id) { this.ed?.setValue(STARTER); return; }
-    this.http.get<{ nt: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => this.ed?.setValue(r.nt || ''));
+    if (!id) { this.ed?.setValue(STARTER); this.moveFolder = ''; return; }
+    this.http.get<{ nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
+      this.ed?.setValue(r.nt || '');
+      this.moveFolder = r.folder || '';
+    });
   }
 
   newRunbook(): void {
     this.currentId.set('');
     this.saveMsg.set('');
+    this.moveFolder = '';
     this.ed?.setValue(STARTER);
   }
 
   save(): void {
     const nt = this.source();
     const id = this.currentId();
+    const folder = this.moveFolder.trim().replace(/^\/+|\/+$/g, '');
     const req = id
-      ? this.http.put<{ id: string; name: string }>(`${this.base}/runbooks/${id}`, { nt })
-      : this.http.post<{ id: string; name: string }>(`${this.base}/runbooks`, { nt });
+      ? this.http.put<{ id: string; name: string; folder: string }>(`${this.base}/runbooks/${id}`, { nt, folder })
+      : this.http.post<{ id: string; name: string; folder: string }>(`${this.base}/runbooks`, { nt, folder });
     req.subscribe({
       next: (r) => { this.currentId.set(r.id); this.saveMsg.set('saved: ' + r.name); this.reloadList(); },
       error: (e) => this.saveMsg.set('save failed: ' + (e?.error?.detail ?? 'error')),
