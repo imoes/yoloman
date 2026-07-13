@@ -5,16 +5,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/auth/auth.service';
 import { PlanService } from '../../core/services/plan.service';
 import { EnrollService } from '../../core/services/enroll.service';
-import { AgentService } from '../../core/services/agent.service';
-import { MonitoringService } from '../../core/services/monitoring.service';
 import { EnrollInfo } from '../../core/models/enroll.model';
-import { Agent } from '../../core/models/agent.model';
-import { CheckRule, CheckRuleInput } from '../../core/models/monitoring.model';
-import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/components/check-rule-dialog/check-rule-dialog.component';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -132,97 +126,9 @@ import { CheckRuleDialogComponent, CheckRuleDialogData } from '../../shared/comp
         </mat-card-actions>
       </mat-card>
 
-      <mat-card class="bm-rules-card">
-        <mat-card-header>
-          <mat-card-title>Check rules</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <p>
-            Thresholds that derive each host's monitored services (see docs/plan.md's monitoring
-            Block E2) — a host-scoped rule always overrides a group rule, which overrides a global
-            rule, for the same metric.
-          </p>
-          @if (checkRules().length) {
-            <table class="bm-table">
-              <thead>
-                <tr>
-                  <th>Service</th>
-                  <th>Metric</th>
-                  <th>Rule</th>
-                  <th>Scope</th>
-                  <th>Enabled</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (rule of checkRules(); track rule.id) {
-                  <tr>
-                    <td>
-                      {{ rule.service_name }}{{ rule.label_value ? ' ' + rule.label_value : '' }}
-                      @if (rule.is_default) {
-                        <span class="bm-default-tag" title="seeded default (former built-in threshold) — editable">default</span>
-                      }
-                    </td>
-                    <td>{{ rule.metric }}</td>
-                    <td>
-                      {{ rule.comparison }} warn {{ rule.warn_threshold ?? '—' }} / crit
-                      {{ rule.crit_threshold ?? '—' }}
-                    </td>
-                    <td>{{ rule.scope_type }}{{ rule.scope_value ? ': ' + rule.scope_value : '' }}</td>
-                    <td>{{ rule.enabled ? 'yes' : 'no' }}</td>
-                    <td class="bm-actions">
-                      <button mat-button (click)="editCheckRule(rule)">Edit</button>
-                      <button mat-button color="warn" (click)="deleteCheckRule(rule)">Delete</button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          } @else {
-            <p class="bm-empty">No check rules defined yet — every host's services list will stay empty.</p>
-          }
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-raised-button color="primary" (click)="createCheckRule()">Add check rule</button>
-        </mat-card-actions>
-      </mat-card>
-
-      <mat-card class="bm-groups-card">
-        <mat-card-header>
-          <mat-card-title>Host groups</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Comma-separated group membership per host — the unit a group-scoped check rule targets.</p>
-          @if (agents().length) {
-            <table class="bm-table">
-              <thead>
-                <tr>
-                  <th>Host</th>
-                  <th>Groups</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (agent of agents(); track agent.id) {
-                  <tr>
-                    <td>{{ agent.name }}</td>
-                    <td>
-                      <mat-form-field appearance="outline" class="bm-groups-field">
-                        <input matInput [(ngModel)]="groupsDraft[agent.id]" placeholder="e.g. webservers, prod" />
-                      </mat-form-field>
-                    </td>
-                    <td class="bm-actions">
-                      <button mat-button (click)="saveGroups(agent)">Save</button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          } @else {
-            <p class="bm-empty">No hosts enrolled yet.</p>
-          }
-        </mat-card-content>
-      </mat-card>
+      <!-- Check rules and Host groups live in the OU / Policy view (scoped to
+           OUs there); they were removed from Settings to avoid a second,
+           unscoped home for the same objects. -->
     </div>
   `,
   styles: [
@@ -304,9 +210,6 @@ export class SettingsComponent implements OnInit {
   auth = inject(AuthService);
   private planService = inject(PlanService);
   private enrollService = inject(EnrollService);
-  private agentService = inject(AgentService);
-  private monitoringService = inject(MonitoringService);
-  private dialog = inject(MatDialog);
 
   reloadMessage = signal<string | null>(null);
   enrollInfo = signal<EnrollInfo | null>(null);
@@ -315,64 +218,9 @@ export class SettingsComponent implements OnInit {
   deploying = signal(false);
   deployMessage = signal<string | null>(null);
   deployError = signal<string | null>(null);
-  checkRules = signal<CheckRule[]>([]);
-  agents = signal<Agent[]>([]);
-  groupsDraft: Record<string, string> = {};
 
   ngOnInit(): void {
     this.enrollService.info().subscribe((info) => this.enrollInfo.set(info));
-    this.reloadCheckRules();
-    this.reloadAgents();
-  }
-
-  private reloadCheckRules(): void {
-    this.monitoringService.listCheckRules().subscribe((rules) => this.checkRules.set(rules));
-  }
-
-  private reloadAgents(): void {
-    this.agentService.list().subscribe((agents) => {
-      this.agents.set(agents);
-      for (const agent of agents) {
-        this.groupsDraft[agent.id] = agent.groups.join(', ');
-      }
-    });
-  }
-
-  createCheckRule(): void {
-    const ref = this.dialog.open<CheckRuleDialogComponent, CheckRuleDialogData, CheckRuleInput>(CheckRuleDialogComponent, {
-      width: '480px',
-      data: {},
-    });
-    ref.afterClosed().subscribe((input) => {
-      if (!input) return;
-      this.monitoringService.createCheckRule(input).subscribe(() => this.reloadCheckRules());
-    });
-  }
-
-  editCheckRule(rule: CheckRule): void {
-    const ref = this.dialog.open<CheckRuleDialogComponent, CheckRuleDialogData, CheckRuleInput>(CheckRuleDialogComponent, {
-      width: '480px',
-      data: { rule },
-    });
-    ref.afterClosed().subscribe((input) => {
-      if (!input) return;
-      this.monitoringService.updateCheckRule(rule.id, input).subscribe(() => this.reloadCheckRules());
-    });
-  }
-
-  deleteCheckRule(rule: CheckRule): void {
-    this.monitoringService.deleteCheckRule(rule.id).subscribe(() => this.reloadCheckRules());
-  }
-
-  saveGroups(agent: Agent): void {
-    const groups = (this.groupsDraft[agent.id] ?? '')
-      .split(',')
-      .map((g) => g.trim())
-      .filter(Boolean);
-    this.agentService.updateGroups(agent.id, groups).subscribe((updated) => {
-      this.agents.update((agents) => agents.map((a) => (a.id === updated.id ? updated : a)));
-      this.groupsDraft[updated.id] = updated.groups.join(', ');
-    });
   }
 
   reloadCatalog(): void {
