@@ -165,11 +165,9 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   });
 
   ngAfterViewInit(): void {
-    this.ed = monaco.editor.create(this.editorEl.nativeElement, {
-      value: '', language: 'yaml', automaticLayout: true, minimap: { enabled: false },
-      fontSize: 12, scrollBeyondLastLine: false,
-      theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
-    });
+    // NOTE: do NOT create Monaco here — the editor panel is display:none until a
+    // plan is selected, and Monaco created in a 0×0 container renders its lines
+    // at the page's top-left. It's created lazily in applyFmt() once visible.
     this.reload();
   }
 
@@ -211,7 +209,8 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   onDiff(version: number | null): void {
     this.diffVersion.set(version);
     const d = this.doc();
-    if (version === null || !d) return;
+    if (version === null) { setTimeout(() => this.ed?.layout(), 0); return; } // back to edit → re-fit
+    if (!d) return;
     this.planService.document(d.prefix, d.name, version).subscribe({
       next: (old) => {
         if (!this.diffEd) {
@@ -224,6 +223,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
           original: monaco.editor.createModel(old.formats.json, 'json'),
           modified: monaco.editor.createModel(d.formats.json, 'json'),
         });
+        setTimeout(() => this.diffEd?.layout(), 0);
       },
       error: (e) => this.saveErr.set(e?.error?.detail ?? 'failed to load version'),
     });
@@ -233,11 +233,23 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
 
   private applyFmt(): void {
     const d = this.doc();
-    if (!d || !this.ed) return;
+    if (!d) return;
     const f = this.fmt();
-    this.ed.setValue(d.formats[f] ?? '');
-    const model = this.ed.getModel();
-    if (model) monaco.editor.setModelLanguage(model, f === 'json' ? 'json' : 'yaml');
+    // Deferred so the panel's display:block binding (set when doc() changed) has
+    // applied — Monaco must be created/laid out in a visible, sized container.
+    setTimeout(() => {
+      if (!this.ed) {
+        this.ed = monaco.editor.create(this.editorEl.nativeElement, {
+          value: '', language: 'yaml', automaticLayout: true, minimap: { enabled: false },
+          fontSize: 12, scrollBeyondLastLine: false,
+          theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
+        });
+      }
+      this.ed.setValue(d.formats[f] ?? '');
+      const model = this.ed.getModel();
+      if (model) monaco.editor.setModelLanguage(model, f === 'json' ? 'json' : 'yaml');
+      this.ed.layout();
+    }, 0);
   }
 
   doMove(): void {
