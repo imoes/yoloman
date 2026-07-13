@@ -106,9 +106,23 @@ async def _write_metrics(session: AsyncSession, agent_id: uuid.UUID, metrics: di
     # next pull) must not raise on the hypertable's (time, agent_id,
     # metric) primary key.
     _disambiguate_colliding_timestamps(rows)
-    stmt = pg_insert(Metric).values(rows).on_conflict_do_nothing(index_elements=["time", "agent_id", "metric"])
-    await session.execute(stmt)
+    await _insert_metric_rows_chunked(session, rows)
     return len(rows)
+
+
+# Postgres/asyncpg caps a statement at 32767 bind parameters. Metric rows have
+# 5 columns, so a single INSERT tops out at ~6553 rows — a normal 60s pull is
+# far below that, but catching up after an agent was unreachable for a long
+# stretch can exceed it. Chunk so the catch-up write can't fail (and thus wedge
+# the cursor forever, re-pulling the same oversized batch each tick).
+_METRIC_INSERT_CHUNK = 5000
+
+
+async def _insert_metric_rows_chunked(session: AsyncSession, rows: list[dict]) -> None:
+    for i in range(0, len(rows), _METRIC_INSERT_CHUNK):
+        chunk = rows[i : i + _METRIC_INSERT_CHUNK]
+        stmt = pg_insert(Metric).values(chunk).on_conflict_do_nothing(index_elements=["time", "agent_id", "metric"])
+        await session.execute(stmt)
 
 
 async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]) -> int:
@@ -168,8 +182,7 @@ async def _write_snapshot_metrics(
         for m in metrics
     ]
     _disambiguate_colliding_timestamps(rows)
-    stmt = pg_insert(Metric).values(rows).on_conflict_do_nothing(index_elements=["time", "agent_id", "metric"])
-    await session.execute(stmt)
+    await _insert_metric_rows_chunked(session, rows)
     return len(rows)
 
 
