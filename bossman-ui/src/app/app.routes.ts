@@ -56,6 +56,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/runbooks/runbook-editor.component').then((m) => m.RunbookEditorComponent),
   },
   {
+    path: 'deploy',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/deploy/deploy.component').then((m) => m.DeployComponent),
+  },
+  {
     path: 'notifications',
     canActivate: [authGuard],
     loadComponent: () => import('./features/notifications/notifications.component').then((m) => m.NotificationsComponent),
