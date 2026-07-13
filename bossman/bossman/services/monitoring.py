@@ -219,19 +219,45 @@ def hysteresis_blocks_recovery(comparison: str, value: float, recovery_threshold
     return _COMPARISONS[comparison](value, recovery_threshold)
 
 
-def compute_state(comparison: str, value: float | None, warn: float | None, crit: float | None) -> tuple[str, str]:
+def unit_for_metric(metric: str | None) -> str:
+    """The display unit inferred from a metric's name (our metrics encode it in
+    the suffix): `*_pct` → percent, `*_mib`/`*_mb` → MiB. Empty for unitless
+    metrics like load averages."""
+    m = (metric or "").lower()
+    if m.endswith("_pct") or m.endswith("_percent") or "percent" in m:
+        return "%"
+    if m.endswith("_mib") or m.endswith("_mb") or "_mib_" in m:
+        return " MiB"
+    return ""
+
+
+def format_value(value: float | None, metric: str | None = None) -> str:
+    """A human-readable metric value: rounded to 2 decimals (trailing zeros
+    stripped) with its unit, instead of a raw float repr like
+    0.36648034236027804 — see monitoring service-summary output."""
+    if value is None:
+        return "n/a"
+    s = f"{value:.2f}".rstrip("0").rstrip(".")
+    return f"{s}{unit_for_metric(metric)}"
+
+
+def compute_state(
+    comparison: str, value: float | None, warn: float | None, crit: float | None, *, metric: str | None = None
+) -> tuple[str, str]:
     """Nagios-style threshold evaluation: CRIT is checked before WARN (a
     value that would trip both is CRIT, not WARN); UNKNOWN when there's no
-    metric value at all (a stale/never-polled host), not silently OK."""
+    metric value at all (a stale/never-polled host), not silently OK. The
+    summary formats the value (and thresholds) with the metric's unit."""
     if value is None:
         return "UNKNOWN", "no recent metric value"
 
+    v = format_value(value, metric)
     cmp_fn = _COMPARISONS[comparison]
     if crit is not None and cmp_fn(value, crit):
-        return "CRIT", f"value {value!r} {comparison} crit threshold {crit!r}"
+        return "CRIT", f"value {v} {comparison} crit threshold {format_value(crit, metric)}"
     if warn is not None and cmp_fn(value, warn):
-        return "WARN", f"value {value!r} {comparison} warn threshold {warn!r}"
-    return "OK", f"value {value!r} within thresholds"
+        return "WARN", f"value {v} {comparison} warn threshold {format_value(warn, metric)}"
+    return "OK", f"value {v} within thresholds"
 
 
 def _condition_trips(comparison: str, value: float | None, threshold: float | None) -> bool:
@@ -344,7 +370,7 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             if rule is None:
                 continue
 
-            state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold)
+            state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold, metric=metric)
             # Block K9: a rule with extra_conditions combines its primary
             # metric with other same-host metrics via AND/OR — only once
             # the primary itself has real data (an UNKNOWN host shouldn't

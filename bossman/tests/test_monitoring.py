@@ -191,7 +191,25 @@ def test_resolve_effective_rule_returns_none_when_nothing_matches():
 def test_compute_state_ok_when_within_thresholds():
     state, output = compute_state("gt", 50.0, warn=80.0, crit=95.0)
     assert state == "OK"
-    assert "50.0" in output
+    assert "50" in output
+
+
+def test_compute_state_formats_value_with_unit_and_rounding():
+    # A raw float like 0.36648034236027804 on a *_pct metric renders as 0.37%,
+    # not the full float repr (the service-summary units bug).
+    state, output = compute_state("gt", 0.36648034236027804, warn=80.0, crit=95.0, metric="disk_used_pct")
+    assert state == "OK"
+    assert "0.37%" in output
+    assert "0.36648" not in output
+
+
+def test_format_value_units():
+    from bossman.services.monitoring import format_value
+
+    assert format_value(0.10023, "cpu_load") == "0.1"        # unitless, rounded
+    assert format_value(21.16248, "mem_used_pct") == "21.16%"
+    assert format_value(512.0, "mem_used_mib") == "512 MiB"
+    assert format_value(None, "x") == "n/a"
 
 
 def test_compute_state_warn_when_over_warn_threshold():
