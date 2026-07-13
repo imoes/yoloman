@@ -1,6 +1,8 @@
 package modules
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"os"
 	"path/filepath"
@@ -127,5 +129,41 @@ func TestLogFilesPathJail(t *testing.T) {
 	// Traversal attempt.
 	if _, err := m.Run(context.Background(), map[string]any{"state": "read", "path": filepath.Join(root, "..", filepath.Base(filepath.Dir(secret)), "secret")}, false); err == nil {
 		t.Fatal("expected traversal outside roots to be rejected")
+	}
+}
+
+func TestLogFilesReadGzip(t *testing.T) {
+	root := t.TempDir()
+	// Write a gzip-compressed rotated log (syslog.1.gz-style).
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write([]byte("g1\ng2\ng3\ng4\ng5\n")); err != nil {
+		t.Fatal(err)
+	}
+	gz.Close()
+	p := filepath.Join(root, "syslog.1.gz")
+	if err := os.WriteFile(p, b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := &LogFiles{Roots: []string{root}}
+
+	// read: the .gz must be transparently decompressed, then tailed by line.
+	res, err := m.Run(context.Background(), map[string]any{"state": "read", "path": p, "lines": 2}, false)
+	if err != nil {
+		t.Fatalf("read gz: %v", err)
+	}
+	lines, _ := logData(t, res)["lines"].([]string)
+	if len(lines) != 2 || lines[0] != "g4" || lines[1] != "g5" {
+		t.Fatalf("expected decompressed last 2 lines [g4 g5], got %v", lines)
+	}
+
+	// grep works on the decompressed content too.
+	res, err = m.Run(context.Background(), map[string]any{"state": "read", "path": p, "grep": "g3"}, false)
+	if err != nil {
+		t.Fatalf("read gz grep: %v", err)
+	}
+	lines, _ = logData(t, res)["lines"].([]string)
+	if len(lines) != 1 || lines[0] != "g3" {
+		t.Fatalf("expected [g3], got %v", lines)
 	}
 }

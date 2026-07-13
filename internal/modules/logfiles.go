@@ -1,8 +1,10 @@
 package modules
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,7 +16,8 @@ const (
 	logDefaultLines = 200
 	logMaxLines     = 5000
 	logMaxListFiles = 800
-	logTailMaxBytes = 4 << 20 // read at most the last 4 MiB when tailing
+	logTailMaxBytes = 4 << 20  // read at most the last 4 MiB when tailing a plain file
+	gzipMaxDecomp   = 64 << 20 // cap decompressed bytes from a .gz (decompression-bomb guard)
 )
 
 // binaryLogNames are files under /var/log that are not plain text (utmp/wtmp
@@ -226,16 +229,36 @@ func (m *LogFiles) read(params map[string]any, roots []string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	// Tail: read at most the last logTailMaxBytes so a huge log can't blow up
-	// memory or the wire.
+	// Read the log's text. A .gz (rotated log) must be decompressed first — its
+	// raw bytes are binary and can't be byte-offset-tailed, so read the whole
+	// decompressed stream (capped against a decompression bomb) and tail lines
+	// below. A plain file reads at most its last logTailMaxBytes.
 	var buf []byte
-	if info.Size() > logTailMaxBytes {
+	windowed := false // we read only part of the file (a byte window or a size cap)
+	isGz := strings.HasSuffix(strings.ToLower(path), ".gz")
+	switch {
+	case isGz:
+		gz, gerr := gzip.NewReader(f)
+		if gerr != nil {
+			return Result{}, fmt.Errorf("gunzip %q: %w", path, gerr)
+		}
+		defer gz.Close()
+		buf, err = io.ReadAll(io.LimitReader(gz, gzipMaxDecomp+1))
+		if err != nil {
+			return Result{}, fmt.Errorf("read %q: %w", path, err)
+		}
+		if int64(len(buf)) > gzipMaxDecomp {
+			buf = buf[:gzipMaxDecomp]
+			windowed = true
+		}
+	case info.Size() > logTailMaxBytes:
 		buf = make([]byte, logTailMaxBytes)
 		if _, err := f.ReadAt(buf, info.Size()-logTailMaxBytes); err != nil && err.Error() != "EOF" {
 			return Result{}, err
 		}
-	} else {
-		buf, err = os.ReadFile(path) // #nosec G304 — jailed above
+		windowed = true
+	default:
+		buf, err = io.ReadAll(f)
 		if err != nil {
 			return Result{}, err
 		}
@@ -259,7 +282,7 @@ func (m *LogFiles) read(params map[string]any, roots []string) (Result, error) {
 	return Result{Data: map[string]any{
 		"path":      path,
 		"lines":     all,
-		"truncated": truncated || info.Size() > logTailMaxBytes,
+		"truncated": truncated || windowed,
 		"size":      info.Size(),
 		"grep":      grep,
 		"regex":     useRegex,
