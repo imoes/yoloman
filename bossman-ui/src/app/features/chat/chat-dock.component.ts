@@ -10,13 +10,12 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
 import { DashboardWidget, WidgetType } from '../../core/models/dashboard.model';
 import { ChatPlanGraphComponent } from './chat-plan-graph.component';
 import { ChatFormComponent } from './chat-form.component';
+import { plantumlToGraph } from './plantuml-graph';
 
 const WIDGET_TYPES: WidgetType[] = [
   'top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat',
   'bar', 'table', 'status_tiles', 'progress', 'ai_summary', 'war_room', 'log', 'callout',
 ];
-// PlantUML server for the ~h hex-encoding (pure client-side, no deflate dep).
-const PLANTUML_SERVER = 'https://www.plantuml.com/plantuml/svg/~h';
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -493,10 +492,13 @@ export class ChatDockComponent implements OnInit, OnDestroy {
       return full;
     });
 
-    cleaned = cleaned.replace(/```plantuml\s*([\s\S]*?)```/g, (_full, body) => {
-      const url = this.plantumlUrl(String(body).trim());
-      if (url) diagrams.push(url);
-      return '';
+    // Render PlantUML the CentralStation way — parse it into a node/edge graph
+    // and draw it INTERACTIVELY with Cytoscape (no SVG, no external server).
+    // Unparseable source is left as a code block rather than silently dropped.
+    cleaned = cleaned.replace(/```plantuml\s*([\s\S]*?)```/g, (full, body) => {
+      const graph = plantumlToGraph(String(body).trim());
+      if (graph) { planGraphs.push({ title: 'Diagram', nodes: graph.nodes, edges: graph.edges }); return ''; }
+      return full;
     });
 
     // Task → input-mask: pull ```bm-form``` blocks into rendered forms.
@@ -518,15 +520,6 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     });
 
     return { cleaned: cleaned.trim(), widgets, planGraphs, diagrams, forms };
-  }
-
-  /** PlantUML server URL via the ~h hex encoding (no deflate dependency). */
-  private plantumlUrl(source: string): string | null {
-    if (!source) return null;
-    const bytes = new TextEncoder().encode(source);
-    let hex = '';
-    for (const b of bytes) hex += b.toString(16).padStart(2, '0');
-    return PLANTUML_SERVER + hex;
   }
 
   private toChatWidget(spec: any): ChatWidget | null {

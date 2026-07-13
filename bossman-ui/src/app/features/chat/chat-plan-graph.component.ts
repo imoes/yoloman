@@ -16,7 +16,9 @@ export interface PlanGraphData {
   selector: 'app-chat-plan-graph',
   standalone: true,
   template: `<div class="bm-plan-graph" #host></div>`,
-  styles: [`.bm-plan-graph { width: 100%; height: 220px; }`],
+  // A concrete size so Cytoscape has real dimensions at init (inside a
+  // content-sized chat bubble a width:100% container collapses to ~0).
+  styles: [`.bm-plan-graph { width: 460px; max-width: 100%; height: 320px; }`],
 })
 export class ChatPlanGraphComponent implements AfterViewInit, OnDestroy {
   private hostEl = inject(ElementRef<HTMLElement>);
@@ -67,6 +69,9 @@ export class ChatPlanGraphComponent implements AfterViewInit, OnDestroy {
       ],
       layout: { name: 'dagre', rankDir: 'LR' } as cytoscape.LayoutOptions,
     });
+    // Re-measure + fit once the container has its real size (guards against a
+    // 0-width measurement at init inside a freshly-rendered bubble).
+    setTimeout(() => { this.cy?.resize(); this.cy?.fit(undefined, 20); }, 50);
   }
 
   ngOnDestroy(): void {
