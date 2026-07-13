@@ -82,3 +82,17 @@ func TestDiskIOMeter_IgnoresCounterReset(t *testing.T) {
 		t.Errorf("counter reset must yield 0 IOPS, got %v", io.Total)
 	}
 }
+
+func TestWholeDisks_ExcludesPartitions(t *testing.T) {
+	w := wholeDisks([]string{"sda", "sda1", "sda2", "sdb", "nvme0n1", "nvme0n1p1", "loop0", "dm-0"})
+	for _, want := range []string{"sda", "sdb", "nvme0n1"} {
+		if !w[want] {
+			t.Errorf("%s should be a whole disk", want)
+		}
+	}
+	for _, notWant := range []string{"sda1", "sda2", "nvme0n1p1", "loop0", "dm-0"} {
+		if w[notWant] {
+			t.Errorf("%s must be excluded (partition/virtual)", notWant)
+		}
+	}
+}

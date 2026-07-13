@@ -64,6 +64,33 @@ func isPhysicalDisk(device string) bool {
 	return true
 }
 
+// wholeDisks returns the set of whole block devices among `devices`, excluding
+// partitions — a device is a partition when another listed device is a strict
+// prefix of it (sda1 of sda, nvme0n1p1 of nvme0n1). Summing per-partition and
+// whole-disk I/O would otherwise double-count a server's total.
+func wholeDisks(devices []string) map[string]bool {
+	phys := make([]string, 0, len(devices))
+	for _, d := range devices {
+		if isPhysicalDisk(d) {
+			phys = append(phys, d)
+		}
+	}
+	out := make(map[string]bool, len(phys))
+	for _, d := range phys {
+		isPart := false
+		for _, other := range phys {
+			if other != d && strings.HasPrefix(d, other) {
+				isPart = true
+				break
+			}
+		}
+		if !isPart {
+			out[d] = true
+		}
+	}
+	return out
+}
+
 // Sample reads /proc under procRoot once, at timestamp now, and returns the
 // canonical set of OS metrics plus derived built-in check results. statfs
 // is called once per real (non-virtual, deduplicated-by-device) mount
@@ -118,8 +145,13 @@ func Sample(procRoot string, now time.Time, statfs statfsFunc, overrides map[str
 	// bytes (sectors×512), and service time in ms. Bossman derives IOPS, await
 	// (=(read+write time)/(read+write ops)), and bandwidth from the rates.
 	if disks, err := parseProcFile(procRoot, "diskstats", proc.ParseDiskStats); err == nil {
+		names := make([]string, len(disks))
+		for i, d := range disks {
+			names[i] = d.Device
+		}
+		whole := wholeDisks(names)
 		for _, d := range disks {
-			if !isPhysicalDisk(d.Device) || (d.ReadsCompleted == 0 && d.WritesCompleted == 0) {
+			if !whole[d.Device] || (d.ReadsCompleted == 0 && d.WritesCompleted == 0) {
 				continue
 			}
 			labels := map[string]string{"device": d.Device}

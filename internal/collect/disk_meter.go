@@ -39,9 +39,14 @@ func (m *DiskIOMeter) Sample(procRoot string, now time.Time) (DiskIOPS, bool) {
 		return DiskIOPS{}, false
 	}
 
+	names := make([]string, len(disks))
+	for i, d := range disks {
+		names[i] = d.Device
+	}
+	whole := wholeDisks(names) // whole disks only — don't double-count partitions
 	cur := make(map[string]uint64, len(disks))
 	for _, d := range disks {
-		if !isPhysicalDisk(d.Device) {
+		if !whole[d.Device] {
 			continue
 		}
 		cur[d.Device] = d.ReadsCompleted + d.WritesCompleted
