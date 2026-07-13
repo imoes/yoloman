@@ -74,13 +74,28 @@ async def topology_graph(
         key = (src, dst)
         agg = seen_pairs.get(key)
         if agg is None:
-            agg = {"source": src, "target": dst, "kind": "connection", "ports": set(), "events": 0}
+            agg = {"source": src, "target": dst, "kind": "connection", "ports": set(),
+                   "events": 0, "_lat_w": 0.0, "_lat_ev": 0, "p99": None}
             seen_pairs[key] = agg
         agg["ports"].add(e.dst_port)
-        agg["events"] += int(e.event_count or 0)
+        ev = int(e.event_count or 0)
+        agg["events"] += ev
+        # Events-weighted mean of per-edge p50 latency (Coroot-style edge RED);
+        # p99 is the worst across the aggregated edges.
+        if e.latency_ms_p50 is not None and ev > 0:
+            agg["_lat_w"] += float(e.latency_ms_p50) * ev
+            agg["_lat_ev"] += ev
+        if e.latency_ms_p99 is not None:
+            agg["p99"] = e.latency_ms_p99 if agg["p99"] is None else max(agg["p99"], e.latency_ms_p99)
     for agg in seen_pairs.values():
         ports = sorted(agg.pop("ports"))
         agg["label"] = ",".join(str(p) for p in ports[:4]) + ("…" if len(ports) > 4 else "")
+        lat_ev = agg.pop("_lat_ev")
+        lat_w = agg.pop("_lat_w")
+        agg["latency_ms"] = round(lat_w / lat_ev, 2) if lat_ev > 0 else None
+        # Edge health from latency (no SLO yet): >200ms warn, >1s crit.
+        lat = agg["latency_ms"]
+        agg["status"] = "crit" if (lat is not None and lat > 1000) else "warn" if (lat is not None and lat > 200) else "ok"
         edges.append(agg)
 
     graph = {

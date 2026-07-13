@@ -9,7 +9,7 @@ import { NgxEchartsDirective } from 'ngx-echarts';
 import { environment } from '../../../environments/environment';
 
 interface TopoNode { id: string; label: string; type: string; status: string; alert_count: number; inactive: boolean; }
-interface TopoEdge { source: string; target: string; kind: string; label?: string; }
+interface TopoEdge { source: string; target: string; kind: string; label?: string; events?: number; latency_ms?: number | null; p99?: number | null; status?: string; }
 interface TopoGraph { nodes: TopoNode[]; edges: TopoEdge[]; stats?: { hosts: number; edges: number; alerts: number }; error?: string; }
 
 const SEV_COLOR: Record<string, string> = {
@@ -100,7 +100,13 @@ export class TopologyComponent implements OnInit, OnDestroy {
         formatter: (p: { dataType: string; data: Record<string, unknown> }) =>
           p.dataType === 'node'
             ? `<b>${p.data['name']}</b><br/>${p.data['nodeType']} · ${p.data['status']} · ${p.data['alertCount']} alerts`
-            : `${p.data['source']} → ${p.data['target']}${p.data['label'] ? '<br/>ports: ' + p.data['label'] : ''}`,
+            : p.data['kind'] === 'parent'
+              ? `${p.data['source']} → ${p.data['target']}<br/>proxy → satellite`
+              : `${p.data['source']} → ${p.data['target']}`
+                + (p.data['label'] ? '<br/>ports: ' + p.data['label'] : '')
+                + '<br/>connects: ' + (p.data['events'] ?? 0)
+                + (p.data['latency'] != null ? '<br/>latency (p50): ' + p.data['latency'] + ' ms' : '')
+                + (p.data['p99'] != null ? '<br/>p99: ' + p.data['p99'] + ' ms' : ''),
       },
       legend: { data: CATS, textStyle: { color: this.txt }, bottom: 2 },
       series: [{
@@ -123,8 +129,16 @@ export class TopologyComponent implements OnInit, OnDestroy {
           },
         })),
         links: g.edges.map((e) => ({
-          source: e.source, target: e.target, label: e.label,
-          lineStyle: e.kind === 'parent' ? { type: 'dashed', color: '#e65100', width: 2 } : {},
+          source: e.source, target: e.target, kind: e.kind,
+          events: e.events, latency: e.latency_ms, p99: e.p99,
+          // Connection edges: label the latency (Coroot-style), color by health,
+          // width by connection volume. Parent edges stay dashed orange.
+          label: e.kind === 'connection'
+            ? { show: e.latency_ms != null, formatter: e.latency_ms != null ? `${e.latency_ms} ms` : '', fontSize: 10, color: this.txt }
+            : undefined,
+          lineStyle: e.kind === 'parent'
+            ? { type: 'dashed', color: '#e65100', width: 2 }
+            : { color: SEV_COLOR[e.status ?? 'ok'] ?? this.grid, width: Math.min(1.5 + Math.log10((e.events ?? 0) + 1), 6), curveness: 0.08, opacity: 0.85 },
         })),
       }],
     };
