@@ -57,6 +57,8 @@ export interface ClaudeStartResponse {
 export interface ChatPrefs {
   default_backend: ChatBackendName;
   models: Record<string, string>;
+  hermes_base_url?: string;
+  hermes_model?: string;
 }
 
 /** W2 — a generated dashboard: AI-designed inline-data widget specs. */

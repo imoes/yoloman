@@ -1476,6 +1476,10 @@ class ChatPreference(Base):
     username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     default_backend: Mapped[str] = mapped_column(String, nullable=False, default="claude_cli")
     models: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # {backend: model}
+    # Console LLM endpoint config, set from Settings (overrides the deploy-time
+    # default so the hermes/OpenAI-compatible endpoint isn't pinned in env).
+    hermes_base_url: Mapped[str | None] = mapped_column(String)
+    hermes_model: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 

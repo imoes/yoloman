@@ -59,12 +59,21 @@ async def _load_prefs(session: AsyncSession, username: str) -> ChatPreference | 
     return await session.scalar(select(ChatPreference).where(ChatPreference.username == username))
 
 
-async def _build_backend(settings: Settings, oauth: ChatOAuthService, username: str, backend_name: str, model: str | None):
+async def _build_backend(
+    settings: Settings, oauth: ChatOAuthService, username: str, backend_name: str, model: str | None,
+    hermes_base_url: str | None = None, hermes_model: str | None = None,
+):
     """Construct the selected backend with this user's credentials from their
     bind-mounted home dir. Codex reads its access token from the home (proactively
-    refreshed); claude runs with HOME set to it; hermes_web is server-side."""
+    refreshed); claude runs with HOME set to it; hermes_web is server-side. The
+    hermes endpoint/model come from the user's Settings (ChatPreference) when set,
+    else the deploy-time default."""
     if backend_name == HERMES_WEB:
-        return HermesWebBackend(settings.hermes_web_base_url, model or settings.hermes_web_model, settings.hermes_web_token)
+        return HermesWebBackend(
+            hermes_base_url or settings.hermes_web_base_url,
+            model or hermes_model or settings.hermes_web_model,
+            settings.hermes_web_token,
+        )
     home = chat_home.home_for(settings.chat_home_root, username)
     if backend_name == CLAUDE_CLI:
         return ClaudeCliBackend(settings.claude_cli_path, model or settings.claude_cli_model, home=str(home))
@@ -106,6 +115,8 @@ class ClaudeCompleteRequest(BaseModel):
 class PrefsRequest(BaseModel):
     default_backend: str | None = None
     models: dict[str, str] | None = None
+    hermes_base_url: str | None = None
+    hermes_model: str | None = None
 
 
 class GenerateDashboardRequest(BaseModel):
@@ -232,6 +243,8 @@ async def get_prefs(
     return {
         "default_backend": prefs.default_backend if prefs else settings.chat_backend,
         "models": (prefs.models if prefs else {}) or {},
+        "hermes_base_url": (prefs.hermes_base_url if prefs else None) or settings.hermes_web_base_url,
+        "hermes_model": (prefs.hermes_model if prefs else None) or settings.hermes_web_model,
     }
 
 
@@ -252,8 +265,16 @@ async def set_prefs(
         prefs.default_backend = body.default_backend
     if body.models is not None:
         prefs.models = {**(prefs.models or {}), **body.models}
+    if body.hermes_base_url is not None:
+        prefs.hermes_base_url = body.hermes_base_url.strip() or None
+    if body.hermes_model is not None:
+        prefs.hermes_model = body.hermes_model.strip() or None
     await session.commit()
-    return {"default_backend": prefs.default_backend, "models": prefs.models or {}}
+    return {
+        "default_backend": prefs.default_backend, "models": prefs.models or {},
+        "hermes_base_url": prefs.hermes_base_url or settings.hermes_web_base_url,
+        "hermes_model": prefs.hermes_model or settings.hermes_web_model,
+    }
 
 
 @router.post("/api/v1/chat/sessions")
@@ -367,7 +388,9 @@ async def generate_dashboard_route(
         raise HTTPException(status_code=422, detail=f"backend must be one of: {', '.join(BACKENDS)}")
     model = (prefs.models or {}).get(backend_name) if prefs else None
     try:
-        backend = await _build_backend(settings, oauth, identity.name, backend_name, model)
+        backend = await _build_backend(settings, oauth, identity.name, backend_name, model,
+                                       hermes_base_url=(prefs.hermes_base_url if prefs else None),
+                                       hermes_model=(prefs.hermes_model if prefs else None))
     except ChatBackendError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -458,7 +481,9 @@ async def send_message(
     assistant_seq = next_seq + 1
 
     try:
-        backend = await _build_backend(settings, oauth, identity.name, backend_name, model)
+        backend = await _build_backend(settings, oauth, identity.name, backend_name, model,
+                                       hermes_base_url=(prefs.hermes_base_url if prefs else None),
+                                       hermes_model=(prefs.hermes_model if prefs else None))
     except ChatBackendError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

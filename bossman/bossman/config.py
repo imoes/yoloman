@@ -166,8 +166,12 @@ class Settings(BaseSettings):
     # services/translator.py) — a different model/path on the same host as
     # the embedding endpoint above (qwen3next-79b, completion-only; it does
     # NOT serve embeddings itself, confirmed by probing it directly).
-    chat_base_url: str = "https://llm.example.internal/qwen79b"
-    chat_model: str = "qwen3next-79b"
+    # Utility one-shot completions (ChatClient.complete_*, e.g. the run
+    # dialog's AI briefing) and the translator go to the fast qwen35b — the
+    # conversational console uses hermes_web/qwen79b below, which is often
+    # overloaded for short, high-frequency utility calls.
+    chat_base_url: str = "https://llm.example.internal/qwen35b"
+    chat_model: str = "/models/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"
     chat_token: str = ""
 
     # Block K — AI chat console. The docked chatbot routes a conversation to
@@ -177,9 +181,13 @@ class Settings(BaseSettings):
     # device-code OAuth token; claude_cli shells out to the local `claude`
     # binary (--print). Per-backend endpoints/models are configurable; auth
     # for claude_cli/codex is ambient (CLI login / cached OAuth token file).
-    chat_backend: str = "claude_cli"  # claude_cli | codex | hermes_web
-    hermes_web_base_url: str = "http://localhost:8642"
-    hermes_web_model: str = "hermes-agent"
+    # Defaults point the console at the live OpenAI-compatible qwen79b endpoint
+    # so it works out of the box; per-user overrides (endpoint + model) live in
+    # the DB (chat_preferences), configured from the Settings → AI Assistant
+    # card — not in the environment.
+    chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web
+    hermes_web_base_url: str = "https://llm.example.internal/qwen79b"
+    hermes_web_model: str = "qwen3next-79b"
     hermes_web_token: str = ""
     codex_base_url: str = "https://chatgpt.com/backend-api/codex"
     codex_model: str = "gpt-5.5"
