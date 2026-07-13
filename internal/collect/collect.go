@@ -13,6 +13,7 @@ package collect
 import (
 	"fmt"
 	"io"
+	"strings"
 	"os"
 	"path/filepath"
 	"sort"
@@ -52,6 +53,17 @@ var realFilesystems = map[string]bool{
 	"f2fs": true, "jfs": true, "reiserfs": true,
 }
 
+// isPhysicalDisk filters /proc/diskstats down to real block devices, dropping
+// loopback/ramdisk/floppy noise no operator wants graphed.
+func isPhysicalDisk(device string) bool {
+	for _, prefix := range []string{"loop", "ram", "fd", "sr", "dm-"} {
+		if strings.HasPrefix(device, prefix) {
+			return false
+		}
+	}
+	return true
+}
+
 // Sample reads /proc under procRoot once, at timestamp now, and returns the
 // canonical set of OS metrics plus derived built-in check results. statfs
 // is called once per real (non-virtual, deduplicated-by-device) mount
@@ -86,6 +98,37 @@ func Sample(procRoot string, now time.Time, statfs statfsFunc, overrides map[str
 			add("mem_total_bytes", float64(totalKB)*1024, nil)
 			add("mem_used_bytes", float64(usedKB)*1024, nil)
 			add("mem_used_pct", pct, nil)
+			// Coroot-style memory breakdown (available/free/cached) for a
+			// stacked node memory chart.
+			add("mem_available_bytes", float64(availKB)*1024, nil)
+			add("mem_free_bytes", float64(mem["MemFree"])*1024, nil)
+			add("mem_cached_bytes", float64(mem["Cached"])*1024, nil)
+		}
+	}
+
+	// CPU by mode (Coroot node_resources_cpu_usage_seconds_total): per-mode
+	// cumulative seconds as counters; Bossman derives per-mode utilization.
+	if modes, err := parseProcFile(procRoot, "stat", proc.ParseStatCPUModes); err == nil {
+		for mode, secs := range modes {
+			add("cpu_mode_seconds_total", secs, map[string]string{"mode": mode})
+		}
+	}
+
+	// Per-device disk I/O counters (Coroot node_resources_disk_*): reads/writes,
+	// bytes (sectors×512), and service time in ms. Bossman derives IOPS, await
+	// (=(read+write time)/(read+write ops)), and bandwidth from the rates.
+	if disks, err := parseProcFile(procRoot, "diskstats", proc.ParseDiskStats); err == nil {
+		for _, d := range disks {
+			if !isPhysicalDisk(d.Device) || (d.ReadsCompleted == 0 && d.WritesCompleted == 0) {
+				continue
+			}
+			labels := map[string]string{"device": d.Device}
+			add("disk_reads_total", float64(d.ReadsCompleted), labels)
+			add("disk_writes_total", float64(d.WritesCompleted), labels)
+			add("disk_read_bytes_total", float64(d.SectorsRead)*512, labels)
+			add("disk_written_bytes_total", float64(d.SectorsWritten)*512, labels)
+			add("disk_read_time_ms_total", float64(d.MsReading), labels)
+			add("disk_write_time_ms_total", float64(d.MsWriting), labels)
 		}
 	}
 

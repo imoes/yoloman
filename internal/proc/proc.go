@@ -116,6 +116,39 @@ func ParseUptime(r io.Reader) (Uptime, error) {
 	return u, nil
 }
 
+// statCPUModes names the columns of the aggregate "cpu" line in /proc/stat,
+// in order. Values are jiffies (1/USER_HZ, typically 1/100s) since boot.
+var statCPUModes = []string{"user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal"}
+
+// ParseStatCPUModes parses /proc/stat's aggregate "cpu" line into per-mode
+// cumulative seconds (jiffies / 100). Coroot-style CPU-by-mode: the caller
+// emits each as a counter and derives per-mode utilization from the rate.
+func ParseStatCPUModes(r io.Reader) (map[string]float64, error) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 5 || fields[0] != "cpu" {
+			continue
+		}
+		out := make(map[string]float64, len(statCPUModes))
+		for i, mode := range statCPUModes {
+			if i+1 >= len(fields) {
+				break
+			}
+			v, err := strconv.ParseUint(fields[i+1], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("stat: cpu %s: %w", mode, err)
+			}
+			out[mode] = float64(v) / 100.0 // jiffies -> seconds (USER_HZ=100)
+		}
+		return out, nil
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("stat: no aggregate cpu line found")
+}
+
 // CPU holds the key/value fields of a single /proc/cpuinfo processor block.
 type CPU map[string]string
 
