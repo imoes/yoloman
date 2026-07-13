@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chat, checks, chunks, console, topology as topology_api, dashboard, deploy, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, auth, chat, checks, chunks, console, topology as topology_api, dashboard, deploy, deployments, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -211,6 +211,7 @@ def create_app() -> FastAPI:
     app.include_router(checks.router, tags=["checks"])
     app.include_router(help.router, tags=["help"])
     app.include_router(runbooks.router, tags=["runbooks"])
+    app.include_router(deployments.router, tags=["deployments"])
     app.include_router(notifications.router, tags=["notifications"])
     app.include_router(admin.router, tags=["admin"])
     app.include_router(value_maps.router, tags=["value-maps"])

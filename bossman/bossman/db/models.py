@@ -232,6 +232,34 @@ class PlanRun(Base):
     )
 
 
+class DeploymentRun(Base):
+    """One multi-host deployment: a plan/runbook fanned out across a resolved
+    target set (services.targets). Groups the per-host child runs it spawned
+    (PlanRun / RunbookRun ids in `results`) into a single trackable unit."""
+
+    __tablename__ = "deployment_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # plan | stored_plan | runbook
+    target_ref: Mapped[str] = mapped_column(String, nullable=False)  # plan/runbook name (prefix/name for stored)
+    dry_run: Mapped[bool] = mapped_column(nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="running")
+    total_hosts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ok_hosts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_hosts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unknown_hostnames: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    # [{agent_id, agent_name, run_id, run_kind, status, changed, error}]
+    results: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    requested_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'ok', 'partial', 'failed')", name="ck_deployment_runs_status"),
+        CheckConstraint("kind IN ('plan', 'stored_plan', 'runbook')", name="ck_deployment_runs_kind"),
+    )
+
+
 class PlanRunStep(Base):
     """One step's result within a plan run."""
 
