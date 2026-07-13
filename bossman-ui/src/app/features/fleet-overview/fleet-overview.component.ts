@@ -32,7 +32,12 @@ import { DashboardGridComponent } from './dashboard-grid.component';
   imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent, DashboardGridComponent],
   template: `
     <div class="bm-page">
-      <h1>Fleet Overview</h1>
+      <div class="bm-page-head">
+        <h1>Fleet Overview</h1>
+        <a mat-stroked-button routerLink="/ai-dashboard">
+          <mat-icon>auto_awesome</mat-icon> AI Dashboard
+        </a>
+      </div>
 
       <!-- CheckMK-style statistics panels (Block H3): Host statistics +
            Service statistics side by side, each a colored-count table —
@@ -201,6 +206,12 @@ import { DashboardGridComponent } from './dashboard-grid.component';
   `,
   styles: [
     `
+      .bm-page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
       .bm-page {
         padding: 24px;
         max-width: 1100px;

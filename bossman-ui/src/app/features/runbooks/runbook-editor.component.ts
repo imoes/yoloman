@@ -10,6 +10,7 @@ import * as monaco from 'monaco-editor';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { AgentService } from '../../core/services/agent.service';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -198,6 +199,7 @@ const MAGIC_VARS = [
 export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private http = inject(HttpClient);
   private agentService = inject(AgentService);
+  private dialog = inject(DialogService);
   private base = environment.apiUrl;
   @ViewChild('editor') editorEl!: ElementRef<HTMLDivElement>;
   private ed?: monaco.editor.IStandaloneCodeEditor;
@@ -319,8 +321,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
-  apply(): void {
-    if (confirm('Apply this runbook for real (not a dry run)?')) this.run(false);
+  async apply(): Promise<void> {
+    if (await this.dialog.confirm({ title: 'Apply runbook', message: 'Apply this runbook for real (not a dry run)?', confirmText: 'Apply', danger: true })) {
+      this.run(false);
+    }
   }
 
   /** Render a magic-variable reference like ${yoloman_hostname} without

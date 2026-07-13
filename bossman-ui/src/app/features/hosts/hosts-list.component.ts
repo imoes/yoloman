@@ -4,6 +4,7 @@ import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 import { FleetHost } from '../../core/models/monitoring.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
@@ -200,6 +201,7 @@ interface HostRow extends FleetHost {
 export class HostsListComponent implements OnInit {
   private monitoringService = inject(MonitoringService);
   private agentService = inject(AgentService);
+  private dialog = inject(DialogService);
   hosts = signal<FleetHost[]>([]);
   /** The id currently being deleted, so its button disables (prevents a
    * double-submit); null when idle. */
@@ -268,11 +270,11 @@ export class HostsListComponent implements OnInit {
     this.agentService.update(id, file).subscribe({
       next: () => {
         this.updating.set(null);
-        alert('Agent update pushed — the host is installing it and will restart onto the new version.');
+        this.dialog.notify('Agent update pushed — the host is installing it and will restart onto the new version.');
       },
       error: (e) => {
         this.updating.set(null);
-        alert(e?.error?.detail ?? 'agent update failed');
+        this.dialog.notify(e?.error?.detail ?? 'agent update failed', 'error');
       },
     });
   }
@@ -280,10 +282,10 @@ export class HostsListComponent implements OnInit {
   /** Delete a host after a confirm. stopPropagation keeps the row's
    * routerLink from firing (a click on the button would otherwise navigate
    * into the host we're removing). */
-  deleteHost(host: FleetHost, event: Event): void {
+  async deleteHost(host: FleetHost, event: Event): Promise<void> {
     event.stopPropagation();
     if (this.deleting()) return;
-    if (!confirm(`Delete host "${host.name}" and all its data? This cannot be undone.`)) return;
+    if (!(await this.dialog.confirm({ title: 'Delete host', message: `Delete host "${host.name}" and all its data? This cannot be undone.`, confirmText: 'Delete', danger: true }))) return;
     this.deleting.set(host.id);
     this.agentService.delete(host.id).subscribe({
       next: () => {

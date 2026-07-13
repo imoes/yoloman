@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog } from '@angular/material/dialog';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 import { Agent } from '../../core/models/agent.model';
 import { HostGroupInput } from '../../core/models/host-group.model';
 import { OUNode, OUObject } from '../../core/models/ou.model';
@@ -377,6 +378,7 @@ export class OuPolicyComponent implements OnInit {
   private systemSettings = inject(SystemSettingsService);
   private checkService = inject(CheckService);
   private dialog = inject(MatDialog);
+  private appDialog = inject(DialogService);
 
   /** GPO check assignments on the selected OU (Block G9-P3). */
   ouChecks = signal<CheckAssignment[]>([]);
@@ -551,7 +553,7 @@ export class OuPolicyComponent implements OnInit {
         .createAssignment({ check_name: res.check_name, scope_type: 'ou', ou_id: ou.id, parameters: res.parameters })
         .subscribe({
           next: () => { this.select({ kind: 'ou', ou, depth: 0 }); },
-          error: (e) => alert(e?.error?.detail ?? 'assign failed'),
+          error: (e) => this.appDialog.notify(e?.error?.detail ?? 'assign failed', 'error'),
         });
     });
   }
@@ -565,7 +567,7 @@ export class OuPolicyComponent implements OnInit {
       if (!res) return;
       this.checkService
         .createAssignment({ check_name: res.check_name, scope_type: 'group', host_group_id: groupId, parameters: res.parameters })
-        .subscribe({ error: (e) => alert(e?.error?.detail ?? 'assign failed') });
+        .subscribe({ error: (e) => this.appDialog.notify(e?.error?.detail ?? 'assign failed', 'error') });
     });
   }
 
@@ -678,7 +680,7 @@ export class OuPolicyComponent implements OnInit {
         this.expanded.update((e) => new Set(e).add(ou.id));
         this.reload();
       },
-      error: (e) => alert(e?.error?.detail ?? 'move failed'),
+      error: (e) => this.appDialog.notify(e?.error?.detail ?? 'move failed', 'error'),
     });
   }
 
@@ -690,7 +692,7 @@ export class OuPolicyComponent implements OnInit {
       this.expanded.update((e) => new Set(e).add(ouId));
       this.reload();
     };
-    const fail = (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'link failed');
+    const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'link failed', 'error');
     switch (item.kind) {
       case 'check_rule':
         this.monitoring.patchCheckRule(item.id, { scope_ou_id: ouId }).subscribe({ next: done, error: fail });
@@ -739,7 +741,7 @@ export class OuPolicyComponent implements OnInit {
     if (!node || node.parent_id === null) return;
     this.ouService.move(dragged, null).subscribe({
       next: () => this.reload(),
-      error: (e) => alert(e?.error?.detail ?? 'move failed'),
+      error: (e) => this.appDialog.notify(e?.error?.detail ?? 'move failed', 'error'),
     });
   }
 
@@ -761,7 +763,7 @@ export class OuPolicyComponent implements OnInit {
   }
 
   deleteOu(ou: OUNode): void {
-    this.ouService.delete(ou.id).subscribe({ next: () => this.reload(), error: (e) => alert(e?.error?.detail ?? 'delete failed') });
+    this.ouService.delete(ou.id).subscribe({ next: () => this.reload(), error: (e) => this.appDialog.notify(e?.error?.detail ?? 'delete failed', 'error') });
   }
 
   toggleBlock(ou: OUNode): void {
@@ -833,7 +835,7 @@ export class OuPolicyComponent implements OnInit {
       // to be swallowed silently (looking like "you can only create one
       // policy" once a name was reused).
       const fail = (e: { error?: { detail?: string } }) =>
-        alert(e?.error?.detail ?? 'could not create the policy');
+        this.appDialog.notify(e?.error?.detail ?? 'could not create the policy', 'error');
       this.orchestration.createPlan(input).subscribe({
         next: (plan) => {
           this.orchestration
@@ -861,7 +863,7 @@ export class OuPolicyComponent implements OnInit {
     );
     ref.afterClosed().subscribe((input) => {
       if (!input) return;
-      const fail = (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'could not create the policy');
+      const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'could not create the policy', 'error');
       this.orchestration.createPlan(input).subscribe({ next: () => this.reload(), error: fail });
     });
   }
@@ -905,7 +907,7 @@ export class OuPolicyComponent implements OnInit {
                 if (res.target_type === 'ou') this.afterObjectChange(ou.id);
                 else this.reload();
               },
-              error: (e: { error?: { detail?: string } }) => alert(e?.error?.detail ?? 'bind failed'),
+              error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'bind failed', 'error'),
             });
         });
       });

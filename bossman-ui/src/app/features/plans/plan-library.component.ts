@@ -6,6 +6,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import * as monaco from 'monaco-editor';
 import { PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
   getWorker() {
@@ -149,6 +150,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
 })
 export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   private planService = inject(PlanService);
+  private dialog = inject(DialogService);
   @ViewChild('editor') editorEl!: ElementRef<HTMLDivElement>;
   @ViewChild('diffEditor') diffEditorEl!: ElementRef<HTMLDivElement>;
 
@@ -337,10 +339,10 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  doDelete(): void {
+  async doDelete(): Promise<void> {
     const d = this.doc();
     if (!d) return;
-    if (!confirm(`Delete plan "${d.prefix}/${d.name}" and all its versions? This cannot be undone.`)) return;
+    if (!(await this.dialog.confirm({ title: 'Delete plan', message: `Delete plan "${d.prefix}/${d.name}" and all its versions? This cannot be undone.`, confirmText: 'Delete', danger: true }))) return;
     this.busy.set(true); this.msg.set(null); this.saveErr.set(null);
     this.planService.delete(d.prefix, d.name).subscribe({
       next: (r) => {

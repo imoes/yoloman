@@ -13,26 +13,31 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
+// Day-to-day operational views stay at the top level; configuration/admin
+// surfaces are grouped under a collapsible "Setup" section (below). The AI
+// Dashboard is reached from within Fleet Overview, not as its own nav entry.
+const MAIN_NAV: NavItem[] = [
   { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
-  { path: '/ai-dashboard', label: 'AI Dashboard', icon: 'auto_awesome' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
-  { path: '/notifications', label: 'Notifications', icon: 'notifications' },
-  { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
   { path: '/security', label: 'Security', icon: 'security' },
-  { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
-  { path: '/modules', label: 'Modules', icon: 'extension' },
-  { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/runbooks', label: 'Runbooks', icon: 'terminal' },
   { path: '/plans', label: 'Plans', icon: 'checklist' },
   { path: '/plan-library', label: 'Plan library', icon: 'folder_special' },
   { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
   { path: '/runs', label: 'Runs', icon: 'history' },
+  { path: '/help', label: 'Help', icon: 'help_outline' },
+];
+
+const SETUP_NAV: NavItem[] = [
+  { path: '/hosts', label: 'Hosts', icon: 'dns' },
+  { path: '/notifications', label: 'Notifications', icon: 'notifications' },
+  { path: '/ou', label: 'OU / Policy', icon: 'domain' },
+  { path: '/modules', label: 'Modules', icon: 'extension' },
+  { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },
-  { path: '/help', label: 'Help', icon: 'help_outline' },
 ];
 
 @Component({
@@ -57,8 +62,14 @@ export class App {
   // Block M: hide admin-only entries (Users & Access) for non-admins. The
   // route's adminGuard and the backend's require_admin are the real gates;
   // this just keeps the nav honest.
-  navItems = computed(() =>
-    NAV_ITEMS.filter((item) => !item.adminOnly || this.auth.role() === 'admin'),
-  );
+  private forRole = (items: NavItem[]) =>
+    items.filter((item) => !item.adminOnly || this.auth.role() === 'admin');
+  mainItems = computed(() => this.forRole(MAIN_NAV));
+  setupItems = computed(() => this.forRole(SETUP_NAV));
+  // Setup section auto-opens when the current route is one of its entries, so
+  // deep-linking into a config page doesn't leave it looking hidden.
+  setupOpen = signal(false);
+  setupActive = computed(() => this.setupItems().some((i) => this.url().startsWith(i.path)));
+  toggleSetup(): void { this.setupOpen.update((v) => !v); }
   isLoggedIn = computed(() => this.auth.isLoggedIn());
 }

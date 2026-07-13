@@ -11,6 +11,7 @@ import { AccessService } from '../../core/services/access.service';
 import { AgentService } from '../../core/services/agent.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 import {
   AccessGrant,
   ApiTokenRow,
@@ -287,6 +288,7 @@ export class UsersAccessComponent implements OnInit {
   private agentSvc = inject(AgentService);
   private groupSvc = inject(HostGroupService);
   private auth = inject(AuthService);
+  private dialog = inject(DialogService);
 
   users = signal<BossmanUser[]>([]);
   tokens = signal<ApiTokenRow[]>([]);
@@ -353,8 +355,8 @@ export class UsersAccessComponent implements OnInit {
     this.access.updateUser(u.username, { role }).subscribe({ next: () => this.reloadAll(), error: (e) => this.fail(e) });
   }
 
-  removeUser(u: BossmanUser): void {
-    if (!confirm(`Delete user ${u.username}?`)) return;
+  async removeUser(u: BossmanUser): Promise<void> {
+    if (!(await this.dialog.confirm({ title: 'Delete user', message: `Delete user ${u.username}?`, confirmText: 'Delete', danger: true }))) return;
     this.access.deleteUser(u.username).subscribe({ next: () => this.reloadAll(), error: (e) => this.fail(e) });
   }
 
@@ -370,8 +372,8 @@ export class UsersAccessComponent implements OnInit {
     });
   }
 
-  revoke(t: ApiTokenRow): void {
-    if (!confirm(`Revoke token ${t.name}?`)) return;
+  async revoke(t: ApiTokenRow): Promise<void> {
+    if (!(await this.dialog.confirm({ title: 'Revoke token', message: `Revoke token ${t.name}?`, confirmText: 'Revoke', danger: true }))) return;
     this.access.revokeToken(t.id).subscribe({ next: () => this.reloadAll(), error: (e) => this.fail(e) });
   }
 

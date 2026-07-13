@@ -9,6 +9,7 @@ import { DashboardWidget, WidgetData } from '../../core/models/dashboard.model';
 import { DashboardWidgetComponent } from '../../shared/components/dashboard-widget/dashboard-widget.component';
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 import { AddWidgetDialogComponent } from './add-widget-dialog.component';
+import { DialogService } from '../../shared/dialogs/dialog.service';
 
 /** The GridStack-backed, server-persisted widget dashboard on Fleet
  * Overview (see docs/plan.md's monitoring-cockpit ergänzung Block F5) —
@@ -139,6 +140,7 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
 
   private dashboardService = inject(DashboardService);
   private dialog = inject(MatDialog);
+  private appDialog = inject(DialogService);
   private injector = inject(Injector);
   private route = inject(ActivatedRoute);
 
@@ -188,16 +190,16 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
     this.loadWidgets();
   }
 
-  newDashboard(): void {
-    const name = window.prompt('New dashboard name:')?.trim();
+  async newDashboard(): Promise<void> {
+    const name = (await this.appDialog.prompt({ title: 'New dashboard', input: { label: 'Dashboard name' } }))?.trim();
     if (!name) return;
     this.dashboardService.createDashboard({ name }).subscribe((d) => this.loadDashboards(d.id));
   }
 
-  renameDashboard(): void {
+  async renameDashboard(): Promise<void> {
     const c = this.current();
     if (!c) return;
-    const name = window.prompt('Rename dashboard:', c.name)?.trim();
+    const name = (await this.appDialog.prompt({ title: 'Rename dashboard', input: { label: 'Dashboard name', value: c.name } }))?.trim();
     if (!name || name === c.name) return;
     this.dashboardService.updateDashboard(c.id, { name }).subscribe(() => this.loadDashboards(c.id));
   }
@@ -208,10 +210,10 @@ export class DashboardGridComponent implements AfterViewInit, OnDestroy {
     this.dashboardService.updateDashboard(c.id, { is_default: true }).subscribe(() => this.loadDashboards(c.id));
   }
 
-  deleteDashboard(): void {
+  async deleteDashboard(): Promise<void> {
     const c = this.current();
     if (!c || this.dashboards().length <= 1) return;
-    if (!window.confirm(`Delete dashboard "${c.name}" and its widgets?`)) return;
+    if (!(await this.appDialog.confirm({ title: 'Delete dashboard', message: `Delete dashboard "${c.name}" and its widgets?`, confirmText: 'Delete', danger: true }))) return;
     this.dashboardService.deleteDashboard(c.id).subscribe(() => this.loadDashboards());
   }
 

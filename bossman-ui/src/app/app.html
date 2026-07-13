@@ -6,11 +6,25 @@
         <span class="bm-brand">Bossman</span>
         <span class="bm-brand-sub">Fleet Commander</span>
       </div>
-      @for (item of navItems(); track item.path) {
+      @for (item of mainItems(); track item.path) {
         <a class="bm-nav-item" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
           <mat-icon class="bm-nav-icon">{{ item.icon }}</mat-icon>
           <span class="bm-nav-label">{{ item.label }}</span>
         </a>
+      }
+      <!-- Configuration/admin surfaces, grouped so day-to-day views stay uncluttered. -->
+      <button type="button" class="bm-nav-item bm-nav-group" [class.bm-nav-item-active]="setupActive()" (click)="toggleSetup()">
+        <mat-icon class="bm-nav-icon">tune</mat-icon>
+        <span class="bm-nav-label">Setup</span>
+        <mat-icon class="bm-nav-caret">{{ (setupOpen() || setupActive()) ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+      @if (setupOpen() || setupActive()) {
+        @for (item of setupItems(); track item.path) {
+          <a class="bm-nav-item bm-nav-sub" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
+            <mat-icon class="bm-nav-icon">{{ item.icon }}</mat-icon>
+            <span class="bm-nav-label">{{ item.label }}</span>
+          </a>
+        }
       }
       <div class="bm-nav-footer">
         <span class="bm-user">{{ auth.username() }}</span>
