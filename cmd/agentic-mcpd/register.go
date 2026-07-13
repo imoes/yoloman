@@ -32,15 +32,18 @@ func newBearerToken() (string, error) {
 // docs/plan.md's roadmap) or a Selecta (a proxy-mode agent accepting
 // dynamically enrolled satellites, see internal/server/enroll.go). Both
 // speak the identical wire protocol (internal/enroll.Request/Response), so
-// one client-side command works generically against either: it exchanges a
-// shared enrollment secret for the enrolling authority's public key, writes
-// that key to disk, and prints the config.yaml snippet the operator needs
-// to add to tls.trusted_client_keys — it does not modify config.yaml
+// one client-side command works generically against either: it hands over
+// this agent's name/token/address and fetches the enrolling authority's
+// public key (no enrollment secret — registration is open; the SSH-driven
+// deploy is the authenticated path), writes that key to disk, and prints the
+// config.yaml snippet the operator needs to add to tls.trusted_client_keys
+// so the authority can then authenticate itself with its private key over
+// TLS client certificates — it does not modify config.yaml
 // itself, to avoid corrupting a hand-edited file.
 func runRegister(args []string) error {
 	fs := flag.NewFlagSet("agentic-mcpd register", flag.ContinueOnError)
 	enrollURL := fs.String("enroll-url", "", "enrollment endpoint of the Bossman or Selecta this agent is joining, e.g. https://selecta.internal:8443")
-	enrollSecret := fs.String("enroll-secret", "", "shared bootstrap secret provided by the Bossman/Selecta operator")
+	enrollSecret := fs.String("enroll-secret", "", "optional shared bootstrap secret — Bossman enrollment is open and ignores it; a Selecta proxy may still require it")
 	name := fs.String("name", "", "this agent's name as reported to the enrollment authority (default: hostname)")
 	address := fs.String("address", "", "this agent's own reachable host:port, so it can be reached later (optional)")
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml (read for this agent's own bearer token)")
@@ -51,9 +54,6 @@ func runRegister(args []string) error {
 	}
 	if *enrollURL == "" {
 		return fmt.Errorf("register: --enroll-url is required")
-	}
-	if *enrollSecret == "" {
-		return fmt.Errorf("register: --enroll-secret is required")
 	}
 
 	cfg, err := config.Load(*configPath)

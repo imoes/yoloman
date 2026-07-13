@@ -17,10 +17,9 @@ class Settings(BaseSettings):
     # "postgresql+asyncpg://bossman:secret@localhost:5432/bossman".
     database_url: str = "postgresql+asyncpg://bossman:bossman@localhost:5432/bossman"
 
-    # Shared bootstrap secret for the enrollment handshake (see
-    # internal/enroll on the Go side) — the only auth possible before any
-    # per-agent trust exists.
-    enroll_secret: str = ""
+    # Enrollment is open — there is no enroll secret. The agent registers,
+    # receives Bossman's public key, and is added to the inventory; the
+    # authenticated way to add a host is the server-driven SSH deploy.
 
     # The address a node agent (Duppy) actually reaches this Bossman at to
     # run `agentic-mcpd register --enroll-url ...` — deliberately separate

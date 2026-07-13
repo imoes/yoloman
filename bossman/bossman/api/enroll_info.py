@@ -26,7 +26,6 @@ router = APIRouter()
 class EnrollInfoResponse(BaseModel):
     configured: bool
     enroll_url: str | None = None
-    enroll_secret: str | None = None
     register_command: str | None = None
     # Block N-enroll: whether server-driven SSH deploy is configured (SSH
     # user + an agent .deb path). When true the Settings page shows the
@@ -41,18 +40,13 @@ async def enroll_info(
 ) -> EnrollInfoResponse:
     deploy_configured = bool(settings.deploy_ssh_user and settings.agent_deb_path)
 
-    if not settings.enroll_secret:
-        return EnrollInfoResponse(configured=False, deploy_configured=deploy_configured)
-
+    # Enrollment is open (no secret) — always available. The manual one-liner
+    # is a convenience; the authenticated path is the SSH deploy above.
     url = settings.public_url or "http://<this-bossman-host>:8000"
-    command = (
-        f"agentic-mcpd register --enroll-url {url} "
-        f"--enroll-secret {settings.enroll_secret} --name $(hostname)"
-    )
+    command = f"agentic-mcpd register --enroll-url {url} --name $(hostname)"
     return EnrollInfoResponse(
         configured=True,
         enroll_url=url,
-        enroll_secret=settings.enroll_secret,
         register_command=command,
         deploy_configured=deploy_configured,
     )

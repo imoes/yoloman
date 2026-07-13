@@ -1,11 +1,12 @@
 """POST /api/v1/enroll — Bossman's server side of the enrollment
 handshake the Go client (`agentic-mcpd register`, package internal/enroll)
-already speaks (see docs/plan.md's Bossman plan, section B.3, and the
-"Enrollment" / "Selecta" sections earlier in that file for the identical
-protocol already implemented on a Selecta). Only mounted when
-BOSSMAN_ENROLL_SECRET is actually configured (see bossman/main.py) — an
-unconfigured Bossman shouldn't accept enrollments at all, mirroring the Go
-Selecta's identical gating on a non-empty proxy.enroll_secret.
+speaks. Enrollment is OPEN: there is no secret — the agent hands over its
+name/token/address and receives Bossman's public key (which it pins so
+Bossman can authenticate itself with its private key over TLS client certs
+from then on). The authenticated way to add a host is the server-driven SSH
+deploy (api/deploy.py); this endpoint is the manual convenience. Always
+mounted (see bossman/main.py). An optional `enroll_secret` in the body is
+accepted for wire-compatibility with the generic client but ignored.
 """
 
 from __future__ import annotations
@@ -17,16 +18,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
 from bossman.services import keys
-from bossman.services.enrollment import EnrollRequest, InvalidEnrollSecret, enroll_agent
+from bossman.services.enrollment import EnrollRequest, enroll_agent
 
 router = APIRouter()
 
 
 class EnrollRequestBody(BaseModel):
     name: str
-    enroll_secret: str
     token: str
     address: str | None = None
+    # Accepted for wire-compatibility with the generic register client, but
+    # ignored — Bossman enrollment is open.
+    enroll_secret: str | None = None
 
 
 class EnrollResponseBody(BaseModel):
@@ -45,14 +48,10 @@ async def handle_enroll(
     if not body.token:
         raise HTTPException(status_code=400, detail="token is required")
 
-    try:
-        agent = await enroll_agent(
-            session,
-            settings.enroll_secret,
-            EnrollRequest(name=body.name, enroll_secret=body.enroll_secret, token=body.token, address=body.address),
-        )
-    except InvalidEnrollSecret:
-        raise HTTPException(status_code=401, detail="invalid enroll_secret") from None
+    agent = await enroll_agent(
+        session,
+        EnrollRequest(name=body.name, token=body.token, address=body.address),
+    )
     await session.commit()
 
     keys.ensure_client_keypair(settings.client_key_path, settings.client_cert_path)

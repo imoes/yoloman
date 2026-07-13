@@ -233,11 +233,8 @@ def create_app() -> FastAPI:
     # Always mounted too (Block N-enroll): server-driven SSH deploy reports
     # its own "not configured" state via a 400, and needs no enroll secret.
     app.include_router(deploy.router, tags=["enroll"])
-    # Only mounted when enrollment is actually configured — an
-    # unconfigured Bossman accepts no enrollments at all, matching the Go
-    # Selecta's identical gating on proxy.enroll_secret.
-    if settings.enroll_secret:
-        app.include_router(enroll.router, tags=["enroll"])
+    # Enrollment is open (no secret) — always mounted.
+    app.include_router(enroll.router, tags=["enroll"])
     return app
 
 

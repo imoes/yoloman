@@ -1,13 +1,15 @@
 // Package enroll implements the client side of this agent registering
-// itself with a future central Fleet Commander ("Bossman", see
-// docs/plan.md's roadmap): a one-time bootstrap handshake that exchanges a
-// shared enrollment secret for Bossman's public key, so this agent can add
-// Bossman to its own tls.trusted_client_keys and let Bossman authenticate
-// itself over TLS client certificates from then on (see internal/tlsauth).
+// itself with the central Fleet Commander ("Bossman"): a one-time bootstrap
+// handshake that hands Bossman this agent's name/token/address and returns
+// Bossman's public key, so this agent can add Bossman to its own
+// tls.trusted_client_keys and let Bossman authenticate itself over TLS
+// client certificates from then on (see internal/tlsauth).
 //
-// Bossman itself does not exist yet — this package defines the client-side
-// contract a future Bossman implementation must satisfy: a single
-// POST /api/v1/enroll endpoint, described by Request/Response below.
+// Bossman enrollment is open (no secret — the SSH-driven deploy path is the
+// authenticated way to add a host; the manual register command is a
+// convenience); the optional EnrollSecret is only honored by a Selecta proxy.
+// The contract is a single POST /api/v1/enroll endpoint, described by
+// Request/Response below.
 package enroll
 
 import (
@@ -24,10 +26,10 @@ import (
 type Request struct {
 	// Name identifies this agent to Bossman (e.g. its hostname).
 	Name string `json:"name"`
-	// EnrollSecret is the shared bootstrap secret proving this agent is
-	// authorized to join the fleet — the only authentication available
-	// before any trust (client certificate or otherwise) exists yet.
-	EnrollSecret string `json:"enroll_secret"`
+	// EnrollSecret is an optional shared bootstrap secret. Bossman enrollment
+	// is open and ignores it; a Selecta proxy (internal/server/enroll.go) may
+	// still require it, so the generic client keeps sending it when provided.
+	EnrollSecret string `json:"enroll_secret,omitempty"`
 	// Token is this agent's own REST/MCP bearer token, handed to Bossman
 	// so it knows how to authenticate its own calls back to this agent.
 	Token string `json:"token"`

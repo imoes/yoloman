@@ -52,8 +52,9 @@ import { EnrollInfo } from '../../core/models/enroll.model';
           @if (enrollInfo(); as info) {
             @if (info.configured) {
               <p>
-                Run this on a server to enroll it as a node agent (Duppy) — it'll then show up here
-                and become available to run plans against:
+                Run this on a server to enroll it as a node agent (Duppy) — no secret needed; the
+                agent registers, pulls Bossman's public key, and shows up here ready to run plans
+                against. (Set <code>BOSSMAN_PUBLIC_URL</code> so the exact URL is shown.)
               </p>
               <div class="bm-command-row">
                 <code class="bm-command">{{ info.register_command }}</code>
@@ -64,12 +65,6 @@ import { EnrollInfo } from '../../core/models/enroll.model';
               @if (copied()) {
                 <p class="bm-success">Copied.</p>
               }
-            } @else {
-              <p class="bm-empty">
-                Enrollment isn't configured on this Bossman instance yet — set
-                <code>BOSSMAN_ENROLL_SECRET</code> (and, ideally, <code>BOSSMAN_PUBLIC_URL</code> so
-                the exact command can be shown here) to allow new hosts to enroll.
-              </p>
             }
 
             @if (info.deploy_configured) {

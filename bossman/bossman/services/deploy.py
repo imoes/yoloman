@@ -205,12 +205,10 @@ async def deploy_and_enroll(
     except (asyncssh.Error, OSError) as exc:
         raise DeployError(f"SSH deploy to {host} failed: {exc}") from exc
 
-    # Record it — reuse the enroll upsert with an empty secret (no secret in
-    # the SSH-deploy model; enroll_agent's constant-time compare("","") is
-    # True). Upserts by name, so a re-deploy refreshes the token/address.
+    # Record it — reuse the open enroll upsert. Upserts by name, so a re-deploy
+    # refreshes the token/address.
     agent = await enroll_agent(
         session,
-        "",
-        EnrollRequest(name=host, enroll_secret="", token=token, address=f"{host}:{listen_port}"),
+        EnrollRequest(name=host, token=token, address=f"{host}:{listen_port}"),
     )
     return agent
