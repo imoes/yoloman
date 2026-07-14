@@ -40,10 +40,11 @@ func TestHandler_ServesIndexAtPrefix(t *testing.T) {
 	}
 	body := readAll(t, resp)
 	if !strings.Contains(body, "YOLO-MANager") {
-		t.Errorf("expected index.html content, got: %.200s", body)
+		t.Errorf("expected index.html title, got: %.200s", body)
 	}
-	if !strings.Contains(body, "doPamLogin") {
-		t.Errorf("expected login script to be present")
+	// The embedded frontend is the built Angular standalone-agent app.
+	if !strings.Contains(body, "<app-root") {
+		t.Errorf("expected the Angular app root element in index.html")
 	}
 }
 
