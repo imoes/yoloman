@@ -39,7 +39,9 @@ export class LatencyHeatmapComponent {
   title = input('Latency');
 
   private cells = signal<Cell[]>([]);
-  empty = computed(() => this.cells().length === 0);
+  // All-zero (or no cells) counts as no data — the ladder is emitted every
+  // interval even on an idle host, so length alone isn't enough.
+  empty = computed(() => !this.cells().some((c) => c.count > 0));
 
   constructor() {
     // Reload whenever the bound agent/metric changes.
@@ -54,8 +56,13 @@ export class LatencyHeatmapComponent {
     const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
     this.agentService.metricSeries(this.agentId(), this.metric(), since).subscribe({
       next: (r) => {
+        // Keep every bucket, including zero-count ones: the agent emits the
+        // whole ladder each interval, and we want the full y-axis of buckets
+        // visible so a lone active bucket shows WHERE on the ladder it sits
+        // (not a context-free solid block). `empty()` still treats an
+        // all-zero series as no data.
         const cells: Cell[] = (r.points || [])
-          .filter((p) => p.labels && p.labels['le'] != null && p.value > 0)
+          .filter((p) => p.labels && p.labels['le'] != null)
           .map((p) => ({ t: new Date(p.time).getTime(), le: String(p.labels['le']), count: p.value }));
         this.cells.set(cells);
       },
@@ -73,14 +80,18 @@ export class LatencyHeatmapComponent {
     const les = [...new Set(cells.map((c) => c.le))].sort(this.leOrder);
     const tIdx = new Map(times.map((t, i) => [t, i]));
     const leIdx = new Map(les.map((l, i) => [l, i]));
-    const data = cells.map((c) => [tIdx.get(c.t), leIdx.get(c.le), Math.round(c.count)]);
+    // Color on a log scale so a single dominant bucket (block-I/O piles ~all
+    // events into the smallest bucket) doesn't wash every other row to black;
+    // the raw count is carried in data[3] for the tooltip.
+    const data = cells.map((c) => [tIdx.get(c.t), leIdx.get(c.le), Math.log10(c.count + 1), Math.round(c.count)]);
     const maxCount = Math.max(1, ...cells.map((c) => c.count));
+    const maxColor = Math.log10(maxCount + 1);
     const txt = getComputedStyle(document.documentElement).getPropertyValue('--mat-sys-on-surface').trim() || '#888';
     return {
       backgroundColor: 'transparent',
       tooltip: {
-        formatter: (p: { data: [number, number, number] }) =>
-          `≤ ${les[p.data[1]]} ms<br/>${p.data[2]} events`,
+        formatter: (p: { data: [number, number, number, number] }) =>
+          `≤ ${les[p.data[1]]} ms<br/>${p.data[3]} events`,
       },
       grid: { top: 10, bottom: 40, left: 55, right: 15 },
       xAxis: {
@@ -94,9 +105,8 @@ export class LatencyHeatmapComponent {
         data: les, axisLabel: { color: txt, fontSize: 10 },
       },
       visualMap: {
-        min: 0, max: maxCount, calculable: false, orient: 'horizontal', left: 'center', bottom: 0,
+        min: 0, max: maxColor, calculable: false, show: false,
         inRange: { color: ['#0b3d2e', '#1e9600', '#ffdd57', '#f44034'] },
-        textStyle: { color: txt, fontSize: 10 },
       },
       series: [{ type: 'heatmap', data, emphasis: { itemStyle: { borderColor: txt, borderWidth: 1 } } }],
     };
