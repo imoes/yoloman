@@ -129,8 +129,12 @@ type Collector struct {
 }
 
 // LatencyBucketsMs are the upper bounds (le, in ms) of the latency histogram
-// buckets, matching Coroot's default SLI boundaries (.005..10s → 5..10000ms).
-var LatencyBucketsMs = []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
+// buckets. Both signals we bucket — outbound TCP connect latency (LAN/loopback
+// is routinely sub-millisecond) and block-I/O service time (mostly ≤1ms with a
+// tail) — pile almost everything into a single ≥1ms bucket on a coarse ladder,
+// making the heatmap a solid block. The low end is therefore sub-millisecond so
+// the distribution actually spreads across rows; the high end still reaches 5s.
+var LatencyBucketsMs = []float64{0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
 
 // latencyBucket returns the index of the first bucket whose upper bound is
 // >= ms, or the overflow bucket (len(LatencyBucketsMs)) for anything larger.
