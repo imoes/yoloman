@@ -49,7 +49,7 @@ func (c *Config) Description() string {
 func (c *Config) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"path":      stringProp("Config file path, e.g. /etc/ssh/sshd_config."),
-		"format":    stringEnumProp("Config codec.", "keyvalue", "json", "yaml"),
+		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml"),
 		"values":    map[string]any{"type": "object", "description": "Desired values. Omit to read (parse) only."},
 		"manage":    stringEnumProp("merge = set the given keys, keep the rest (default); exact = file holds exactly `values`.", "merge", "exact"),
 		"separator": stringProp("keyvalue key/value separator (default \" \"; use \"=\" for key=value files)."),
@@ -143,9 +143,168 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 		return &jsonCodec{}, nil
 	case "yaml":
 		return &yamlCodec{}, nil
+	case "ini":
+		com, _ := params["comment"].(string)
+		if com == "" {
+			com = "#"
+		}
+		return &iniCodec{comment: com}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|json|yaml)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml)", format)
 	}
+}
+
+// iniCodec handles [section] files of key=value lines. Parsed to a nested
+// {section: {key: value}} map (keys before the first header live under the ""
+// section). Structure-preserving merge: updates keys in place within their
+// section, appends new keys/sections, leaving comments/order untouched.
+type iniCodec struct {
+	comment string
+}
+
+func (c *iniCodec) sectionOf(line string) (string, bool) {
+	t := strings.TrimSpace(line)
+	if len(t) >= 2 && t[0] == '[' && t[len(t)-1] == ']' {
+		return strings.TrimSpace(t[1 : len(t)-1]), true
+	}
+	return "", false
+}
+
+func (c *iniCodec) kv(line string) (key, val string, ok bool) {
+	t := strings.TrimSpace(line)
+	if t == "" || strings.HasPrefix(t, c.comment) || strings.HasPrefix(t, ";") {
+		return "", "", false
+	}
+	i := strings.Index(t, "=")
+	if i < 0 {
+		return "", "", false
+	}
+	return strings.TrimSpace(t[:i]), strings.TrimSpace(t[i+1:]), true
+}
+
+func (c *iniCodec) parse(data []byte) (map[string]any, error) {
+	out := map[string]any{}
+	section := ""
+	for _, line := range strings.Split(string(data), "\n") {
+		if s, ok := c.sectionOf(line); ok {
+			section = s
+			if _, exists := out[section]; !exists {
+				out[section] = map[string]any{}
+			}
+			continue
+		}
+		if key, val, ok := c.kv(line); ok {
+			sec, _ := out[section].(map[string]any)
+			if sec == nil {
+				sec = map[string]any{}
+				out[section] = sec
+			}
+			sec[key] = val
+		}
+	}
+	return out, nil
+}
+
+func (c *iniCodec) render(existing []byte, values map[string]any, manage string) ([]byte, error) {
+	// desired[section][key] = string
+	desired := map[string]map[string]string{}
+	sectionOrder := []string{}
+	for sec, kv := range values {
+		m, ok := kv.(map[string]any)
+		if !ok {
+			continue
+		}
+		desired[sec] = map[string]string{}
+		sectionOrder = append(sectionOrder, sec)
+		for k, v := range m {
+			desired[sec][k] = fmt.Sprintf("%v", v)
+		}
+	}
+	sort.Strings(sectionOrder)
+
+	if manage == "exact" {
+		var b strings.Builder
+		for _, sec := range sectionOrder {
+			if sec != "" {
+				b.WriteString("[" + sec + "]\n")
+			}
+			keys := sortedKeys(desired[sec])
+			for _, k := range keys {
+				b.WriteString(k + " = " + desired[sec][k] + "\n")
+			}
+			b.WriteString("\n")
+		}
+		return []byte(strings.TrimRight(b.String(), "\n") + "\n"), nil
+	}
+
+	// merge: rewrite matching keys in place; append the rest per section.
+	seen := map[string]map[string]bool{}
+	for sec := range desired {
+		seen[sec] = map[string]bool{}
+	}
+	lines := strings.Split(string(existing), "\n")
+	trailingNL := len(lines) > 0 && lines[len(lines)-1] == ""
+	if trailingNL {
+		lines = lines[:len(lines)-1]
+	}
+	cur := ""
+	// track the last line index within each section, to append new keys there
+	lastIdx := map[string]int{}
+	for i, line := range lines {
+		if s, ok := c.sectionOf(line); ok {
+			cur = s
+			lastIdx[cur] = i
+			continue
+		}
+		if key, _, ok := c.kv(line); ok {
+			lastIdx[cur] = i
+			if want, has := desired[cur]; has {
+				if nv, present := want[key]; present && !seen[cur][key] {
+					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+					lines[i] = indent + key + " = " + nv
+					seen[cur][key] = true
+				}
+			}
+		}
+	}
+	// append unseen keys of existing sections + brand-new sections
+	appendAfter := map[int][]string{}
+	newSections := []string{}
+	for _, sec := range sectionOrder {
+		if _, exists := lastIdx[sec]; !exists && sec != "" {
+			newSections = append(newSections, sec)
+			continue
+		}
+		for _, k := range sortedKeys(desired[sec]) {
+			if !seen[sec][k] {
+				at := lastIdx[sec]
+				appendAfter[at] = append(appendAfter[at], k+" = "+desired[sec][k])
+			}
+		}
+	}
+	var out []string
+	for i, line := range lines {
+		out = append(out, line)
+		if add, ok := appendAfter[i]; ok {
+			out = append(out, add...)
+		}
+	}
+	for _, sec := range newSections {
+		out = append(out, "", "["+sec+"]")
+		for _, k := range sortedKeys(desired[sec]) {
+			out = append(out, k+" = "+desired[sec][k])
+		}
+	}
+	return []byte(strings.Join(out, "\n") + "\n"), nil
+}
+
+func sortedKeys(m map[string]string) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
 }
 
 // keyValueCodec handles line-oriented "KEY<sep>VALUE" files (sshd_config-style

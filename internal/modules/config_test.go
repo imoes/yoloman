@@ -87,3 +87,44 @@ func TestConfigDryRunDoesNotWrite(t *testing.T) {
 		t.Fatalf("dry-run must not write, got: %q", out)
 	}
 }
+
+func TestConfigIniReadAndMerge(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "app.ini")
+	os.WriteFile(p, []byte("# global\ndebug = no\n\n[server]\nhost = 0.0.0.0\nport = 8080\n\n[auth]\nrealm = EXAMPLE\n"), 0o644)
+
+	// READ → nested {section: {k:v}} with "" for the pre-section keys.
+	r := runConfig(t, map[string]any{"path": p, "format": "ini"}, false)
+	cfg := r.Data.(map[string]any)["config"].(map[string]any)
+	if cfg[""].(map[string]any)["debug"] != "no" {
+		t.Fatalf("global section parse: %v", cfg[""])
+	}
+	if cfg["server"].(map[string]any)["port"] != "8080" {
+		t.Fatalf("server section parse: %v", cfg["server"])
+	}
+
+	// MERGE: change port, add a key to [auth], add a new [tls] section.
+	r = runConfig(t, map[string]any{"path": p, "format": "ini", "values": map[string]any{
+		"server": map[string]any{"port": "9090"},
+		"auth":   map[string]any{"timeout": "30"},
+		"tls":    map[string]any{"enabled": "true"},
+	}}, false)
+	if !r.Changed {
+		t.Fatal("expected changed")
+	}
+	s, _ := os.ReadFile(p)
+	out := string(s)
+	for _, want := range []string{"# global", "port = 9090", "timeout = 30", "[tls]", "enabled = true"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("ini merge missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "port = 8080") {
+		t.Fatalf("old port still present:\n%s", out)
+	}
+	// idempotent
+	r = runConfig(t, map[string]any{"path": p, "format": "ini", "values": map[string]any{"server": map[string]any{"port": "9090"}}}, false)
+	if r.Changed {
+		t.Fatal("second apply should be idempotent")
+	}
+}
