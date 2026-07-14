@@ -45,30 +45,26 @@ from bossman.services.plan_loader import Chunk, PlanError, hash_source_text, par
 # level rather than relying on validation to catch it after the fact.
 KNOWN_MODULES = [
     "apt", "apt_key", "apt_repository", "assemble", "blockinfile", "command", "copy", "cron",
-    "deb822_repository", "debconf", "dnf", "dnf5", "dpkg_selections", "expect", "fetch", "file",
-    "find", "getent", "get_url", "git", "group", "hostname", "iptables", "known_hosts", "lineinfile",
-    "package", "package_facts", "ping", "pip", "raw", "reboot", "replace", "rpm_key", "script",
-    "service", "service_facts", "setup", "shell", "slurp", "stat", "subversion", "systemd",
-    "systemd_service", "sysvinit", "tempfile", "template", "timezone", "unarchive", "uri", "user",
-    "wait_for", "yum", "yum_repository",
+    "deb822_repository", "debconf", "debug", "dnf", "dnf5", "dpkg_selections", "expect", "fetch",
+    "file", "find", "getent", "get_url", "git", "group", "hostname", "iptables", "known_hosts",
+    "lineinfile", "package", "package_facts", "ping", "pip", "raw", "reboot", "replace", "rpm_key",
+    "script", "service", "service_facts", "set_fact", "setup", "shell", "slurp", "stat",
+    "subversion", "systemd", "systemd_service", "sysvinit", "tempfile", "template", "timezone",
+    "unarchive", "uri", "user", "wait_for", "yum", "yum_repository",
 ]
 
 _STEP_JSON_SCHEMA = {
     "type": "object",
     "properties": {
         "name": {"type": "string"},
-        # The discriminator: a host action ("module") or one of the three
-        # controller-side kinds Bossman evaluates itself (Ansible's set_fact/
-        # debug/assert action plugins).
-        "kind": {"type": "string", "enum": ["module", "set_fact", "debug", "assert"]},
+        # The discriminator: a host action ("module" — includes set_fact/debug,
+        # which are native agent modules) or the one controller-side kind
+        # ("assert") Bossman evaluates itself against the run's variables.
+        "kind": {"type": "string", "enum": ["module", "assert"]},
         # module kind: constrained to the modules this agent actually has, so
         # the model structurally cannot hallucinate one.
         "module": {"anyOf": [{"type": "string", "enum": KNOWN_MODULES}, {"type": "null"}]},
         "params": {"type": "object"},
-        # set_fact kind: {var: value_template} to publish into the run's vars.
-        "set_fact": {"type": ["object", "null"]},
-        # debug kind: a message (may embed {{ vars }}).
-        "debug_msg": {"type": ["string", "null"]},
         # assert kind: conditions in the when-grammar (e.g. "x == 'y'"), plus
         # an optional failure message.
         "assert_that": {"type": ["array", "null"], "items": {"type": "string"}},
@@ -93,23 +89,22 @@ _CHUNK_JSON_SCHEMA = {
 
 _SYSTEM_PROMPT = (
     "You translate one source automation-role file (e.g. an Ansible task file) into a single "
-    "Bossman plan chunk: a list of steps. Each step sets \"kind\" to exactly one of:\n"
+    "Bossman plan chunk: a list of steps. Each step sets \"kind\" to one of:\n"
     "- \"module\": a host action. Set \"module\" to one of Bossman's built-in modules and \"params\" "
     "to its arguments (same names as the equivalent Ansible module, primary parameter name only, "
     "never a legacy alias: apt's package list is always \"name\" never \"pkg\"; a symlink's own path "
-    "is always \"path\" never \"dest\"). Do not invent parameters a module doesn't have.\n"
-    "- \"set_fact\": set variables for later steps. Put the vars in \"set_fact\" as {var: value} "
-    "(values may embed {{ other_vars }}). Use this for Ansible set_fact tasks.\n"
-    "- \"debug\": emit a message. Put it in \"debug_msg\" (may embed {{ vars }}). Use this for "
-    "Ansible debug tasks.\n"
+    "is always \"path\" never \"dest\"). Do not invent parameters a module doesn't have. This "
+    "includes set_fact (module \"set_fact\", params are the free-form facts to set) and debug "
+    "(module \"debug\", params {\"msg\": ...}; for an Ansible `debug: var: x` write msg "
+    "\"{{ x }}\").\n"
     "- \"assert\": check preconditions. Put the conditions in \"assert_that\" as a list of simple "
     "comparison strings (e.g. \"ansible_os_family == 'Debian'\", \"count > 0\") and an optional "
-    "\"assert_fail_msg\". Use this for Ansible assert tasks.\n"
+    "\"assert_fail_msg\". Use this for Ansible assert tasks — it is evaluated against the run's "
+    "variables, so keep the variable names as-is (no {{ }}).\n"
     "Carry a task's \"when\" condition, \"register\" name, and \"loop\" (Ansible with_items/loop) "
-    "onto the step. Only emit steps expressible in these four kinds; skip pure control-flow tasks "
-    "(block, include_tasks, meta) you cannot express. If the source declares an OS-specific "
-    "dispatch (e.g. \"{{ ansible_distribution }}\"-based file inclusion), leave os_family null — "
-    "that dispatch decision is made by the caller, not by you."
+    "onto the step. Skip pure control-flow tasks (block, include_tasks, meta) you cannot express. "
+    "If the source declares an OS-specific dispatch (e.g. \"{{ ansible_distribution }}\"-based file "
+    "inclusion), leave os_family null — that dispatch decision is made by the caller, not by you."
 )
 
 
@@ -133,18 +128,14 @@ def _reshape_step(step: dict) -> dict:
     is done in Python rather than asked of the model, which produces the flat
     schema-constrained shape far more reliably."""
     out: dict = {"name": step["name"]}
-    kind = step.get("kind") or ("module" if step.get("module") else "module")
-    if kind == "module":
-        out[step["module"]] = step.get("params") or {}
-    elif kind == "set_fact":
-        out["set_fact"] = step.get("set_fact") or {}
-    elif kind == "debug":
-        out["debug"] = {"msg": step.get("debug_msg") or ""}
-    elif kind == "assert":
+    kind = step.get("kind") or "module"
+    if kind == "assert":
         a: dict = {"that": step.get("assert_that") or []}
         if step.get("assert_fail_msg"):
             a["fail_msg"] = step["assert_fail_msg"]
         out["assert"] = a
+    else:
+        out[step["module"]] = step.get("params") or {}
     if step.get("when") is not None:
         out["when"] = step["when"]
     if step.get("register") is not None:

@@ -52,7 +52,7 @@ def _module_name(key: str) -> str:
         return key[len(ANSIBLE_PREFIX):]
     return key
 
-_STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "loop", "pipeline", "upload", "set_fact", "debug", "assert")
+_STEP_META_KEYS = ("name", "check_mode", "on_failure", "when", "register", "loop", "pipeline", "upload", "assert")
 
 
 class PlanError(Exception):
@@ -86,13 +86,10 @@ class PlanStep:
     pipeline: list[list[str]] | None = None
     upload_local_path: str | None = None
     upload_remote_name: str | None = None
-    # Controller-side kinds (evaluated by the plan engine against its variable
-    # context, never sent to the host — the same place Ansible runs set_fact/
-    # debug/assert). set_fact: {var: value_template}; debug: msg/var; assert:
-    # a list of when-grammar conditions + optional messages.
-    set_fact: dict[str, Any] | None = None
-    debug_msg: str | None = None
-    debug_var: str | None = None
+    # assert is a controller-side kind (evaluated by the plan engine against its
+    # variable context via the when-grammar, never sent to the host): a list of
+    # conditions + optional messages. set_fact/debug are native agent modules
+    # instead (called as normal module steps).
     assert_that: list[str] | None = None
     assert_fail_msg: str | None = None
     assert_success_msg: str | None = None
@@ -115,9 +112,6 @@ class PlanStep:
             "pipeline": self.pipeline,
             "upload_local_path": self.upload_local_path,
             "upload_remote_name": self.upload_remote_name,
-            "set_fact": self.set_fact,
-            "debug_msg": self.debug_msg,
-            "debug_var": self.debug_var,
             "assert_that": self.assert_that,
             "assert_fail_msg": self.assert_fail_msg,
             "assert_success_msg": self.assert_success_msg,
@@ -241,8 +235,6 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
     module_body = None
     pipeline_raw = raw.get("pipeline")
     upload_raw = raw.get("upload")
-    set_fact_raw = raw.get("set_fact")
-    debug_raw = raw.get("debug")
     assert_raw = raw.get("assert")
     for k, v in raw.items():
         if k in _STEP_META_KEYS:
@@ -255,30 +247,13 @@ def _parse_step(plan_name: str, raw: dict[str, Any]) -> PlanStep:
             raise PlanError(f"plan {plan_name!r}, step {name!r}: {k!r} value must be a mapping")
         module_key, module_body = k, v
 
-    kinds_present = sum(
-        x is not None for x in (module_key, pipeline_raw, upload_raw, set_fact_raw, debug_raw, assert_raw)
-    )
+    kinds_present = sum(x is not None for x in (module_key, pipeline_raw, upload_raw, assert_raw))
     if kinds_present != 1:
         raise PlanError(
             f"plan {plan_name!r}, step {name!r}: exactly one of a <module> key, "
-            "'pipeline', 'upload', 'set_fact', 'debug', or 'assert' is required"
+            "'pipeline', 'upload', or 'assert' is required"
         )
 
-    if set_fact_raw is not None:
-        if not isinstance(set_fact_raw, dict) or not set_fact_raw:
-            raise PlanError(f"plan {plan_name!r}, step {name!r}: 'set_fact' must be a non-empty mapping")
-        return PlanStep(
-            name=name, kind="set_fact", check_mode=check_mode, on_failure=on_failure,
-            when=when, register=register, loop=loop, set_fact=set_fact_raw,
-        )
-    if debug_raw is not None:
-        if not isinstance(debug_raw, dict) or ("msg" not in debug_raw and "var" not in debug_raw):
-            raise PlanError(f"plan {plan_name!r}, step {name!r}: 'debug' must be a mapping with 'msg' or 'var'")
-        return PlanStep(
-            name=name, kind="debug", check_mode=check_mode, on_failure=on_failure,
-            when=when, register=register, loop=loop,
-            debug_msg=debug_raw.get("msg"), debug_var=debug_raw.get("var"),
-        )
     if assert_raw is not None:
         if not isinstance(assert_raw, dict):
             raise PlanError(f"plan {plan_name!r}, step {name!r}: 'assert' must be a mapping")

@@ -96,22 +96,11 @@ async def _execute_step(
                 response_body = await client.upload_file(remote_name, data)
                 changed = True
                 http_status = 200
-        # Controller-side kinds: evaluated here against the plan's variable
-        # context, never sent to the host (same posture as Ansible's
-        # set_fact/debug/assert action plugins). Always run, even in dry_run —
-        # they mutate/inspect plan state, not the host.
-        elif step.kind == "set_fact":
-            facts = {k: substitute(v, args) for k, v in (step.set_fact or {}).items()}
-            request_body = facts
-            response_body = {"ansible_facts": facts}
-            changed = False
-        elif step.kind == "debug":
-            if step.debug_var is not None:
-                rendered = _resolve_dotted(step.debug_var, context)
-            else:
-                rendered = substitute(step.debug_msg or "", args)
-            response_body = {"msg": rendered}
-            changed = False
+        # assert stays controller-side: its `that` conditions reference plan
+        # variables by path (ansible_os_family == 'Debian'), which only exist
+        # here in the run context — a host module couldn't resolve them. set_fact
+        # and debug are now native agent modules (called as normal module steps).
+        # Always run, even in dry_run — it inspects plan state, not the host.
         elif step.kind == "assert":
             failed = None
             for cond in step.assert_that or []:
@@ -154,18 +143,6 @@ def _step_row(
         started_at=started_at,
         finished_at=datetime.now(timezone.utc),
     )
-
-
-def _resolve_dotted(path: str, context: dict[str, Any]) -> Any:
-    """Look up a dotted path (e.g. "reg.stdout") in the run context; returns
-    the path string unchanged if it does not resolve, mirroring a best-effort
-    debug var dump rather than failing the step."""
-    value: Any = context
-    for part in path.split("."):
-        if not isinstance(value, dict) or part not in value:
-            return path
-        value = value[part]
-    return value
 
 
 def _resolve_loop_items(step: PlanStep, context: dict[str, Any]) -> list[Any]:
@@ -353,10 +330,13 @@ async def run_plan(
                 # Ansible's ansible_facts return convention: ANY step whose
                 # response carries `ansible_facts` publishes them into the run's
                 # namespace for every later step — both `context` (when:) and
-                # `args` (\{\{ }}). This is how set_fact sets vars without a
-                # register, and how setup/package_facts' gathered facts flow.
+                # `args` (\{\{ }}). This is how the set_fact module sets vars
+                # without a register, and how setup/package_facts' gathered
+                # facts flow. A native module returns it under `data`
+                # (Result.Data); accept a top-level key too for robustness.
                 if error is None and isinstance(response_body, dict):
-                    facts = response_body.get("ansible_facts")
+                    data = response_body.get("data")
+                    facts = (data.get("ansible_facts") if isinstance(data, dict) else None) or response_body.get("ansible_facts")
                     if isinstance(facts, dict):
                         context.update(facts)
                         args.update(facts)
