@@ -54,6 +54,12 @@ export class MetricChartComponent {
   /** When non-empty, the chart renders these as overlaid named lines instead
    * of the single `points` series (combined-graph mode). */
   series = input<ChartSeries[]>([]);
+  /** Optional explicit x-axis window (epoch ms). When set, the time axis
+   * spans exactly this range instead of auto-fitting to the data extent — so
+   * a "365d" selection reads as a year even when only a few days of data
+   * exist (data then sits at the right edge, à la Grafana/CheckMK). */
+  windowStartMs = input<number | null>(null);
+  windowEndMs = input<number | null>(null);
 
   private multi = computed(() => this.series().filter((s) => s.points.length));
   hasData = computed(() => this.multi().length > 0 || this.points().length > 0);
@@ -72,6 +78,10 @@ export class MetricChartComponent {
       tooltip: { trigger: 'axis' as const },
       xAxis: {
         type: 'time' as const,
+        // Pin the axis to the selected window when given, so the picked range
+        // is always reflected (365d looks like a year, not the data extent).
+        ...(this.windowStartMs() != null ? { min: this.windowStartMs() } : {}),
+        ...(this.windowEndMs() != null ? { max: this.windowEndMs() } : {}),
         axisLabel: { color: axisText, fontSize: 11 },
         axisLine: { lineStyle: { color: gridLine } },
       },

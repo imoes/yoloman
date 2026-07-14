@@ -253,7 +253,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                                   </button>
                                 }
                               </div>
-                              <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
+                              <app-metric-chart
+                                [series]="serviceChartSeries()"
+                                [metricName]="svc.name"
+                                [windowStartMs]="serviceChartWindow()?.start ?? null"
+                                [windowEndMs]="serviceChartWindow()?.end ?? null"
+                              />
                               @if (availability(); as av) {
                                 <div class="bm-avail">
                                   <div class="bm-avail-head">
@@ -1286,6 +1291,10 @@ export class HostDetailComponent implements OnInit {
   services = signal<ServiceState[]>([]);
   selectedService = signal<ServiceState | null>(null);
   serviceChartSeries = signal<ChartSeries[]>([]);
+  /** The x-axis window (epoch ms) the service chart is currently showing, so
+   * a picked range (esp. 365d) is reflected on the axis even when the data
+   * only covers the last few days. */
+  serviceChartWindow = signal<{ start: number; end: number } | null>(null);
   serviceHistory = signal<ServiceHistoryPoint[]>([]);
   /** Block J4 management shell — for kicking its lazy load on tab open. */
   management = viewChild(HostManagementComponent);
@@ -1478,7 +1487,10 @@ export class HostDetailComponent implements OnInit {
     this.serviceChartSeries.set([]);
     const spec = serviceMetricSpec(svc.name, svc.metric);
     if (!spec) return;
-    const since = new Date(Date.now() - this.availabilityHours() * 3_600_000).toISOString();
+    const end = Date.now();
+    const start = end - this.availabilityHours() * 3_600_000;
+    this.serviceChartWindow.set({ start, end });
+    const since = new Date(start).toISOString();
     forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, since))).subscribe((results) => {
       const series = results.map((res, i) => ({
         name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
