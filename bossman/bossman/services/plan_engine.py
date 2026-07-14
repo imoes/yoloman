@@ -350,13 +350,16 @@ async def run_plan(
                     step, iter_args, client, effective_dry_run, plan, read_local_file, iter_context
                 )
 
-                # set_fact publishes its computed vars into the run's namespace
-                # for every later step — both `context` (when: evaluation) and
-                # `args` (\{\{ }} substitution), matching Ansible's set_fact scope.
-                if step.kind == "set_fact" and error is None and response_body:
-                    facts = response_body.get("ansible_facts", {})
-                    context.update(facts)
-                    args.update(facts)
+                # Ansible's ansible_facts return convention: ANY step whose
+                # response carries `ansible_facts` publishes them into the run's
+                # namespace for every later step — both `context` (when:) and
+                # `args` (\{\{ }}). This is how set_fact sets vars without a
+                # register, and how setup/package_facts' gathered facts flow.
+                if error is None and isinstance(response_body, dict):
+                    facts = response_body.get("ansible_facts")
+                    if isinstance(facts, dict):
+                        context.update(facts)
+                        args.update(facts)
 
                 session.add(
                     _step_row(plan_run.id, index, row_name, module_label, request_body, response_body, changed, http_status, error, started_at)
