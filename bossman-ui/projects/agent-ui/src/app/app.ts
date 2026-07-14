@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HostViewComponent } from './host-view.component';
 import { RunbookBuilderComponent } from './runbook-builder.component';
+import { StateViewComponent } from './state-view.component';
 import { TOKEN_KEY } from './agent-api.service';
 
 /** Standalone-agent frontend shell: served by the agent itself at /ui, talking
@@ -10,19 +11,24 @@ import { TOKEN_KEY } from './agent-api.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [FormsModule, HostViewComponent, RunbookBuilderComponent],
+  imports: [FormsModule, HostViewComponent, RunbookBuilderComponent, StateViewComponent],
   template: `
     <header>
       <strong>YOLO-MANager</strong> <span class="dim">standalone agent</span>
       <nav>
         <button [class.on]="view() === 'host'" (click)="view.set('host')">Host</button>
+        <button [class.on]="view() === 'state'" (click)="view.set('state')">State</button>
         <button [class.on]="view() === 'runbooks'" (click)="view.set('runbooks')">Runbooks</button>
       </nav>
       <span class="spacer"></span>
       <input class="tok" type="password" [(ngModel)]="token" (ngModelChange)="saveToken()" placeholder="API token (optional)" />
     </header>
     <main>
-      @if (view() === 'host') { <app-host-view /> } @else { <app-runbook-builder /> }
+      @switch (view()) {
+        @case ('host') { <app-host-view /> }
+        @case ('state') { <app-state-view /> }
+        @default { <app-runbook-builder /> }
+      }
     </main>
   `,
   styles: [`
@@ -38,7 +44,7 @@ import { TOKEN_KEY } from './agent-api.service';
   `],
 })
 export class App {
-  view = signal<'host' | 'runbooks'>('host');
+  view = signal<'host' | 'state' | 'runbooks'>('host');
   token = localStorage.getItem(TOKEN_KEY) || '';
   saveToken(): void { localStorage.setItem(TOKEN_KEY, this.token); }
 }

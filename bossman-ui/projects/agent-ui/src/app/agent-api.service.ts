@@ -71,4 +71,54 @@ export class AgentApi {
   runRunbook(runbook: Runbook, dryRun: boolean): Observable<RunResult> {
     return this.http.post<RunResult>(`${this.base}/runbook/run`, { runbook, dry_run: dryRun });
   }
+
+  // ---- Server-as-a-document (state) ----
+  stateObserved(): Observable<ObservedState> {
+    return this.http.get<ObservedState>(`${this.base}/state/observed`);
+  }
+  stateGenerations(): Observable<{ generations: StateGeneration[] }> {
+    return this.http.get<{ generations: StateGeneration[] }>(`${this.base}/state/generations`);
+  }
+  stateRollback(generation: number, dryRun: boolean): Observable<StateApplyResult> {
+    return this.http.post<StateApplyResult>(`${this.base}/state/rollback`, { generation, dry_run: dryRun });
+  }
+}
+
+export interface ObservedResource {
+  type: string;
+  path: string;
+  format: string;
+  separator?: string;
+  values?: Record<string, unknown>;
+  sha256?: string;
+  size?: number;
+  error?: string;
+}
+export interface ObservedState {
+  generated_at: string;
+  services: unknown;
+  config: ObservedResource[];
+}
+export interface StateGeneration {
+  number: number;
+  applied_at: string;
+  hash: string;
+  resources: number;
+}
+export interface StateResourceChange {
+  type: string;
+  path: string;
+  action: string;
+  changed?: Record<string, [unknown, unknown]>;
+  error?: string;
+}
+export interface StatePlan {
+  changes: StateResourceChange[];
+  changed_count: number;
+}
+export interface StateApplyResult {
+  plan: StatePlan;
+  generation: number;
+  rolled_back_to?: number;
+  dry_run: boolean;
 }
