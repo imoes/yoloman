@@ -1,0 +1,27 @@
+# see "man logrotate" for details
+
+# global options do not affect preceding include directives
+
+# rotate log files {{ frequency }}
+{{ frequency }}
+
+# use the {{ group }} group by default, since this is the owning group
+# of /var/log/.
+su {{ user }} {{ group }}
+
+# keep {{ rotate_count }} weeks worth of backlogs
+rotate {{ rotate_count }}
+
+# create new (empty) log files after rotating old ones
+{{ 'create' if create else '# create' }}
+
+# use date as a suffix of the rotated file
+{{ '#dateext' if not dateext else 'dateext' }}
+
+# uncomment this if you want your log files compressed
+{{ '#compress' if not compress else 'compress' }}
+
+# packages drop log rotation information into this directory
+include /etc/logrotate.d
+
+# system-specific logs may also be configured here.

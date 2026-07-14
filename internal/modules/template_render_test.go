@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,5 +70,47 @@ func TestTemplateRenderDryRun(t *testing.T) {
 	}
 	if _, err := os.Stat(dest); !os.IsNotExist(err) {
 		t.Error("dry-run must not write the file")
+	}
+}
+
+// TestConfigTemplatesRenderWithSample renders every shipped Class-B template
+// (configs/config_templates/<name>/template.j2) against its sample.json via the
+// real gonja engine and asserts non-empty output. This guards against
+// Django/pongo2-isms (colon filters, unsupported tests) the LLM bootstrap might
+// emit — they fail under gonja and break here, not silently on a live host.
+func TestConfigTemplatesRenderWithSample(t *testing.T) {
+	root := filepath.Join("..", "..", "configs", "config_templates")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read %s: %v", root, err)
+	}
+	dest := filepath.Join(t.TempDir(), "rendered.out")
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(root, name)
+			sampleRaw, err := os.ReadFile(filepath.Join(dir, "sample.json"))
+			if err != nil {
+				t.Fatalf("read sample.json: %v", err)
+			}
+			var values map[string]any
+			if err := json.Unmarshal(sampleRaw, &values); err != nil {
+				t.Fatalf("parse sample.json: %v", err)
+			}
+			res, err := NewTemplateRender().Run(context.Background(), map[string]any{
+				"template_path": filepath.Join(dir, "template.j2"),
+				"dest":          dest,
+				"values":        values,
+			}, false)
+			if err != nil {
+				t.Fatalf("render %s: %v", name, err)
+			}
+			if rendered, _ := res.Data.(map[string]any)["rendered"].(string); len(rendered) == 0 {
+				t.Fatalf("%s rendered empty", name)
+			}
+		})
 	}
 }

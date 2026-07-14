@@ -1,0 +1,30 @@
+totem {
+    version: 2
+    cluster_name: {{ cluster_name }}
+    config_version: {{ config_version }}
+    interface {
+        linknumber: 0
+    }
+    ip_version: ipv4-6
+    link_mode: passive
+    secauth: on
+}
+
+nodelist {
+{% for n in nodes %}    node {
+        name: {{ n.name }}
+        nodeid: {{ n.nodeid }}
+        quorum_votes: {{ n.quorum_votes | default(1) }}
+        ring0_addr: {{ n.ring0_addr }}
+{% if n.ring1_addr %}        ring1_addr: {{ n.ring1_addr }}
+{% endif %}    }
+{% endfor %}}
+
+quorum {
+    provider: corosync_votequorum
+}
+
+logging {
+    to_syslog: yes
+    debug: off
+}
