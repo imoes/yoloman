@@ -15,6 +15,14 @@ Think **CheckMK** (monitoring) + **Coroot** (eBPF observability) + **Ansible** (
 management), minus the three separate tools, plus one thing they don't have: an API and a
 configuration language built for a language model to actually drive — safely.
 
+**The goal: a server that is completely manageable over one API, in JSON.** Every operation —
+monitoring, observability, package and service management, users, storage, network, and running
+runbooks — is a JSON request against the agent's unified REST/MCP API. No SSH, no config files to
+hand-edit, no separate control planes: the running server's whole state and every action is
+expressible as JSON in and JSON out, so a human, a script, or an AI drives it the same way. A
+standalone host can be managed directly through the agent's own API (and its embedded web UI);
+a fleet is the same API aggregated by Bossman.
+
 Two cooperating components:
 
 - **Duppy** — the node agent (this repo root). Runs on every server. *Duppy* is Jamaican patois
