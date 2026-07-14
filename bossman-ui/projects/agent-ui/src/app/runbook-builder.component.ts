@@ -49,10 +49,19 @@ function task(type: string, name: string, properties: Record<string, unknown>): 
         [toolboxConfiguration]="toolbox"
         [stepsConfiguration]="stepsConfig"
         [controlBar]="true"
+        [rootEditor]="rootEditor"
         [stepEditor]="stepEditor"
         (onDefinitionChanged)="onChanged($event)"
         (onSelectedStepIdChanged)="selectedId.set($event)"
       ></sqd-designer>
+
+      <ng-template #rootEditor>
+        <div class="rb-editor">
+          <h3>Runbook</h3>
+          <p class="dim">Drag steps from the left onto the canvas, then click a step to edit its
+            module, params, when/register. Dry-run or Run submits the sequence to the agent.</p>
+        </div>
+      </ng-template>
 
       <ng-template #stepEditor let-editor>
         <div class="rb-editor">
@@ -97,6 +106,7 @@ function task(type: string, name: string, properties: Record<string, unknown>): 
     </div>
   `,
   styles: [`
+    :host { display: block; height: 100%; }
     .rb { display: flex; flex-direction: column; height: 100%; }
     .rb-bar { display: flex; gap: 8px; align-items: center; padding: 8px; }
     .rb-name { flex: 0 0 220px; padding: 4px 8px; }
