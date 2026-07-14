@@ -47,15 +47,18 @@ func TestParseUnitConfigPaths(t *testing.T) {
 	}
 }
 
-func TestGuessFormat(t *testing.T) {
-	for path, want := range map[string]string{
-		"/etc/docker/daemon.json": "json",
-		"/etc/netplan/01.yaml":    "yaml",
-		"/etc/ssh/sshd_config":    "keyvalue",
-		"/etc/nginx/nginx.conf":   "",
-	} {
-		if got := guessFormat(path); got != want {
-			t.Errorf("guessFormat(%q) = %q, want %q", path, got, want)
+func TestGuessCodec(t *testing.T) {
+	cases := map[string][2]string{
+		"/etc/docker/daemon.json": {"json", ""},
+		"/etc/netplan/01.yaml":    {"yaml", ""},
+		"/etc/ssh/sshd_config":    {"keyvalue", " "},
+		"/etc/default/grub":       {"keyvalue", "="},
+		"/etc/nginx/nginx.conf":   {"", ""},
+	}
+	for path, want := range cases {
+		f, s := GuessCodec(path)
+		if f != want[0] || s != want[1] {
+			t.Errorf("GuessCodec(%q) = (%q,%q), want (%q,%q)", path, f, s, want[0], want[1])
 		}
 	}
 }

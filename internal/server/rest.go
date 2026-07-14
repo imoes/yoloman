@@ -285,6 +285,7 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	// Server-as-a-document: plan/apply/rollback with generation history.
+	mux.HandleFunc("GET /api/v1/state/observed", func(w http.ResponseWriter, r *http.Request) { handleStateObserved(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/plan", func(w http.ResponseWriter, r *http.Request) { handleStatePlan(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/apply", func(w http.ResponseWriter, r *http.Request) { handleStateApply(w, r, cfg) })
 	mux.HandleFunc("GET /api/v1/state/generations", func(w http.ResponseWriter, r *http.Request) { handleStateGenerations(w, r, cfg) })

@@ -96,7 +96,12 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 	}
 	sort.Strings(paths)
 	for _, p := range paths {
-		flat = append(flat, map[string]any{"path": p, "format": guessFormat(p)})
+		format, sep := GuessCodec(p)
+		entry := map[string]any{"path": p, "format": format}
+		if sep != "" {
+			entry["separator"] = sep
+		}
+		flat = append(flat, entry)
 	}
 
 	return Result{
@@ -208,17 +213,22 @@ func looksLikeConfig(p string) bool {
 	return true
 }
 
-// guessFormat is a best-effort codec hint for the config module.
-func guessFormat(p string) string {
+// GuessCodec is a best-effort (format, separator) hint for the config module.
+// An empty format means "no clean structured codec" — read as raw / manage via
+// a Class-B template. separator is only meaningful for the keyvalue format.
+func GuessCodec(p string) (format, separator string) {
 	base := strings.ToLower(filepath.Base(p))
 	switch strings.ToLower(filepath.Ext(p)) {
 	case ".json":
-		return "json"
+		return "json", ""
 	case ".yaml", ".yml":
-		return "yaml"
+		return "yaml", ""
 	}
 	if base == "sshd_config" || base == "ssh_config" {
-		return "keyvalue" // space-separated
+		return "keyvalue", " " // OpenSSH: space-separated directives
 	}
-	return "" // unknown — read as raw / choose a codec manually
+	if strings.HasPrefix(p, "/etc/default/") || strings.HasPrefix(p, "/etc/sysconfig/") {
+		return "keyvalue", "=" // shell KEY=value environment files
+	}
+	return "", "" // unknown — raw / Class-B template
 }

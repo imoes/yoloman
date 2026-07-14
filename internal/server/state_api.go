@@ -4,9 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/mutkluge/agentic-mcp/internal/state"
 )
+
+// handleStateObserved renders the whole server as one JSON document: enabled
+// services + the current content of every config file they reference
+// (discovered via systemd units, read structured where a codec exists). The
+// "GET the server as JSON" side of the model.
+func handleStateObserved(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	if cfg.ModReg == nil {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("module registry not configured"))
+		return
+	}
+	obs, err := state.Observe(r.Context(), cfg.ModReg, time.Now().UTC())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, obs)
+}
 
 // The server-as-a-document endpoints (Block "1"): plan a desired Document
 // (diff observed → desired), apply it (converge + record a generation), list
