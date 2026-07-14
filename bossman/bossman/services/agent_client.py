@@ -125,6 +125,18 @@ class AgentClient:
             params["limit"] = str(limit)
         return await self._get_json("/api/v1/processes", params)
 
+    async def ebpf_top_talkers(self, limit: int = 20) -> dict[str, Any]:
+        """GET /api/v1/net/top-talkers — the eBPF window's most-frequent
+        outbound connection targets (comm → dst:port, connect count). On-demand
+        pass-through; the 'what' behind the connect-latency heatmap."""
+        return await self._get_json("/api/v1/net/top-talkers", {"limit": str(limit)})
+
+    async def ebpf_slowest_disk_io(self, limit: int = 20) -> dict[str, Any]:
+        """GET /api/v1/disk-io/slowest — the slowest recent block-I/O requests
+        (comm, device, latency, op). On-demand pass-through; the 'what' behind
+        the disk-I/O-latency heatmap."""
+        return await self._get_json("/api/v1/disk-io/slowest", {"limit": str(limit)})
+
     async def list_tools(self) -> list[dict[str, Any]]:
         """GET /api/v1/tools — every module/task/pipeline tool this agent
         currently exposes: [{name, kind, writes}]. Write tools are only

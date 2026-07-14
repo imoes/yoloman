@@ -49,3 +49,34 @@ async def get_agent_processes(
         # The agent is unreachable / errored — a gateway problem, not a
         # client one, so 502 (mirrors how a proxy reports an upstream fault).
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get("/api/v1/agents/{agent_id}/ebpf")
+async def get_agent_ebpf(
+    agent_id: UUID,
+    limit: int = Query(20, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict:
+    """On-demand eBPF detail behind the host's latency heatmaps — the 'what':
+    the top outbound connection targets (comm → dst:port, connects) and the
+    slowest recent block-I/O requests (comm, device, latency, op). Live
+    pass-through to the agent, never stored."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
+    if not agent.address:
+        raise HTTPException(status_code=422, detail=f"agent {agent.name!r} has no reachable address")
+
+    client = client_factory(agent, settings)
+    try:
+        talkers = await client.ebpf_top_talkers(limit=limit)
+        disk = await client.ebpf_slowest_disk_io(limit=limit)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "top_talkers": talkers.get("top_talkers", []),
+        "slowest_disk_io": disk.get("disk_io", []),
+    }

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -44,6 +44,12 @@ export class AgentService {
     let url = `${this.base}/${id}/processes`;
     if (limit > 0) url += `?limit=${limit}`;
     return this.http.get<ProcessesResponse>(url);
+  }
+
+  /** On-demand eBPF detail behind the latency heatmaps: top outbound
+   * connection targets + slowest recent disk I/O (the 'what'). */
+  ebpf(id: string, limit = 20) {
+    return this.http.get<EbpfDetail>(`${this.base}/${id}/ebpf?limit=${limit}`);
   }
 
   updateGroups(id: string, groups: string[]) {

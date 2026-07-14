@@ -12,7 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, LatestMetric, MetricPoint, Process } from '../../core/models/agent.model';
+import { Agent, EbpfDetail, LatestMetric, MetricPoint, Process } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -495,9 +495,36 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="eBPF">
             <div class="bm-tab-content">
-              <p class="bm-dim">Kernel-level (eBPF) signals — outbound connect latency and block-device
-                I/O latency, as Coroot-style heatmaps (buckets × time, color = event count).</p>
+              <p class="bm-dim">Kernel-level (eBPF) signals. The heatmaps show the latency <em>distribution</em>
+                (buckets × time, color = event count); the tables below show <em>which</em> connections and
+                disk I/O those events are.</p>
               <div class="bm-ebpf-grid">
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">Top outbound connections <span class="bm-dim">(eBPF window)</span></div>
+                  @if (ebpf()?.top_talkers?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Process</th><th>Destination</th><th class="bm-num">Connects</th></tr></thead>
+                      <tbody>
+                        @for (t of ebpf()!.top_talkers; track t.comm + t.dst_addr + t.dst_port) {
+                          <tr><td class="bm-mono">{{ t.comm }}</td><td class="bm-mono">{{ t.dst_addr }}:{{ t.dst_port }}</td><td class="bm-num">{{ t.count }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No connections observed in the eBPF window.</p> }
+                </div>
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">Slowest disk I/O <span class="bm-dim">(recent, by latency)</span></div>
+                  @if (ebpf()?.slowest_disk_io?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Process</th><th>Op</th><th class="bm-num">Latency</th></tr></thead>
+                      <tbody>
+                        @for (d of ebpf()!.slowest_disk_io; track $index) {
+                          <tr><td class="bm-mono">{{ d.comm }}</td><td class="bm-mono">{{ d.rwbs || '—' }}</td><td class="bm-num">{{ (d.latency_ns / 1e6) | number: '1.2-2' }} ms</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No disk I/O observed in the eBPF window.</p> }
+                </div>
                 <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket" title="Outbound connect latency" />
                 <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket" title="Disk I/O latency" />
               </div>
@@ -725,6 +752,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-ebpf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
       @media (max-width: 900px) { .bm-ebpf-grid { grid-template-columns: 1fr; } }
+      .bm-ebpf-panel { border: 1px solid var(--bm-border, #e0e0e0); border-radius: 6px; padding: 12px; overflow-x: auto; }
+      .bm-ebpf-h { font-weight: 600; margin-bottom: 8px; }
+      .bm-ebpf-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .bm-ebpf-tbl th, .bm-ebpf-tbl td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--bm-border, #eee); white-space: nowrap; }
+      .bm-ebpf-tbl th.bm-num, .bm-ebpf-tbl td.bm-num { text-align: right; }
+      .bm-ebpf-panel .bm-mono { font-family: var(--bm-mono, monospace); }
+      .bm-ebpf-h .bm-dim { opacity: 0.6; font-weight: 400; font-size: 12px; }
       .bm-console-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
       .bm-rel-map { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; }
       .bm-rel-h { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
@@ -1227,6 +1261,10 @@ export class HostDetailComponent implements OnInit {
 
   /** Block J1 process list (lazy-loaded when the Processes tab opens). */
   processes = signal<Process[]>([]);
+  // eBPF tab: on-demand 'what' behind the latency heatmaps.
+  ebpf = signal<EbpfDetail | null>(null);
+  ebpfLoading = signal(false);
+  ebpfLoaded = signal(false);
   // Block J2: service control state.
   svcName = signal('');
   svcBusy = signal(false);
@@ -1391,6 +1429,29 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'Management') {
       this.management()?.activate();
     }
+    if (event.tab.textLabel === 'eBPF' && !this.ebpfLoaded() && !this.ebpfLoading()) {
+      this.loadEbpf();
+    }
+  }
+
+  /** Lazy-load the eBPF tab's context tables (top outbound connections +
+   * slowest disk I/O) — the 'what' behind the latency heatmaps. Live
+   * pass-through, so only fetched when the tab is first opened. */
+  loadEbpf(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.ebpfLoading.set(true);
+    this.agentService.ebpf(agent.id).subscribe({
+      next: (res) => {
+        this.ebpf.set(res);
+        this.ebpfLoading.set(false);
+        this.ebpfLoaded.set(true);
+      },
+      error: () => {
+        this.ebpfLoading.set(false);
+        this.ebpfLoaded.set(true);
+      },
+    });
   }
 
   /** Block J2: restart/stop/start a systemd unit on this host. */
