@@ -167,3 +167,30 @@ func TestLogFilesReadGzip(t *testing.T) {
 		t.Fatalf("expected [g3], got %v", lines)
 	}
 }
+
+func TestLogFilesListHidesRotated(t *testing.T) {
+	root := t.TempDir()
+	for _, n := range []string{
+		"syslog",                    // live — shown
+		"mail.log",                  // live — shown
+		"syslog.1.gz",               // compressed — hidden
+		"alternatives.log.2.gz",     // compressed — hidden
+		"mail.log-20260712",         // date-rotated — hidden
+		"syslog-20260712.gz",        // date-rotated + compressed — hidden
+	} {
+		if err := os.WriteFile(filepath.Join(root, n), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := &LogFiles{Roots: []string{root}}
+	res, err := m.Run(context.Background(), map[string]any{"state": "list"}, false)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got := logData(t, res)["count"].(int); got != 2 {
+		t.Fatalf("expected 2 live logs listed (rotated/gz hidden), got %d", got)
+	}
+	if isRotatedLog("syslog") || !isRotatedLog("a.gz") || !isRotatedLog("mail.log-20260712") || !isRotatedLog("x-20260712.gz") {
+		t.Fatal("isRotatedLog classification wrong")
+	}
+}

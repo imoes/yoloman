@@ -26,6 +26,15 @@ var binaryLogNames = map[string]bool{
 	"wtmp": true, "btmp": true, "lastlog": true, "faillog": true, "tallylog": true,
 }
 
+// rotatedLogRe matches logrotate's archived logs — a compressed archive
+// (.gz/.bz2/.xz/.zst) or a date-suffixed rotation (…-20260712), optionally
+// itself compressed. These are hidden from the listing: operators want the
+// live logs, not the rotated history (and a compressed archive can't be
+// line-tailed anyway).
+var rotatedLogRe = regexp.MustCompile(`(?i)(\.(gz|bz2|xz|zst|z)|-\d{8}(\.\w+)?)$`)
+
+func isRotatedLog(name string) bool { return rotatedLogRe.MatchString(name) }
+
 // LogFiles lists and tails plain-text log files under /var/log (plus any
 // operator-configured custom roots), strictly read-only and path-jailed to
 // those roots. It complements the `journal` module so hosts that log to files
@@ -145,7 +154,8 @@ func (m *LogFiles) list(roots []string) (Result, error) {
 			continue
 		}
 		if !fi.IsDir() {
-			if !seen[root] && !binaryLogNames[filepath.Base(root)] {
+			base := filepath.Base(root)
+			if !seen[root] && !binaryLogNames[base] && !isRotatedLog(base) {
 				seen[root] = true
 				files = append(files, entry{root, fi.Size(), fi.ModTime().Unix()})
 			}
@@ -162,7 +172,7 @@ func (m *LogFiles) list(roots []string) (Result, error) {
 				}
 				return nil
 			}
-			if !d.Type().IsRegular() || binaryLogNames[d.Name()] || seen[p] {
+			if !d.Type().IsRegular() || binaryLogNames[d.Name()] || isRotatedLog(d.Name()) || seen[p] {
 				return nil
 			}
 			info, ierr := d.Info()
