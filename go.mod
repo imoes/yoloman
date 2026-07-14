@@ -6,6 +6,7 @@ require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/creack/pty v1.1.24
 	github.com/danielledeleo/nestedtext v1.1.1
+	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/msteinert/pam/v2 v2.1.0

@@ -80,6 +80,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewSetFact(),
 		modules.NewConfig(),
 		modules.NewConfigDiscover(),
+		modules.NewTemplateRender(),
 		modules.NewSystemdService(),
 		modules.NewPackage(),
 		modules.NewScript(),
