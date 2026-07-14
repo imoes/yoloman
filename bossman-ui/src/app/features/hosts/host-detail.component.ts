@@ -497,36 +497,54 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             <div class="bm-tab-content">
               <p class="bm-dim">Kernel-level (eBPF) signals. The heatmaps show the latency <em>distribution</em>
                 (buckets × time, color = event count); the tables below show <em>which</em> connections and
-                disk I/O those events are.</p>
+                disk I/O those events are — click a row to filter both tables by that process.</p>
+              <div class="bm-ebpf-grid">
+                <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket" title="Outbound connect latency" />
+                <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket" title="Disk I/O latency" />
+              </div>
+              @if (ebpfFilter()) {
+                <div class="bm-ebpf-filterbar">
+                  <span>Filtered by process</span>
+                  <span class="bm-ebpf-chip bm-mono">{{ ebpfFilter() }}
+                    <button type="button" class="bm-ebpf-chip-x" (click)="ebpfFilter.set(null)" aria-label="Clear filter">×</button>
+                  </span>
+                </div>
+              }
               <div class="bm-ebpf-grid">
                 <div class="bm-ebpf-panel">
                   <div class="bm-ebpf-h">Top outbound connections <span class="bm-dim">(eBPF window)</span></div>
-                  @if (ebpf()?.top_talkers?.length) {
+                  @if (filteredTalkers().length) {
                     <table class="bm-table bm-ebpf-tbl">
                       <thead><tr><th>Process</th><th>Destination</th><th class="bm-num">Connects</th></tr></thead>
                       <tbody>
-                        @for (t of ebpf()!.top_talkers; track t.comm + t.dst_addr + t.dst_port) {
-                          <tr><td class="bm-mono">{{ t.comm }}</td><td class="bm-mono">{{ t.dst_addr }}:{{ t.dst_port }}</td><td class="bm-num">{{ t.count }}</td></tr>
+                        @for (t of filteredTalkers(); track t.comm + t.dst_addr + t.dst_port) {
+                          <tr class="bm-ebpf-row" [class.bm-ebpf-row-sel]="ebpfFilter() === t.comm" (click)="toggleEbpfFilter(t.comm)">
+                            <td class="bm-mono">{{ t.comm }}</td><td class="bm-mono">{{ t.dst_addr }}:{{ t.dst_port }}</td><td class="bm-num">{{ t.count }}</td>
+                          </tr>
                         }
                       </tbody>
                     </table>
+                  } @else if (ebpf()?.top_talkers?.length) {
+                    <p class="bm-empty">No connections from <span class="bm-mono">{{ ebpfFilter() }}</span> in this window.</p>
                   } @else { <p class="bm-empty">No connections observed in the eBPF window.</p> }
                 </div>
                 <div class="bm-ebpf-panel">
                   <div class="bm-ebpf-h">Slowest disk I/O <span class="bm-dim">(recent, by latency)</span></div>
-                  @if (ebpf()?.slowest_disk_io?.length) {
+                  @if (filteredDiskIo().length) {
                     <table class="bm-table bm-ebpf-tbl">
                       <thead><tr><th>Process</th><th>Op</th><th class="bm-num">Latency</th></tr></thead>
                       <tbody>
-                        @for (d of ebpf()!.slowest_disk_io; track $index) {
-                          <tr><td class="bm-mono">{{ d.comm }}</td><td class="bm-mono">{{ d.rwbs || '—' }}</td><td class="bm-num">{{ (d.latency_ns / 1e6) | number: '1.2-2' }} ms</td></tr>
+                        @for (d of filteredDiskIo(); track $index) {
+                          <tr class="bm-ebpf-row" [class.bm-ebpf-row-sel]="ebpfFilter() === d.comm" (click)="toggleEbpfFilter(d.comm)">
+                            <td class="bm-mono">{{ d.comm }}</td><td class="bm-mono">{{ d.rwbs || '—' }}</td><td class="bm-num">{{ (d.latency_ns / 1e6) | number: '1.2-2' }} ms</td>
+                          </tr>
                         }
                       </tbody>
                     </table>
+                  } @else if (ebpf()?.slowest_disk_io?.length) {
+                    <p class="bm-empty">No disk I/O from <span class="bm-mono">{{ ebpfFilter() }}</span> in this window.</p>
                   } @else { <p class="bm-empty">No disk I/O observed in the eBPF window.</p> }
                 </div>
-                <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket" title="Outbound connect latency" />
-                <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket" title="Disk I/O latency" />
               </div>
             </div>
           </mat-tab>
@@ -759,6 +777,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-ebpf-tbl th.bm-num, .bm-ebpf-tbl td.bm-num { text-align: right; }
       .bm-ebpf-panel .bm-mono { font-family: var(--bm-mono, monospace); }
       .bm-ebpf-h .bm-dim { opacity: 0.6; font-weight: 400; font-size: 12px; }
+      .bm-ebpf-row { cursor: pointer; }
+      .bm-ebpf-row:hover { background: var(--bm-hover, rgba(127,127,127,0.12)); }
+      .bm-ebpf-row-sel, .bm-ebpf-row-sel:hover { background: rgba(76,175,80,0.18); }
+      .bm-ebpf-filterbar { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 13px; }
+      .bm-ebpf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px;
+        border-radius: 12px; background: rgba(76,175,80,0.18); font-family: var(--bm-mono, monospace); }
+      .bm-ebpf-chip-x { border: none; background: transparent; cursor: pointer; font-size: 16px;
+        line-height: 1; padding: 0 6px; color: inherit; opacity: 0.7; }
+      .bm-ebpf-chip-x:hover { opacity: 1; }
       .bm-console-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
       .bm-rel-map { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; }
       .bm-rel-h { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
@@ -1265,6 +1292,19 @@ export class HostDetailComponent implements OnInit {
   ebpf = signal<EbpfDetail | null>(null);
   ebpfLoading = signal(false);
   ebpfLoaded = signal(false);
+  /** Click-to-filter: the process (comm) both eBPF tables are narrowed to,
+   * or null for "all". Set by clicking any row, cleared via the chip. */
+  ebpfFilter = signal<string | null>(null);
+  filteredTalkers = computed(() => {
+    const f = this.ebpfFilter();
+    const rows = this.ebpf()?.top_talkers ?? [];
+    return f ? rows.filter((t) => t.comm === f) : rows;
+  });
+  filteredDiskIo = computed(() => {
+    const f = this.ebpfFilter();
+    const rows = this.ebpf()?.slowest_disk_io ?? [];
+    return f ? rows.filter((d) => d.comm === f) : rows;
+  });
   // Block J2: service control state.
   svcName = signal('');
   svcBusy = signal(false);
@@ -1452,6 +1492,12 @@ export class HostDetailComponent implements OnInit {
         this.ebpfLoaded.set(true);
       },
     });
+  }
+
+  /** Click a row → filter both eBPF tables by its process; click the same
+   * process again to clear (toggle). */
+  toggleEbpfFilter(comm: string): void {
+    this.ebpfFilter.update((cur) => (cur === comm ? null : comm));
   }
 
   /** Block J2: restart/stop/start a systemd unit on this host. */
