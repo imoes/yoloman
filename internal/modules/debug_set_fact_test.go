@@ -30,9 +30,9 @@ func TestSetFactReturnsAnsibleFacts(t *testing.T) {
 	if !ok {
 		t.Fatalf("set_fact data type = %T", res.Data)
 	}
-	facts, ok := data["ansible_facts"].(map[string]any)
+	facts, ok := data["yoloman_facts"].(map[string]any)
 	if !ok {
-		t.Fatalf("set_fact ansible_facts missing/typed wrong: %v", data)
+		t.Fatalf("set_fact yoloman_facts missing/typed wrong: %v", data)
 	}
 	if facts["web_pkg"] != "nginx" || facts["count"] != 4 {
 		t.Errorf("facts = %v, want web_pkg=nginx count=4", facts)

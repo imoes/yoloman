@@ -327,16 +327,16 @@ async def run_plan(
                     step, iter_args, client, effective_dry_run, plan, read_local_file, iter_context
                 )
 
-                # Ansible's ansible_facts return convention: ANY step whose
-                # response carries `ansible_facts` publishes them into the run's
-                # namespace for every later step — both `context` (when:) and
-                # `args` (\{\{ }}). This is how the set_fact module sets vars
-                # without a register, and how setup/package_facts' gathered
-                # facts flow. A native module returns it under `data`
-                # (Result.Data); accept a top-level key too for robustness.
+                # yoloman's fact-return convention (modeled on Ansible's
+                # ansible_facts): ANY step whose response carries `yoloman_facts`
+                # publishes them into the run's namespace for every later step —
+                # both `context` (when:) and `args` (\{\{ }}). This is how the
+                # set_fact module sets vars without a register. A native module
+                # returns it under `data` (Result.Data); accept a top-level key
+                # too for robustness.
                 if error is None and isinstance(response_body, dict):
                     data = response_body.get("data")
-                    facts = (data.get("ansible_facts") if isinstance(data, dict) else None) or response_body.get("ansible_facts")
+                    facts = (data.get("yoloman_facts") if isinstance(data, dict) else None) or response_body.get("yoloman_facts")
                     if isinstance(facts, dict):
                         context.update(facts)
                         args.update(facts)

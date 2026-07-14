@@ -9,10 +9,10 @@ import (
 // SetFact mirrors ansible.builtin.set_fact: publish variables into the run for
 // later steps to use. The controller (Bossman) substitutes any {{ vars }} in
 // the values before the call, then merges this module's returned
-// `ansible_facts` into the run's variable namespace (Ansible's own
-// ansible_facts return convention) — so a later step's when:/{{ }} sees them
-// without a register. Free-form: every parameter except the reserved
-// `cacheable` becomes a fact.
+// `yoloman_facts` into the run's variable namespace (yoloman's fact-return
+// convention, modeled on Ansible's ansible_facts) — so a later step's
+// when:/{{ }} sees them without a register. Free-form: every parameter except
+// the reserved `cacheable` becomes a fact.
 type SetFact struct{}
 
 // NewSetFact returns a SetFact module.
@@ -25,7 +25,7 @@ func (s *SetFact) Description() string {
 		"Set variables for the rest of the run (ansible.builtin.set_fact). Pass the facts as " +
 		"free-form key: value parameters (values may reference {{ other_vars }}, substituted by " +
 		"the controller first). Read-only with respect to the host — it changes only the run's " +
-		"variable namespace via the returned ansible_facts. `cacheable` is accepted and ignored.\n\n" +
+		"variable namespace via the returned yoloman_facts. `cacheable` is accepted and ignored.\n\n" +
 		"Cross-tool equivalents:\n" +
 		"- Ansible: ansible.builtin.set_fact.\n" +
 		"- Salt: a `grains.set` (persisted) or a jinja `{% set %}` (transient).\n" +
@@ -57,10 +57,10 @@ func (s *SetFact) Run(ctx context.Context, params map[string]any, dryRun bool) (
 		names = append(names, k)
 	}
 	sort.Strings(names)
-	// ansible_facts is what the controller merges into the run's variables.
+	// yoloman_facts is what the controller merges into the run's variables.
 	return Result{
 		Changed: false,
 		Msg:     "set facts: " + strings.Join(names, ", "),
-		Data:    map[string]any{"ansible_facts": facts},
+		Data:    map[string]any{"yoloman_facts": facts},
 	}, nil
 }
