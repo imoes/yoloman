@@ -1,0 +1,22 @@
+global
+    log /dev/log local0
+    maxconn {{ maxconn }}
+    user {{ user }}
+    group {{ group }}
+    daemon
+
+defaults
+    log {{ log_level }}
+    mode {{ mode }}
+    timeout connect {{ timeout_connect }}
+    timeout client {{ timeout_client }}
+    timeout server {{ timeout_server }}
+
+frontend http_front
+    bind *:{{ http_port }}
+    default_backend {{ backend_name }}
+
+backend {{ backend_name }}
+    balance {{ balance_algorithm }}
+{% for server in backend_servers %}    server {{ server.name }} {{ server.address }}:{{ server.port }} {% if server.check %}check{% endif %}
+{% endfor %}

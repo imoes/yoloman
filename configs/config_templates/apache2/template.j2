@@ -1,0 +1,18 @@
+ServerRoot "{{ server_root }}"
+Timeout {{ timeout }}
+KeepAlive {{ keepalive }}
+MaxKeepAliveRequests {{ max_keepalive_requests }}
+KeepAliveTimeout {{ keepalive_timeout }}
+User {{ user }}
+Group {{ group }}
+LogLevel {{ log_level }}
+Listen {{ listen_port }}
+
+{% for vhost in virtual_hosts %}
+<VirtualHost *:{{ vhost.port }}>
+    ServerName {{ vhost.server_name }}
+    DocumentRoot {{ vhost.document_root }}
+    ErrorLog {{ vhost.error_log }}
+    CustomLog {{ vhost.custom_log }} {{ vhost.log_format }}
+</VirtualHost>
+{% endfor %}
