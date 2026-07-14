@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -492,17 +491,30 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				points = append(points, spts...)
 			}
 		}
-		// Per-process CPU%/RSS history: sample every process so the UI can
-		// chart one process's CPU+memory trend over time (labels pid+comm).
-		// A short window gives each process a real CPU% delta without keeping
-		// per-pid state across ticks.
+		// Per-process CPU%/RSS history: sample every process and aggregate by
+		// command name (comm), summing CPU% and RSS across all PIDs that share
+		// it. Keying history on comm — not pid — means a process's trend stays
+		// continuous across a restart (a restart gives the service a new pid but
+		// the same comm), the series count is bounded by the number of distinct
+		// commands (no dead-pid accumulation), and one line per command reads
+		// cleanly. A short window gives each PID a real CPU% delta with no
+		// per-pid state kept across ticks.
 		if procs, perr := proc.SampleProcesses("/proc", 300*time.Millisecond); perr != nil {
 			slog.Debug("process metric sampling failed", "error", perr)
 		} else {
+			cpuByComm := map[string]float64{}
+			rssByComm := map[string]float64{}
 			for _, p := range procs {
-				lbl := map[string]string{"pid": strconv.Itoa(p.PID), "comm": p.Comm}
-				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: p.CPUPercent, Labels: lbl})
-				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: float64(p.RSSKiB) * 1024, Labels: lbl})
+				if p.Comm == "" {
+					continue
+				}
+				cpuByComm[p.Comm] += p.CPUPercent
+				rssByComm[p.Comm] += float64(p.RSSKiB) * 1024
+			}
+			for comm, cpu := range cpuByComm {
+				lbl := map[string]string{"comm": comm}
+				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: cpu, Labels: lbl})
+				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: rssByComm[comm], Labels: lbl})
 			}
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -50,6 +50,15 @@ export class AgentService {
    * connection targets + slowest recent disk I/O (the 'what'). */
   ebpf(id: string, limit = 20) {
     return this.http.get<EbpfDetail>(`${this.base}/${id}/ebpf?limit=${limit}`);
+  }
+
+  /** CPU%/RSS history for one process, keyed by command name (comm) so it
+   * survives restarts — the combined-graph source behind an expanded
+   * Processes-tab row. */
+  processHistory(id: string, comm: string, since?: string) {
+    let url = `${this.base}/${id}/processes/history?comm=${encodeURIComponent(comm)}`;
+    if (since) url += `&since=${encodeURIComponent(since)}`;
+    return this.http.get<ProcessHistory>(url);
   }
 
   updateGroups(id: string, groups: string[]) {

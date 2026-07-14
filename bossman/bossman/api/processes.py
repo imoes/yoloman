@@ -11,7 +11,6 @@ agent into a clean HTTP error rather than a stack trace.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -54,47 +53,40 @@ async def get_agent_processes(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.get("/api/v1/agents/{agent_id}/processes/{pid}/history")
+@router.get("/api/v1/agents/{agent_id}/processes/history")
 async def get_process_history(
     agent_id: UUID,
-    pid: int,
+    comm: str = Query(..., description="Command name (comm) to fetch CPU/RSS history for"),
     since: datetime | None = Query(None, description="Only points at or after this time"),
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    """CPU% + RSS history for one process (by pid) — the combined-graph source
-    behind an expanded Processes-tab row. Reads the agent's per-process
-    `process_cpu_percent` / `process_rss_bytes` series (labelled pid+comm)
-    straight from stored metrics, filtered to this pid. Raw tier only:
-    per-pid history is inherently short-lived (a pid is reused), so the
-    14-day raw retention is the meaningful window."""
+    """CPU% + RSS history for one process, keyed by command name (comm) — the
+    combined-graph source behind an expanded Processes-tab row. History is
+    tracked per comm, not per pid, so it stays continuous across a service
+    restart (a restart changes the pid but not the comm) and doesn't accumulate
+    dead-pid series. Reads the agent's `process_cpu_percent` /
+    `process_rss_bytes` series (aggregated per comm) straight from stored
+    metrics. Raw tier only — the 14-day raw retention ages out old data."""
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
 
-    async def _series(metric: str) -> list[dict[str, Any]]:
+    async def _series(metric: str) -> list[Any]:
         stmt = text(
-            "SELECT time, value, labels FROM metrics "
-            "WHERE agent_id = :agent_id AND metric = :metric AND labels->>'pid' = :pid "
+            "SELECT time, value FROM metrics "
+            "WHERE agent_id = :agent_id AND metric = :metric AND labels->>'comm' = :comm "
             + ("AND time >= :since " if since is not None else "")
             + "ORDER BY time"
         )
-        params: dict[str, Any] = {"agent_id": str(agent_id), "metric": metric, "pid": str(pid)}
+        params: dict[str, Any] = {"agent_id": str(agent_id), "metric": metric, "comm": comm}
         if since is not None:
             params["since"] = since
-        rows = (await session.execute(stmt, params)).all()
-        return rows
+        return (await session.execute(stmt, params)).all()
 
     cpu_rows = await _series("process_cpu_percent")
     rss_rows = await _series("process_rss_bytes")
-    comm = ""
-    sample = (cpu_rows or rss_rows)
-    if sample:
-        raw = sample[0].labels
-        labels = raw if isinstance(raw, dict) else json.loads(raw or "{}")
-        comm = labels.get("comm", "")
     return {
-        "pid": pid,
         "comm": comm,
         "cpu_percent": [{"time": r.time.isoformat(), "value": r.value} for r in cpu_rows],
         "rss_bytes": [{"time": r.time.isoformat(), "value": r.value} for r in rss_rows],

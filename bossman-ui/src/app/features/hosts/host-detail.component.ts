@@ -27,6 +27,7 @@ import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/comp
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
 import { LatencyHeatmapComponent } from './latency-heatmap.component';
+import { ProcessHistoryChartComponent } from './process-history-chart.component';
 import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
@@ -114,6 +115,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     TimeRangePickerComponent,
     PerfOMeterComponent,
     LatencyHeatmapComponent,
+    ProcessHistoryChartComponent,
   ],
   template: `
     @if (agent(); as agent) {
@@ -640,6 +642,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <tr class="bm-expand-row">
                           <td colspan="7">
                             <div class="bm-proc-detail">
+                              <div class="bm-proc-history">
+                                <strong>CPU &amp; memory history — {{ p.comm }} <span class="bm-dim">(by command, across restarts)</span></strong>
+                                <app-process-history-chart [agentId]="agent.id" [comm]="p.comm" />
+                              </div>
                               <dl class="bm-facts">
                                 <dt>PPID</dt>
                                 <dd>{{ p.ppid }}</dd>
@@ -849,6 +855,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-proc th.bm-sortable:hover { text-decoration: underline; }
       .bm-proc th.bm-sorted { font-weight: 700; }
+      .bm-proc-history { flex-basis: 100%; width: 100%; margin-bottom: 8px; }
+      .bm-proc-history strong { display: block; font-size: 13px; margin-bottom: 4px; opacity: 0.85; }
       .bm-proc-cpu {
         position: relative;
         display: inline-flex;

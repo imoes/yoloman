@@ -136,6 +136,15 @@ export interface ProcessesResponse {
   sample_window_ms: number;
 }
 
+/** GET /agents/{id}/processes/history?comm= — CPU%/RSS trend for one process,
+ * keyed by command name (comm) so it survives restarts (pid changes, comm
+ * doesn't). The combined-graph source behind an expanded process row. */
+export interface ProcessHistory {
+  comm: string;
+  cpu_percent: { time: string; value: number }[];
+  rss_bytes: { time: string; value: number }[];
+}
+
 // ---- Block J4: Cockpit-like host management ----
 
 /** One systemd service unit as reported by the agent's `service_facts`. */
