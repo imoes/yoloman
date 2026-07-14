@@ -19,6 +19,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
+	"github.com/mutkluge/agentic-mcp/internal/state"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
 )
@@ -29,10 +30,13 @@ import (
 type RESTConfig struct {
 	ProcRoot string
 	ModReg   *modules.Registry
-	Tasks    []*tasks.Task
-	Policy   *pipeline.Policy
-	Store    store.Store
-	Write    bool
+	// State is the server-as-a-document store (plan/apply/rollback of managed
+	// resources with generation history) behind /api/v1/state/*.
+	State  *state.Store
+	Tasks  []*tasks.Task
+	Policy *pipeline.Policy
+	Store  store.Store
+	Write  bool
 
 	// UploadsDir and MaxUploadSize back PUT /api/v1/upload (see
 	// docs/plan.md's "File upload (staging)").
@@ -279,6 +283,12 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	mux.HandleFunc("POST /api/v1/runbook/run", func(w http.ResponseWriter, r *http.Request) {
 		handleRunbookRun(w, r, cfg)
 	})
+
+	// Server-as-a-document: plan/apply/rollback with generation history.
+	mux.HandleFunc("POST /api/v1/state/plan", func(w http.ResponseWriter, r *http.Request) { handleStatePlan(w, r, cfg) })
+	mux.HandleFunc("POST /api/v1/state/apply", func(w http.ResponseWriter, r *http.Request) { handleStateApply(w, r, cfg) })
+	mux.HandleFunc("GET /api/v1/state/generations", func(w http.ResponseWriter, r *http.Request) { handleStateGenerations(w, r, cfg) })
+	mux.HandleFunc("POST /api/v1/state/rollback", func(w http.ResponseWriter, r *http.Request) { handleStateRollback(w, r, cfg) })
 
 	RegisterEnrollRoutes(mux, cfg)
 

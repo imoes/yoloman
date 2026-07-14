@@ -30,6 +30,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules/embedded"
+	"github.com/mutkluge/agentic-mcp/internal/state"
 	"github.com/mutkluge/agentic-mcp/internal/store"
 	"github.com/mutkluge/agentic-mcp/internal/tasks"
 	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
@@ -105,6 +106,9 @@ func run(args []string) error {
 	// (behavioral apply) each tick. The applied state persists next to the DB
 	// file across restarts.
 	dsApplier := desiredstate.NewApplier(filepath.Join(filepath.Dir(cfg.DB.Path), "desired-state.json"))
+	// Local server-as-a-document store: full generation history for
+	// plan/apply/rollback of managed resources (config files), agent-local.
+	stateStore := state.NewStore(filepath.Join(filepath.Dir(cfg.DB.Path), "state-generations.json"))
 
 	// eBPF collector — created before the collect loop so that loop can emit
 	// its per-interval latency histograms (Coroot-style heatmap source).
@@ -183,6 +187,7 @@ func run(args []string) error {
 		PAMAuth:            pamAuth,
 		EBPF:               collector,
 		DesiredState:       dsApplier,
+		State:              stateStore,
 		Audit:              al,
 		UploadsDir:         cfg.UploadsDir,
 		ModulesDir:         cfg.ModulesDir,
