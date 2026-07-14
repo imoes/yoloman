@@ -1,0 +1,21 @@
+<domain type='{{ dtype }}'>
+  <name>{{ name }}</name>
+  <memory unit='KiB'>{{ memory_kib }}</memory>
+  <vcpu placement='static'>{{ vcpu }}</vcpu>
+  <os>
+    <type arch='{{ arch }}' machine='{{ machine }}'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <emulator>{{ emulator }}</emulator>
+{% for d in disks %}    <disk type='file' device='disk'>
+      <driver name='qemu' type='{{ d.format }}'/>
+      <source file='{{ d.file }}'/>
+      <target dev='{{ d.target }}' bus='{{ d.bus }}'/>
+    </disk>
+{% endfor %}{% for i in interfaces %}    <interface type='bridge'>
+      <source bridge='{{ i.bridge }}'/>
+      <model type='{{ i.model }}'/>
+    </interface>
+{% endfor %}  </devices>
+</domain>

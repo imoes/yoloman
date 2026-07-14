@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/clbanning/mxj/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -49,7 +50,7 @@ func (c *Config) Description() string {
 func (c *Config) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"path":      stringProp("Config file path, e.g. /etc/ssh/sshd_config."),
-		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml"),
+		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml", "xml"),
 		"values":    map[string]any{"type": "object", "description": "Desired values. Omit to read (parse) only."},
 		"manage":    stringEnumProp("merge = set the given keys, keep the rest (default); exact = file holds exactly `values`.", "merge", "exact"),
 		"separator": stringProp("keyvalue key/value separator (default \" \"; use \"=\" for key=value files)."),
@@ -149,9 +150,41 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 			com = "#"
 		}
 		return &iniCodec{comment: com}, nil
+	case "xml":
+		return &xmlCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml)", format)
 	}
+}
+
+// xmlCodec round-trips an XML config (e.g. a libvirt domain definition) to/from
+// a nested map via mxj. Merge deep-merges into the parsed document; exact emits
+// only the given values. Attributes appear as "-name" keys, text as "#text"
+// (mxj's convention) — lossy for comments/order but structurally faithful.
+type xmlCodec struct{}
+
+func (x *xmlCodec) parse(data []byte) (map[string]any, error) {
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return map[string]any{}, nil
+	}
+	mv, err := mxj.NewMapXml(data)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(mv), nil
+}
+
+func (x *xmlCodec) render(existing []byte, values map[string]any, manage string) ([]byte, error) {
+	result := values
+	if manage != "exact" {
+		cur, _ := x.parse(existing)
+		result = deepMerge(cur, values)
+	}
+	out, err := mxj.Map(result).XmlIndent("", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(out, '\n'), nil
 }
 
 // iniCodec handles [section] files of key=value lines. Parsed to a nested

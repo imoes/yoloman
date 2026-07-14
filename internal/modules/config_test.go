@@ -128,3 +128,24 @@ func TestConfigIniReadAndMerge(t *testing.T) {
 		t.Fatal("second apply should be idempotent")
 	}
 }
+
+func TestConfigXmlRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "domain.xml")
+	os.WriteFile(p, []byte("<domain type=\"kvm\"><name>web1</name><vcpu>2</vcpu></domain>"), 0o644)
+	r := runConfig(t, map[string]any{"path": p, "format": "xml"}, false)
+	cfg := r.Data.(map[string]any)["config"].(map[string]any)
+	dom, ok := cfg["domain"].(map[string]any)
+	if !ok || dom["name"] != "web1" {
+		t.Fatalf("xml parse: %v", cfg)
+	}
+	// merge: bump vcpu
+	r = runConfig(t, map[string]any{"path": p, "format": "xml", "values": map[string]any{"domain": map[string]any{"vcpu": "4"}}}, false)
+	if !r.Changed {
+		t.Fatal("expected changed")
+	}
+	out, _ := os.ReadFile(p)
+	if !strings.Contains(string(out), "<vcpu>4</vcpu>") || !strings.Contains(string(out), "<name>web1</name>") {
+		t.Fatalf("xml merge: %s", out)
+	}
+}
