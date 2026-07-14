@@ -216,7 +216,12 @@ func looksLikeConfig(p string) bool {
 // GuessCodec is a best-effort (format, separator) hint for the config module.
 // An empty format means "no clean structured codec" — read as raw / manage via
 // a Class-B template. separator is only meaningful for the keyvalue format.
+// It first consults the man-page-derived codec registry (config_codecs.json);
+// the extension/name heuristic below is the fallback for files not in it.
 func GuessCodec(p string) (format, separator string) {
+	if f, sep, ok := lookupCodec(p); ok {
+		return f, sep
+	}
 	base := strings.ToLower(filepath.Base(p))
 	switch strings.ToLower(filepath.Ext(p)) {
 	case ".json":
