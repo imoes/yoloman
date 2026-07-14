@@ -211,8 +211,9 @@ func run(args []string) error {
 }
 
 // piggybackCollectors builds the enabled piggyback sources (guests reported as
-// their own hosts via hosts/overview). Docker is auto-detected at collect time,
-// so enabling it on a non-Docker host is a harmless no-op.
+// their own hosts via hosts/overview). Docker and libvirt are auto-detected at
+// collect time, so enabling them on a host without that runtime is a harmless
+// no-op.
 func piggybackCollectors(cfg config.Config) []piggyback.Collector {
 	var out []piggyback.Collector
 	if cfg.Piggyback.Docker {
@@ -223,6 +224,9 @@ func piggybackCollectors(cfg config.Config) []piggyback.Collector {
 	}
 	for _, e := range cfg.Piggyback.VSphere {
 		out = append(out, piggyback.NewVSphereCollector(e.Host, e.User, e.Password, e.Insecure))
+	}
+	if cfg.Piggyback.Libvirt {
+		out = append(out, piggyback.NewLibvirtCollector(cfg.Piggyback.LibvirtURI))
 	}
 	return out
 }

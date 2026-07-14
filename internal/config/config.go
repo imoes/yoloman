@@ -273,6 +273,8 @@ type Piggyback struct {
 	DockerSocket string            `yaml:"docker_socket"` // default /var/run/docker.sock
 	Proxmox      []ProxmoxEndpoint `yaml:"proxmox"`       // Proxmox VE endpoints → guests as hosts
 	VSphere      []VSphereEndpoint `yaml:"vsphere"`       // vCenter/ESXi endpoints → VMs as hosts
+	Libvirt      bool              `yaml:"libvirt"`       // report local libvirt/KVM domains as hosts (auto-detected via virsh)
+	LibvirtURI   string            `yaml:"libvirt_uri"`   // libvirt connection URI (default qemu:///system)
 }
 
 // ProxmoxEndpoint is one Proxmox VE API the agent queries to report its guests.
