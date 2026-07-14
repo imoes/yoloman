@@ -276,6 +276,10 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 		handleMetricsQuery(w, r, cfg.Store)
 	})
 	RegisterConnectionsDumpRoute(mux, cfg.Store)
+	mux.HandleFunc("POST /api/v1/runbook/run", func(w http.ResponseWriter, r *http.Request) {
+		handleRunbookRun(w, r, cfg)
+	})
+
 	RegisterEnrollRoutes(mux, cfg)
 
 	mux.HandleFunc("GET /api/v1/hosts/overview", func(w http.ResponseWriter, r *http.Request) {
