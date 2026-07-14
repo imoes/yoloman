@@ -241,23 +241,23 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <tr class="bm-expand-row">
                           <td colspan="7">
                             <div class="bm-metric-chart-wrap">
+                              <div class="bm-svc-ranges">
+                                @for (r of availabilityRanges; track r.hours) {
+                                  <button
+                                    mat-button
+                                    class="bm-avail-range"
+                                    [class.bm-avail-range--on]="availabilityHours() === r.hours"
+                                    (click)="setServiceRange(r.hours)"
+                                  >
+                                    {{ r.label }}
+                                  </button>
+                                }
+                              </div>
                               <app-metric-chart [series]="serviceChartSeries()" [metricName]="svc.name" />
                               @if (availability(); as av) {
                                 <div class="bm-avail">
                                   <div class="bm-avail-head">
                                     <span class="bm-avail-title">Availability</span>
-                                    <span class="bm-avail-ranges">
-                                      @for (r of availabilityRanges; track r.hours) {
-                                        <button
-                                          mat-button
-                                          class="bm-avail-range"
-                                          [class.bm-avail-range--on]="availabilityHours() === r.hours"
-                                          (click)="setAvailabilityRange(r.hours)"
-                                        >
-                                          {{ r.label }}
-                                        </button>
-                                      }
-                                    </span>
                                     <span class="bm-avail-ok">{{ av.ok_percent | number: '1.2-3' }}% OK</span>
                                   </div>
                                   @if (av.monitored_seconds > 0) {
@@ -917,6 +917,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         display: flex;
         gap: 2px;
       }
+      .bm-svc-ranges {
+        display: flex;
+        gap: 2px;
+        justify-content: flex-end;
+        margin-bottom: 4px;
+      }
       .bm-avail-range {
         min-width: 0;
         padding: 0 10px;
@@ -1380,11 +1386,16 @@ export class HostDetailComponent implements OnInit {
 
   /** Block H9 availability/SLA report for the expanded service. */
   availability = signal<Availability | null>(null);
+  /** The one time window for the expanded service — drives BOTH its metric
+   * chart and its availability/SLA report, so selecting a range actually
+   * changes the chart (it used to be pinned to a fixed 1h `since`). */
   availabilityHours = signal(24);
   readonly availabilityRanges = [
+    { label: '1h', hours: 1 },
     { label: '24h', hours: 24 },
     { label: '7d', hours: 168 },
     { label: '30d', hours: 720 },
+    { label: '365d', hours: 8760 },
   ];
   overview = signal<FleetHost | null>(null);
 
@@ -1453,19 +1464,28 @@ export class HostDetailComponent implements OnInit {
     this.selectedService.set(svc);
     const agent = this.agent();
     if (!agent) return;
-    this.serviceChartSeries.set([]);
-    const spec = serviceMetricSpec(svc.name, svc.metric);
-    if (spec) {
-      forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, this.since))).subscribe((results) => {
-        const series = results.map((res, i) => ({
-          name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
-          points: spec.mount ? res.points.filter((p) => p.labels['mount'] === spec.mount) : res.points,
-        }));
-        this.serviceChartSeries.set(series);
-      });
-    }
+    this.loadServiceChart(svc);
     this.monitoringService.serviceHistory(agent.id, svc.name).subscribe((history) => this.serviceHistory.set(history));
     this.loadAvailability(svc);
+  }
+
+  /** (Re)load the expanded service's metric chart over the selected time
+   * window (`availabilityHours`). Split out from selectService so a range
+   * change reloads the chart, not just the availability report. */
+  private loadServiceChart(svc: ServiceState): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.serviceChartSeries.set([]);
+    const spec = serviceMetricSpec(svc.name, svc.metric);
+    if (!spec) return;
+    const since = new Date(Date.now() - this.availabilityHours() * 3_600_000).toISOString();
+    forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, since))).subscribe((results) => {
+      const series = results.map((res, i) => ({
+        name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
+        points: spec.mount ? res.points.filter((p) => p.labels['mount'] === spec.mount) : res.points,
+      }));
+      this.serviceChartSeries.set(series);
+    });
   }
 
   /** Load the SLA report for the expanded service over the selected range. */
@@ -1478,10 +1498,15 @@ export class HostDetailComponent implements OnInit {
       .subscribe((report) => this.availability.set(report));
   }
 
-  setAvailabilityRange(hours: number): void {
+  /** Pick the service time window — reloads the chart AND the availability
+   * report so the whole detail view moves to the chosen range. */
+  setServiceRange(hours: number): void {
     this.availabilityHours.set(hours);
     const svc = this.selectedService();
-    if (svc) this.loadAvailability(svc);
+    if (svc) {
+      this.loadServiceChart(svc);
+      this.loadAvailability(svc);
+    }
   }
 
   /** A CheckMK-style state colour for the availability bar segments. */
