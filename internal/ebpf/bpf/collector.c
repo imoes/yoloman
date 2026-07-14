@@ -38,6 +38,10 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 #define EVENT_EXEC 2
 #define EVENT_DISK_IO 3
 
+// TCP states (net/tcp_states.h) needed for connect-latency correlation.
+#define TCP_ESTABLISHED 1
+#define TCP_SYN_SENT 2
+
 struct event {
 	__u32 type;
 	__u32 pid;
@@ -50,6 +54,9 @@ struct event {
 	__u16 dport;
 	__u8 oldstate;
 	__u8 newstate;
+	// Outbound connect() latency: time from SYN_SENT to ESTABLISHED, set only
+	// on the transition to ESTABLISHED (0 otherwise).
+	__u64 conn_latency_ns;
 
 	// EVENT_EXEC fields.
 	__u8 filename[FILENAME_LEN];
@@ -94,6 +101,16 @@ struct {
 	__type(value, struct io_start_val);
 } io_start SEC(".maps");
 
+// conn_start correlates an outbound connect: SYN_SENT records the start ts
+// keyed by the sock pointer, ESTABLISHED looks it up to derive connect latency
+// (the same sk-keyed correlation coroot-node-agent uses for connection time).
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 10240);
+	__type(key, __u64);
+	__type(value, __u64);
+} conn_start SEC(".maps");
+
 // Forces BTF debug info for struct event to be retained, so bpf2go's
 // `-type event` can find it even though it is only ever used via pointers.
 const struct event *unused_event_btf_anchor __attribute__((unused));
@@ -103,6 +120,25 @@ int trace_inet_sock_set_state(struct trace_event_raw_inet_sock_set_state *ctx)
 {
 	if (ctx->family != AF_INET)
 		return 0; // v1 scope: IPv4 only
+
+	__u64 sk = (__u64)ctx->skaddr;
+
+	// Outbound connect start: remember when this socket entered SYN_SENT so
+	// the eventual ESTABLISHED transition can be timed.
+	if (ctx->newstate == TCP_SYN_SENT) {
+		__u64 ts = bpf_ktime_get_ns();
+		bpf_map_update_elem(&conn_start, &sk, &ts, BPF_ANY);
+		return 0; // no event for the intermediate state
+	}
+
+	__u64 conn_latency_ns = 0;
+	if (ctx->newstate == TCP_ESTABLISHED) {
+		__u64 *start = bpf_map_lookup_elem(&conn_start, &sk);
+		if (start) {
+			conn_latency_ns = bpf_ktime_get_ns() - *start;
+			bpf_map_delete_elem(&conn_start, &sk);
+		}
+	}
 
 	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
 	if (!e)
@@ -118,6 +154,7 @@ int trace_inet_sock_set_state(struct trace_event_raw_inet_sock_set_state *ctx)
 	e->dport = ctx->dport;
 	e->oldstate = (__u8)ctx->oldstate;
 	e->newstate = (__u8)ctx->newstate;
+	e->conn_latency_ns = conn_latency_ns;
 
 	bpf_ringbuf_submit(e, 0);
 	return 0;

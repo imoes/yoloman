@@ -24,8 +24,9 @@ type collectorEvent struct {
 	Dport         uint16
 	Oldstate      uint8
 	Newstate      uint8
-	Filename      [128]uint8
 	_             [2]byte
+	ConnLatencyNs uint64
+	Filename      [128]uint8
 	DiskDev       uint32
 	_             [4]byte
 	DiskSector    uint64
@@ -56,6 +57,7 @@ type collectorIoStartVal struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	collectorMapConnStart              = "conn_start"
 	collectorMapEvents                 = "events"
 	collectorMapIoStart                = "io_start"
 	collectorProgTraceBlockRqComplete  = "trace_block_rq_complete"
@@ -117,8 +119,9 @@ type collectorProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorMapSpecs struct {
-	Events  *ebpf.MapSpec `ebpf:"events"`
-	IoStart *ebpf.MapSpec `ebpf:"io_start"`
+	ConnStart *ebpf.MapSpec `ebpf:"conn_start"`
+	Events    *ebpf.MapSpec `ebpf:"events"`
+	IoStart   *ebpf.MapSpec `ebpf:"io_start"`
 }
 
 // collectorVariableSpecs contains global variables before they are loaded into the kernel.
@@ -148,12 +151,14 @@ func (o *collectorObjects) Close() error {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorMaps struct {
-	Events  *ebpf.Map `ebpf:"events"`
-	IoStart *ebpf.Map `ebpf:"io_start"`
+	ConnStart *ebpf.Map `ebpf:"conn_start"`
+	Events    *ebpf.Map `ebpf:"events"`
+	IoStart   *ebpf.Map `ebpf:"io_start"`
 }
 
 func (m *collectorMaps) Close() error {
 	return _CollectorClose(
+		m.ConnStart,
 		m.Events,
 		m.IoStart,
 	)
