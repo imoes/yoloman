@@ -79,6 +79,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewDebug(),
 		modules.NewSetFact(),
 		modules.NewConfig(),
+		modules.NewConfigDiscover(),
 		modules.NewSystemdService(),
 		modules.NewPackage(),
 		modules.NewScript(),
