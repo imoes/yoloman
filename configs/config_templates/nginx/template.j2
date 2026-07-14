@@ -1,0 +1,40 @@
+user www-data;
+worker_processes {{ worker_processes }};
+pid {{ pid }};
+
+events {
+    worker_connections {{ worker_connections }};
+}
+
+http {
+    sendfile on;
+    keepalive_timeout 65;
+    gzip on;
+
+{% if upstreams %}
+{% for upstream in upstreams %}
+    upstream {{ upstream.name }} {
+{% for server in upstream.servers %}
+        server {{ server }};
+{% endfor %}
+    }
+{% endfor %}
+{% endif %}
+
+{% for server_block in server_blocks %}
+    server {
+        listen {{ server_block.listen }};
+        server_name {{ server_block.server_name | join(' ') }};
+{% if server_block.access_log is defined %}        access_log {{ server_block.access_log }};
+{% endif %}{% if server_block.ssl_certificate is defined %}        ssl_certificate {{ server_block.ssl_certificate }};
+{% endif %}{% if server_block.ssl_certificate_key is defined %}        ssl_certificate_key {{ server_block.ssl_certificate_key }};
+{% endif %}{% if server_block.root is defined %}        location / {
+            root {{ server_block.root }};
+        }
+{% else %}        location / {
+            proxy_pass {{ server_block.proxy_pass }};
+        }
+{% endif %}
+    }
+{% endfor %}
+}

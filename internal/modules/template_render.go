@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/flosch/pongo2/v6"
+	"github.com/nikolalohinski/gonja/v2"
+	"github.com/nikolalohinski/gonja/v2/exec"
 )
 
 // TemplateRender renders a full Jinja2 template (loops, conditionals, filters —
-// via pongo2) against a `values` context and writes it to `dest`. This is the
+// via gonja, a Jinja2 engine) against a `values` context and writes it to `dest`. This is the
 // Class-B config mechanism: free-form/complex files (nginx, apache, bind) that
 // have no clean codec are OWNED as template + values — the state carries the
 // values, this renders them to the on-disk file. Unlike the simpler `template`
 // module (which only substitutes {{ name }}), this is a real Jinja2 engine, so
 // a package's whole config can be expressed as one template.
 //
-// pongo2 is pure Go, so this keeps the agent a dependency-free static binary
+// gonja is pure Go, so this keeps the agent a dependency-free static binary
 // (no Python/Jinja2 on the host, and rendering works standalone).
 type TemplateRender struct{}
 
@@ -27,7 +28,7 @@ func (t *TemplateRender) Name() string { return "template_render" }
 
 func (t *TemplateRender) Description() string {
 	return "" +
-		"Render a full Jinja2 template (loops, if/else, filters — pongo2) against a `values` " +
+		"Render a full Jinja2 template (loops, if/else, filters, tests like `is defined` — gonja) against a `values` " +
 		"context and write it to `dest`. The Class-B config mechanism: own a complex config file " +
 		"(nginx/apache/bind) as template + values. Idempotent — writes only when the rendered " +
 		"output differs from dest; dry_run-aware. Params: `template` (the Jinja2 source), `dest`, " +
@@ -69,15 +70,14 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 		values = map[string]any{}
 	}
 
-	tpl, err := pongo2.FromString(tmplText)
+	tpl, err := gonja.FromString(tmplText)
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: parse: %w", err)
 	}
-	// JSON decodes every number to float64, which pongo2 renders as
-	// "4.000000"; coerce integral floats back to ints so a config file gets
-	// "workers 4" not "workers 4.000000".
+	// JSON decodes every number to float64, which renders as "4.000000";
+	// coerce integral floats back to ints so a config gets "workers 4".
 	ctxValues, _ := normalizeNumbers(values).(map[string]any)
-	rendered, err := tpl.Execute(pongo2.Context(ctxValues))
+	rendered, err := tpl.ExecuteToString(exec.NewContext(ctxValues))
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: render: %w", err)
 	}

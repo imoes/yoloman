@@ -1,0 +1,34 @@
+{
+  "worker_processes": 4,
+  "pid": "/run/nginx.pid",
+  "worker_connections": 1024,
+  "upstreams": [
+    {
+      "name": "app_backend",
+      "servers": [
+        "10.0.0.1:8080",
+        "10.0.0.2:8080"
+      ]
+    }
+  ],
+  "server_blocks": [
+    {
+      "listen": "80",
+      "server_name": [
+        "example.com",
+        "www.example.com"
+      ],
+      "access_log": "/var/log/nginx/example.access.log",
+      "proxy_pass": "http://app_backend"
+    },
+    {
+      "listen": "443 ssl",
+      "server_name": [
+        "secure.example.com"
+      ],
+      "ssl_certificate": "/etc/ssl/certs/secure.crt",
+      "ssl_certificate_key": "/etc/ssl/private/secure.key",
+      "root": "/var/www/secure"
+    }
+  ]
+}
