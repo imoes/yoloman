@@ -57,13 +57,29 @@ _STEP_JSON_SCHEMA = {
     "type": "object",
     "properties": {
         "name": {"type": "string"},
-        "module": {"type": "string", "enum": KNOWN_MODULES},
+        # The discriminator: a host action ("module") or one of the three
+        # controller-side kinds Bossman evaluates itself (Ansible's set_fact/
+        # debug/assert action plugins).
+        "kind": {"type": "string", "enum": ["module", "set_fact", "debug", "assert"]},
+        # module kind: constrained to the modules this agent actually has, so
+        # the model structurally cannot hallucinate one.
+        "module": {"anyOf": [{"type": "string", "enum": KNOWN_MODULES}, {"type": "null"}]},
         "params": {"type": "object"},
+        # set_fact kind: {var: value_template} to publish into the run's vars.
+        "set_fact": {"type": ["object", "null"]},
+        # debug kind: a message (may embed {{ vars }}).
+        "debug_msg": {"type": ["string", "null"]},
+        # assert kind: conditions in the when-grammar (e.g. "x == 'y'"), plus
+        # an optional failure message.
+        "assert_that": {"type": ["array", "null"], "items": {"type": "string"}},
+        "assert_fail_msg": {"type": ["string", "null"]},
         "when": {"type": ["string", "null"]},
         "register": {"type": ["string", "null"]},
+        # Ansible-style loop: a literal list, or one dotted path string.
+        "loop": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "string"}, {"type": "null"}]},
         "check_mode": {"type": "boolean"},
     },
-    "required": ["name", "module", "params"],
+    "required": ["name", "kind"],
 }
 
 _CHUNK_JSON_SCHEMA = {
@@ -77,15 +93,23 @@ _CHUNK_JSON_SCHEMA = {
 
 _SYSTEM_PROMPT = (
     "You translate one source automation-role file (e.g. an Ansible task file) into a single "
-    "Bossman plan chunk: a list of module-call steps. Each step calls exactly one of Bossman's "
-    "own built-in modules (the same names and parameters as the equivalent Ansible built-in "
-    "module — Bossman's modules mirror Ansible's parameter names directly, but only Ansible's "
-    "primary parameter name, never a legacy alias: the apt module's package list is always "
-    "\"name\", never \"pkg\"; a symlink's own path is always \"path\", never \"dest\"). Only emit "
-    "steps for actions expressible as a single module call with a params object; do not invent "
-    "parameters a module doesn't have. If the source declares an OS-specific dispatch (e.g. "
-    "\"{{ ansible_distribution }}\"-based file inclusion), leave os_family null — that dispatch "
-    "decision is made by the caller, not by you."
+    "Bossman plan chunk: a list of steps. Each step sets \"kind\" to exactly one of:\n"
+    "- \"module\": a host action. Set \"module\" to one of Bossman's built-in modules and \"params\" "
+    "to its arguments (same names as the equivalent Ansible module, primary parameter name only, "
+    "never a legacy alias: apt's package list is always \"name\" never \"pkg\"; a symlink's own path "
+    "is always \"path\" never \"dest\"). Do not invent parameters a module doesn't have.\n"
+    "- \"set_fact\": set variables for later steps. Put the vars in \"set_fact\" as {var: value} "
+    "(values may embed {{ other_vars }}). Use this for Ansible set_fact tasks.\n"
+    "- \"debug\": emit a message. Put it in \"debug_msg\" (may embed {{ vars }}). Use this for "
+    "Ansible debug tasks.\n"
+    "- \"assert\": check preconditions. Put the conditions in \"assert_that\" as a list of simple "
+    "comparison strings (e.g. \"ansible_os_family == 'Debian'\", \"count > 0\") and an optional "
+    "\"assert_fail_msg\". Use this for Ansible assert tasks.\n"
+    "Carry a task's \"when\" condition, \"register\" name, and \"loop\" (Ansible with_items/loop) "
+    "onto the step. Only emit steps expressible in these four kinds; skip pure control-flow tasks "
+    "(block, include_tasks, meta) you cannot express. If the source declares an OS-specific "
+    "dispatch (e.g. \"{{ ansible_distribution }}\"-based file inclusion), leave os_family null — "
+    "that dispatch decision is made by the caller, not by you."
 )
 
 
@@ -103,17 +127,30 @@ class TranslationResult:
 
 
 def _reshape_step(step: dict) -> dict:
-    """Converts one LLM-produced step ({name, module, params, when?,
-    register?, check_mode?}) into the real plan-step dict parse_plan
-    expects (a bare `<module>: params` key) — done in Python
-    rather than asked of the LLM directly, since a literal step key is
-    more error-prone for a model to produce reliably than a plain "module"
-    string field constrained by a schema enum."""
-    out = {"name": step["name"], step["module"]: step["params"]}
+    """Converts one LLM-produced step (a flat {name, kind, ...} object with a
+    kind discriminator) into the real plan-step dict parse_plan expects (a
+    bare `<module>:`/`set_fact:`/`debug:`/`assert:` key) — the literal step key
+    is done in Python rather than asked of the model, which produces the flat
+    schema-constrained shape far more reliably."""
+    out: dict = {"name": step["name"]}
+    kind = step.get("kind") or ("module" if step.get("module") else "module")
+    if kind == "module":
+        out[step["module"]] = step.get("params") or {}
+    elif kind == "set_fact":
+        out["set_fact"] = step.get("set_fact") or {}
+    elif kind == "debug":
+        out["debug"] = {"msg": step.get("debug_msg") or ""}
+    elif kind == "assert":
+        a: dict = {"that": step.get("assert_that") or []}
+        if step.get("assert_fail_msg"):
+            a["fail_msg"] = step["assert_fail_msg"]
+        out["assert"] = a
     if step.get("when") is not None:
         out["when"] = step["when"]
     if step.get("register") is not None:
         out["register"] = step["register"]
+    if step.get("loop"):
+        out["loop"] = step["loop"]
     if step.get("check_mode"):
         out["check_mode"] = True
     return out

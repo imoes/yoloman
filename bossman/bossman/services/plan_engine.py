@@ -55,6 +55,7 @@ async def _execute_step(
     effective_dry_run: bool,
     plan: Plan,
     read_local_file,
+    context: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any] | None, bool | None, int | None, str | None]:
     """Runs one step for real (or its check_mode/dry_run variant) and
     returns (request_body, response_body, changed, http_status, error) —
@@ -84,7 +85,7 @@ async def _execute_step(
                 response_body = await client.call_tool("run_pipeline", request_body)
                 changed = True
                 http_status = 200
-        else:  # upload
+        elif step.kind == "upload":
             local_path = substitute(step.upload_local_path, args)
             remote_name = substitute(step.upload_remote_name, args)
             request_body = {"local_path": local_path, "remote_name": remote_name}
@@ -95,7 +96,34 @@ async def _execute_step(
                 response_body = await client.upload_file(remote_name, data)
                 changed = True
                 http_status = 200
-    except (AgentClientError, PlanError, OSError) as exc:
+        # Controller-side kinds: evaluated here against the plan's variable
+        # context, never sent to the host (same posture as Ansible's
+        # set_fact/debug/assert action plugins). Always run, even in dry_run —
+        # they mutate/inspect plan state, not the host.
+        elif step.kind == "set_fact":
+            facts = {k: substitute(v, args) for k, v in (step.set_fact or {}).items()}
+            request_body = facts
+            response_body = {"ansible_facts": facts}
+            changed = False
+        elif step.kind == "debug":
+            if step.debug_var is not None:
+                rendered = _resolve_dotted(step.debug_var, context)
+            else:
+                rendered = substitute(step.debug_msg or "", args)
+            response_body = {"msg": rendered}
+            changed = False
+        elif step.kind == "assert":
+            failed = None
+            for cond in step.assert_that or []:
+                if not eval_when(cond, context):
+                    failed = cond
+                    break
+            if failed is not None:
+                error = step.assert_fail_msg or f"assertion failed: {failed}"
+            else:
+                response_body = {"msg": step.assert_success_msg or "All assertions passed"}
+                changed = False
+    except (AgentClientError, PlanError, OSError, WhenError) as exc:
         error = str(exc)
 
     return request_body, response_body, changed, http_status, error
@@ -126,6 +154,18 @@ def _step_row(
         started_at=started_at,
         finished_at=datetime.now(timezone.utc),
     )
+
+
+def _resolve_dotted(path: str, context: dict[str, Any]) -> Any:
+    """Look up a dotted path (e.g. "reg.stdout") in the run context; returns
+    the path string unchanged if it does not resolve, mirroring a best-effort
+    debug var dump rather than failing the step."""
+    value: Any = context
+    for part in path.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return path
+        value = value[part]
+    return value
 
 
 def _resolve_loop_items(step: PlanStep, context: dict[str, Any]) -> list[Any]:
@@ -307,8 +347,16 @@ async def run_plan(
 
                 effective_dry_run = dry_run or step.check_mode
                 request_body, response_body, changed, http_status, error = await _execute_step(
-                    step, iter_args, client, effective_dry_run, plan, read_local_file
+                    step, iter_args, client, effective_dry_run, plan, read_local_file, iter_context
                 )
+
+                # set_fact publishes its computed vars into the run's namespace
+                # for every later step — both `context` (when: evaluation) and
+                # `args` (\{\{ }} substitution), matching Ansible's set_fact scope.
+                if step.kind == "set_fact" and error is None and response_body:
+                    facts = response_body.get("ansible_facts", {})
+                    context.update(facts)
+                    args.update(facts)
 
                 session.add(
                     _step_row(plan_run.id, index, row_name, module_label, request_body, response_body, changed, http_status, error, started_at)
@@ -345,7 +393,7 @@ async def run_plan(
         started_at = datetime.now(timezone.utc)
         effective_dry_run = dry_run or handler.check_mode
         request_body, response_body, changed, http_status, error = await _execute_step(
-            handler, args, client, effective_dry_run, plan, read_local_file
+            handler, args, client, effective_dry_run, plan, read_local_file, context
         )
         module_label = handler.module if handler.kind == "module" else handler.kind
         session.add(
