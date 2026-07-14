@@ -11,10 +11,13 @@ agent into a clean HTTP error rather than a stack trace.
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
@@ -49,6 +52,53 @@ async def get_agent_processes(
         # The agent is unreachable / errored — a gateway problem, not a
         # client one, so 502 (mirrors how a proxy reports an upstream fault).
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get("/api/v1/agents/{agent_id}/processes/{pid}/history")
+async def get_process_history(
+    agent_id: UUID,
+    pid: int,
+    since: datetime | None = Query(None, description="Only points at or after this time"),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """CPU% + RSS history for one process (by pid) — the combined-graph source
+    behind an expanded Processes-tab row. Reads the agent's per-process
+    `process_cpu_percent` / `process_rss_bytes` series (labelled pid+comm)
+    straight from stored metrics, filtered to this pid. Raw tier only:
+    per-pid history is inherently short-lived (a pid is reused), so the
+    14-day raw retention is the meaningful window."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
+
+    async def _series(metric: str) -> list[dict[str, Any]]:
+        stmt = text(
+            "SELECT time, value, labels FROM metrics "
+            "WHERE agent_id = :agent_id AND metric = :metric AND labels->>'pid' = :pid "
+            + ("AND time >= :since " if since is not None else "")
+            + "ORDER BY time"
+        )
+        params: dict[str, Any] = {"agent_id": str(agent_id), "metric": metric, "pid": str(pid)}
+        if since is not None:
+            params["since"] = since
+        rows = (await session.execute(stmt, params)).all()
+        return rows
+
+    cpu_rows = await _series("process_cpu_percent")
+    rss_rows = await _series("process_rss_bytes")
+    comm = ""
+    sample = (cpu_rows or rss_rows)
+    if sample:
+        raw = sample[0].labels
+        labels = raw if isinstance(raw, dict) else json.loads(raw or "{}")
+        comm = labels.get("comm", "")
+    return {
+        "pid": pid,
+        "comm": comm,
+        "cpu_percent": [{"time": r.time.isoformat(), "value": r.value} for r in cpu_rows],
+        "rss_bytes": [{"time": r.time.isoformat(), "value": r.value} for r in rss_rows],
+    }
 
 
 @router.get("/api/v1/agents/{agent_id}/ebpf")

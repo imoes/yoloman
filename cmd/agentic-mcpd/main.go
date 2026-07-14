@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -26,6 +27,7 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
+	"github.com/mutkluge/agentic-mcp/internal/proc"
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules/embedded"
@@ -488,6 +490,19 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				slog.Debug("service metric sampling failed", "error", serr)
 			} else {
 				points = append(points, spts...)
+			}
+		}
+		// Per-process CPU%/RSS history: sample every process so the UI can
+		// chart one process's CPU+memory trend over time (labels pid+comm).
+		// A short window gives each process a real CPU% delta without keeping
+		// per-pid state across ticks.
+		if procs, perr := proc.SampleProcesses("/proc", 300*time.Millisecond); perr != nil {
+			slog.Debug("process metric sampling failed", "error", perr)
+		} else {
+			for _, p := range procs {
+				lbl := map[string]string{"pid": strconv.Itoa(p.PID), "comm": p.Comm}
+				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: p.CPUPercent, Labels: lbl})
+				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: float64(p.RSSKiB) * 1024, Labels: lbl})
 			}
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {

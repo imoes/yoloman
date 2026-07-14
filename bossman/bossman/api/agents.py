@@ -466,7 +466,10 @@ async def get_agent_metrics(
         # asking for any specific one's history.
         names = (
             await session.scalars(
-                select(Metric.metric).where(Metric.agent_id == agent_id).distinct().order_by(Metric.metric)
+                select(Metric.metric)
+                .where(Metric.agent_id == agent_id, Metric.metric.not_like("process_%"))
+                .distinct()
+                .order_by(Metric.metric)
             )
         ).all()
         return {"metrics": list(names)}
@@ -501,9 +504,12 @@ async def get_agent_metrics_latest(
     latest-per-group; ordered by metric name for a stable list."""
     await _get_agent_or_404(session, agent_id)
 
+    # process_* are per-PID history series (potentially hundreds); they power
+    # the Processes tab's per-process chart via a dedicated endpoint, not this
+    # aggregate list, so they're excluded here to keep the metric list clean.
     stmt = (
         select(Metric)
-        .where(Metric.agent_id == agent_id)
+        .where(Metric.agent_id == agent_id, Metric.metric.not_like("process_%"))
         .order_by(Metric.metric, Metric.time.desc())
         .distinct(Metric.metric)
     )
