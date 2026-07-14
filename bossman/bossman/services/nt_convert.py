@@ -50,6 +50,22 @@ def _authoring_dict(doc: dict[str, Any]) -> dict[str, Any]:
         routes = (doc.get("notifications") or {}).get("routes") or []
         if routes:
             out["notifications"] = {"routes": routes}
+    elif doc.get("chunks") is not None:
+        # A chunked plan (the plan-engine format: a plan is a list of named
+        # `chunks`, each with its own `steps`, rather than one flat `steps`).
+        # Without this branch the YAML/NT views collapsed to an empty
+        # `steps: []` — JSON still showed the body because it dumps it whole.
+        # Drop internal per-chunk bookkeeping (`source_hash`).
+        out["name"] = doc.get("name", "")
+        if doc.get("description"):
+            out["description"] = doc["description"]
+        if doc.get("params"):
+            out["params"] = doc["params"]
+        if doc.get("targets"):
+            out["targets"] = doc["targets"]
+        out["chunks"] = [{k: v for k, v in c.items() if k != "source_hash"} for c in doc["chunks"]]
+        if doc.get("final_handler"):
+            out["final_handler"] = doc["final_handler"]
     else:
         out["name"] = doc.get("name", "")
         if doc.get("targets"):
