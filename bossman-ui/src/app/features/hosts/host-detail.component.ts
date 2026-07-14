@@ -581,15 +581,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   [value]="processFilter()"
                   (input)="processFilter.set($any($event.target).value)"
                 />
-                <mat-button-toggle-group
-                  [value]="processSort()"
-                  (change)="processSort.set($event.value)"
-                  aria-label="Sort processes"
-                >
-                  <mat-button-toggle value="cpu">CPU</mat-button-toggle>
-                  <mat-button-toggle value="rss">Memory</mat-button-toggle>
-                  <mat-button-toggle value="pid">PID</mat-button-toggle>
-                </mat-button-toggle-group>
                 <button mat-button (click)="loadProcesses()" [disabled]="processesLoading()">↻ Refresh</button>
                 <label class="bm-proc-idle">
                   <input type="checkbox" [checked]="hideIdleProcesses()"
@@ -607,10 +598,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <table class="bm-table bm-proc">
                   <thead>
                     <tr>
-                      <th class="bm-num">PID</th>
-                      <th>User</th>
-                      <th class="bm-num">CPU %</th>
-                      <th class="bm-num">Memory</th>
+                      <th class="bm-num bm-sortable" [class.bm-sorted]="processSort() === 'pid'" (click)="sortBy('pid')">PID{{ sortArrow('pid') }}</th>
+                      <th class="bm-sortable" [class.bm-sorted]="processSort() === 'user'" (click)="sortBy('user')">User{{ sortArrow('user') }}</th>
+                      <th class="bm-num bm-sortable" [class.bm-sorted]="processSort() === 'cpu'" (click)="sortBy('cpu')">CPU %{{ sortArrow('cpu') }}</th>
+                      <th class="bm-num bm-sortable" [class.bm-sorted]="processSort() === 'rss'" (click)="sortBy('rss')">Memory{{ sortArrow('rss') }}</th>
                       <th class="bm-num">Thr</th>
                       <th>S</th>
                       <th>Command</th>
@@ -846,6 +837,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
+      .bm-proc th.bm-sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .bm-proc th.bm-sortable:hover { text-decoration: underline; }
+      .bm-proc th.bm-sorted { font-weight: 700; }
       .bm-proc-cpu {
         position: relative;
         display: inline-flex;
@@ -1312,7 +1310,8 @@ export class HostDetailComponent implements OnInit {
   svcErr = signal<string | null>(null);
 
   processFilter = signal('');
-  processSort = signal<'cpu' | 'rss' | 'pid'>('cpu');
+  processSort = signal<'cpu' | 'rss' | 'pid' | 'user'>('cpu');
+  processSortDir = signal<'asc' | 'desc'>('desc');
   hideIdleProcesses = signal(true);
   processesLoading = signal(false);
   processesLoaded = signal(false);
@@ -1340,13 +1339,44 @@ export class HostDetailComponent implements OnInit {
           String(p.pid).includes(f),
       );
     }
-    const sort = this.processSort();
+    const col = this.processSort();
+    const dir = this.processSortDir() === 'asc' ? 1 : -1;
     return [...list].sort((a, b) => {
-      if (sort === 'pid') return a.pid - b.pid;
-      if (sort === 'rss') return b.rss_kib - a.rss_kib;
-      return b.cpu_percent - a.cpu_percent;
+      let cmp: number;
+      switch (col) {
+        case 'pid':
+          cmp = a.pid - b.pid;
+          break;
+        case 'rss':
+          cmp = a.rss_kib - b.rss_kib;
+          break;
+        case 'user':
+          cmp = (a.user || String(a.uid)).localeCompare(b.user || String(b.uid));
+          break;
+        default:
+          cmp = a.cpu_percent - b.cpu_percent;
+      }
+      return cmp * dir;
     });
   });
+
+  /** Click a Processes column header to sort by it. Re-clicking the active
+   * column flips direction; switching columns picks a sensible default
+   * (metrics high→low, identity columns low→high). */
+  sortBy(col: 'cpu' | 'rss' | 'pid' | 'user'): void {
+    if (this.processSort() === col) {
+      this.processSortDir.update((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.processSort.set(col);
+      this.processSortDir.set(col === 'pid' || col === 'user' ? 'asc' : 'desc');
+    }
+  }
+
+  /** The ▲/▼ indicator for a sortable header (empty unless it is active). */
+  sortArrow(col: 'cpu' | 'rss' | 'pid' | 'user'): string {
+    if (this.processSort() !== col) return '';
+    return this.processSortDir() === 'asc' ? ' ▲' : ' ▼';
+  }
 
   /** Block H9 availability/SLA report for the expanded service. */
   availability = signal<Availability | null>(null);
