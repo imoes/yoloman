@@ -153,6 +153,25 @@ interface AppliedPolicy {
                   @for (c of d.state.monitoring.checks; track c) { <li>{{ c }}</li> }
                 </ul>
               } @else { <p class="bm-empty">No checks from OU rules yet.</p> }
+
+              <h3>Effective thresholds</h3>
+              @if (thresholdRows().length) {
+                <table class="bm-report">
+                  <thead><tr><th>Service</th><th>Metric</th><th>Warn</th><th>Crit</th><th>Cmp</th></tr></thead>
+                  <tbody>
+                    @for (t of thresholdRows(); track t.metric) {
+                      <tr>
+                        <td>{{ t.service_name ?? '—' }}</td>
+                        <td class="bm-dim">{{ t.metric }}</td>
+                        <td>{{ t.warn ?? '—' }}</td>
+                        <td>{{ t.crit ?? '—' }}</td>
+                        <td class="bm-dim">{{ t.comparison ?? '' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else { <p class="bm-empty">No thresholds from OU rules yet.</p> }
+
               <h3>Roles</h3>
               @if (d.state.orchestration.roles.length) {
                 <ul class="bm-list">
@@ -368,6 +387,15 @@ export class HostPlacementComponent implements OnInit {
     const d = this.desired();
     const explain = (d?.explain ?? {}) as { ou_path?: string[] };
     return explain.ou_path ?? [];
+  });
+
+  /** The GPO-resolved check-rule thresholds the host must enforce, flattened
+   * from monitoring.thresholds (keyed by metric) into report rows. This is
+   * where an OU/group/host threshold policy (warn/crit) actually lands in the
+   * compiled desired state. */
+  thresholdRows = computed<{ metric: string; service_name?: string; warn?: unknown; crit?: unknown; comparison?: string }[]>(() => {
+    const t = (this.desired()?.state.monitoring.thresholds ?? {}) as Record<string, { service_name?: string; warn?: unknown; crit?: unknown; comparison?: string }>;
+    return Object.entries(t).map(([metric, v]) => ({ metric, ...v }));
   });
 
   ngOnInit(): void {
