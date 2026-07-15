@@ -10,7 +10,8 @@ a Django/pongo2-ism) fails CI, not a live host.
 Templates come from two sources:
 - **LLM-bootstrapped** from a real example config (+ optional man page) via
   `bossman/scripts/bootstrap_config_template.py` (qwen79b): nginx, apache2,
-  redis, haproxy, postfix, hosts, logrotate, crontab, anacrontab, smartd.
+  redis, haproxy, postfix, hosts, logrotate, crontab, anacrontab, smartd,
+  rsyslog, limits (/etc/security/limits.conf), chrony.
 - **Hand-authored** where no local example exists (Proxmox/KVM, from the
   product docs): proxmox-vm, libvirt-domain, corosync, storage-cfg.
 
@@ -27,7 +28,7 @@ no value or is unsafe to machine-generate):
 - `sudoers` — security-critical bespoke grammar; must go through visudo
   validation, not a rendered file. (Candidate for a dedicated, validated module.)
 - `apparmor.d` — MAC profile DSL, too complex/risky to round-trip generically.
-- `rsyslog.conf`, `hdparm.conf` — bespoke rule/device DSLs; niche, low demand.
+- `hdparm.conf` — bespoke per-device DSL; niche, low demand.
 - `user.cfg` (Proxmox ACL) — sensitive, managed via pvesh/API, not file render.
 - `apt.conf` — absent here and effectively a C-like keyvalue tree (revisit as a
   codec, not a template).
