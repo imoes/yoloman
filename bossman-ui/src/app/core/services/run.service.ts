@@ -30,10 +30,13 @@ export class RunService {
   }
 
   /** Block F6 — runbook execution history (sibling of plan runs), for the
-   * unified Runs page. */
-  runbookRuns(limit = 100) {
+   * unified Runs page. Pass agentId to scope to one host (host Runs tab). */
+  runbookRuns(limit = 100, agentId?: string) {
+    let params = new HttpParams().set('limit', String(limit));
+    if (agentId) params = params.set('agent_id', agentId);
     return this.http.get<{ runs: { id: string; runbook_name: string; agent_id: string | null; status: string; dry_run: boolean; changed: boolean; requested_by: string | null; created_at: string }[] }>(
-      `${environment.apiUrl}/runbook-runs?limit=${limit}`,
+      `${environment.apiUrl}/runbook-runs`,
+      { params },
     );
   }
 }

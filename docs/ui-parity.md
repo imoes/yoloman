@@ -50,7 +50,9 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
   (lazy) — charts now instantiate only when their tab is opened + sized. 0
   console errors; also a perf win (10 tabs no longer all render on open).
 - **F-2** Fleet Overview: **"Service states" dashlet renders empty** (label,
-  no content).
+  no content). ✅ RESOLVED — not a code bug: the donut renders fine live
+  (OK/UNKNOWN slices + legend); the empty impression in the walkthrough came
+  from a moment with no service data. Verified via Playwright screenshot.
 - **F-3** Topology / Relationships: map header says **"0 edges"** while the
   eBPF connections table directly below is full — external destinations
   (LDAP/Kerberos servers) never become nodes/edges; only agent↔agent would.
@@ -68,7 +70,9 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
   vs checks.d) visibly contradict each other.
 - **F-6** **Runs fragmentation**: nav "Runs" → page "Plan Runs" (plans only);
   runbook runs only as a mini-list on the Runbooks page; host Runs tab also
-  plans-only.
+  plans-only. ✅ RESOLVED — fleet Runs page unified (plan+runbook+deploy with
+  a type filter); host Runs tab unified too (plan+runbook scoped to the host,
+  type filter; deployments stay fleet-level as multi-host aggregates).
 - **F-7** **Server-document loop has zero fleet-UI surface** (observed /
   plan / apply / generations / rollback exist only in the standalone
   agent-ui). The flagship feature is invisible.
@@ -95,7 +99,8 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
   gives no "33.7% ≥ 20%"). Add the value/threshold to the row. (Bugfix batch.)
 - **F-14** Hosts list: update/delete actions are raw emoji "⬆🗑" (vs
   Material icons everywhere else); acl host's Services cell is blank (not
-  "—"/0).
+  "—"/0). ✅ RESOLVED (icons) — update/delete now use mat-icon
+  (system_update_alt / delete). Services-cell blank is a separate data case.
 - **F-15** Security page is manual-only (refresh feed + visit each host's
   Updates to collect) — fine for now, note for the poller.
 

@@ -965,27 +965,36 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="Runs"><ng-template matTabContent>
             <div class="bm-tab-content">
-              @if (runs().length) {
+              <div class="bm-run-filter">
+                @for (t of runTypes; track t.key) {
+                  <button class="bm-chip" [class.bm-chip-on]="runTypeFilter() === t.key" (click)="runTypeFilter.set(t.key)">{{ t.label }}</button>
+                }
+              </div>
+              @if (hostRuns().length) {
                 <table class="bm-table">
                   <thead>
                     <tr>
-                      <th>Plan</th>
+                      <th>Type</th>
+                      <th>Name</th>
                       <th>Status</th>
-                      <th>Started</th>
+                      <th>Dry run</th>
+                      <th>When</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (run of runs(); track run.id) {
-                      <tr [routerLink]="['/runs', run.id]" class="bm-row-link">
-                        <td>{{ run.plan_name }}</td>
-                        <td><app-status-badge [status]="runStatus(run)" [label]="run.status" /></td>
-                        <td>{{ run.started_at | date: 'medium' }}</td>
+                    @for (run of hostRuns(); track run.type + run.id) {
+                      <tr [routerLink]="run.link" [class.bm-row-link]="run.link">
+                        <td><span class="bm-type bm-type-{{ run.type }}">{{ run.type }}</span></td>
+                        <td>{{ run.name }}</td>
+                        <td><app-status-badge [status]="badge(run.status)" [label]="run.status" /></td>
+                        <td>{{ run.dryRun ? 'yes' : 'no' }}</td>
+                        <td>{{ run.when | date: 'medium' }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
               } @else {
-                <p class="bm-empty">No plan runs against this host yet.</p>
+                <p class="bm-empty">No runs against this host yet.</p>
               }
             </div>
           </ng-template></mat-tab>
@@ -1484,6 +1493,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-empty {
         opacity: 0.6;
       }
+      .bm-run-filter { display: flex; gap: 8px; margin-bottom: 12px; }
+      .bm-chip { padding: 5px 14px; border-radius: 16px; border: 1px solid var(--mat-sys-outline-variant); background: transparent; color: inherit; cursor: pointer; font-size: 13px; }
+      .bm-chip-on { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); border-color: transparent; }
+      .bm-type { font-size: 11px; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+      .bm-type-plan { background: color-mix(in srgb, #1565c0 22%, transparent); }
+      .bm-type-runbook { background: color-mix(in srgb, #6a1b9a 22%, transparent); }
       .bm-overview-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1628,6 +1643,25 @@ export class HostDetailComponent implements OnInit {
   });
   edges = signal<HostEdge[]>([]);
   runs = signal<PlanRun[]>([]);
+  /** Host Runs tab (unified): runbook executions against this host, merged
+   * with plan runs into one host-scoped timeline. Deployments stay on the
+   * fleet-wide Runs page — they are multi-host aggregates, not host-scoped. */
+  runbookRuns = signal<{ id: string; runbook_name: string; status: string; dry_run: boolean; created_at: string }[]>([]);
+  runTypeFilter = signal<'all' | 'plan' | 'runbook'>('all');
+  readonly runTypes = [
+    { key: 'all', label: 'All' },
+    { key: 'plan', label: 'Plans' },
+    { key: 'runbook', label: 'Runbooks' },
+  ] as const;
+  hostRuns = computed(() => {
+    const rows: { id: string; type: 'plan' | 'runbook'; name: string; status: string; dryRun: boolean; when: string; link: string[] | null }[] = [
+      ...this.runs().map((r) => ({ id: r.id, type: 'plan' as const, name: r.plan_name, status: r.status, dryRun: r.dry_run, when: r.started_at, link: ['/runs', r.id] })),
+      ...this.runbookRuns().map((r) => ({ id: r.id, type: 'runbook' as const, name: r.runbook_name, status: r.status, dryRun: r.dry_run, when: r.created_at, link: null })),
+    ];
+    const t = this.runTypeFilter();
+    const filtered = t === 'all' ? rows : rows.filter((r) => r.type === t);
+    return filtered.sort((a, b) => (a.when < b.when ? 1 : -1));
+  });
   services = signal<ServiceState[]>([]);
   selectedService = signal<ServiceState | null>(null);
   serviceChartSeries = signal<ChartSeries[]>([]);
@@ -1785,6 +1819,7 @@ export class HostDetailComponent implements OnInit {
 
     this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
+    this.runService.runbookRuns(100, id).subscribe((res) => this.runbookRuns.set(res.runs ?? []));
     this.reloadServices(id);
     this.monitoringService.fleetHosts().subscribe((hosts) => this.overview.set(hosts.find((h) => h.id === id) ?? null));
   }
@@ -2877,6 +2912,9 @@ export class HostDetailComponent implements OnInit {
 
   runStatus(run: PlanRun) {
     return runStatusBadge(run.status);
+  }
+  badge(status: string) {
+    return runStatusBadge(status);
   }
 
   hasTags(agent: Agent): boolean {
