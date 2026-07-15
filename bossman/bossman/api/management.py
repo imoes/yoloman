@@ -27,7 +27,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, HostConfigResource
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, ConfigPolicy, HostConfigResource, OUNode
+from bossman.services.compiler import affected_agent_ids
+from bossman.services.config_desired import effective_resources, resource_dict
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.cve_collect import collect_host
@@ -153,6 +155,9 @@ class StateDocument(BaseModel):
 
 class StateApplyRequest(StateDocument):
     dry_run: bool = True
+    # K4: when set, save the resources as an OU config policy (scope_ou_id) and
+    # converge every host under that OU — instead of a host-direct edit.
+    ou_id: UUID | None = None
 
 
 @router.post("/api/v1/agents/{agent_id}/state/plan")
@@ -190,15 +195,52 @@ async def post_agent_state_apply(
     writing; a real apply writes through the codec merge and records a
     generation (so every edit is versioned + roll-backable). A read-only agent
     rejects the write → surfaced as 502."""
+    # K4: OU-scoped apply — save the resources as an OU config policy and
+    # converge every reachable host under that OU ("Host A = Host B").
+    if body.ou_id is not None:
+        if await session.get(OUNode, body.ou_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+        if not body.dry_run:
+            for r in body.resources:
+                path = r.get("path")
+                if not path:
+                    continue
+                pol = await session.scalar(
+                    select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.ou_id, ConfigPolicy.path == path)
+                )
+                if pol is None:
+                    pol = ConfigPolicy(tenant_id=UUID(DEFAULT_TENANT_ID), scope_ou_id=body.ou_id, path=path)
+                    session.add(pol)
+                pol.type = r.get("type", "config")
+                pol.config_format = r.get("format")
+                pol.separator = r.get("separator")
+                pol.values = r.get("values", {})
+                pol.template = r.get("template")
+                pol.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+        # Converge (or dry-run) every reachable host under the OU.
+        member_ids = await affected_agent_ids(session, "ou", ou_id=body.ou_id)
+        applied, skipped = [], []
+        for mid in member_ids:
+            m = await session.get(Agent, mid)
+            if m is None or not m.address:
+                skipped.append(str(mid))
+                continue
+            try:
+                await client_factory(m, settings).state_apply({"resources": body.resources}, body.dry_run)
+                applied.append(m.name)
+            except AgentClientError:
+                skipped.append(m.name)
+        return {"scope": "ou", "ou_id": str(body.ou_id), "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run}
+
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
     try:
         result = await client.state_apply({"resources": body.resources}, body.dry_run)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    # K3: on a real apply, record the desired resources in Bossman's DB (the
-    # fleet-side key-value database) so drift = desired-vs-observed and the
-    # values can later be scoped to an OU (K4). One row per (agent, path).
+    # K3: on a real host-direct apply, record the desired resources in Bossman's
+    # DB (the fleet-side key-value database) so drift = desired-vs-observed.
     if not body.dry_run:
         for r in body.resources:
             path = r.get("path")
@@ -236,44 +278,22 @@ async def get_agent_config_drift(
     band). Returns the managed paths + the drifted ones with their per-key
     changes — the same plan shape the value editor's preview uses."""
     agent = await _agent_with_address(session, agent_id)
-    rows = (
-        await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))
-    ).all()
-    if not rows:
-        return {"agent_id": str(agent.id), "managed": [], "drift": []}
-    resources = []
-    for row in rows:
-        res: dict[str, Any] = {"type": row.type, "path": row.path, "values": row.values or {}}
-        if row.config_format:
-            res["format"] = row.config_format
-        if row.separator:
-            res["separator"] = row.separator
-        if row.template:
-            res["template"] = row.template
-        resources.append(res)
+    eff = await effective_resources(session, agent)  # host-direct + inherited OU, GPO-resolved
+    if not eff:
+        return {"agent_id": str(agent.id), "managed": [], "drift": [], "sources": {}}
     client = client_factory(agent, settings)
     try:
-        plan = await client.state_plan({"resources": resources})
+        plan = await client.state_plan({"resources": [e["resource"] for e in eff]})
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     changes = plan.get("changes", []) if isinstance(plan, dict) else []
     drift = [c for c in changes if c.get("action") not in (None, "noop") or c.get("error")]
     return {
         "agent_id": str(agent.id),
-        "managed": [row.path for row in rows],
+        "managed": [e["path"] for e in eff],
+        "sources": {e["path"]: e["source"] for e in eff},
         "drift": drift,
     }
-
-
-def _row_to_resource(row: HostConfigResource) -> dict[str, Any]:
-    res: dict[str, Any] = {"type": row.type, "path": row.path, "values": row.values or {}}
-    if row.config_format:
-        res["format"] = row.config_format
-    if row.separator:
-        res["separator"] = row.separator
-    if row.template:
-        res["template"] = row.template
-    return res
 
 
 @router.post("/api/v1/agents/{agent_id}/config/reapply")
@@ -284,18 +304,16 @@ async def post_agent_config_reapply(
     _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Re-sync the host to its recorded desired config (Block K3): re-apply
-    every stored resource through the document loop, converging any drift back
-    and recording a generation. The desired values win over out-of-band edits."""
+    """Re-sync the host to its effective desired config (Block K3/K4): re-apply
+    every resolved resource (host-direct + inherited OU policies) through the
+    document loop, converging any drift and recording a generation."""
     agent = await _agent_with_address(session, agent_id)
-    rows = (
-        await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))
-    ).all()
-    if not rows:
+    eff = await effective_resources(session, agent)
+    if not eff:
         raise HTTPException(status_code=404, detail="no desired config recorded for this host")
     client = client_factory(agent, settings)
     try:
-        result = await client.state_apply({"resources": [_row_to_resource(r) for r in rows]}, False)
+        result = await client.state_apply({"resources": [e["resource"] for e in eff]}, False)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}

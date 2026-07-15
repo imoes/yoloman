@@ -481,6 +481,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         } @else {
                           <span class="bm-tag bm-tag-sync" title="Matches desired">managed ✓</span>
                         }
+                        @if (sourceFor(r.path); as src) {
+                          <span class="bm-tag" [title]="src.startsWith('ou:') ? 'From an OU policy' : 'Host-specific'">{{ src.startsWith('ou:') ? ('OU ' + src.slice(3)) : 'host' }}</span>
+                        }
                       }
                     </div>
                     @if (r.error) {
@@ -513,10 +516,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           } @else { <p class="bm-dim">No changes.</p> }
                         }
                         @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                        @if (agent.ou_id) {
+                          <label class="bm-scope"><input type="checkbox" [checked]="applyToOu()" (change)="applyToOu.set($any($event.target).checked)" /> Apply to this host's OU (every member host)</label>
+                        }
                         <div class="bm-rollback-actions">
                           <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
                           <button mat-button (click)="previewKv(r)" [disabled]="editBusy()">Preview (plan)</button>
-                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">Apply</button>
+                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">{{ applyToOu() ? 'Apply to OU' : 'Apply' }}</button>
                         </div>
                       } @else {
                         <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
@@ -547,10 +553,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <p class="bm-dim">Rendered file (would be written):</p>
                         <pre class="bm-cfg-values">{{ rendered }}</pre>
                       }
+                      @if (agent.ou_id) {
+                        <label class="bm-scope"><input type="checkbox" [checked]="applyToOu()" (change)="applyToOu.set($any($event.target).checked)" /> Apply to this host's OU (every member host)</label>
+                      }
                       <div class="bm-rollback-actions">
                         <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
                         <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
-                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">Apply</button>
+                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyToOu() ? 'Apply to OU' : 'Apply' }}</button>
                       </div>
                     } @else {
                       @if (r.values) {
@@ -993,6 +1002,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
       .bm-drift-h { margin: 8px 0 2px; }
+      .bm-scope { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0; opacity: 0.85; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1835,8 +1845,17 @@ export class HostDetailComponent implements OnInit {
   }
 
   // Block K3: drift = the recorded desired config re-planned against the host.
-  drift = signal<{ managed: string[]; drift: StateResourceChange[] }>({ managed: [], drift: [] });
+  drift = signal<{ managed: string[]; drift: StateResourceChange[]; sources?: Record<string, string> }>({ managed: [], drift: [], sources: {} });
   driftBusy = signal(false);
+  // Block K4: apply an edit to the host's OU (all member hosts) instead of just
+  // this host.
+  applyToOu = signal(false);
+  private applyOuId(): string | undefined {
+    return this.applyToOu() ? this.agent()?.ou_id ?? undefined : undefined;
+  }
+  sourceFor(path: string): string | null {
+    return this.drift().sources?.[path] ?? null;
+  }
 
   isManaged(path: string): boolean {
     return this.drift().managed.includes(path);
@@ -2099,7 +2118,7 @@ export class HostDetailComponent implements OnInit {
     if (!agent) return;
     this.editBusy.set(true);
     this.editError.set(null);
-    this.agentService.stateApply(agent.id, [this.kvResource(r)], false).subscribe({
+    this.agentService.stateApply(agent.id, [this.kvResource(r)], false, this.applyOuId()).subscribe({
       next: () => {
         this.editBusy.set(false);
         this.cancelEdit();
@@ -2218,7 +2237,7 @@ export class HostDetailComponent implements OnInit {
     }
     this.tplBusy.set(true);
     this.tplError.set(null);
-    this.agentService.stateApply(agent.id, [resource], false).subscribe({
+    this.agentService.stateApply(agent.id, [resource], false, this.applyOuId()).subscribe({
       next: () => {
         this.tplBusy.set(false);
         this.cancelTemplateEdit();

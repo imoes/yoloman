@@ -99,9 +99,11 @@ export class AgentService {
 
   /** Block K1 — apply edited config values through the codec merge; records a
    * generation (versioned + roll-backable). dry_run=true just returns the plan. */
-  stateApply(id: string, resources: ConfigResource[], dryRun: boolean) {
-    return this.http.post<{ agent_id: string; plan: StatePlan; generation: number; dry_run: boolean }>(
-      `${this.base}/${id}/state/apply`, { resources, dry_run: dryRun },
+  stateApply(id: string, resources: ConfigResource[], dryRun: boolean, ouId?: string) {
+    const body: Record<string, unknown> = { resources, dry_run: dryRun };
+    if (ouId) body['ou_id'] = ouId; // K4: save as an OU policy + converge every member host
+    return this.http.post<{ agent_id: string; plan?: StatePlan; generation?: number; dry_run: boolean; scope?: string; applied_hosts?: string[] }>(
+      `${this.base}/${id}/state/apply`, body,
     );
   }
 

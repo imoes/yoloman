@@ -67,7 +67,7 @@ Ad-hoc pushes (tools/config, tools/copy) skip all of that.
 - **K3 — values in Bossman's DB** ✅ DONE + live-verified: persist each host's edited values as
   desired state (per path); drift view (observed ≠ desired) on the tab;
   this is the fleet-side half of the key-value database.
-- **K4 — scope**: attach the same values document to an OU/group (GPO-style),
+- **K4 — scope** ✅ DONE + live-verified: attach the same values document to an OU/group (GPO-style),
   compiled into hosts' desired state — config policy, Host A = Host B.
 
 Order: K1 → K2 → K3 → K4. Each block: implement → Playwright verify against

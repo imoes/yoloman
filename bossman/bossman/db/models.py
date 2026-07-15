@@ -1283,6 +1283,32 @@ class HostConfigResource(Base):
     )
 
 
+class ConfigPolicy(Base):
+    """Block K4 — an OU-scoped config resource (values or template+values) that
+    applies to every host under that OU, the config counterpart to a check_rule
+    / orchestration plan on an OU. A host's effective desired config per path is
+    the GPO winner (host-direct HostConfigResource wins over the deepest OU on
+    its ancestry). One row per (scope_ou_id, path)."""
+
+    __tablename__ = "config_policies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    scope_ou_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"), nullable=False)
+    path: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False, default="config")
+    config_format: Mapped[str | None] = mapped_column(String)
+    separator: Mapped[str | None] = mapped_column(String)
+    values: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    template: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("scope_ou_id", "path", name="uq_config_policies_ou_path"),
+        Index("idx_config_policies_ou", "scope_ou_id"),
+    )
+
+
 class Service(Base):
     """The materialized, per-host result of evaluating a CheckRule against
     the most recently polled metric value — CheckMK's own "Service"
