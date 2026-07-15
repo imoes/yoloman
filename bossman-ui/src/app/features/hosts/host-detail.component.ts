@@ -12,6 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { HostGroupService } from '../../core/services/host-group.service';
 import { Agent, ConfigResource, ConfigTemplate, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
@@ -482,7 +483,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           <span class="bm-tag bm-tag-sync" title="Matches desired">managed ✓</span>
                         }
                         @if (sourceFor(r.path); as src) {
-                          <span class="bm-tag" [title]="src.startsWith('ou:') ? 'From an OU policy' : 'Host-specific'">{{ src.startsWith('ou:') ? ('OU ' + src.slice(3)) : 'host' }}</span>
+                          <span class="bm-tag" [title]="src.startsWith('ou:') ? 'From an OU policy' : src.startsWith('group:') ? 'From a host-group policy' : 'Host-specific'">{{ src.startsWith('ou:') ? ('OU ' + src.slice(3)) : src.startsWith('group:') ? ('group ' + src.slice(6)) : 'host' }}</span>
                         }
                       }
                     </div>
@@ -516,13 +517,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           } @else { <p class="bm-dim">No changes.</p> }
                         }
                         @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                        @if (agent.ou_id) {
-                          <label class="bm-scope"><input type="checkbox" [checked]="applyToOu()" (change)="applyToOu.set($any($event.target).checked)" /> Apply to this host's OU (every member host)</label>
-                        }
+                        <label class="bm-scope">Apply to:
+                          <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                            <option value="host">this host</option>
+                            @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                            @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                          </select>
+                        </label>
                         <div class="bm-rollback-actions">
                           <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
                           <button mat-button (click)="previewKv(r)" [disabled]="editBusy()">Preview (plan)</button>
-                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">{{ applyToOu() ? 'Apply to OU' : 'Apply' }}</button>
+                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
                         </div>
                       } @else {
                         <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
@@ -553,13 +558,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <p class="bm-dim">Rendered file (would be written):</p>
                         <pre class="bm-cfg-values">{{ rendered }}</pre>
                       }
-                      @if (agent.ou_id) {
-                        <label class="bm-scope"><input type="checkbox" [checked]="applyToOu()" (change)="applyToOu.set($any($event.target).checked)" /> Apply to this host's OU (every member host)</label>
-                      }
+                      <label class="bm-scope">Apply to:
+                        <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                          <option value="host">this host</option>
+                          @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                          @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                        </select>
+                      </label>
                       <div class="bm-rollback-actions">
                         <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
                         <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
-                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyToOu() ? 'Apply to OU' : 'Apply' }}</button>
+                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
                       </div>
                     } @else {
                       @if (r.values) {
@@ -1450,6 +1459,7 @@ export class HostDetailComponent implements OnInit {
   private relationshipService = inject(RelationshipService);
   private runService = inject(RunService);
   private monitoringService = inject(MonitoringService);
+  private hostGroupService = inject(HostGroupService);
   private dialog = inject(MatDialog);
 
   agent = signal<Agent | null>(null);
@@ -1842,16 +1852,30 @@ export class HostDetailComponent implements OnInit {
       next: (res) => this.drift.set(res),
       error: () => this.drift.set({ managed: [], drift: [] }),
     });
+    // Host groups for the apply-to-group scope (Block K4). All groups are
+    // offered — targeting a group the host isn't in still creates the policy +
+    // converges that group's members (agents.groups can lag the membership
+    // table, so we don't filter by it).
+    if (!this.hostGroups().length) {
+      this.hostGroupService.list().subscribe({
+        next: (gs) => this.hostGroups.set((gs || []).map((g) => ({ id: g.id, name: g.name }))),
+        error: () => this.hostGroups.set([]),
+      });
+    }
   }
 
   // Block K3: drift = the recorded desired config re-planned against the host.
   drift = signal<{ managed: string[]; drift: StateResourceChange[]; sources?: Record<string, string> }>({ managed: [], drift: [], sources: {} });
   driftBusy = signal(false);
-  // Block K4: apply an edit to the host's OU (all member hosts) instead of just
-  // this host.
-  applyToOu = signal(false);
-  private applyOuId(): string | undefined {
-    return this.applyToOu() ? this.agent()?.ou_id ?? undefined : undefined;
+  // Block K4: apply scope — 'host', 'ou', or 'group:<id>'. OU/group applies save
+  // a config policy + converge every member host ("Host A = Host B").
+  applyScope = signal<string>('host');
+  hostGroups = signal<{ id: string; name: string }[]>([]); // groups this host is in
+  private scopeArg(): { ouId?: string; groupId?: string } | undefined {
+    const s = this.applyScope();
+    if (s === 'ou') return { ouId: this.agent()?.ou_id ?? undefined };
+    if (s.startsWith('group:')) return { groupId: s.slice(6) };
+    return undefined;
   }
   sourceFor(path: string): string | null {
     return this.drift().sources?.[path] ?? null;
@@ -2118,7 +2142,7 @@ export class HostDetailComponent implements OnInit {
     if (!agent) return;
     this.editBusy.set(true);
     this.editError.set(null);
-    this.agentService.stateApply(agent.id, [this.kvResource(r)], false, this.applyOuId()).subscribe({
+    this.agentService.stateApply(agent.id, [this.kvResource(r)], false, this.scopeArg()).subscribe({
       next: () => {
         this.editBusy.set(false);
         this.cancelEdit();
@@ -2237,7 +2261,7 @@ export class HostDetailComponent implements OnInit {
     }
     this.tplBusy.set(true);
     this.tplError.set(null);
-    this.agentService.stateApply(agent.id, [resource], false, this.applyOuId()).subscribe({
+    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({
       next: () => {
         this.tplBusy.set(false);
         this.cancelTemplateEdit();

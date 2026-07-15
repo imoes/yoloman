@@ -1284,17 +1284,19 @@ class HostConfigResource(Base):
 
 
 class ConfigPolicy(Base):
-    """Block K4 — an OU-scoped config resource (values or template+values) that
-    applies to every host under that OU, the config counterpart to a check_rule
-    / orchestration plan on an OU. A host's effective desired config per path is
-    the GPO winner (host-direct HostConfigResource wins over the deepest OU on
-    its ancestry). One row per (scope_ou_id, path)."""
+    """Block K4 — a scoped config resource (values or template+values) applying
+    to every host under an OU (scope_ou_id) OR in a host group (host_group_id),
+    the config counterpart to a check_rule / orchestration link. A host's
+    effective desired config per path is the GPO winner: host-direct
+    HostConfigResource > deepest OU policy > group policy. Exactly one of
+    scope_ou_id / host_group_id is set; one row per (scope, path)."""
 
     __tablename__ = "config_policies"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    scope_ou_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"), nullable=False)
+    scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
     path: Mapped[str] = mapped_column(String, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False, default="config")
     config_format: Mapped[str | None] = mapped_column(String)
@@ -1305,7 +1307,9 @@ class ConfigPolicy(Base):
 
     __table_args__ = (
         UniqueConstraint("scope_ou_id", "path", name="uq_config_policies_ou_path"),
+        UniqueConstraint("host_group_id", "path", name="uq_config_policies_group_path"),
         Index("idx_config_policies_ou", "scope_ou_id"),
+        Index("idx_config_policies_group", "host_group_id"),
     )
 
 

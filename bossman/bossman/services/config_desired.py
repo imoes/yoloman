@@ -12,8 +12,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, ConfigPolicy, HostConfigResource
-from bossman.services.compiler import resolve_ou_ancestry
+from bossman.db.models import Agent, ConfigPolicy, HostConfigResource, HostGroup
+from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
 
 
 def resource_dict(type_: str | None, path: str, fmt: str | None, sep: str | None, values: dict | None, template: str | None) -> dict[str, Any]:
@@ -44,9 +44,30 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
                 winner[p.path] = (d, p, "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id)))
 
     merged: dict[str, tuple[dict[str, Any], str]] = {}
+
+    # Group policies are the weakest (LEVEL_GROUP < OU); applied first so OU and
+    # host override them. Deterministic among groups: sort by group id.
+    group_ids = await resolve_host_group_ids(session, agent.id)
+    if group_ids:
+        gnames = dict(
+            (await session.execute(select(HostGroup.id, HostGroup.name).where(HostGroup.id.in_(group_ids)))).all()
+        )
+        gpols = (
+            await session.scalars(
+                select(ConfigPolicy).where(ConfigPolicy.host_group_id.in_(list(group_ids))).order_by(ConfigPolicy.host_group_id)
+            )
+        ).all()
+        for p in gpols:
+            merged[p.path] = (
+                resource_dict(p.type, p.path, p.config_format, p.separator, p.values, p.template),
+                "group:" + gnames.get(p.host_group_id, str(p.host_group_id)),
+            )
+
+    # OU policies override group.
     for path, (_, row, source) in winner.items():
         merged[path] = (resource_dict(row.type, row.path, row.config_format, row.separator, row.values, row.template), source)
-    # Host-direct overrides any inherited OU policy for the same path.
+
+    # Host-direct overrides everything.
     for row in (await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))).all():
         merged[row.path] = (resource_dict(row.type, row.path, row.config_format, row.separator, row.values, row.template), "host")
 

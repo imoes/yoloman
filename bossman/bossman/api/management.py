@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, ConfigPolicy, HostConfigResource, OUNode
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, ConfigPolicy, HostConfigResource, HostGroup, OUNode
 from bossman.services.compiler import affected_agent_ids
 from bossman.services.config_desired import effective_resources, resource_dict
 from bossman.db.session import get_session
@@ -155,9 +155,11 @@ class StateDocument(BaseModel):
 
 class StateApplyRequest(StateDocument):
     dry_run: bool = True
-    # K4: when set, save the resources as an OU config policy (scope_ou_id) and
-    # converge every host under that OU — instead of a host-direct edit.
+    # K4: when ou_id or host_group_id is set, save the resources as a config
+    # policy on that scope and converge every member host — instead of a
+    # host-direct edit. At most one scope.
     ou_id: UUID | None = None
+    host_group_id: UUID | None = None
 
 
 @router.post("/api/v1/agents/{agent_id}/state/plan")
@@ -195,21 +197,30 @@ async def post_agent_state_apply(
     writing; a real apply writes through the codec merge and records a
     generation (so every edit is versioned + roll-backable). A read-only agent
     rejects the write → surfaced as 502."""
-    # K4: OU-scoped apply — save the resources as an OU config policy and
-    # converge every reachable host under that OU ("Host A = Host B").
-    if body.ou_id is not None:
-        if await session.get(OUNode, body.ou_id) is None:
+    # K4: scoped apply — save the resources as an OU/group config policy and
+    # converge every reachable member host ("Host A = Host B").
+    if body.ou_id is not None or body.host_group_id is not None:
+        is_ou = body.ou_id is not None
+        if is_ou and await session.get(OUNode, body.ou_id) is None:
             raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+        if not is_ou and await session.get(HostGroup, body.host_group_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such host group {body.host_group_id}")
         if not body.dry_run:
             for r in body.resources:
                 path = r.get("path")
                 if not path:
                     continue
-                pol = await session.scalar(
-                    select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.ou_id, ConfigPolicy.path == path)
-                )
+                if is_ou:
+                    q = select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.ou_id, ConfigPolicy.path == path)
+                else:
+                    q = select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == path)
+                pol = await session.scalar(q)
                 if pol is None:
-                    pol = ConfigPolicy(tenant_id=UUID(DEFAULT_TENANT_ID), scope_ou_id=body.ou_id, path=path)
+                    pol = ConfigPolicy(
+                        tenant_id=UUID(DEFAULT_TENANT_ID), path=path,
+                        scope_ou_id=body.ou_id if is_ou else None,
+                        host_group_id=None if is_ou else body.host_group_id,
+                    )
                     session.add(pol)
                 pol.type = r.get("type", "config")
                 pol.config_format = r.get("format")
@@ -218,8 +229,11 @@ async def post_agent_state_apply(
                 pol.template = r.get("template")
                 pol.updated_at = datetime.now(timezone.utc)
             await session.commit()
-        # Converge (or dry-run) every reachable host under the OU.
-        member_ids = await affected_agent_ids(session, "ou", ou_id=body.ou_id)
+        # Converge (or dry-run) every reachable member host.
+        if is_ou:
+            member_ids = await affected_agent_ids(session, "ou", ou_id=body.ou_id)
+        else:
+            member_ids = await affected_agent_ids(session, "group", host_group_id=body.host_group_id)
         applied, skipped = [], []
         for mid in member_ids:
             m = await session.get(Agent, mid)
@@ -231,7 +245,12 @@ async def post_agent_state_apply(
                 applied.append(m.name)
             except AgentClientError:
                 skipped.append(m.name)
-        return {"scope": "ou", "ou_id": str(body.ou_id), "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run}
+        return {
+            "scope": "ou" if is_ou else "group",
+            "ou_id": str(body.ou_id) if is_ou else None,
+            "host_group_id": None if is_ou else str(body.host_group_id),
+            "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run,
+        }
 
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
