@@ -24,7 +24,7 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 | Plans/orchestration (roles, links) | ✅ Runs tab, placement panel | ✅ Plans, Runs, Deploy | ✅ OU/Policy | ✅ | |
 | Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console, **now multi-OU** | ✅ | not on host detail (F-4); multi-OU done |
 | **Observed state (server document)** | ✅ **Configuration tab (F1 done)** | ❌ | — | ⚠️ agent-only | read side live |
-| **Generations / diff / rollback** | ❌ | ❌ drift dashboard | — | ⚠️ agent-only | **F2** |
+| **Generations / diff / rollback** | ✅ **Configuration tab (F2 done)** | ❌ drift dashboard | — | ⚠️ agent-only | live-verified |
 | **Config codecs (structured /etc editing)** | ❌ | n/a | ❌ | ⚠️ raw tool call | **F4** |
 | **Config templates (17, schema.json)** | ❌ apply-to-host | ❌ no catalog page | ❌ as policy | ⚠️ raw tool call | **F3** |
 | **Piggyback guests/sources (docker/proxmox/vsphere/libvirt)** | ❌ Virtualization tab says "none" while Docker runs | ⚠️ guests appear as hosts only | ❌ | ❌ | **F5** |
@@ -34,6 +34,15 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 ## Findings (walkthrough 2026-07-15)
 
 ### Bugs
+- **F-18** Agent self-corrupted its config: docker-test's
+  `/etc/agentic-mcp/config.yaml` lost its `tls.cert_file`/`tls.key_file` lines
+  (and re-gained a `trusted_client_keys` entry), so the agent crash-looped on
+  `tls.enabled requires tls.cert_file and tls.key_file` (restart counter 209,
+  down since 15:15). The cert/key files still existed. Something re-rendered the
+  config without preserving those fields — likely a `config`/desired-state apply
+  round-trip. **Repaired manually** (restored the tls block to enabled + cert +
+  key + trusted_client_keys:[], agent active again); the config-rewrite path
+  that dropped them needs fixing so it can't recur.
 - **F-1** ~~Host-detail Overview throws `null[0]` 4–6× on every visit.~~
   **FIXED**: root cause was mat-tabs rendering EAGERLY, so echarts charts in
   hidden (0×0) tabs initialised with a null zrender transform (`za(r,e)` matrix
@@ -104,9 +113,13 @@ approval).
   for opaque, or the read error). Loads on tab open + on deep-link
   (?tab=configuration). Verified live on docker-test (6 files: config.yaml
   yaml, /etc/default/* keyvalue). generations endpoint wired but its UI is F2.
-- **F2 — Generations & rollback**: same tab: generation timeline,
-  server-side diff between generations, rollback with dry-run preview
-  first (mirror agent-ui's State view semantics).
+- **F2 — Generations & rollback**: ✅ DONE + live-verified. Same
+  Configuration tab: generation table (# / applied / hash / resources /
+  current badge), "Roll back to #N…" runs a dry-run whose plan is the diff
+  (per-file key: before→after), shown in a preview card, then "Apply rollback".
+  Bossman proxy POST /agents/{id}/state/rollback + AgentClient.state_rollback.
+  Verified on docker-test: 3 generations, dry-run rollback to #2 shows
+  `/etc/yoloman-selftest.conf create a: null → "9"`; 0 console errors.
 - **F3 — Template catalog**: new Setup page **Templates** listing
   `configs/config_templates/` (needs a small Bossman endpoint serving the
   catalog); `schema.json` → auto-generated form, live render preview
