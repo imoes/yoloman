@@ -23,7 +23,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckRule, Downtime, Metric, Service, ServiceStateHistory, ValueMap
+from bossman.db.models import Agent, CheckRule, CheckRuleOuLink, Downtime, Metric, Service, ServiceStateHistory, ValueMap
 from bossman.services import gpo, render
 
 _COMPARISONS = {
@@ -42,6 +42,7 @@ def resolve_effective_rule(
     metric: str,
     label_value: str | None = None,
     host_ou_ancestry: list | None = None,
+    rule_ou_links: dict | None = None,
 ) -> CheckRule | None:
     """Picks the single rule that governs `metric` (for one label series,
     e.g. a disk mount) on this host, out of every rule that could apply.
@@ -62,11 +63,21 @@ def resolve_effective_rule(
     *different* label_value is excluded. Returns None if nothing matches."""
     ancestry = host_ou_ancestry or []
     ancestry_depth = {ou.id: i for i, ou in enumerate(ancestry)}
+    links = rule_ou_links or {}
     # Deepest OU level on the path that blocks inheritance (None if none).
     blocked_level: int | None = None
     for ou in ancestry:
         if getattr(ou, "block_inheritance", False):
             blocked_level = gpo.LEVEL_OU_BASE + ancestry_depth[ou.id]
+
+    def _rule_ous(rule: CheckRule) -> set:
+        # Every OU an OU-scoped rule applies to: its primary scope_ou_id plus
+        # any additional OUs linked via check_rule_ou_links (one policy → many
+        # OUs). rule.id is None for un-flushed rules (tests) → no extra links.
+        ous = set(links.get(rule.id, ())) if rule.id is not None else set()
+        if rule.scope_ou_id is not None:
+            ous.add(rule.scope_ou_id)
+        return ous
 
     def _scope_matches(rule: CheckRule) -> bool:
         if rule.scope_type == "global":
@@ -79,7 +90,7 @@ def resolve_effective_rule(
         if rule.scope_type == "host":
             return rule.scope_value == host_name
         if rule.scope_type == "ou":
-            return rule.scope_ou_id in ancestry_depth
+            return any(o in ancestry_depth for o in _rule_ous(rule))
         return False
 
     def _label_matches(rule: CheckRule) -> bool:
@@ -101,7 +112,11 @@ def resolve_effective_rule(
         if rule.scope_type == "host":
             return gpo.LEVEL_HOST
         if rule.scope_type == "ou":
-            return gpo.LEVEL_OU_BASE + ancestry_depth[rule.scope_ou_id]
+            # The deepest of the rule's OUs that lies on this host's ancestry
+            # wins (closest-to-host under GPO); guaranteed non-empty here since
+            # _scope_matches already passed.
+            depths = [ancestry_depth[o] for o in _rule_ous(rule) if o in ancestry_depth]
+            return gpo.LEVEL_OU_BASE + max(depths)
         if rule.scope_type == "group":
             return gpo.LEVEL_GROUP
         return gpo.LEVEL_GLOBAL
@@ -122,6 +137,16 @@ def resolve_effective_rule(
         for r in pool
     ]
     return gpo.resolve_winner(candidates, blocked_level)
+
+
+async def load_rule_ou_links(session: AsyncSession) -> dict:
+    """rule_id → set of additional OU ids from check_rule_ou_links, loaded once
+    per resolution pass and passed to resolve_effective_rule so one threshold
+    policy can apply to many OUs (beyond its primary scope_ou_id)."""
+    out: dict = {}
+    for link in (await session.scalars(select(CheckRuleOuLink))).all():
+        out.setdefault(link.rule_id, set()).add(link.ou_id)
+    return out
 
 
 # Consecutive non-OK checks before a state is promoted to hard (Block H7),
@@ -355,6 +380,7 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
     from bossman.services.compiler import resolve_ou_ancestry
 
     host_ou_ancestry = await resolve_ou_ancestry(session, agent.ou_id)
+    rule_ou_links = await load_rule_ou_links(session)
 
     now = datetime.now(timezone.utc)
     updated: list[Service] = []
@@ -391,7 +417,8 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
 
         for mount, value in series:
             rule = resolve_effective_rule(
-                list(rules), agent.name, agent.groups, metric, mount, host_ou_ancestry=host_ou_ancestry
+                list(rules), agent.name, agent.groups, metric, mount,
+                host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links,
             )
             if rule is None:
                 continue

@@ -155,3 +155,31 @@ def test_resolve_winner_all_blocked_returns_none():
 def test_resolve_winner_enforced_survives_block():
     c = gpo.GpoCandidate(obj="x", enforced=True, level=gpo.LEVEL_GLOBAL, link_order=100, created_ts=0.0)
     assert gpo.resolve_winner([c], blocked_level=gpo.LEVEL_OU_BASE) == "x"
+
+
+# --- (multi-OU) one policy linked to several OUs (check_rule_ou_links) --------
+
+
+def test_policy_applies_to_every_linked_ou():
+    a, b, other = _ou(), _ou(), _ou()
+    rid = uuid4()
+    rule = _rule("ou", ou_id=a.id)  # primary OU = a
+    rule.id = rid
+    links = {rid: {b.id}}  # additionally linked to b
+    R = lambda anc: resolve_effective_rule([rule], "h", [], "cpu_pct", None, host_ou_ancestry=anc, rule_ou_links=links)
+    assert R([a]) is rule          # primary OU
+    assert R([b]) is rule          # linked OU
+    assert R([other]) is None      # neither → does not apply
+
+
+def test_linked_ou_deepens_level_so_policy_wins():
+    root, child = _ou(), _ou()  # ancestry root → child
+    rid = uuid4()
+    linked = _rule("ou", ou_id=root.id, warn=80.0)  # primary root, but…
+    linked.id = rid
+    links = {rid: {child.id}}                        # …also linked to the deeper child
+    shallow = _rule("ou", ou_id=root.id, warn=90.0)  # a plain root-level rule
+    # `linked` resolves at child depth (its deepest linked OU on the path),
+    # so it beats the shallower root rule under normal closest-wins precedence.
+    got = resolve_effective_rule([linked, shallow], "h", [], "cpu_pct", None, host_ou_ancestry=[root, child], rule_ou_links=links)
+    assert got.warn_threshold == 80.0

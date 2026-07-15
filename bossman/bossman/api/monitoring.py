@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, Downtime, Metric, OUNode, Service
+from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service
 from bossman.db.session import get_session
 from bossman.services.reconciler import enqueue_policy_event
 from bossman.services.monitoring import (
@@ -435,6 +435,10 @@ class CheckRuleOut(BaseModel):
     scope_type: str
     scope_value: str | None
     scope_ou_id: UUID | None
+    # Every OU this policy applies to: the primary scope_ou_id plus any
+    # additional OUs linked via check_rule_ou_links (one policy → many OUs).
+    # Populated by list_check_rules; empty on the bare from_model path.
+    ou_ids: list[UUID] = []
     enforced: bool
     link_order: int
     label_value: str | None
@@ -460,6 +464,7 @@ class CheckRuleOut(BaseModel):
             scope_type=r.scope_type,
             scope_value=r.scope_value,
             scope_ou_id=r.scope_ou_id,
+            ou_ids=[r.scope_ou_id] if r.scope_ou_id is not None else [],
             enforced=r.enforced,
             link_order=r.link_order,
             label_value=r.label_value,
@@ -516,7 +521,18 @@ async def list_check_rules(
     _identity=Depends(get_current_identity),
 ) -> list[CheckRuleOut]:
     rules = (await session.scalars(select(CheckRule).order_by(CheckRule.created_at.desc()))).all()
-    return [CheckRuleOut.from_model(r) for r in rules]
+    # One policy can link to many OUs (check_rule_ou_links) — fold each rule's
+    # additional OUs into ou_ids alongside its primary scope_ou_id.
+    extra: dict[UUID, list[UUID]] = {}
+    for link in (await session.scalars(select(CheckRuleOuLink))).all():
+        extra.setdefault(link.rule_id, []).append(link.ou_id)
+    out = []
+    for r in rules:
+        o = CheckRuleOut.from_model(r)
+        merged = list(dict.fromkeys(o.ou_ids + extra.get(r.id, [])))  # dedup, preserve order
+        o.ou_ids = merged
+        out.append(o)
+    return out
 
 
 @router.post("/api/v1/check-rules", response_model=CheckRuleOut)
@@ -649,6 +665,94 @@ async def patch_check_rule(
     await _enqueue_rule_change(session)
     await session.commit()
     return CheckRuleOut.from_model(rule)
+
+
+class OuLinkIn(BaseModel):
+    ou_id: UUID
+
+
+@router.post("/api/v1/check-rules/{rule_id}/ou-links", response_model=CheckRuleOut)
+async def add_check_rule_ou_link(
+    rule_id: UUID,
+    body: OuLinkIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> CheckRuleOut:
+    """Link a threshold policy to ANOTHER OU — one policy applies to many OUs
+    (GPO-style multi-link) instead of being duplicated per OU. If the rule has
+    no OU yet, the first linked OU becomes its primary scope; otherwise it's
+    recorded in check_rule_ou_links. Idempotent."""
+    rule = await session.get(CheckRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    if rule.template_id is not None:
+        raise HTTPException(status_code=409, detail=f"check rule {rule_id} is managed by a template — edit the template instead")
+    if await session.get(OUNode, body.ou_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+
+    # Already the primary OU, or already linked → no-op (idempotent).
+    if rule.scope_ou_id == body.ou_id:
+        await session.commit()
+        return CheckRuleOut.from_model(rule)
+    existing = await session.scalar(
+        select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id, CheckRuleOuLink.ou_id == body.ou_id)
+    )
+    if existing is None:
+        if rule.scope_ou_id is None:
+            # First OU for this policy → make it the primary scope.
+            rule.scope_type = "ou"
+            rule.scope_value = None
+            rule.scope_ou_id = body.ou_id
+        else:
+            session.add(CheckRuleOuLink(rule_id=rule_id, ou_id=body.ou_id))
+    await _enqueue_rule_change(session)
+    await session.commit()
+    await session.refresh(rule)
+    links = (await session.scalars(select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id))).all()
+    out = CheckRuleOut.from_model(rule)
+    out.ou_ids = list(dict.fromkeys(out.ou_ids + [l.ou_id for l in links]))
+    return out
+
+
+@router.delete("/api/v1/check-rules/{rule_id}/ou-links/{ou_id}", response_model=CheckRuleOut)
+async def remove_check_rule_ou_link(
+    rule_id: UUID,
+    ou_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> CheckRuleOut:
+    """Unlink a threshold policy from one OU. Removing the primary OU promotes
+    another linked OU to primary (so an ou-scoped rule always keeps ≥1 OU);
+    removing the last remaining OU is refused — delete the rule instead."""
+    rule = await session.get(CheckRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    if rule.template_id is not None:
+        raise HTTPException(status_code=409, detail=f"check rule {rule_id} is managed by a template — edit the template instead")
+
+    if rule.scope_ou_id == ou_id:
+        # Promote a linked OU to primary, or refuse if this is the only OU.
+        promote = await session.scalar(
+            select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id).limit(1)
+        )
+        if promote is None:
+            raise HTTPException(status_code=409, detail="cannot unlink the only OU — delete the rule instead")
+        rule.scope_ou_id = promote.ou_id
+        await session.delete(promote)
+    else:
+        link = await session.scalar(
+            select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id, CheckRuleOuLink.ou_id == ou_id)
+        )
+        if link is None:
+            raise HTTPException(status_code=404, detail=f"rule {rule_id} is not linked to OU {ou_id}")
+        await session.delete(link)
+    await _enqueue_rule_change(session)
+    await session.commit()
+    await session.refresh(rule)
+    links = (await session.scalars(select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id))).all()
+    out = CheckRuleOut.from_model(rule)
+    out.ou_ids = list(dict.fromkeys(out.ou_ids + [l.ou_id for l in links]))
+    return out
 
 
 @router.delete("/api/v1/check-rules/{rule_id}", status_code=204)

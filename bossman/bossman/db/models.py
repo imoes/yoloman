@@ -1229,6 +1229,32 @@ class CheckRule(Base):
     )
 
 
+class CheckRuleOuLink(Base):
+    """Additional OU links for a check rule (threshold policy) beyond its
+    primary `scope_ou_id` — so ONE policy can apply to MANY OUs (GPO-style
+    multi-link, like OrchestrationPlanLink) instead of being duplicated per
+    OU. Resolution (services/monitoring.resolve_effective_rule) unions the
+    primary scope_ou_id with every linked OU; for a given host the deepest of
+    those OUs on its ancestry decides the rule's level. CASCADE on both sides:
+    the link disappears with either the rule or the OU."""
+
+    __tablename__ = "check_rule_ou_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("check_rules.id", ondelete="CASCADE"), nullable=False
+    )
+    ou_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("rule_id", "ou_id", name="uq_check_rule_ou_links_rule_ou"),
+        Index("idx_check_rule_ou_links_rule", "rule_id"),
+    )
+
+
 class Service(Base):
     """The materialized, per-host result of evaluating a CheckRule against
     the most recently polled metric value — CheckMK's own "Service"

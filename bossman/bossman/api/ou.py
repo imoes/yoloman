@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,7 @@ from bossman.api.auth import get_current_identity
 from bossman.db.models import (
     Agent,
     CheckRule,
+    CheckRuleOuLink,
     HostGroup,
     NotificationRule,
     OrchestrationPlan,
@@ -275,7 +276,16 @@ async def list_ou_objects(
     await _get_ou_or_404(session, ou_id)
     out: list[OUObject] = []
 
-    for r in (await session.scalars(select(CheckRule).where(CheckRule.scope_ou_id == ou_id))).all():
+    # Threshold policies attached to this OU — both those whose primary scope
+    # is this OU and those linked to it via check_rule_ou_links (one policy →
+    # many OUs). Union + dedup so a multi-linked policy shows once per OU.
+    linked_rule_ids = set(
+        (await session.scalars(select(CheckRuleOuLink.rule_id).where(CheckRuleOuLink.ou_id == ou_id))).all()
+    )
+    conds = [CheckRule.scope_ou_id == ou_id]
+    if linked_rule_ids:
+        conds.append(CheckRule.id.in_(linked_rule_ids))
+    for r in (await session.scalars(select(CheckRule).where(or_(*conds)))).all():
         label = f"{r.service_name} ({r.metric} {r.comparison} {r.warn_threshold}/{r.crit_threshold})"
         out.append(OUObject(kind="check_rule", id=r.id, label=label, enforced=r.enforced, enabled=r.enabled))
 

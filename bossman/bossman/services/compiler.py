@@ -326,13 +326,15 @@ async def resolve_host_thresholds(
     for now (documented first cut)."""
     # Imported here (not at module top) to mirror monitoring.py's own lazy
     # import of this module — belt-and-suspenders against an import cycle.
-    from bossman.services.monitoring import resolve_effective_rule
+    from bossman.services.monitoring import load_rule_ou_links, resolve_effective_rule
 
     rules = (await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all()  # noqa: E712
+    rule_ou_links = await load_rule_ou_links(session)
     thresholds: dict[str, dict] = {}
     for metric in sorted({r.metric for r in rules}):
         rule = resolve_effective_rule(
-            list(rules), agent.name, agent.groups, metric, None, host_ou_ancestry=host_ou_ancestry
+            list(rules), agent.name, agent.groups, metric, None,
+            host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links,
         )
         if rule is None or (rule.warn_threshold is None and rule.crit_threshold is None):
             continue
