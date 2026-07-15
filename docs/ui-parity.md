@@ -1,0 +1,128 @@
+# UI parity matrix & walkthrough findings (F0)
+
+Living document. Rule: **a backend feature is DONE only when its row here is
+filled in (or deliberately marked n/a).** Every agent capability gets four
+surfaces:
+
+1. **Host facet** — a host-detail tab/section to view + operate it per host
+2. **Fleet aggregation** — a cross-host view, where meaningful
+3. **Policy scope** — distributable as desired state over OU/group (GPO)
+4. **Chat/MCP tool** — the AI console can do it too
+
+Walkthrough basis: full Playwright pass over all 18 screens + 10 host-detail
+tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
+
+## Parity matrix
+
+| Capability | Host facet | Fleet aggregation | Policy scope | Chat/MCP | Notes |
+|---|---|---|---|---|---|
+| Metrics/monitoring (services, perf-o-meter) | ✅ Services tab | ✅ Fleet Overview, Problems | ✅ check_rules via OU console | ✅ | reference implementation |
+| Processes + systemd control | ✅ Processes tab | n/a | n/a | ✅ | |
+| eBPF (latency, connections) | ✅ eBPF + Relationships | ⚠️ Topology shows 0 edges (F-3) | n/a | ✅ | |
+| Inventory (DMI/OS/disks) | ✅ Inventory tab | ❌ no fleet inventory/search | n/a | ✅ | fleet-wide inventory query = later |
+| Network / Firewall / Storage / Accounts / FreeIPA / Updates / Logs | ✅ Management sub-tabs | ❌ | ❌ | ✅ | Cockpit-adaptation plan exists (separate) |
+| Plans/orchestration (roles, links) | ✅ Runs tab, placement panel | ✅ Plans, Runs, Deploy | ✅ OU/Policy | ✅ | |
+| Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console | ✅ | not on host detail (F-4) |
+| **Observed state (server document)** | ❌ **no Config tab** | ❌ | — | ⚠️ agent-only | **F1** |
+| **Generations / diff / rollback** | ❌ | ❌ drift dashboard | — | ⚠️ agent-only | **F2** |
+| **Config codecs (structured /etc editing)** | ❌ | n/a | ❌ | ⚠️ raw tool call | **F4** |
+| **Config templates (17, schema.json)** | ❌ apply-to-host | ❌ no catalog page | ❌ as policy | ⚠️ raw tool call | **F3** |
+| **Piggyback guests/sources (docker/proxmox/vsphere/libvirt)** | ❌ Virtualization tab says "none" while Docker runs | ⚠️ guests appear as hosts only | ❌ | ❌ | **F5** |
+| Runbooks (runner) | ⚠️ no host runbook history | ⚠️ text editor only, SWD builder only in agent-ui | ❌ schedule/target | ✅ | F6 |
+| Checks library (checks.d) | ⚠️ Checks tab (assignments only) | ✅ catalog (744/1050 in "Other") | ✅ | ✅ | naming collision, see F-4/F-13 |
+
+## Findings (walkthrough 2026-07-15)
+
+### Bugs
+- **F-1** Host-detail **Overview tab throws** repeated
+  `TypeError: Cannot read properties of null (reading '0')` (4–6 console
+  errors; most likely a metric chart fed a null series). Every visit.
+- **F-2** Fleet Overview: **"Service states" dashlet renders empty** (label,
+  no content).
+- **F-3** Topology / Relationships: map header says **"0 edges"** while the
+  eBPF connections table directly below is full — external destinations
+  (LDAP/Kerberos servers) never become nodes/edges; only agent↔agent would.
+- **F-16** Management → Network shows provider "NetworkManager" on
+  docker-test — verify provider detection (host was believed ifupdown).
+
+### Concept gaps (the "not thought through" feeling)
+- **F-4** **Three notions of "checks" with no cross-links**: Services tab
+  (from check_rules) says 14 services checked; host Checks tab says "No
+  checks apply to this host yet"; OU threshold policies appear only in Host
+  placement. A user cannot answer "why is this service checked / where is
+  its threshold from?" on the host itself.
+- **F-5** Modules page says **"checkmk 0 / 1444 translated"** while the
+  Checks catalog shows 1050 translated checks — two bookkeepings (modules.d
+  vs checks.d) visibly contradict each other.
+- **F-6** **Runs fragmentation**: nav "Runs" → page "Plan Runs" (plans only);
+  runbook runs only as a mini-list on the Runbooks page; host Runs tab also
+  plans-only.
+- **F-7** **Server-document loop has zero fleet-UI surface** (observed /
+  plan / apply / generations / rollback exist only in the standalone
+  agent-ui). The flagship feature is invisible.
+- **F-8** 17 config templates + codec registry have **no UI at all**.
+- **F-9** Virtualization tab: "hypervisors: none — no local virtualization
+  stack" although Docker runs and the piggyback Docker collector reports
+  containers as hosts. Piggyback sources are neither visible nor
+  configurable anywhere.
+- **F-10** Runbooks: fleet UI is text-only (NestedText); the visual SWD
+  builder exists only in agent-ui. Library empty ("No saved runbooks").
+
+### Data hygiene
+- **F-11** Test artifacts in the prod DB: users `u-8afb94`/`u-ecca9b`
+  (**role admin!**), plans `plan-b13112ea`/`plan-d947b466` (the "(unlinked)"
+  cards on OU/Policy), runbook runs named `c`,`o`,`p`,`v`,`j`. Tests must
+  clean up after themselves (or run against a throwaway DB).
+- **F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense — the
+  cause of docker-test's permanent Memory CRIT (33.7% ≥ 20).
+- **F-13** Checks categorization: **744 of 1050 land in "Other"** (71%).
+
+### Polish
+- **F-14** Hosts list: update/delete actions are raw emoji "⬆🗑" (vs
+  Material icons everywhere else); acl host's Services cell is blank (not
+  "—"/0).
+- **F-15** Security page is manual-only (refresh feed + visit each host's
+  Updates to collect) — fine for now, note for the poller.
+
+## Block plan (F1+, for execution)
+
+Order: F1 → F2 → F3 → F7-fixes interleaved; F4/F5/F6 after. Each block:
+implement → Playwright smoke → update this matrix → commit (no push without
+approval).
+
+- **F1 — Config tab (read)**: Bossman proxy `GET /agents/{id}/state/observed`
+  (+ generations), following the existing `/agents/{id}/tools/{name}` /
+  `runbook/run` proxy pattern. New host-detail tab **Configuration**:
+  services with their discovered config files, codec-parsed content
+  (structured view), raw fallback. Empty/error states for agents without
+  the endpoint (version-gate).
+- **F2 — Generations & rollback**: same tab: generation timeline,
+  server-side diff between generations, rollback with dry-run preview
+  first (mirror agent-ui's State view semantics).
+- **F3 — Template catalog**: new Setup page **Templates** listing
+  `configs/config_templates/` (needs a small Bossman endpoint serving the
+  catalog); `schema.json` → auto-generated form, live render preview
+  (template_render dry-run via tools proxy), "apply to host" writing dest;
+  per-host entry point from the Configuration tab.
+- **Bugfix batch (with F1)**: F-1 null-chart crash, F-2 empty dashlet,
+  F-12 memory defaults (warn 80/crit 90), F-14 icons, F-11 cleanup script
+  (`scripts/cleanup_test_artifacts.py` — delete u-*/plan-*/1-letter-run
+  artifacts after confirmation).
+- **F4 — Structured config editor**: edit a discovered config file via its
+  codec (form for keyvalue/ini; JSON editor for json/yaml/xml), plan →
+  apply via the config module (dry-run first), wired to generations.
+- **F5 — Piggyback surface**: Virtualization tab: show collectors + their
+  guests (also "Docker: N containers"); config editor for
+  `piggyback:` agent config (via config module); fleet: guests already
+  appear in hosts/overview — link guest → parent.
+- **F6 — Runs unification + runbook parity**: one Runs page with a type
+  filter (plan | runbook | deploy), same on the host Runs tab; port the
+  SWD visual builder from agent-ui into the fleet Runbooks page (shared
+  lib in the workspace).
+- **F-4/F-5 concept fix (with F6)**: host Checks tab gains "effective
+  monitoring" summary (check_rule thresholds + library assignments with
+  origin/GPO source, link to OU console); Modules page checkmk row links to
+  the Checks catalog instead of counting 0.
+
+Deliberately NOT now: fleet-wide inventory search, Cockpit network/storage
+deep adaptation (own plan), Security poller automation.
