@@ -62,7 +62,7 @@ interface TreeRow {
  * of every type, plus unlinked orchestration plans. Dragging one onto an OU
  * links/re-scopes it there (Block L3e). */
 interface PaletteItem {
-  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link' | 'plan';
+  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link' | 'plan' | 'config_policy';
   id: string;
   label: string;
   ownerOuId: string | null; // where it currently lives; null = unlinked plan
@@ -527,7 +527,7 @@ export class OuPolicyComponent implements OnInit {
   }
 
   objIcon(kind: OUObject['kind']): string {
-    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', orchestration_link: 'widgets' }[kind];
+    return { check_rule: 'speed', notification: 'notifications', host_group: 'dns', orchestration_link: 'widgets', config_policy: 'dataset' }[kind];
   }
 
   select(row: TreeRow): void {
@@ -631,7 +631,7 @@ export class OuPolicyComponent implements OnInit {
   paletteIcon(kind: PaletteItem['kind']): string {
     return {
       check_rule: 'speed', notification: 'notifications', host_group: 'dns',
-      orchestration_link: 'widgets', plan: 'widgets',
+      orchestration_link: 'widgets', plan: 'widgets', config_policy: 'dataset',
     }[kind];
   }
 
@@ -1015,5 +1015,6 @@ export class OuPolicyComponent implements OnInit {
     else if (obj.kind === 'notification') this.notification.deleteRule(obj.id).subscribe(done);
     else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
     else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
+    else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
   }
 }

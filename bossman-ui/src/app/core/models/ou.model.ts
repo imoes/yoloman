@@ -23,7 +23,7 @@ export interface OUNodeInput {
 /** Matches bossman/api/ou.py's OUObject — one policy object attached
  * directly to an OU (Block L3a), the tree's per-node child list. */
 export interface OUObject {
-  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link';
+  kind: 'check_rule' | 'notification' | 'host_group' | 'orchestration_link' | 'config_policy';
   id: string;
   label: string;
   enforced: boolean;

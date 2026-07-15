@@ -21,6 +21,12 @@ export class OuService {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
+  /** Block K4 — remove an OU config policy (stops distributing it; member
+   * hosts keep the last-applied file until re-synced). */
+  deleteConfigPolicy(id: string) {
+    return this.http.delete<void>(`${environment.apiUrl}/config-policies/${id}`);
+  }
+
   ancestry(id: string) {
     return this.http.get<OUNode[]>(`${this.base}/${id}/ancestry`);
   }
