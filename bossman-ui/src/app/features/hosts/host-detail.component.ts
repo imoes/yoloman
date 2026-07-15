@@ -467,25 +467,27 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     </div>
                     @if (r.error) {
                       <p class="bm-cfg-err">{{ r.error }}</p>
-                    } @else if (r.values) {
-                      @if (editingPath() === r.path) {
-                        <textarea class="bm-cfg-edit" rows="12" [value]="editText()"
-                                  (input)="editText.set($any($event.target).value)"></textarea>
-                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                        @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
-                        <div class="bm-rollback-actions">
-                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                          <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
-                          <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
-                        </div>
-                      } @else {
+                    } @else if (editingPath() === r.path) {
+                      <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
+                                (input)="editText.set($any($event.target).value)"></textarea>
+                      @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                      @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
+                      <div class="bm-rollback-actions">
+                        <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
+                        <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
+                        <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
+                      </div>
+                    } @else {
+                      @if (r.values) {
                         <pre class="bm-cfg-values">{{ configText(r) }}</pre>
-                        @if (isEditable(r)) {
-                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit</button>
-                        }
+                      } @else if (r.raw) {
+                        <pre class="bm-cfg-values">{{ r.raw }}</pre>
+                      } @else if (r.sha256) {
+                        <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                       }
-                    } @else if (r.sha256) {
-                      <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
+                      @if (isEditable(r)) {
+                        <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit</button>
+                      }
                     }
                   </mat-card>
                 }
@@ -1842,10 +1844,11 @@ export class HostDetailComponent implements OnInit {
     return `${pad}${this.scalarStr(v)}`;
   }
 
-  /** Only keyvalue configs are editable for now (the key-value-database push);
-   * ini/yaml/xml stay read-only until their in-UI parsers land. */
-  isEditable(r: { format: string }): boolean {
-    return r.format === 'keyvalue';
+  /** A config is editable when we carried its verbatim text (textual file under
+   * the size cap). The edit pushes the whole file back via `copy`, so every
+   * format works and comments/order/deletions are preserved. */
+  isEditable(r: { raw?: string }): boolean {
+    return !!r.raw;
   }
 
   editingPath = signal<string | null>(null);
@@ -1854,9 +1857,9 @@ export class HostDetailComponent implements OnInit {
   editError = signal<string | null>(null);
   editPreview = signal<string | null>(null); // dry-run result message
 
-  startEdit(r: { path: string; format: string; separator?: string; values?: Record<string, unknown> }): void {
+  startEdit(r: { path: string; raw?: string }): void {
     this.editingPath.set(r.path);
-    this.editText.set(this.configText(r));
+    this.editText.set(r.raw ?? '');
     this.editError.set(null);
     this.editPreview.set(null);
   }
@@ -1867,57 +1870,33 @@ export class HostDetailComponent implements OnInit {
     this.editError.set(null);
   }
 
-  /** Parse the edited keyvalue text back into a values map: split each
-   * non-comment line on the codec's separator (first occurrence); a bare key
-   * (no separator) maps to "". */
-  private parseKv(text: string, sep: string): Record<string, string> {
-    const out: Record<string, string> = {};
-    const s = sep || ' ';
-    for (const raw of text.split('\n')) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#') || line.startsWith(';')) continue;
-      let key: string, val: string;
-      if (s.trim() === '') {
-        const i = line.search(/\s/);
-        if (i < 0) { key = line; val = ''; } else { key = line.slice(0, i); val = line.slice(i).trim(); }
-      } else {
-        const i = line.indexOf(s);
-        if (i < 0) { key = line; val = ''; } else { key = line.slice(0, i).trim(); val = line.slice(i + s.length).trim(); }
-      }
-      if (key) out[key] = val;
-    }
-    return out;
-  }
-
-  private pushConfig(r: { path: string; format: string; separator?: string }, dryRun: boolean, onDone: () => void): void {
+  private pushConfig(r: { path: string }, dryRun: boolean, onDone: (changed: boolean) => void): void {
     const agent = this.agent();
     if (!agent) return;
-    const values = this.parseKv(this.editText(), r.separator || ' ');
     this.editBusy.set(true);
     this.editError.set(null);
-    this.agentService
-      .writeConfig(agent.id, { path: r.path, format: r.format, separator: r.separator, values, dry_run: dryRun })
-      .subscribe({
-        next: (res) => {
-          this.editBusy.set(false);
-          onDone();
-          void res;
-        },
-        error: (e) => {
-          this.editError.set(e?.error?.detail ?? 'config write failed');
-          this.editBusy.set(false);
-        },
-      });
+    this.agentService.writeFileContent(agent.id, r.path, this.editText(), dryRun).subscribe({
+      next: (res) => {
+        this.editBusy.set(false);
+        onDone(!!res.result?.changed);
+      },
+      error: (e) => {
+        this.editError.set(e?.error?.detail ?? 'config write failed');
+        this.editBusy.set(false);
+      },
+    });
   }
 
-  /** Dry-run the edit: the agent merges + reports whether it would change the
-   * file, without writing. */
-  previewEdit(r: { path: string; format: string; separator?: string }): void {
-    this.pushConfig(r, true, () => this.editPreview.set('preview ok — will merge the edited keys into ' + r.path + ' (nothing written yet)'));
+  /** Dry-run the edit: the agent reports whether the file would change, without
+   * writing. */
+  previewEdit(r: { path: string }): void {
+    this.pushConfig(r, true, (changed) =>
+      this.editPreview.set(changed ? `preview: ${r.path} would change (nothing written yet)` : 'preview: no changes'),
+    );
   }
 
-  /** Apply the edit for real, then reload observed state + generations. */
-  applyEdit(r: { path: string; format: string; separator?: string }): void {
+  /** Apply the edit for real (writes the whole file), then reload the tab. */
+  applyEdit(r: { path: string }): void {
     this.pushConfig(r, false, () => {
       this.cancelEdit();
       this.loadObserved();

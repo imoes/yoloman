@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 )
@@ -23,8 +24,16 @@ type ObservedResource struct {
 	Values    map[string]any `json:"values,omitempty"`
 	SHA256    string         `json:"sha256,omitempty"`
 	Size      int64          `json:"size,omitempty"`
-	Error     string         `json:"error,omitempty"`
+	// Raw is the file's verbatim text (comments + order intact), included for
+	// textual files up to maxRawBytes so the UI can show + edit the real file,
+	// not a lossy re-serialization of Values. Empty for binary/oversized files.
+	Raw   string `json:"raw,omitempty"`
+	Error string `json:"error,omitempty"`
 }
+
+// maxRawBytes caps the verbatim file text carried in observed state — big
+// enough for any real /etc config, small enough to keep the document sane.
+const maxRawBytes = 256 * 1024
 
 // ObservedState is the whole server rendered as one JSON document: which
 // services are enabled, and the current content of every config file they
@@ -75,6 +84,14 @@ func Observe(ctx context.Context, reg *modules.Registry, now time.Time) (Observe
 		format, _ := f["format"].(string)
 		sep, _ := f["separator"].(string)
 		or := ObservedResource{Type: "config", Path: path, Format: format, Separator: sep}
+		// Read the file once: its verbatim text (for display/edit) + its hash.
+		raw, readErr := os.ReadFile(path)
+		if readErr == nil {
+			or.Size = int64(len(raw))
+			if len(raw) <= maxRawBytes && utf8.Valid(raw) {
+				or.Raw = string(raw)
+			}
+		}
 		if format != "" && hasCfg {
 			p := map[string]any{"path": path, "format": format}
 			if sep != "" {
@@ -88,15 +105,12 @@ func Observe(ctx context.Context, reg *modules.Registry, now time.Time) (Observe
 					or.Values = c
 				}
 			}
-		} else {
+		} else if readErr == nil {
 			// No codec: track by content hash so drift is still detectable.
-			if b, e := os.ReadFile(path); e == nil {
-				sum := sha256.Sum256(b)
-				or.SHA256 = fmt.Sprintf("%x", sum[:])
-				or.Size = int64(len(b))
-			} else {
-				or.Error = e.Error()
-			}
+			sum := sha256.Sum256(raw)
+			or.SHA256 = fmt.Sprintf("%x", sum[:])
+		} else {
+			or.Error = readErr.Error()
 		}
 		out.Config = append(out.Config, or)
 	}

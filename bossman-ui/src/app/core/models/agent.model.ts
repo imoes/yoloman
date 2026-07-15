@@ -327,6 +327,9 @@ export interface ObservedResource {
   values?: Record<string, unknown>;
   sha256?: string;
   size?: number;
+  /** Verbatim file text (comments + order intact) for textual files — what the
+   * editor edits and pushes back, so nothing is lost to re-serialization. */
+  raw?: string;
   error?: string;
 }
 
