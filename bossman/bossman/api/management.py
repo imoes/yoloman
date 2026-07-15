@@ -101,6 +101,48 @@ async def call_agent_tool_route(
     return {"agent_id": str(agent.id), "tool": tool_name, "result": result}
 
 
+@router.get("/api/v1/agents/{agent_id}/state/observed")
+async def get_agent_state_observed(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """The host as one JSON document (Block F1, the server-as-a-document read):
+    proxies the agent's GET /api/v1/state/observed — discovered services + each
+    config file read back structured via its codec (or a sha256 ref). Live
+    pass-through, never Bossman's Postgres."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        observed = await client.state_observed()
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "observed": observed}
+
+
+@router.get("/api/v1/agents/{agent_id}/state/generations")
+async def get_agent_state_generations(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """The agent's local desired-state generation history (plan/apply/rollback
+    store), proxied from GET /api/v1/state/generations. Distinct from Bossman's
+    own compiled-desired-state generations (CompiledHostState) — this is what
+    the host itself has applied and can roll back to."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        gens = await client.state_generations()
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), **(gens if isinstance(gens, dict) else {"generations": gens})}
+
+
 @router.get("/api/v1/agents/{agent_id}/service-units")
 async def get_agent_services(
     agent_id: UUID,

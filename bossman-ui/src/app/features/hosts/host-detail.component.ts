@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, JsonPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
@@ -12,7 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, EbpfDetail, LatestMetric, MetricPoint, Process } from '../../core/models/agent.model';
+import { Agent, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -99,6 +99,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     RouterLink,
     DatePipe,
     DecimalPipe,
+    JsonPipe,
     MatTabsModule,
     MatCardModule,
     MatButtonToggleModule,
@@ -448,6 +449,39 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </ng-template></mat-tab>
 
+          <mat-tab label="Configuration"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              @if (observedLoading()) {
+                <p class="bm-empty">Reading the host's configuration…</p>
+              } @else if (observedError(); as err) {
+                <p class="bm-empty">{{ err }}</p>
+              } @else if (observed(); as obs) {
+                <div class="bm-cfg-head">
+                  <span class="bm-dim">The host as one document — {{ obs.config.length }} config file(s), read {{ obs.generated_at | date: 'medium' }}.</span>
+                  <button mat-stroked-button (click)="loadObserved()"><mat-icon>refresh</mat-icon> Reload</button>
+                </div>
+                @for (r of obs.config; track r.path) {
+                  <mat-card class="bm-cfg-card">
+                    <div class="bm-cfg-row">
+                      <code class="bm-cfg-path">{{ r.path }}</code>
+                      <span class="bm-tag">{{ r.format }}</span>
+                    </div>
+                    @if (r.error) {
+                      <p class="bm-cfg-err">{{ r.error }}</p>
+                    } @else if (r.values) {
+                      <pre class="bm-cfg-values">{{ r.values | json }}</pre>
+                    } @else if (r.sha256) {
+                      <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
+                    }
+                  </mat-card>
+                }
+                @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
+              } @else {
+                <p class="bm-empty">Open this tab to read the host's configuration.</p>
+              }
+            </div>
+          </ng-template></mat-tab>
+
           <mat-tab label="Checks"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-checks [agent]="agent" />
@@ -770,6 +804,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tab-content {
         padding: 16px 4px;
       }
+      .bm-cfg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+      .bm-cfg-card { padding: 12px 14px; margin-bottom: 10px; }
+      .bm-cfg-row { display: flex; align-items: center; gap: 10px; }
+      .bm-cfg-path { font-weight: 600; word-break: break-all; }
+      .bm-cfg-values { margin: 8px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; font-size: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+      .bm-cfg-err { color: var(--bm-crit, #c62828); margin: 8px 0 0; font-size: 13px; }
       .bm-ebpf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
       @media (max-width: 900px) { .bm-ebpf-grid { grid-template-columns: 1fr; } }
       .bm-ebpf-panel { border: 1px solid var(--bm-border, #e0e0e0); border-radius: 6px; padding: 12px; overflow-x: auto; }
@@ -1416,12 +1456,17 @@ export class HostDetailComponent implements OnInit {
   ];
   overview = signal<FleetHost | null>(null);
 
+  // Block F1 — server-as-a-document (Configuration tab), lazily loaded.
+  observed = signal<ObservedState | null>(null);
+  observedLoading = signal(false);
+  observedError = signal<string | null>(null);
+
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
 
   // Tabs in template order; a ?tab= query param (e.g. from the Overview
   // problems panel → Services) selects the initial tab.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'checks', 'console', 'relationships', 'processes', 'runs', 'management'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management'];
   initialTabIndex = 0;
 
   ngOnInit(): void {
@@ -1433,6 +1478,9 @@ export class HostDetailComponent implements OnInit {
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
       this.healthStatus.set(agentHealthStatus(agent));
+      // Deep-linked initial tab fires no (selectedTabChange) event, so kick the
+      // lazy Configuration load here when it's the landing tab.
+      if (this.tabOrder[this.initialTabIndex] === 'configuration') this.loadObserved();
     });
 
     this.agentService.metricsLatest(id).subscribe((res) => this.latestMetrics.set(res.metrics));
@@ -1547,6 +1595,28 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'eBPF' && !this.ebpfLoaded() && !this.ebpfLoading()) {
       this.loadEbpf();
     }
+    if (event.tab.textLabel === 'Configuration' && this.observed() === null && !this.observedLoading()) {
+      this.loadObserved();
+    }
+  }
+
+  /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
+   * loaded lazily when the Configuration tab is first opened. */
+  loadObserved(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.observedLoading.set(true);
+    this.observedError.set(null);
+    this.agentService.observedState(agent.id).subscribe({
+      next: (res) => {
+        this.observed.set(res.observed);
+        this.observedLoading.set(false);
+      },
+      error: (e) => {
+        this.observedError.set(e?.error?.detail ?? 'could not read observed state');
+        this.observedLoading.set(false);
+      },
+    });
   }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +

@@ -23,7 +23,7 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 | Network / Firewall / Storage / Accounts / FreeIPA / Updates / Logs | ✅ Management sub-tabs | ❌ | ❌ | ✅ | Cockpit-adaptation plan exists (separate) |
 | Plans/orchestration (roles, links) | ✅ Runs tab, placement panel | ✅ Plans, Runs, Deploy | ✅ OU/Policy | ✅ | |
 | Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console, **now multi-OU** | ✅ | not on host detail (F-4); multi-OU done |
-| **Observed state (server document)** | ❌ **no Config tab** | ❌ | — | ⚠️ agent-only | **F1** |
+| **Observed state (server document)** | ✅ **Configuration tab (F1 done)** | ❌ | — | ⚠️ agent-only | read side live |
 | **Generations / diff / rollback** | ❌ | ❌ drift dashboard | — | ⚠️ agent-only | **F2** |
 | **Config codecs (structured /etc editing)** | ❌ | n/a | ❌ | ⚠️ raw tool call | **F4** |
 | **Config templates (17, schema.json)** | ❌ apply-to-host | ❌ no catalog page | ❌ as policy | ⚠️ raw tool call | **F3** |
@@ -96,12 +96,14 @@ Order: F1 → F2 → F3 → F7-fixes interleaved; F4/F5/F6 after. Each block:
 implement → Playwright smoke → update this matrix → commit (no push without
 approval).
 
-- **F1 — Config tab (read)**: Bossman proxy `GET /agents/{id}/state/observed`
-  (+ generations), following the existing `/agents/{id}/tools/{name}` /
-  `runbook/run` proxy pattern. New host-detail tab **Configuration**:
-  services with their discovered config files, codec-parsed content
-  (structured view), raw fallback. Empty/error states for agents without
-  the endpoint (version-gate).
+- **F1 — Config tab (read)**: ✅ DONE. Bossman proxy `GET
+  /agents/{id}/state/observed` (+ /state/generations) added in api/management.py
+  next to the tools proxy; AgentClient.state_observed/state_generations. New
+  host-detail **Configuration** tab (lazy) renders each discovered config file
+  with its path, codec/format badge, and codec-parsed values (or sha256/size
+  for opaque, or the read error). Loads on tab open + on deep-link
+  (?tab=configuration). Verified live on docker-test (6 files: config.yaml
+  yaml, /etc/default/* keyvalue). generations endpoint wired but its UI is F2.
 - **F2 — Generations & rollback**: same tab: generation timeline,
   server-side diff between generations, rollback with dry-run preview
   first (mirror agent-ui's State view semantics).

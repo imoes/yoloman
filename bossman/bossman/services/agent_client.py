@@ -166,6 +166,18 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: tool {name!r}: decoding response: {exc}") from exc
 
+    async def state_observed(self) -> dict[str, Any]:
+        """GET /api/v1/state/observed — the whole server as one JSON document:
+        discovered services + each config file read back (structured via its
+        codec, else a sha256 ref). The read side of the server-as-a-document
+        model (docs: project-server-as-document)."""
+        return await self._get_json("/api/v1/state/observed", {})
+
+    async def state_generations(self) -> dict[str, Any]:
+        """GET /api/v1/state/generations — the agent's local desired-state
+        generation history (plan/apply/rollback store), newest first."""
+        return await self._get_json("/api/v1/state/generations", {})
+
     async def apply_config(self, generation: int, config_hash: str, state: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/config/apply — PUSH the compiled desired state to the
         agent (Block L4, docs/policy-orchestration-architecture.md §6). This

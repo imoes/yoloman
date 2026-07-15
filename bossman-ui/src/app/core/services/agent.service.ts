@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -59,6 +59,13 @@ export class AgentService {
     let url = `${this.base}/${id}/processes/history?comm=${encodeURIComponent(comm)}`;
     if (since) url += `&since=${encodeURIComponent(since)}`;
     return this.http.get<ProcessHistory>(url);
+  }
+
+  /** Block F1 — the host as one JSON document: discovered services + each
+   * config file read back structured via its codec (or a sha256 ref). Live
+   * pass-through proxied to the agent's GET /api/v1/state/observed. */
+  observedState(id: string) {
+    return this.http.get<ObservedStateResponse>(`${this.base}/${id}/state/observed`);
   }
 
   updateGroups(id: string, groups: string[]) {

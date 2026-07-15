@@ -315,3 +315,28 @@ export interface VirtResponse {
   proxmox: StorageSection & { vms?: any[]; containers?: any[] };
   libvirt: StorageSection & { domains?: any[] };
 }
+
+/** Block F1 — the server-as-a-document read (GET /agents/{id}/state/observed).
+ * One config file read back either structured (via its codec → `values`) or as
+ * an opaque ref (`sha256` + `size`); `error` if it couldn't be read/parsed. */
+export interface ObservedResource {
+  type: string;
+  path: string;
+  format: string;
+  separator?: string;
+  values?: Record<string, unknown>;
+  sha256?: string;
+  size?: number;
+  error?: string;
+}
+
+export interface ObservedState {
+  generated_at: string;
+  services: unknown;
+  config: ObservedResource[];
+}
+
+export interface ObservedStateResponse {
+  agent_id: string;
+  observed: ObservedState;
+}
