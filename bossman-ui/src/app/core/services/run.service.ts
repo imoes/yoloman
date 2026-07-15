@@ -28,4 +28,12 @@ export class RunService {
   get(id: string) {
     return this.http.get<PlanRunDetail>(`${this.base}/${id}`);
   }
+
+  /** Block F6 — runbook execution history (sibling of plan runs), for the
+   * unified Runs page. */
+  runbookRuns(limit = 100) {
+    return this.http.get<{ runs: { id: string; runbook_name: string; agent_id: string | null; status: string; dry_run: boolean; changed: boolean; requested_by: string | null; created_at: string }[] }>(
+      `${environment.apiUrl}/runbook-runs?limit=${limit}`,
+    );
+  }
 }

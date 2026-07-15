@@ -52,6 +52,32 @@ def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
     raise HTTPException(status_code=422, detail="provide `nt` or `yaml`")
 
 
+@router.get("/api/v1/runbook-runs")
+async def list_runbook_runs(
+    agent_id: UUID | None = None,
+    limit: int = 100,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Block F6 — runbook execution history, newest first (optionally one
+    host). Sibling of GET /runs (plan runs) so the unified Runs page can list
+    plan + runbook + deploy runs together."""
+    stmt = select(RunbookRun).order_by(RunbookRun.created_at.desc()).limit(min(limit, 500))
+    if agent_id is not None:
+        stmt = stmt.where(RunbookRun.agent_id == agent_id)
+    rows = (await session.scalars(stmt)).all()
+    return {
+        "runs": [
+            {
+                "id": str(r.id), "runbook_name": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
+                "status": r.status, "dry_run": r.dry_run, "changed": r.changed,
+                "requested_by": r.requested_by, "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+    }
+
+
 @router.get("/api/v1/runbooks")
 async def list_runbooks(session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
     rows = (await session.scalars(select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID).order_by(Runbook.name))).all()

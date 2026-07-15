@@ -136,7 +136,7 @@ approval).
   guests (also "Docker: N containers"); config editor for
   `piggyback:` agent config (via config module); fleet: guests already
   appear in hosts/overview — link guest → parent.
-- **F6 — Runs unification + runbook parity**: one Runs page with a type
+- **F6 — Runs unification** ✅ DONE (SWD builder port deferred): one Runs page with a type
   filter (plan | runbook | deploy), same on the host Runs tab; port the
   SWD visual builder from agent-ui into the fleet Runbooks page (shared
   lib in the workspace).
