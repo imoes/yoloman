@@ -22,7 +22,7 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 | Inventory (DMI/OS/disks) | ✅ Inventory tab | ❌ no fleet inventory/search | n/a | ✅ | fleet-wide inventory query = later |
 | Network / Firewall / Storage / Accounts / FreeIPA / Updates / Logs | ✅ Management sub-tabs | ❌ | ❌ | ✅ | Cockpit-adaptation plan exists (separate) |
 | Plans/orchestration (roles, links) | ✅ Runs tab, placement panel | ✅ Plans, Runs, Deploy | ✅ OU/Policy | ✅ | |
-| Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console | ✅ | not on host detail (F-4) |
+| Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console, **now multi-OU** | ✅ | not on host detail (F-4); multi-OU done |
 | **Observed state (server document)** | ❌ **no Config tab** | ❌ | — | ⚠️ agent-only | **F1** |
 | **Generations / diff / rollback** | ❌ | ❌ drift dashboard | — | ⚠️ agent-only | **F2** |
 | **Config codecs (structured /etc editing)** | ❌ | n/a | ❌ | ⚠️ raw tool call | **F4** |
@@ -78,6 +78,9 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 - **F-13** Checks categorization: **744 of 1050 land in "Other"** (71%).
 
 ### Polish
+- **F-17** Fleet Overview + Problems tables show a service's STATE (CRIT/WARN)
+  but not the value or threshold that tripped it (e.g. docker-test Memory CRIT
+  gives no "33.7% ≥ 20%"). Add the value/threshold to the row. (Bugfix batch.)
 - **F-14** Hosts list: update/delete actions are raw emoji "⬆🗑" (vs
   Material icons everywhere else); acl host's Services cell is blank (not
   "—"/0).

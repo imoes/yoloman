@@ -108,6 +108,17 @@ export class MonitoringService {
     return this.http.delete<void>(`${this.base}/check-rules/${id}`);
   }
 
+  /** Link a threshold policy to ANOTHER OU (one policy → many OUs). */
+  addOuLink(id: string, ouId: string) {
+    return this.http.post<CheckRule>(`${this.base}/check-rules/${id}/ou-links`, { ou_id: ouId });
+  }
+
+  /** Unlink a threshold policy from one OU (promotes another linked OU to
+   * primary; refused for the last remaining OU). */
+  removeOuLink(id: string, ouId: string) {
+    return this.http.delete<CheckRule>(`${this.base}/check-rules/${id}/ou-links/${ouId}`);
+  }
+
   fleetSummary() {
     return this.http.get<FleetSummary>(`${this.base}/fleet/summary`);
   }

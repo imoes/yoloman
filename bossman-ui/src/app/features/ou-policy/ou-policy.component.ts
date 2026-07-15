@@ -272,6 +272,10 @@ interface PaletteItem {
           </button>
           <div class="bm-menu-sep"></div>
         }
+        @if (ctx()?.obj?.kind === 'check_rule') {
+          <button class="bm-menu-item" cdkMenuItem (click)="unlinkFromOu(ctx()!)">Unlink from this OU</button>
+          <div class="bm-menu-sep"></div>
+        }
         @if (ctx()?.obj?.kind === 'host_group') {
           <button class="bm-menu-item" cdkMenuItem (click)="manageMembers(ctx()!)">Members…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToGroup(ctx()!)">Assign Check…</button>
@@ -695,7 +699,9 @@ export class OuPolicyComponent implements OnInit {
     const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'link failed', 'error');
     switch (item.kind) {
       case 'check_rule':
-        this.monitoring.patchCheckRule(item.id, { scope_ou_id: ouId }).subscribe({ next: done, error: fail });
+        // Multi-OU: ADD a link to this OU (one policy → many OUs) rather than
+        // moving its single scope, so the same policy can govern several OUs.
+        this.monitoring.addOuLink(item.id, ouId).subscribe({ next: done, error: fail });
         break;
       case 'notification':
         this.notification.patchRule(item.id, { ou_id: ouId }).subscribe({ next: done, error: fail });
@@ -989,6 +995,16 @@ export class OuPolicyComponent implements OnInit {
           this.hostGroup.replaceMembers(group.id, agentIds).subscribe(() => this.reloadObjects(row.ownerOuId!));
         });
       });
+    });
+  }
+
+  /** Unlink a threshold policy from just THIS OU (it keeps applying to any
+   * other OUs it links to). Full reload since removing the primary OU promotes
+   * another linked OU, which can move the object elsewhere in the tree. */
+  unlinkFromOu(row: TreeRow): void {
+    this.monitoring.removeOuLink(row.obj!.id, row.ownerOuId!).subscribe({
+      next: () => this.reload(),
+      error: (e) => this.appDialog.notify(e?.error?.detail ?? 'unlink failed', 'error'),
     });
   }
 
