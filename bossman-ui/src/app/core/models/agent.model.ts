@@ -340,3 +340,40 @@ export interface ObservedStateResponse {
   agent_id: string;
   observed: ObservedState;
 }
+
+/** Block F2 — the agent's local desired-state generation history + rollback. */
+export interface StateGeneration {
+  number: number;
+  applied_at: string;
+  hash: string;
+  resources: number;
+}
+
+export interface StateGenerationsResponse {
+  agent_id: string;
+  generations: StateGeneration[];
+}
+
+/** One resource's change in a plan (the diff): action + per-key before→after. */
+export interface StateResourceChange {
+  type: string;
+  path: string;
+  action: 'create' | 'update' | 'noop';
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  changed?: Record<string, [unknown, unknown]>;
+  error?: string;
+}
+
+export interface StatePlan {
+  changes: StateResourceChange[];
+  changed_count: number;
+}
+
+export interface StateRollbackResponse {
+  agent_id: string;
+  plan: StatePlan;
+  generation: number;
+  rolled_back_to: number;
+  dry_run: boolean;
+}

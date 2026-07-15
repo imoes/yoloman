@@ -143,6 +143,33 @@ async def get_agent_state_generations(
     return {"agent_id": str(agent.id), **(gens if isinstance(gens, dict) else {"generations": gens})}
 
 
+class StateRollbackRequest(BaseModel):
+    generation: int
+    dry_run: bool = True
+
+
+@router.post("/api/v1/agents/{agent_id}/state/rollback")
+async def post_agent_state_rollback(
+    agent_id: UUID,
+    body: StateRollbackRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Roll the host's config back to a past generation (Block F2), proxying
+    the agent's POST /api/v1/state/rollback. dry_run (default) returns the plan
+    — the observed→target diff — without writing; a real rollback needs the
+    agent's write gate open, which a read-only agent rejects (surfaced as 502)."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.state_rollback(body.generation, body.dry_run)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}
+
+
 @router.get("/api/v1/agents/{agent_id}/service-units")
 async def get_agent_services(
     agent_id: UUID,

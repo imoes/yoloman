@@ -12,7 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process } from '../../core/models/agent.model';
+import { Agent, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -476,6 +476,65 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   </mat-card>
                 }
                 @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
+
+                <!-- Block F2: generation history + rollback -->
+                @if (generations().length) {
+                  <h3 class="bm-cfg-gen-h">Generations</h3>
+                  <table class="bm-cfg-gen">
+                    <thead><tr><th>#</th><th>Applied</th><th>Hash</th><th>Resources</th><th></th></tr></thead>
+                    <tbody>
+                      @for (g of generations(); track g.number) {
+                        <tr [class.bm-gen-current]="isCurrentGeneration(g.number)">
+                          <td>{{ g.number }}</td>
+                          <td>{{ g.applied_at | date: 'medium' }}</td>
+                          <td><code>{{ g.hash.slice(0, 12) }}…</code></td>
+                          <td>{{ g.resources }}</td>
+                          <td>
+                            @if (isCurrentGeneration(g.number)) {
+                              <span class="bm-tag">current</span>
+                            } @else {
+                              <button mat-button (click)="previewRollback(g.number)" [disabled]="rollbackBusy()">Roll back to #{{ g.number }}…</button>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+
+                  @if (rollbackTarget() !== null) {
+                    <mat-card class="bm-rollback">
+                      <div class="bm-rollback-head">
+                        <strong>Roll back to generation #{{ rollbackTarget() }}</strong>
+                        <span class="bm-dim">— dry-run preview, nothing applied yet</span>
+                      </div>
+                      @if (rollbackBusy() && !rollbackPlan()) {
+                        <p class="bm-empty">Computing the diff…</p>
+                      } @else if (rollbackError(); as rerr) {
+                        <p class="bm-cfg-err">{{ rerr }}</p>
+                      } @else if (rollbackPlan(); as plan) {
+                        @if (rollbackDiffRows().length) {
+                          <table class="bm-diff">
+                            <thead><tr><th>File</th><th>Action</th><th>Change</th></tr></thead>
+                            <tbody>
+                              @for (d of rollbackDiffRows(); track d.path + d.detail) {
+                                <tr><td><code>{{ d.path }}</code></td><td>{{ d.action }}</td><td>{{ d.detail }}</td></tr>
+                              }
+                            </tbody>
+                          </table>
+                        } @else {
+                          <p class="bm-dim">No changes — the host already matches generation #{{ rollbackTarget() }}.</p>
+                        }
+                      }
+                      <div class="bm-rollback-actions">
+                        <button mat-button (click)="cancelRollback()" [disabled]="rollbackBusy()">Cancel</button>
+                        <button mat-flat-button color="warn" (click)="applyRollback()"
+                                [disabled]="rollbackBusy() || !rollbackPlan() || !rollbackDiffRows().length">
+                          Apply rollback
+                        </button>
+                      </div>
+                    </mat-card>
+                  }
+                }
               } @else {
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
@@ -810,6 +869,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-cfg-path { font-weight: 600; word-break: break-all; }
       .bm-cfg-values { margin: 8px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; font-size: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
       .bm-cfg-err { color: var(--bm-crit, #c62828); margin: 8px 0 0; font-size: 13px; }
+      .bm-cfg-gen-h { margin: 20px 0 8px; }
+      .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-gen-current { background: color-mix(in srgb, var(--bm-green, #2e7d32) 8%, transparent); }
+      .bm-rollback { margin-top: 12px; padding: 12px 14px; }
+      .bm-rollback-head { margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+      .bm-rollback-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
       .bm-ebpf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
       @media (max-width: 900px) { .bm-ebpf-grid { grid-template-columns: 1fr; } }
       .bm-ebpf-panel { border: 1px solid var(--bm-border, #e0e0e0); border-radius: 6px; padding: 12px; overflow-x: auto; }
@@ -1460,6 +1526,12 @@ export class HostDetailComponent implements OnInit {
   observed = signal<ObservedState | null>(null);
   observedLoading = signal(false);
   observedError = signal<string | null>(null);
+  // Block F2 — generation history + rollback (same tab).
+  generations = signal<StateGeneration[]>([]);
+  rollbackTarget = signal<number | null>(null); // generation being previewed
+  rollbackPlan = signal<StatePlan | null>(null); // dry-run diff for that target
+  rollbackBusy = signal(false);
+  rollbackError = signal<string | null>(null);
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
@@ -1607,6 +1679,8 @@ export class HostDetailComponent implements OnInit {
     if (!agent) return;
     this.observedLoading.set(true);
     this.observedError.set(null);
+    this.rollbackTarget.set(null);
+    this.rollbackPlan.set(null);
     this.agentService.observedState(agent.id).subscribe({
       next: (res) => {
         this.observed.set(res.observed);
@@ -1617,6 +1691,83 @@ export class HostDetailComponent implements OnInit {
         this.observedLoading.set(false);
       },
     });
+    // Generation history (Block F2) — independent of the observed read.
+    this.agentService.stateGenerations(agent.id).subscribe({
+      next: (res) => this.generations.set(res.generations ?? []),
+      error: () => this.generations.set([]),
+    });
+  }
+
+  /** True for the newest generation — the one currently applied. */
+  isCurrentGeneration(n: number): boolean {
+    const gens = this.generations();
+    return gens.length > 0 && n === Math.max(...gens.map((g) => g.number));
+  }
+
+  /** Preview a rollback to generation `n`: a dry-run whose plan IS the
+   * observed→target diff. Nothing is written. */
+  previewRollback(n: number): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.rollbackTarget.set(n);
+    this.rollbackPlan.set(null);
+    this.rollbackError.set(null);
+    this.rollbackBusy.set(true);
+    this.agentService.stateRollback(agent.id, n, true).subscribe({
+      next: (res) => {
+        this.rollbackPlan.set(res.plan);
+        this.rollbackBusy.set(false);
+      },
+      error: (e) => {
+        this.rollbackError.set(e?.error?.detail ?? 'rollback preview failed');
+        this.rollbackBusy.set(false);
+      },
+    });
+  }
+
+  cancelRollback(): void {
+    this.rollbackTarget.set(null);
+    this.rollbackPlan.set(null);
+    this.rollbackError.set(null);
+  }
+
+  /** Apply the previewed rollback for real, then reload the tab. */
+  applyRollback(): void {
+    const agent = this.agent();
+    const n = this.rollbackTarget();
+    if (!agent || n === null) return;
+    this.rollbackBusy.set(true);
+    this.rollbackError.set(null);
+    this.agentService.stateRollback(agent.id, n, false).subscribe({
+      next: () => {
+        this.rollbackBusy.set(false);
+        this.cancelRollback();
+        this.loadObserved();
+      },
+      error: (e) => {
+        this.rollbackError.set(e?.error?.detail ?? 'rollback failed');
+        this.rollbackBusy.set(false);
+      },
+    });
+  }
+
+  /** Flatten a plan's non-noop changes into readable "path: key before→after"
+   * rows for the rollback preview. */
+  rollbackDiffRows(): { path: string; action: string; detail: string }[] {
+    const plan = this.rollbackPlan();
+    if (!plan) return [];
+    const rows: { path: string; action: string; detail: string }[] = [];
+    for (const c of plan.changes) {
+      if (c.action === 'noop') continue;
+      if (c.changed && Object.keys(c.changed).length) {
+        for (const [k, [before, after]] of Object.entries(c.changed)) {
+          rows.push({ path: c.path, action: c.action, detail: `${k}: ${JSON.stringify(before)} → ${JSON.stringify(after)}` });
+        }
+      } else {
+        rows.push({ path: c.path, action: c.action, detail: c.error ? `error: ${c.error}` : c.action });
+      }
+    }
+    return rows;
   }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +

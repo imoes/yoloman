@@ -178,6 +178,24 @@ class AgentClient:
         generation history (plan/apply/rollback store), newest first."""
         return await self._get_json("/api/v1/state/generations", {})
 
+    async def state_rollback(self, generation: int, dry_run: bool) -> dict[str, Any]:
+        """POST /api/v1/state/rollback — roll the host's config back to a past
+        generation. dry_run=true returns the plan (the diff observed→target)
+        without writing; a real rollback needs the agent's write gate open
+        (else the agent 403s, surfaced upstream as 502)."""
+        url = f"https://{self.address}/api/v1/state/rollback"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json={"generation": generation, "dry_run": dry_run})
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: state rollback: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: state rollback returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: state rollback: decoding response: {exc}") from exc
+
     async def apply_config(self, generation: int, config_hash: str, state: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/config/apply — PUSH the compiled desired state to the
         agent (Block L4, docs/policy-orchestration-architecture.md §6). This

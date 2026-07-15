@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -66,6 +66,18 @@ export class AgentService {
    * pass-through proxied to the agent's GET /api/v1/state/observed. */
   observedState(id: string) {
     return this.http.get<ObservedStateResponse>(`${this.base}/${id}/state/observed`);
+  }
+
+  /** Block F2 — the host's local desired-state generation history (newest
+   * first): what it has applied and can roll back to. */
+  stateGenerations(id: string) {
+    return this.http.get<StateGenerationsResponse>(`${this.base}/${id}/state/generations`);
+  }
+
+  /** Block F2 — roll the host's config back to a past generation. dry_run
+   * returns the plan (observed→target diff) without writing. */
+  stateRollback(id: string, generation: number, dryRun: boolean) {
+    return this.http.post<StateRollbackResponse>(`${this.base}/${id}/state/rollback`, { generation, dry_run: dryRun });
   }
 
   updateGroups(id: string, groups: string[]) {
