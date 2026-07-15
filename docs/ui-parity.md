@@ -34,9 +34,12 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 ## Findings (walkthrough 2026-07-15)
 
 ### Bugs
-- **F-1** Host-detail **Overview tab throws** repeated
-  `TypeError: Cannot read properties of null (reading '0')` (4–6 console
-  errors; most likely a metric chart fed a null series). Every visit.
+- **F-1** ~~Host-detail Overview throws `null[0]` 4–6× on every visit.~~
+  **FIXED**: root cause was mat-tabs rendering EAGERLY, so echarts charts in
+  hidden (0×0) tabs initialised with a null zrender transform (`za(r,e)` matrix
+  copy) → crash. Wrapped every host-detail tab in `<ng-template matTabContent>`
+  (lazy) — charts now instantiate only when their tab is opened + sized. 0
+  console errors; also a perf win (10 tabs no longer all render on open).
 - **F-2** Fleet Overview: **"Service states" dashlet renders empty** (label,
   no content).
 - **F-3** Topology / Relationships: map header says **"0 edges"** while the

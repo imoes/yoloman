@@ -126,7 +126,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         </div>
 
         <mat-tab-group [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
-          <mat-tab label="Overview">
+          <mat-tab label="Overview"><ng-template matTabContent>
             <div class="bm-tab-content">
               @if (overview(); as ov) {
                 <div class="bm-overview-grid">
@@ -169,9 +169,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">No metric snapshot yet for this host.</p>
               }
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="Services">
+          <mat-tab label="Services"><ng-template matTabContent>
             <div class="bm-tab-content">
               <!-- CheckMK-style services view (Block H3): every check as one
                    row — State | Service | Summary | Age | Checked |
@@ -428,9 +428,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 }
               }
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="Inventory">
+          <mat-tab label="Inventory"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-inventory [agent]="agent" />
               <dl class="bm-facts">
@@ -446,13 +446,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <dd>{{ hasTags(agent) ? tagsJson(agent) : '—' }}</dd>
               </dl>
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="Checks">
+          <mat-tab label="Checks"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-checks [agent]="agent" />
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
           <mat-tab label="Console">
             <!-- Lazy: the WebSocket/PTY only opens when this tab is selected. -->
@@ -469,7 +469,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </ng-template>
           </mat-tab>
 
-          <mat-tab label="Relationships">
+          <mat-tab label="Relationships"><ng-template matTabContent>
             <div class="bm-tab-content">
               <div class="bm-rel-map"><app-topology [agentId]="agent.id" /></div>
               <h3 class="bm-rel-h">Connections</h3>
@@ -498,9 +498,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">No connections recorded for this host yet.</p>
               }
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="eBPF">
+          <mat-tab label="eBPF"><ng-template matTabContent>
             <div class="bm-tab-content">
               <p class="bm-dim">Kernel-level (eBPF) signals. The heatmaps show the latency <em>distribution</em>
                 (buckets × time, color = event count); the tables below show <em>which</em> connections and
@@ -554,9 +554,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 </div>
               </div>
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="Processes">
+          <mat-tab label="Processes"><ng-template matTabContent>
             <div class="bm-tab-content">
               <!-- Block J2: safe systemd service control (restart/stop/start)
                    via the agent's write-gated + audited systemd module. -->
@@ -684,9 +684,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">Open this tab to sample the live process list.</p>
               }
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
-          <mat-tab label="Runs">
+          <mat-tab label="Runs"><ng-template matTabContent>
             <div class="bm-tab-content">
               @if (runs().length) {
                 <table class="bm-table">
@@ -711,15 +711,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">No plan runs against this host yet.</p>
               }
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
 
           <!-- Block J4: Cockpit-like host management (Services/Logs/Accounts/
                Storage/Network). Each inner section pulls its live data lazily. -->
-          <mat-tab label="Management">
+          <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-management [agentId]="agent.id" />
             </div>
-          </mat-tab>
+          </ng-template></mat-tab>
         </mat-tab-group>
       </div>
     }
