@@ -120,7 +120,7 @@ approval).
   Bossman proxy POST /agents/{id}/state/rollback + AgentClient.state_rollback.
   Verified on docker-test: 3 generations, dry-run rollback to #2 shows
   `/etc/yoloman-selftest.conf create a: null → "9"`; 0 console errors.
-- **F3 — Template catalog**: new Setup page **Templates** listing
+- **F3 — Template catalog** ✅ DONE: new Setup page **Templates** listing
   `configs/config_templates/` (needs a small Bossman endpoint serving the
   catalog); `schema.json` → auto-generated form, live render preview
   (template_render dry-run via tools proxy), "apply to host" writing dest;
@@ -132,7 +132,7 @@ approval).
 - **F4 — Structured config editor**: edit a discovered config file via its
   codec (form for keyvalue/ini; JSON editor for json/yaml/xml), plan →
   apply via the config module (dry-run first), wired to generations.
-- **F5 — Piggyback surface**: Virtualization tab: show collectors + their
+- **F5 — Piggyback surface** ✅ DONE (surface; live data needs collector+guests): Virtualization tab: show collectors + their
   guests (also "Docker: N containers"); config editor for
   `piggyback:` agent config (via config module); fleet: guests already
   appear in hosts/overview — link guest → parent.

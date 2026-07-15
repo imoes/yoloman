@@ -36,6 +36,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
+  { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
