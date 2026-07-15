@@ -26,8 +26,23 @@ import { VirtResponse } from '../../../core/models/agent.model';
       } @else if (loadErr()) {
         <p class="bm-svc-err">{{ loadErr() }}</p>
       } @else if (data(); as v) {
-        @if (!v.hypervisors.length) {
+        @if (!v.hypervisors.length && !guests().length) {
           <p class="bm-empty">No local virtualization stack detected on this host.</p>
+        }
+
+        @if (guests().length) {
+          <h4>Piggyback guests <span class="bm-mgmt-count">— reported by this host ({{ guests().length }})</span></h4>
+          <table class="bm-mgmt-table"><thead><tr><th>Guest</th><th>Kind</th><th>Running</th><th>CPU</th><th>Memory</th></tr></thead><tbody>
+            @for (g of guests(); track g.name) {
+              <tr>
+                <td class="bm-mgmt-unit">{{ g.name }}</td>
+                <td>{{ g.mode }}</td>
+                <td [class.bm-active]="running(g)">{{ running(g) ? 'yes' : 'no' }}</td>
+                <td>{{ pct(g.metrics['vm_cpu_pct'] ?? g.metrics['container_cpu_pct']) }}</td>
+                <td>{{ pct(g.metrics['vm_mem_pct'] ?? g.metrics['container_mem_pct']) }}</td>
+              </tr>
+            }
+          </tbody></table>
         }
 
         @if (v.proxmox.available) {
@@ -115,6 +130,7 @@ export class HostVirtComponent {
   agentId = input.required<string>();
 
   data = signal<VirtResponse | null>(null);
+  guests = signal<{ name: string; mode: string; metrics: Record<string, number> }[]>([]);
   loading = signal(false);
   loaded = signal(false);
   loadErr = signal<string | null>(null);
@@ -150,6 +166,19 @@ export class HostVirtComponent {
         this.loadErr.set(e?.error?.detail ?? 'failed to load virtualization');
       },
     });
+    // F5: piggyback guests this host reports (Docker containers, VMs …).
+    this.agentService.piggyback(this.agentId()).subscribe({
+      next: (res) => this.guests.set(res.guests ?? []),
+      error: () => this.guests.set([]),
+    });
+  }
+
+  pct(v: number | undefined): string {
+    return v === undefined || v === null ? '—' : v.toFixed(1) + '%';
+  }
+
+  running(g: { metrics: Record<string, number> }): boolean {
+    return (g.metrics['vm_running'] ?? g.metrics['container_running'] ?? 0) === 1;
   }
 
   private control(tool: string, params: Record<string, unknown>, label: string): void {

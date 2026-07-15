@@ -114,6 +114,14 @@ export class AgentService {
     return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
   }
 
+  /** Block F5 — the guests this host reports via piggyback (Docker containers,
+   * Proxmox/vSphere/libvirt VMs) with their latest metrics. */
+  piggyback(id: string) {
+    return this.http.get<{ agent_id: string; guests: { name: string; mode: string; metrics: Record<string, number> }[] }>(
+      `${this.base}/${id}/piggyback`,
+    );
+  }
+
   /** Block K3/G — drift + the GPO-resolved desired values: per path the merged
    * desired values, per key the winning level (host/ou/group), and the drifted
    * resources. Drives the settings editor's State/Value/Source columns. */

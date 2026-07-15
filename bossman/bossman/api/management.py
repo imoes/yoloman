@@ -457,6 +457,35 @@ async def post_agent_state_rollback(
     return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}
 
 
+@router.get("/api/v1/agents/{agent_id}/piggyback")
+async def get_agent_piggyback(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Block F5 — the guests this host reports on behalf of (CheckMK piggyback):
+    Docker containers, Proxmox/vSphere/libvirt VMs. Proxies the agent's
+    hosts/overview and keeps the entries that are guests (a parent set, or a
+    container/vm mode) — the host itself is dropped. Each guest carries its
+    latest metrics so the Virtualization tab can show CPU/mem/running."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        overview = await client.hosts_overview()
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    guests = []
+    for h in overview or []:
+        mode = (h.get("mode") or "").lower()
+        if h.get("parent") or mode in ("container", "vm"):
+            metrics = {m.get("metric"): m.get("value") for m in (h.get("metrics") or [])}
+            guests.append({"name": h.get("host"), "mode": mode or "guest", "metrics": metrics})
+    guests.sort(key=lambda g: (g["mode"], g["name"] or ""))
+    return {"agent_id": str(agent.id), "guests": guests}
+
+
 @router.get("/api/v1/agents/{agent_id}/service-units")
 async def get_agent_services(
     agent_id: UUID,
