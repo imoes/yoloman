@@ -1,9 +1,10 @@
-"""Block K4 — a host's effective desired config: the GPO winner per path of its
-host-direct resources (HostConfigResource, K3) over the OU-scoped config
-policies (ConfigPolicy) on its ancestry. Host-direct always wins; among OU
-policies the deepest OU on the host's path wins (closest-to-host, like every
-other GPO-resolved thing here). Reused by drift + re-sync so an OU policy
-converges every member host — "Host A = Host B"."""
+"""Block K4/G — a host's effective desired config, resolved PER KEY across the
+GPO levels (host > deepest OU > group), like Windows Group Policy merges per
+SETTING, not per file. Each level contributes the keys it configures; a
+stronger level overrides only the keys it sets. `key_sources` records the
+winning level per key (dot-path for nested formats), so the settings editor can
+show where a value is inherited from. Template resources stay whole-file (a
+template renders the entire file). Reused by drift + re-sync."""
 
 from __future__ import annotations
 
@@ -27,26 +28,45 @@ def resource_dict(type_: str | None, path: str, fmt: str | None, sep: str | None
     return res
 
 
+def merge_layers(layers: list[tuple[dict, str]], deep: bool) -> tuple[dict, dict[str, str]]:
+    """Merge values layers weak→strong. deep=True (ini/yaml/json/xml) merges
+    nested dicts per level; keyvalue merges flat (its keys may contain dots).
+    Returns (merged values, {key-path: source}). A null value participates —
+    it means "managed absent" and can override a weaker level's value."""
+    out: dict = {}
+    src: dict[str, str] = {}
+
+    def apply(d: dict, s: str, prefix: str, into: dict) -> None:
+        for k, v in d.items():
+            path = f"{prefix}.{k}" if prefix else str(k)
+            if deep and isinstance(v, dict):
+                sub = into.get(k)
+                if not isinstance(sub, dict):
+                    sub = {}
+                    into[k] = sub
+                apply(v, s, path, sub)
+            else:
+                into[k] = v
+                src[path] = s
+
+    for values, s in layers:
+        apply(values or {}, s, "", out)
+    return out, src
+
+
 async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[str, Any]]:
-    """[{path, source, resource}] — one per managed path, source 'host' or
-    'ou:<path>'. Host-direct wins; else the deepest OU policy on the ancestry."""
+    """[{path, source, resource, key_sources}] — one per managed path. For
+    config-type resources the values are the PER-KEY merge of group < OU(deep)
+    < host layers; `source` is the strongest contributing level (badge),
+    `key_sources` the winner per key. A template_render resource is whole-file:
+    the strongest level's template+values win outright."""
     ancestry = await resolve_ou_ancestry(session, agent.ou_id)  # root → leaf
     depth = {n.id: i for i, n in enumerate(ancestry)}
     ou_paths = {n.id: n.path for n in ancestry}
 
-    winner: dict[str, tuple[int, ConfigPolicy, str]] = {}  # path -> (depth, row, source)
-    if depth:
-        pols = (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id.in_(list(depth))))).all()
-        for p in pols:
-            d = depth.get(p.scope_ou_id, -1)
-            cur = winner.get(p.path)
-            if cur is None or d > cur[0]:
-                winner[p.path] = (d, p, "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id)))
+    # Collect layers per path, weak → strong: group(s), OU shallow→deep, host.
+    layers: dict[str, list[tuple[dict[str, Any], str]]] = {}
 
-    merged: dict[str, tuple[dict[str, Any], str]] = {}
-
-    # Group policies are the weakest (LEVEL_GROUP < OU); applied first so OU and
-    # host override them. Deterministic among groups: sort by group id.
     group_ids = await resolve_host_group_ids(session, agent.id)
     if group_ids:
         gnames = dict(
@@ -58,17 +78,36 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
             )
         ).all()
         for p in gpols:
-            merged[p.path] = (
-                resource_dict(p.type, p.path, p.config_format, p.separator, p.values, p.template),
-                "group:" + gnames.get(p.host_group_id, str(p.host_group_id)),
-            )
+            layers.setdefault(p.path, []).append((_layer(p), "group:" + gnames.get(p.host_group_id, str(p.host_group_id))))
 
-    # OU policies override group.
-    for path, (_, row, source) in winner.items():
-        merged[path] = (resource_dict(row.type, row.path, row.config_format, row.separator, row.values, row.template), source)
+    if depth:
+        pols = (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id.in_(list(depth))))).all()
+        for p in sorted(pols, key=lambda p: depth.get(p.scope_ou_id, -1)):  # shallow → deep
+            layers.setdefault(p.path, []).append((_layer(p), "ou:" + ou_paths.get(p.scope_ou_id, str(p.scope_ou_id))))
 
-    # Host-direct overrides everything.
     for row in (await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))).all():
-        merged[row.path] = (resource_dict(row.type, row.path, row.config_format, row.separator, row.values, row.template), "host")
+        layers.setdefault(row.path, []).append((_layer(row), "host"))
 
-    return [{"path": path, "source": src, "resource": res} for path, (res, src) in merged.items()]
+    out: list[dict[str, Any]] = []
+    for path, lays in layers.items():
+        strongest = lays[-1][0]
+        source = lays[-1][1]
+        if strongest.get("type") == "template_render":
+            # Whole-file semantics: the strongest template layer wins outright.
+            out.append({"path": path, "source": source, "key_sources": {},
+                        "resource": resource_dict("template_render", path, None, None, strongest.get("values"), strongest.get("template"))})
+            continue
+        fmt = next((l.get("format") for l, _ in reversed(lays) if l.get("format")), None)
+        sep = next((l.get("separator") for l, _ in reversed(lays) if l.get("separator")), None)
+        deep = fmt not in (None, "keyvalue")
+        merged, key_sources = merge_layers([(l.get("values") or {}, s) for l, s in lays], deep)
+        out.append({"path": path, "source": source, "key_sources": key_sources,
+                    "resource": resource_dict("config", path, fmt, sep, merged, None)})
+    return out
+
+
+def _layer(row: ConfigPolicy | HostConfigResource) -> dict[str, Any]:
+    return {
+        "type": row.type, "format": row.config_format, "separator": row.separator,
+        "values": row.values or {}, "template": row.template,
+    }

@@ -147,6 +147,22 @@ async def get_agent_state_generations(
     return {"agent_id": str(agent.id), **(gens if isinstance(gens, dict) else {"generations": gens})}
 
 
+def _merge_values(old: dict | None, new: dict | None, fmt: str | None) -> dict:
+    """Per-key merge of stored desired values with an edit (GPO semantics: an
+    apply only touches the keys it sends). keyvalue merges flat (keys may
+    contain dots); nested formats merge deep. null values are kept — they mean
+    "managed absent"."""
+    if fmt in (None, "keyvalue") or not isinstance(old, dict):
+        return {**(old or {}), **(new or {})}
+    out = dict(old or {})
+    for k, v in (new or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _merge_values(out[k], v, fmt)
+        else:
+            out[k] = v
+    return out
+
+
 class StateDocument(BaseModel):
     # One config resource per edited file: {type: "config", path, format,
     # separator?, values}. A value of null deletes that key (codec-level).
@@ -225,7 +241,10 @@ async def post_agent_state_apply(
                 pol.type = r.get("type", "config")
                 pol.config_format = r.get("format")
                 pol.separator = r.get("separator")
-                pol.values = r.get("values", {})
+                if pol.type == "template_render" or r.get("type") == "template_render":
+                    pol.values = r.get("values", {})  # template = whole-file, replace
+                else:
+                    pol.values = _merge_values(pol.values, r.get("values", {}), r.get("format"))
                 pol.template = r.get("template")
                 pol.updated_at = datetime.now(timezone.utc)
             await session.commit()
@@ -276,7 +295,10 @@ async def post_agent_state_apply(
             existing.type = r.get("type", "config")
             existing.config_format = r.get("format")
             existing.separator = r.get("separator")
-            existing.values = r.get("values", {})
+            if existing.type == "template_render" or r.get("type") == "template_render":
+                existing.values = r.get("values", {})  # template = whole-file, replace
+            else:
+                existing.values = _merge_values(existing.values, r.get("values", {}), r.get("format"))
             existing.template = r.get("template")
             existing.updated_at = datetime.now(timezone.utc)
         await session.commit()
@@ -311,8 +333,78 @@ async def get_agent_config_drift(
         "agent_id": str(agent.id),
         "managed": [e["path"] for e in eff],
         "sources": {e["path"]: e["source"] for e in eff},
+        # Block G (GPO settings editor): the merged desired values per path and
+        # the winning level per key — drives the Setting|State|Value|Source list.
+        "desired": {e["path"]: e["resource"].get("values", {}) for e in eff},
+        "key_sources": {e["path"]: e["key_sources"] for e in eff},
         "drift": drift,
     }
+
+
+class UnsetDesiredRequest(BaseModel):
+    path: str
+    key: str  # dot-path for nested formats; literal for keyvalue
+    ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+
+
+@router.post("/api/v1/agents/{agent_id}/config-desired/unset")
+async def post_agent_config_unset(
+    agent_id: UUID,
+    body: UnsetDesiredRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(require_manage_agent),
+) -> dict[str, Any]:
+    """GPO "Not configured" (Block G): stop managing ONE key at one scope —
+    remove it from the stored desired values. The live file is untouched (the
+    key simply stops being enforced/drift-checked). Removing the last key
+    deletes the whole desired row/policy."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
+    row: HostConfigResource | ConfigPolicy | None
+    if body.ou_id is not None:
+        row = await session.scalar(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.ou_id, ConfigPolicy.path == body.path))
+    elif body.host_group_id is not None:
+        row = await session.scalar(select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == body.path))
+    else:
+        row = await session.scalar(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id, HostConfigResource.path == body.path))
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no desired config for {body.path} at that scope")
+
+    values = dict(row.values or {})
+    if row.type != "template_render" and (row.config_format not in (None, "keyvalue")) and "." in body.key:
+        # nested formats: navigate the dot-path
+        parts = body.key.split(".")
+        node = values
+        for p in parts[:-1]:
+            nxt = node.get(p)
+            if not isinstance(nxt, dict):
+                raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
+            node = nxt
+        if parts[-1] not in node:
+            raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
+        del node[parts[-1]]
+        # prune empty parents
+        def prune(d: dict) -> None:
+            for k in list(d.keys()):
+                if isinstance(d[k], dict):
+                    prune(d[k])
+                    if not d[k]:
+                        del d[k]
+        prune(values)
+    else:
+        if body.key not in values:
+            raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
+        del values[body.key]
+
+    if not values and not row.template:
+        await session.delete(row)
+    else:
+        row.values = values
+        row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"path": body.path, "key": body.key, "unset": True}
 
 
 @router.post("/api/v1/agents/{agent_id}/config/reapply")

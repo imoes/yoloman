@@ -114,11 +114,23 @@ export class AgentService {
     return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
   }
 
-  /** Block K3 — drift: the desired config resources Bossman recorded for this
-   * host, re-planned against its live state. `drift` = the ones that differ. */
+  /** Block K3/G — drift + the GPO-resolved desired values: per path the merged
+   * desired values, per key the winning level (host/ou/group), and the drifted
+   * resources. Drives the settings editor's State/Value/Source columns. */
   configDrift(id: string) {
-    return this.http.get<{ agent_id: string; managed: string[]; drift: StateResourceChange[] }>(
-      `${this.base}/${id}/config-drift`,
+    return this.http.get<{
+      agent_id: string; managed: string[]; drift: StateResourceChange[];
+      sources?: Record<string, string>;
+      desired?: Record<string, Record<string, unknown>>;
+      key_sources?: Record<string, Record<string, string>>;
+    }>(`${this.base}/${id}/config-drift`);
+  }
+
+  /** Block G — GPO "Not configured": stop managing one key at one scope (the
+   * live file is untouched; the key stops being enforced/drift-checked). */
+  unsetDesired(id: string, body: { path: string; key: string; ou_id?: string; host_group_id?: string }) {
+    return this.http.post<{ path: string; key: string; unset: boolean }>(
+      `${this.base}/${id}/config-desired/unset`, body,
     );
   }
 

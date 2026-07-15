@@ -338,11 +338,21 @@ async def resolve_host_thresholds(
         )
         if rule is None or (rule.warn_threshold is None and rule.crit_threshold is None):
             continue
+        # Source (Block G, the GPO settings editor): which level set this
+        # threshold — host / ou:<path> / group:<name> / global.
+        if rule.scope_type == "ou":
+            ou_path = next((str(n.path) for n in host_ou_ancestry if n.id == rule.scope_ou_id), str(rule.scope_ou_id))
+            source = "ou:" + ou_path
+        elif rule.scope_type in ("group", "host"):
+            source = f"{rule.scope_type}:{rule.scope_value}"
+        else:
+            source = "global"
         thresholds[metric] = {
             "warn": rule.warn_threshold,
             "crit": rule.crit_threshold,
             "comparison": rule.comparison,
             "service_name": rule.service_name,
+            "source": source,
         }
     return thresholds
 

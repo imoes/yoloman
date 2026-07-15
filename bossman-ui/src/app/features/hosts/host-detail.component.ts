@@ -13,7 +13,8 @@ import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
-import { Agent, ConfigResource, ConfigTemplate, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { OrchestrationService } from '../../core/services/orchestration.service';
+import { Agent, ConfigResource, ConfigTemplate, EbpfDetail, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -471,52 +472,103 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     }
                   </div>
                 }
-                @for (r of obs.config; track r.path) {
-                  <mat-card class="bm-cfg-card">
-                    <div class="bm-cfg-row">
-                      <code class="bm-cfg-path">{{ r.path }}</code>
-                      <span class="bm-tag">{{ r.format }}</span>
-                      @if (isManaged(r.path)) {
-                        @if (driftFor(r.path)) {
-                          <span class="bm-tag bm-tag-drift" title="Live differs from desired">drifted</span>
-                        } @else {
-                          <span class="bm-tag bm-tag-sync" title="Matches desired">managed ✓</span>
-                        }
-                        @if (sourceFor(r.path); as src) {
-                          <span class="bm-tag" [title]="src.startsWith('ou:') ? 'From an OU policy' : src.startsWith('group:') ? 'From a host-group policy' : 'Host-specific'">{{ src.startsWith('ou:') ? ('OU ' + src.slice(3)) : src.startsWith('group:') ? ('group ' + src.slice(6)) : 'host' }}</span>
-                        }
+                <div class="bm-gpo">
+                  <div class="bm-gpo-tree">
+                    <div class="bm-gpo-dir">Monitoring</div>
+                    <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::thresholds'" (click)="selectPane('::thresholds')">Thresholds</div>
+                    <div class="bm-gpo-dir">Policies</div>
+                    <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::plans'" (click)="selectPane('::plans')">Applied plans</div>
+                    <div class="bm-gpo-dir">Configuration files</div>
+                    @for (grp of dirGroups(obs); track grp.dir) {
+                      <div class="bm-gpo-subdir">{{ grp.dir }}</div>
+                      @for (f of grp.files; track f.path) {
+                        <div class="bm-gpo-file bm-gpo-indent" [class.bm-gpo-sel]="selectedPane() === f.path" (click)="selectPane(f.path)">
+                          {{ baseName(f.path) }}
+                          @if (driftFor(f.path)) { <span class="bm-dot-drift">●</span> }
+                        </div>
                       }
-                    </div>
-                    @if (r.error) {
-                      <p class="bm-cfg-err">{{ r.error }}</p>
-                    } @else if (editingPath() === r.path) {
-                      @if (editMode() === 'kv') {
-                        <table class="bm-kvedit">
-                          <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+                    }
+                  </div>
+                  <div class="bm-gpo-main">
+                    @if (selectedPane() === '::thresholds') {
+                      <h3 class="bm-gpo-h">Monitoring thresholds</h3>
+                      <table class="bm-gpo-settings">
+                        <thead><tr><th>Service</th><th>Metric</th><th>Warn</th><th>Crit</th><th>Source</th></tr></thead>
+                        <tbody>
+                          @for (t of thresholds(); track t.metric) {
+                            <tr (click)="openThr(t)" [class.bm-row-sel]="thrKey() === t.metric">
+                              <td>{{ t.service_name ?? '—' }}</td><td class="bm-gpo-key">{{ t.metric }}</td>
+                              <td>{{ t.warn ?? '—' }}</td><td>{{ t.crit ?? '—' }}</td>
+                              <td><span class="bm-tag">{{ t.source ?? '—' }}</span></td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                      @if (thrKey(); as tk) {
+                        <mat-card class="bm-setting-dlg">
+                          <strong>{{ tk }}</strong>
+                          <label class="bm-radio"><input type="radio" name="thrmode" [checked]="thrMode() === 'configured'" (change)="thrMode.set('configured')" /> Configured at this scope</label>
+                          @if (thrMode() === 'configured') {
+                            <div class="bm-thr-inputs">
+                              <label>Warn <input class="bm-kvin" [value]="thrWarn()" (input)="thrWarn.set($any($event.target).value)" /></label>
+                              <label>Crit <input class="bm-kvin" [value]="thrCrit()" (input)="thrCrit.set($any($event.target).value)" /></label>
+                            </div>
+                          }
+                          <label class="bm-radio"><input type="radio" name="thrmode" [checked]="thrMode() === 'notconf'" (change)="thrMode.set('notconf')" /> Not configured at this scope (remove the rule)</label>
+                          <label class="bm-scope">Scope:
+                            <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                              <option value="host">this host</option>
+                              @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                              @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                            </select>
+                          </label>
+                          @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
+                          <div class="bm-rollback-actions">
+                            <button mat-button (click)="thrKey.set(null)" [disabled]="thrBusy()">Cancel</button>
+                            <button mat-flat-button color="primary" (click)="applyThr()" [disabled]="thrBusy()">Apply</button>
+                          </div>
+                        </mat-card>
+                      }
+                    } @else if (selectedPane() === '::plans') {
+                      <h3 class="bm-gpo-h">Applied plans / policies</h3>
+                      @if (appliedPlans().length) {
+                        <table class="bm-gpo-settings">
+                          <thead><tr><th>Policy</th><th>Type</th><th>Version</th><th>Source</th></tr></thead>
                           <tbody>
-                            @for (row of kvRows(); track $index) {
-                              <tr>
-                                <td><input class="bm-kvin" [value]="row.key" (input)="setKvKey($index, $any($event.target).value)" /></td>
-                                <td><input class="bm-kvin" [value]="row.value" (input)="setKvValue($index, $any($event.target).value)" /></td>
-                                <td><button mat-icon-button (click)="removeKvRow($index)" title="Delete key"><mat-icon>close</mat-icon></button></td>
-                              </tr>
+                            @for (p of appliedPlans(); track p.name) {
+                              <tr><td>{{ p.name }}</td><td class="bm-dim">{{ p.type }}</td><td>{{ p.version ?? '—' }}</td><td><span class="bm-tag">{{ p.source }}</span></td></tr>
                             }
                           </tbody>
                         </table>
-                        <button mat-button (click)="addKvRow()"><mat-icon>add</mat-icon> Add key</button>
-                        @if (kvPlan(); as pl) {
-                          @if (kvDiffRows().length) {
-                            <table class="bm-diff">
-                              <thead><tr><th>Key</th><th>Before</th><th>After</th></tr></thead>
-                              <tbody>
-                                @for (d of kvDiffRows(); track d.key) {
-                                  <tr><td>{{ d.key }}</td><td>{{ d.before }}</td><td>{{ d.after }}</td></tr>
-                                }
-                              </tbody>
-                            </table>
-                          } @else { <p class="bm-dim">No changes.</p> }
+                      } @else { <p class="bm-empty">No plans/policies apply to this host. Link one in OU / Policy.</p> }
+                    } @else if (selRes(obs); as r) {
+                      <div class="bm-cfg-row">
+                        <code class="bm-cfg-path">{{ r.path }}</code>
+                        <span class="bm-tag">{{ r.format || 'raw' }}</span>
+                        @if (isManaged(r.path)) {
+                          @if (driftFor(r.path)) { <span class="bm-tag bm-tag-drift">drifted</span> } @else { <span class="bm-tag bm-tag-sync">managed ✓</span> }
                         }
-                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                        @if (templateFor(r.path); as tpl) {
+                          <button mat-button (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
+                        }
+                      </div>
+                      @if (tplEditPath() === r.path) {
+                        <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
+                        @for (f of tplFields(); track f.key; let i = $index) {
+                          <div class="bm-tpl-field">
+                            <label>{{ f.key }} <span class="bm-dim">{{ f.desc }}</span></label>
+                            @if (f.json) {
+                              <textarea class="bm-cfg-edit" rows="5" [value]="f.value" (input)="setTplField(i, $any($event.target).value)"></textarea>
+                            } @else {
+                              <input class="bm-kvin" [value]="f.value" (input)="setTplField(i, $any($event.target).value)" />
+                            }
+                          </div>
+                        }
+                        @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
+                        @if (tplRendered(); as rendered) {
+                          <p class="bm-dim">Rendered file (would be written):</p>
+                          <pre class="bm-cfg-values">{{ rendered }}</pre>
+                        }
                         <label class="bm-scope">Apply to:
                           <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
                             <option value="host">this host</option>
@@ -525,81 +577,88 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           </select>
                         </label>
                         <div class="bm-rollback-actions">
-                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                          <button mat-button (click)="previewKv(r)" [disabled]="editBusy()">Preview (plan)</button>
-                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
+                          <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
+                          <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
+                          <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
                         </div>
-                      } @else {
-                        <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
-                                  (input)="editText.set($any($event.target).value)"></textarea>
-                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                        @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
-                        <div class="bm-rollback-actions">
-                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                          <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
-                          <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
-                        </div>
-                      }
-                    } @else if (tplEditPath() === r.path) {
-                      <!-- Block K2: schema-driven template form -->
-                      <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
-                      @for (f of tplFields(); track f.key; let i = $index) {
-                        <div class="bm-tpl-field">
-                          <label>{{ f.key }} <span class="bm-dim">{{ f.desc }}</span></label>
-                          @if (f.json) {
-                            <textarea class="bm-cfg-edit" rows="5" [value]="f.value" (input)="setTplField(i, $any($event.target).value)"></textarea>
-                          } @else {
-                            <input class="bm-kvin" [value]="f.value" (input)="setTplField(i, $any($event.target).value)" />
-                          }
-                        </div>
-                      }
-                      @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                      @if (tplRendered(); as rendered) {
-                        <p class="bm-dim">Rendered file (would be written):</p>
-                        <pre class="bm-cfg-values">{{ rendered }}</pre>
-                      }
-                      <label class="bm-scope">Apply to:
-                        <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                          <option value="host">this host</option>
-                          @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                          @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                        </select>
-                      </label>
-                      <div class="bm-rollback-actions">
-                        <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
-                        <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
-                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
-                      </div>
-                    } @else {
-                      @if (r.values) {
-                        <pre class="bm-cfg-values">{{ configText(r) }}</pre>
-                      } @else if (r.raw) {
-                        <pre class="bm-cfg-values">{{ r.raw }}</pre>
-                      } @else if (r.sha256) {
-                        <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
-                      }
-                      @if (driftRows(r.path).length) {
-                        <p class="bm-dim bm-drift-h">Drift — live vs desired:</p>
-                        <table class="bm-diff">
-                          <thead><tr><th>Key</th><th>Live</th><th>Desired</th></tr></thead>
+                      } @else if (r.values) {
+                        <table class="bm-gpo-settings">
+                          <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
                           <tbody>
-                            @for (d of driftRows(r.path); track d.key) {
-                              <tr><td>{{ d.key }}</td><td>{{ d.live }}</td><td>{{ d.desired }}</td></tr>
+                            @for (row of settingRows(r); track row.key) {
+                              <tr (click)="openSetting(r, row)" [class.bm-row-sel]="settingKey() === row.key">
+                                <td class="bm-gpo-key">{{ row.key }}</td>
+                                <td [class.bm-dim]="row.state === 'Not configured'">{{ row.state }}</td>
+                                <td>
+                                  @if (row.state === 'Configured') { {{ row.desired }} }
+                                  @else if (row.state === 'Removed') { <s>{{ row.live || '—' }}</s> }
+                                  @else { <span class="bm-dim">{{ row.live }}</span> }
+                                </td>
+                                <td>@if (row.source) { <span class="bm-tag">{{ row.source }}</span> }</td>
+                              </tr>
                             }
                           </tbody>
                         </table>
+                        @if (settingKey(); as sk) {
+                          <mat-card class="bm-setting-dlg">
+                            <strong>{{ sk }}</strong>
+                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Not configured — stop managing (file keeps its live value)</label>
+                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
+                            @if (settingMode() === 'configured') {
+                              @if (valueOptions(r); as opts) {
+                                <select class="bm-kvin bm-setting-val" [value]="settingValue()" (change)="settingValue.set($any($event.target).value)">
+                                  @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
+                                </select>
+                              } @else {
+                                <input class="bm-kvin bm-setting-val" [value]="settingValue()" (input)="settingValue.set($any($event.target).value)" />
+                              }
+                            }
+                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'removed'" (change)="settingMode.set('removed')" /> Removed — enforce the key's absence in the file</label>
+                            <label class="bm-scope">Scope:
+                              <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                                <option value="host">this host</option>
+                                @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                                @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                              </select>
+                            </label>
+                            @if (settingError(); as se) { <p class="bm-cfg-err">{{ se }}</p> }
+                            <div class="bm-rollback-actions">
+                              <button mat-button (click)="closeSetting()" [disabled]="settingBusy()">Cancel</button>
+                              <button mat-flat-button color="primary" (click)="applySetting(r)" [disabled]="settingBusy()">Apply</button>
+                            </div>
+                          </mat-card>
+                        }
+                        @if (driftRows(r.path).length) {
+                          <p class="bm-dim bm-drift-h">Drift — live vs desired:</p>
+                          <table class="bm-diff">
+                            <thead><tr><th>Key</th><th>Live</th><th>Desired</th></tr></thead>
+                            <tbody>
+                              @for (d of driftRows(r.path); track d.key) {
+                                <tr><td>{{ d.key }}</td><td>{{ d.live }}</td><td>{{ d.desired }}</td></tr>
+                              }
+                            </tbody>
+                          </table>
+                        }
+                      } @else if (r.raw) {
+                        @if (editingPath() === r.path) {
+                          <textarea class="bm-cfg-edit" rows="14" [value]="editText()" (input)="editText.set($any($event.target).value)"></textarea>
+                          @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                          @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
+                          <div class="bm-rollback-actions">
+                            <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
+                            <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
+                            <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
+                          </div>
+                        } @else {
+                          <pre class="bm-cfg-values">{{ r.raw }}</pre>
+                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit (raw fallback)</button>
+                        }
+                      } @else if (r.sha256) {
+                        <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                       }
-                      <div class="bm-cfg-editrow">
-                        @if (isEditable(r)) {
-                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit values</button>
-                        }
-                        @if (templateFor(r.path); as tpl) {
-                          <button mat-button class="bm-cfg-editbtn" (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template: {{ tpl.name }}</button>
-                        }
-                      </div>
                     }
-                  </mat-card>
-                }
+                  </div>
+                </div>
                 @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
 
                 <!-- Block F2: generation history + rollback -->
@@ -1012,6 +1071,28 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
       .bm-drift-h { margin: 8px 0 2px; }
       .bm-scope { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0; opacity: 0.85; }
+      .bm-gpo { display: flex; gap: 14px; align-items: flex-start; }
+      .bm-gpo-tree { flex: 0 0 240px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
+      .bm-gpo-dir { padding: 6px 10px 2px; font-weight: 700; font-size: 11px; text-transform: uppercase; opacity: 0.6; }
+      .bm-gpo-subdir { padding: 4px 10px 2px; font-size: 11px; opacity: 0.55; font-family: ui-monospace, monospace; }
+      .bm-gpo-file { padding: 4px 10px; cursor: pointer; border-left: 3px solid transparent; }
+      .bm-gpo-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-gpo-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+      .bm-gpo-indent { padding-left: 20px; }
+      .bm-gpo-main { flex: 1 1 auto; min-width: 0; }
+      .bm-gpo-h { margin: 0 0 8px; }
+      .bm-gpo-settings { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .bm-gpo-settings th, .bm-gpo-settings td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-gpo-settings tbody tr { cursor: pointer; }
+      .bm-gpo-settings tbody tr:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
+      .bm-gpo-key { font-family: ui-monospace, monospace; }
+      .bm-row-sel { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+      .bm-setting-dlg { margin-top: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+      .bm-radio { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+      .bm-setting-val { max-width: 420px; margin-left: 24px; }
+      .bm-thr-inputs { display: flex; gap: 14px; margin-left: 24px; }
+      .bm-thr-inputs label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+      .bm-dot-drift { color: var(--bm-warn, #ef6c00); margin-left: 6px; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1460,6 +1541,7 @@ export class HostDetailComponent implements OnInit {
   private runService = inject(RunService);
   private monitoringService = inject(MonitoringService);
   private hostGroupService = inject(HostGroupService);
+  private orchestration = inject(OrchestrationService);
   private dialog = inject(MatDialog);
 
   agent = signal<Agent | null>(null);
@@ -1852,6 +1934,8 @@ export class HostDetailComponent implements OnInit {
       next: (res) => this.drift.set(res),
       error: () => this.drift.set({ managed: [], drift: [] }),
     });
+    // Thresholds + applied plans for the GPO categories (Block G).
+    this.loadDesiredMonitoring();
     // Host groups for the apply-to-group scope (Block K4). All groups are
     // offered — targeting a group the host isn't in still creates the policy +
     // converges that group's members (agents.groups can lag the membership
@@ -1865,8 +1949,204 @@ export class HostDetailComponent implements OnInit {
   }
 
   // Block K3: drift = the recorded desired config re-planned against the host.
-  drift = signal<{ managed: string[]; drift: StateResourceChange[]; sources?: Record<string, string> }>({ managed: [], drift: [], sources: {} });
+  drift = signal<{
+    managed: string[]; drift: StateResourceChange[]; sources?: Record<string, string>;
+    desired?: Record<string, Record<string, unknown>>; key_sources?: Record<string, Record<string, string>>;
+  }>({ managed: [], drift: [], sources: {} });
   driftBusy = signal(false);
+
+  // ---- Block G: GPO-style settings editor (gpedit model: category tree left,
+  // settings list right, per-setting Not configured / Configured / Removed) ----
+  selectedPane = signal<string>('::thresholds');
+  selectPane(p: string): void {
+    this.selectedPane.set(p);
+    this.closeSetting();
+    this.cancelEdit();
+    this.cancelTemplateEdit();
+    this.thrKey.set(null);
+  }
+  baseName(p: string): string {
+    return p.split('/').pop() || p;
+  }
+  dirGroups(obs: ObservedState): { dir: string; files: ObservedResource[] }[] {
+    const m = new Map<string, ObservedResource[]>();
+    for (const r of obs.config) {
+      const dir = r.path.slice(0, r.path.lastIndexOf('/')) || '/';
+      if (!m.has(dir)) m.set(dir, []);
+      m.get(dir)!.push(r);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([dir, files]) => ({ dir, files }));
+  }
+  selRes(obs: ObservedState): ObservedResource | null {
+    return obs.config.find((r) => r.path === this.selectedPane()) ?? null;
+  }
+
+  /** Setting rows for a codec'd file: the union of live keys and desired keys.
+   * State per key: Configured (managed with a value), Removed (managed null =
+   * enforced absent), Not configured (live only, unmanaged). */
+  settingRows(r: ObservedResource): { key: string; state: string; desired: string; live: string; source: string | null }[] {
+    const desired = this.drift().desired?.[r.path] ?? {};
+    const srcs = this.drift().key_sources?.[r.path] ?? {};
+    const flat = (v: Record<string, unknown> | undefined) =>
+      r.format === 'keyvalue' ? Object.entries(v ?? {}) : this.flatten(v ?? {});
+    const live = new Map(flat(r.values));
+    const des = new Map(flat(desired));
+    const keys = [...new Set([...live.keys(), ...des.keys()])].sort();
+    return keys.map((key) => {
+      const managed = des.has(key);
+      const dv = des.get(key);
+      return {
+        key,
+        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Not configured',
+        desired: dv === null || dv === undefined ? '' : this.scalarStr(dv),
+        live: live.has(key) ? this.scalarStr(live.get(key)) : '',
+        source: managed ? (srcs[key] ?? null) : null,
+      };
+    });
+  }
+  private flatten(v: Record<string, unknown>, prefix = ''): [string, unknown][] {
+    const out: [string, unknown][] = [];
+    for (const [k, val] of Object.entries(v)) {
+      const key = prefix ? `${prefix}.${k}` : k;
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) out.push(...this.flatten(val as Record<string, unknown>, key));
+      else out.push([key, val]);
+    }
+    return out;
+  }
+  private unflatten(key: string, value: unknown, deep: boolean): Record<string, unknown> {
+    if (!deep || !key.includes('.')) return { [key]: value };
+    const parts = key.split('.');
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (const p of parts.slice(0, -1)) {
+      const n: Record<string, unknown> = {};
+      node[p] = n;
+      node = n;
+    }
+    node[parts[parts.length - 1]] = value;
+    return root;
+  }
+
+  // Per-setting dialog (gpedit's Not configured / Enabled / Disabled).
+  settingKey = signal<string | null>(null);
+  settingMode = signal<'notconf' | 'configured' | 'removed'>('configured');
+  settingValue = signal('');
+  settingBusy = signal(false);
+  settingError = signal<string | null>(null);
+  openSetting(r: ObservedResource, row: { key: string; state: string; desired: string; live: string }): void {
+    this.settingKey.set(row.key);
+    this.settingMode.set(row.state === 'Removed' ? 'removed' : row.state === 'Configured' ? 'configured' : 'notconf');
+    this.settingValue.set(row.desired || row.live || '');
+    this.settingError.set(null);
+  }
+  closeSetting(): void {
+    this.settingKey.set(null);
+    this.settingError.set(null);
+  }
+  /** Possible values as a listbox where they're inferable from the current
+   * value's family (yes/no, true/false, on/off, enabled/disabled). Free-text
+   * input otherwise. (Full per-directive value catalogs mined from man pages —
+   * the ADMX equivalent — are a planned follow-up.) */
+  valueOptions(r: ObservedResource): string[] | null {
+    const key = this.settingKey();
+    if (!key) return null;
+    const row = this.settingRows(r).find((x) => x.key === key);
+    const cur = (row?.desired || row?.live || '').trim().toLowerCase();
+    const families = [['yes', 'no'], ['true', 'false'], ['on', 'off'], ['enabled', 'disabled']];
+    const fam = families.find((f) => f.includes(cur));
+    if (!fam) return null;
+    const val = this.settingValue();
+    return fam.includes(val) ? fam : [val, ...fam].filter((v, i, a) => v !== '' && a.indexOf(v) === i);
+  }
+  applySetting(r: ObservedResource): void {
+    const agent = this.agent();
+    const key = this.settingKey();
+    if (!agent || !key) return;
+    const mode = this.settingMode();
+    this.settingBusy.set(true);
+    this.settingError.set(null);
+    const done = () => { this.settingBusy.set(false); this.closeSetting(); this.loadObserved(); };
+    const fail = (e: { error?: { detail?: string } }) => { this.settingError.set(e?.error?.detail ?? 'failed'); this.settingBusy.set(false); };
+    if (mode === 'notconf') {
+      // Stop managing at the chosen scope; the live file is untouched.
+      const scope = this.scopeArg();
+      this.agentService.unsetDesired(agent.id, { path: r.path, key, ou_id: scope?.ouId, host_group_id: scope?.groupId }).subscribe({ next: done, error: fail });
+      return;
+    }
+    const value = mode === 'removed' ? null : this.settingValue();
+    const values = this.unflatten(key, value, r.format !== 'keyvalue');
+    const resource: ConfigResource = { type: 'config', path: r.path, format: r.format, separator: r.separator, values };
+    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({ next: done, error: fail });
+  }
+
+  // Thresholds category (check_rules as GPO settings) + applied plans.
+  thresholds = signal<{ metric: string; service_name?: string; warn?: number | null; crit?: number | null; comparison?: string; source?: string }[]>([]);
+  appliedPlans = signal<{ name: string; version: number | null; type: string; source: string }[]>([]);
+  thrKey = signal<string | null>(null);
+  thrMode = signal<'configured' | 'notconf'>('configured');
+  thrWarn = signal('');
+  thrCrit = signal('');
+  thrBusy = signal(false);
+  thrError = signal<string | null>(null);
+  loadDesiredMonitoring(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.orchestration.desiredState(agent.id).subscribe({
+      next: (d) => {
+        const t = (d.state.monitoring.thresholds ?? {}) as Record<string, { service_name?: string; warn?: number; crit?: number; comparison?: string; source?: string }>;
+        this.thresholds.set(Object.entries(t).map(([metric, v]) => ({ metric, ...v })));
+        const explain = (d.explain ?? {}) as { assignments?: { plan: string; source: string; version: number | null }[] };
+        const srcByPlan = new Map((explain.assignments ?? []).map((a) => [a.plan, a.source] as const));
+        this.appliedPlans.set(d.state.orchestration.plans.map((p) => ({ name: p.name, version: p.version, type: p.type, source: srcByPlan.get(p.name) ?? 'ou' })));
+      },
+      error: () => { this.thresholds.set([]); this.appliedPlans.set([]); },
+    });
+  }
+  openThr(t: { metric: string; warn?: number | null; crit?: number | null }): void {
+    this.thrKey.set(t.metric);
+    this.thrWarn.set(t.warn === null || t.warn === undefined ? '' : String(t.warn));
+    this.thrCrit.set(t.crit === null || t.crit === undefined ? '' : String(t.crit));
+    this.thrMode.set('configured');
+    this.thrError.set(null);
+  }
+  applyThr(): void {
+    const agent = this.agent();
+    const metric = this.thrKey();
+    if (!agent || !metric) return;
+    const t = this.thresholds().find((x) => x.metric === metric);
+    const scope = this.applyScope();
+    const scopeFields = scope === 'ou'
+      ? { scope_type: 'ou', scope_ou_id: agent.ou_id, scope_value: null }
+      : scope.startsWith('group:')
+        ? { scope_type: 'group', scope_value: this.hostGroups().find((g) => 'group:' + g.id === scope)?.name ?? '', scope_ou_id: null }
+        : { scope_type: 'host', scope_value: agent.name, scope_ou_id: null };
+    this.thrBusy.set(true);
+    this.thrError.set(null);
+    const done = () => { this.thrBusy.set(false); this.thrKey.set(null); this.loadDesiredMonitoring(); };
+    const fail = (e: { error?: { detail?: string } }) => { this.thrError.set(e?.error?.detail ?? 'failed'); this.thrBusy.set(false); };
+    this.monitoringService.listCheckRules().subscribe({
+      next: (rules) => {
+        const existing = rules.find((ru) =>
+          ru.metric === metric && ru.scope_type === scopeFields.scope_type &&
+          (scopeFields.scope_type === 'ou' ? ru.scope_ou_id === agent.ou_id : ru.scope_value === scopeFields.scope_value));
+        if (this.thrMode() === 'notconf') {
+          if (!existing) { this.thrError.set('no rule at this scope to remove'); this.thrBusy.set(false); return; }
+          this.monitoringService.deleteCheckRule(existing.id).subscribe({ next: done, error: fail });
+          return;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const body: any = {
+          service_name: t?.service_name ?? metric, metric, comparison: t?.comparison ?? 'ge',
+          warn_threshold: this.thrWarn() === '' ? null : Number(this.thrWarn()),
+          crit_threshold: this.thrCrit() === '' ? null : Number(this.thrCrit()),
+          ...scopeFields, enabled: true,
+        };
+        if (existing) this.monitoringService.updateCheckRule(existing.id, body).subscribe({ next: done, error: fail });
+        else this.monitoringService.createCheckRule(body).subscribe({ next: done, error: fail });
+      },
+      error: fail,
+    });
+  }
   // Block K4: apply scope — 'host', 'ou', or 'group:<id>'. OU/group applies save
   // a config policy + converge every member host ("Host A = Host B").
   applyScope = signal<string>('host');
