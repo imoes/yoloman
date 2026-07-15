@@ -120,6 +120,7 @@ import { DashboardGridComponent } from './dashboard-grid.component';
                   <th>Host</th>
                   <th>Service</th>
                   <th>State</th>
+                  <th>Detail</th>
                   <th>Since</th>
                   <th></th>
                 </tr>
@@ -130,6 +131,7 @@ import { DashboardGridComponent } from './dashboard-grid.component';
                     <td><a [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.agent_name }}</a></td>
                     <td><a class="bm-svc-link" [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.name }}</a></td>
                     <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
+                    <td class="bm-detail" [title]="p.output">{{ p.output }}</td>
                     <td>{{ p.last_state_change | date: 'short' }}</td>
                     <td class="bm-actions">
                       <button mat-button (click)="acknowledge(p)">Acknowledge</button>

@@ -70,6 +70,7 @@ import { serviceStateBadge } from '../../shared/status.util';
                 <th>Host</th>
                 <th>Service</th>
                 <th>State</th>
+                <th>Detail</th>
                 <th>Since</th>
                 <th>Status</th>
                 <th></th>
@@ -84,6 +85,7 @@ import { serviceStateBadge } from '../../shared/status.util';
                   <td><a [routerLink]="['/hosts', p.agent_id]">{{ p.agent_name }}</a></td>
                   <td>{{ p.name }}</td>
                   <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
+                  <td class="bm-detail" [title]="p.output">{{ p.output }}</td>
                   <td>{{ p.last_state_change | date: 'medium' }}</td>
                   <td>
                     @if (p.in_downtime) {
