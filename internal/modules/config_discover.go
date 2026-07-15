@@ -76,9 +76,21 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 			continue
 		}
 		paths := parseUnitConfigPaths(unit)
+		// Most daemons don't pass their config path on the command line — they
+		// read a compiled-in default (sshd → /etc/ssh/sshd_config, chronyd →
+		// /etc/chrony/chrony.conf). Mine those from the daemon's man page FILES
+		// section so discovery isn't limited to what the unit declares.
+		if bin := execStartBinary(unit); bin != "" {
+			paths = append(paths, manConfigPaths(ctx, bin)...)
+		}
+		seen := map[string]bool{}
 		existing := make([]string, 0, len(paths))
 		for _, p := range paths {
+			if seen[p] {
+				continue
+			}
 			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+				seen[p] = true
 				existing = append(existing, p)
 				allPaths[p] = true
 			}
@@ -88,6 +100,7 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 			perService = append(perService, discoveredService{Service: svc, ConfigPaths: existing})
 		}
 	}
+
 
 	flat := make([]map[string]any, 0, len(allPaths))
 	paths := make([]string, 0, len(allPaths))
@@ -195,6 +208,90 @@ func parseUnitConfigPaths(unit string) []string {
 	return out
 }
 
+var (
+	execStartOnlyRe = regexp.MustCompile(`(?m)^\s*ExecStart\s*=`)
+	manEtcPathRe    = regexp.MustCompile(`/(?:etc|usr/local/etc)/[A-Za-z0-9._+/-]+`)
+	manSectionRe    = regexp.MustCompile(`^[A-Z][A-Z0-9 /_-]{1,30}$`)
+)
+
+// execStartBinary returns the basename of a unit's ExecStart executable
+// (stripping systemd's @-+!: exec prefixes) — e.g. chronyd, sshd, rsyslogd —
+// so we can look up that daemon's man page for its config files.
+func execStartBinary(unit string) string {
+	for _, line := range strings.Split(unit, "\n") {
+		if !execStartOnlyRe.MatchString(line) {
+			continue
+		}
+		i := strings.Index(line, "=")
+		if i < 0 {
+			continue
+		}
+		tokens := strings.Fields(line[i+1:])
+		if len(tokens) == 0 {
+			continue
+		}
+		return filepath.Base(strings.TrimLeft(tokens[0], "@-+!:"))
+	}
+	return ""
+}
+
+// manConfigPaths reads `man <name>` and returns the config file paths listed in
+// its FILES section (existing regular files only). Scoping to the FILES section
+// avoids the /etc/passwd-in-prose noise the whole page would otherwise bring.
+// Best-effort: no `man` binary, no such page, or man-db not installed → nil.
+func manConfigPaths(ctx context.Context, name string) []string {
+	if _, err := exec.LookPath("man"); err != nil {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "man", name)
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "MANWIDTH=200", "PAGER=cat", "MANPAGER=cat")
+	raw, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	text := stripOverstrike(raw)
+	var out []string
+	seen := map[string]bool{}
+	inFiles := false
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		// man section headers ("FILES", "SEE ALSO", …) sit at column 0.
+		if line != "" && line[0] != ' ' && line[0] != '\t' && manSectionRe.MatchString(trimmed) {
+			inFiles = trimmed == "FILES"
+			continue
+		}
+		if !inFiles {
+			continue
+		}
+		for _, m := range manEtcPathRe.FindAllString(line, -1) {
+			p := strings.TrimRight(m, ".,;:)")
+			if seen[p] || !looksLikeConfig(p) {
+				continue
+			}
+			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+				seen[p] = true
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
+// stripOverstrike removes man/groff overstrike ("X\bX" bold, "_\bX" underline),
+// keeping the real character, so path regexes match clean text.
+func stripOverstrike(b []byte) string {
+	var sb strings.Builder
+	sb.Grow(len(b))
+	for i := 0; i < len(b); i++ {
+		if i+1 < len(b) && b[i+1] == 0x08 {
+			i++ // drop this char + the backspace; the next byte is the real one
+			continue
+		}
+		sb.WriteByte(b[i])
+	}
+	return sb.String()
+}
+
 // looksLikeConfig keeps config-ish files (has a config extension or lives under
 // /etc), dropping sockets/pids/runtime dirs that also match the path regex.
 func looksLikeConfig(p string) bool {
@@ -207,7 +304,13 @@ func looksLikeConfig(p string) bool {
 	}
 	ext := strings.ToLower(filepath.Ext(p))
 	switch ext {
-	case ".pid", ".sock", ".log":
+	case ".pid", ".sock", ".log", ".pub", ".key", ".pem", ".crt", ".gpg":
+		return false
+	}
+	// Key material a daemon's man page lists in FILES (e.g. sshd's host keys)
+	// is state, not configuration — keep the config inventory focused.
+	base := filepath.Base(p)
+	if strings.HasSuffix(base, "_key") || strings.Contains(base, "_key.") {
 		return false
 	}
 	return true
