@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
@@ -26,7 +27,7 @@ interface HostRow extends FleetHost {
 @Component({
   selector: 'app-hosts-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, HostStatusBadgeComponent, PerfOMeterComponent],
+  imports: [RouterLink, DatePipe, MatCardModule, MatIconModule, HostStatusBadgeComponent, PerfOMeterComponent],
   template: `
     <div class="bm-page">
       <h1>Hosts</h1>
@@ -77,7 +78,7 @@ interface HostRow extends FleetHost {
                     [disabled]="updating() === host.id"
                     (click)="onUpdateClick(host, fileInput, $event)"
                   >
-                    {{ updating() === host.id ? '⏳' : '⬆' }}
+                    <mat-icon>{{ updating() === host.id ? 'hourglass_empty' : 'system_update_alt' }}</mat-icon>
                   </button>
                   <button
                     type="button"
@@ -86,7 +87,7 @@ interface HostRow extends FleetHost {
                     [disabled]="deleting() === host.id"
                     (click)="deleteHost(host, $event)"
                   >
-                    🗑
+                    <mat-icon>delete</mat-icon>
                   </button>
                 </td>
               </tr>
@@ -173,11 +174,18 @@ interface HostRow extends FleetHost {
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 15px;
         opacity: 0.55;
         padding: 4px 6px;
         border-radius: 4px;
         line-height: 1;
+        display: inline-flex;
+        align-items: center;
+      }
+      .bm-delete-btn mat-icon,
+      .bm-icon-btn mat-icon {
+        font-size: 19px;
+        width: 19px;
+        height: 19px;
       }
       .bm-icon-btn:hover {
         opacity: 1;
