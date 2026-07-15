@@ -143,6 +143,60 @@ async def get_agent_state_generations(
     return {"agent_id": str(agent.id), **(gens if isinstance(gens, dict) else {"generations": gens})}
 
 
+class StateDocument(BaseModel):
+    # One config resource per edited file: {type: "config", path, format,
+    # separator?, values}. A value of null deletes that key (codec-level).
+    resources: list[dict[str, Any]] = []
+
+
+class StateApplyRequest(StateDocument):
+    dry_run: bool = True
+
+
+@router.post("/api/v1/agents/{agent_id}/state/plan")
+async def post_agent_state_plan(
+    agent_id: UUID,
+    body: StateDocument,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Diff a desired config Document against the host (Block K1), proxying the
+    agent's POST /api/v1/state/plan — the per-key preview behind the value
+    editor. Read-only; writes nothing."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        plan = await client.state_plan({"resources": body.resources})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), **(plan if isinstance(plan, dict) else {"plan": plan})}
+
+
+@router.post("/api/v1/agents/{agent_id}/state/apply")
+async def post_agent_state_apply(
+    agent_id: UUID,
+    body: StateApplyRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Converge a desired config Document on the host (Block K1), proxying the
+    agent's POST /api/v1/state/apply. dry_run previews (the plan) without
+    writing; a real apply writes through the codec merge and records a
+    generation (so every edit is versioned + roll-backable). A read-only agent
+    rejects the write → surfaced as 502."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        result = await client.state_apply({"resources": body.resources}, body.dry_run)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}
+
+
 class StateRollbackRequest(BaseModel):
     generation: int
     dry_run: bool = True

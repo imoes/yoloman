@@ -381,8 +381,15 @@ func (k *keyValueCodec) format(key string, v any) string {
 }
 
 func (k *keyValueCodec) render(existing []byte, values map[string]any, manage string) ([]byte, error) {
+	// A null value means "delete this key" (structure-preserving) — the
+	// document loop's way to remove a directive without rewriting the file.
 	want := map[string]string{}
+	del := map[string]bool{}
 	for key, v := range values {
+		if v == nil {
+			del[key] = true
+			continue
+		}
 		want[key] = fmt.Sprintf("%v", v)
 	}
 
@@ -400,25 +407,27 @@ func (k *keyValueCodec) render(existing []byte, values map[string]any, manage st
 		return []byte(b.String()), nil
 	}
 
-	// merge: rewrite matching lines in place, append the rest.
+	// merge: rewrite matching lines in place, drop keys set to null, append new.
 	seen := map[string]bool{}
-	lines := strings.Split(string(existing), "\n")
+	src := strings.Split(string(existing), "\n")
 	// A trailing empty element from a final newline: drop it, restore later.
-	trailingNL := len(lines) > 0 && lines[len(lines)-1] == ""
-	if trailingNL {
-		lines = lines[:len(lines)-1]
+	if len(src) > 0 && src[len(src)-1] == "" {
+		src = src[:len(src)-1]
 	}
-	for i, line := range lines {
-		key, _, ok := k.splitLine(line)
-		if !ok {
-			continue
+	lines := make([]string, 0, len(src))
+	for _, line := range src {
+		if key, _, ok := k.splitLine(line); ok {
+			if del[key] {
+				continue // null = delete: drop the directive line entirely
+			}
+			if nv, present := want[key]; present && !seen[key] {
+				lines = append(lines, k.format(key, nv))
+				seen[key] = true
+				continue
+			}
 		}
-		if nv, present := want[key]; present && !seen[key] {
-			lines[i] = k.format(key, nv)
-			seen[key] = true
-		}
+		lines = append(lines, line)
 	}
-	appended := make([]string, 0)
 	appendKeys := make([]string, 0)
 	for key := range want {
 		if !seen[key] {
@@ -427,9 +436,8 @@ func (k *keyValueCodec) render(existing []byte, values map[string]any, manage st
 	}
 	sort.Strings(appendKeys)
 	for _, key := range appendKeys {
-		appended = append(appended, k.format(key, want[key]))
+		lines = append(lines, k.format(key, want[key]))
 	}
-	lines = append(lines, appended...)
 	out := strings.Join(lines, "\n")
 	if len(out) > 0 {
 		out += "\n"

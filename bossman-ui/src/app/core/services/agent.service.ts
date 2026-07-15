@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, ConfigResource, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -80,12 +80,28 @@ export class AgentService {
     return this.http.post<StateRollbackResponse>(`${this.base}/${id}/state/rollback`, { generation, dry_run: dryRun });
   }
 
-  /** Push an edited config file back verbatim via the `copy` module (writes the
-   * whole file, so comments/order survive, deletions apply, any format works).
-   * dry_run=true previews (changed?) without touching the host. */
+  /** Push an edited config file back verbatim via the `copy` module — the
+   * tier-3 raw fallback for files with no codec (motd, issue). Codec'd files go
+   * through the value editor (statePlan/stateApply) instead. */
   writeFileContent(id: string, dest: string, content: string, dryRun: boolean) {
     return this.http.post<{ agent_id: string; tool: string; result: { changed: boolean; msg: string; data?: unknown } }>(
       `${this.base}/${id}/tools/copy`, { params: { dest, content, dry_run: dryRun } },
+    );
+  }
+
+  /** Block K1 — diff a desired config Document (edited values) against the host
+   * via the document loop; returns the per-key plan without writing. */
+  statePlan(id: string, resources: ConfigResource[]) {
+    return this.http.post<{ agent_id: string; changes: StateResourceChange[]; changed_count: number }>(
+      `${this.base}/${id}/state/plan`, { resources },
+    );
+  }
+
+  /** Block K1 — apply edited config values through the codec merge; records a
+   * generation (versioned + roll-backable). dry_run=true just returns the plan. */
+  stateApply(id: string, resources: ConfigResource[], dryRun: boolean) {
+    return this.http.post<{ agent_id: string; plan: StatePlan; generation: number; dry_run: boolean }>(
+      `${this.base}/${id}/state/apply`, { resources, dry_run: dryRun },
     );
   }
 

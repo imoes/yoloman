@@ -373,6 +373,16 @@ export interface StatePlan {
   changed_count: number;
 }
 
+/** One desired config resource for the document loop (K1): the edited values
+ * for a file. A value of null means "delete this key" (codec-level). */
+export interface ConfigResource {
+  type: 'config';
+  path: string;
+  format: string;
+  separator?: string;
+  values: Record<string, unknown>;
+}
+
 export interface StateRollbackResponse {
   agent_id: string;
   plan: StatePlan;

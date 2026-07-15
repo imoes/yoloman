@@ -47,12 +47,18 @@ Ad-hoc pushes (tools/config, tools/copy) skip all of that.
 
 ## Blocks
 
-- **K1 — value editor via the document loop** (fixes the miss directly):
-  key-value table editor for codec'd files; Bossman proxies
-  `POST /agents/{id}/state/plan` + `/state/apply` (missing today — only
-  observed/generations/rollback exist); Preview renders plan.changes[].changed;
-  Apply creates a generation (F2's history/rollback then applies to every
-  edit for free). Codec extension: null = delete-key (keyvalue + ini first).
+- **K1 — value editor via the document loop** ✅ DONE + live-verified (0.45.0):
+  key-value table editor for codec'd files (Key | Value | delete, add-row);
+  Bossman proxies `POST /agents/{id}/state/plan` + `/state/apply`; AgentClient
+  state_plan/state_apply. Preview renders plan.changes[].changed (per-key
+  before→after); Apply writes through the codec merge and records a generation
+  (F2 rollback then covers every edit). Codec extension: a null value =
+  delete-key, structure-preserving (keyValueCodec; test
+  TestConfigKeyValueNullDeletesKey). Verified on docker-test: edit chrony
+  makestep + delete rtcsync → plan diff → apply → host file changed
+  (comments intact, rtcsync line gone), generation created, reverted cleanly;
+  same flow through the UI KV table. ini null-delete + the KV editor for ini
+  still to come.
 - **K2 — template binding**: Bossman endpoint serving
   `configs/config_templates/` (name, schema, sample); match discovered path ↔
   template name (chrony.conf→chrony, rsyslog.conf→rsyslog, /etc/hosts→hosts,

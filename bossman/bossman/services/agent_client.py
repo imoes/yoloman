@@ -178,6 +178,41 @@ class AgentClient:
         generation history (plan/apply/rollback store), newest first."""
         return await self._get_json("/api/v1/state/generations", {})
 
+    async def state_plan(self, document: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/state/plan — diff a desired Document (list of config
+        resources with target values) against the host, returning the per-key
+        plan without writing. The read side of edit → plan → apply."""
+        url = f"https://{self.address}/api/v1/state/plan"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=document)
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: state plan: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: state plan returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: state plan: decoding response: {exc}") from exc
+
+    async def state_apply(self, document: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        """POST /api/v1/state/apply — converge a desired Document; records a new
+        generation when anything changed (unless dry_run). The write side of the
+        document loop — real config edits go through here, not ad-hoc tool
+        calls, so they are diffable, versioned and roll-backable."""
+        url = f"https://{self.address}/api/v1/state/apply"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json={**document, "dry_run": dry_run})
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: state apply: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: state apply returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: state apply: decoding response: {exc}") from exc
+
     async def state_rollback(self, generation: int, dry_run: bool) -> dict[str, Any]:
         """POST /api/v1/state/rollback — roll the host's config back to a past
         generation. dry_run=true returns the plan (the diff observed→target)

@@ -149,3 +149,23 @@ func TestConfigXmlRoundTrip(t *testing.T) {
 		t.Fatalf("xml merge: %s", out)
 	}
 }
+
+func TestConfigKeyValueNullDeletesKey(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "sshd_config")
+	os.WriteFile(p, []byte("# ssh\nPort 22\nPermitRootLogin yes\nX11Forwarding yes\n"), 0o644)
+	// null value → delete just that key's line; comments + others preserved.
+	r := runConfig(t, map[string]any{"path": p, "format": "keyvalue",
+		"values": map[string]any{"PermitRootLogin": nil, "X11Forwarding": "no"}}, false)
+	if !r.Changed {
+		t.Fatal("expected changed")
+	}
+	out, _ := os.ReadFile(p)
+	s := string(out)
+	if strings.Contains(s, "PermitRootLogin") {
+		t.Fatalf("PermitRootLogin should be deleted:\n%s", s)
+	}
+	if !strings.Contains(s, "# ssh") || !strings.Contains(s, "Port 22") || !strings.Contains(s, "X11Forwarding no") {
+		t.Fatalf("lost comment/other keys or update:\n%s", s)
+	}
+}

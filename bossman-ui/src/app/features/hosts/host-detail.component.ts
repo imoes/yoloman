@@ -12,7 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan } from '../../core/models/agent.model';
+import { Agent, ConfigResource, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -468,15 +468,49 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     @if (r.error) {
                       <p class="bm-cfg-err">{{ r.error }}</p>
                     } @else if (editingPath() === r.path) {
-                      <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
-                                (input)="editText.set($any($event.target).value)"></textarea>
-                      @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                      @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
-                      <div class="bm-rollback-actions">
-                        <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                        <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
-                        <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
-                      </div>
+                      @if (editMode() === 'kv') {
+                        <table class="bm-kvedit">
+                          <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+                          <tbody>
+                            @for (row of kvRows(); track $index) {
+                              <tr>
+                                <td><input class="bm-kvin" [value]="row.key" (input)="setKvKey($index, $any($event.target).value)" /></td>
+                                <td><input class="bm-kvin" [value]="row.value" (input)="setKvValue($index, $any($event.target).value)" /></td>
+                                <td><button mat-icon-button (click)="removeKvRow($index)" title="Delete key"><mat-icon>close</mat-icon></button></td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                        <button mat-button (click)="addKvRow()"><mat-icon>add</mat-icon> Add key</button>
+                        @if (kvPlan(); as pl) {
+                          @if (kvDiffRows().length) {
+                            <table class="bm-diff">
+                              <thead><tr><th>Key</th><th>Before</th><th>After</th></tr></thead>
+                              <tbody>
+                                @for (d of kvDiffRows(); track d.key) {
+                                  <tr><td>{{ d.key }}</td><td>{{ d.before }}</td><td>{{ d.after }}</td></tr>
+                                }
+                              </tbody>
+                            </table>
+                          } @else { <p class="bm-dim">No changes.</p> }
+                        }
+                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                        <div class="bm-rollback-actions">
+                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
+                          <button mat-button (click)="previewKv(r)" [disabled]="editBusy()">Preview (plan)</button>
+                          <button mat-flat-button color="primary" (click)="applyKv(r)" [disabled]="editBusy()">Apply</button>
+                        </div>
+                      } @else {
+                        <textarea class="bm-cfg-edit" rows="14" [value]="editText()"
+                                  (input)="editText.set($any($event.target).value)"></textarea>
+                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                        @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
+                        <div class="bm-rollback-actions">
+                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
+                          <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
+                          <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
+                        </div>
+                      }
                     } @else {
                       @if (r.values) {
                         <pre class="bm-cfg-values">{{ configText(r) }}</pre>
@@ -887,6 +921,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-cfg-err { color: var(--bm-crit, #c62828); margin: 8px 0 0; font-size: 13px; }
       .bm-cfg-editbtn { margin-top: 6px; }
       .bm-cfg-edit { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); resize: vertical; }
+      .bm-kvedit { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      .bm-kvedit th { text-align: left; font-size: 12px; opacity: 0.7; padding: 2px 6px; }
+      .bm-kvedit td { padding: 2px 6px; vertical-align: middle; }
+      .bm-kvedit td:nth-child(3) { width: 40px; }
+      .bm-kvin { width: 100%; box-sizing: border-box; padding: 5px 8px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1852,22 +1891,120 @@ export class HostDetailComponent implements OnInit {
   }
 
   editingPath = signal<string | null>(null);
-  editText = signal('');
+  editMode = signal<'kv' | 'raw'>('kv');
+  editText = signal(''); // raw fallback tier
   editBusy = signal(false);
   editError = signal<string | null>(null);
-  editPreview = signal<string | null>(null); // dry-run result message
+  editPreview = signal<string | null>(null); // raw dry-run message
 
-  startEdit(r: { path: string; raw?: string }): void {
+  // K1 value editor (codec'd files): key-value rows + the document-loop plan.
+  kvRows = signal<{ key: string; value: string }[]>([]);
+  private kvOriginalKeys: string[] = [];
+  kvPlan = signal<StateResourceChange | null>(null);
+
+  startEdit(r: { path: string; format: string; separator?: string; raw?: string; values?: Record<string, unknown> }): void {
     this.editingPath.set(r.path);
-    this.editText.set(r.raw ?? '');
     this.editError.set(null);
     this.editPreview.set(null);
+    this.kvPlan.set(null);
+    if (r.values) {
+      // Codec'd file → edit VALUES via a key-value table (the document loop).
+      this.editMode.set('kv');
+      const rows = Object.entries(r.values).map(([key, v]) => ({ key, value: this.scalarStr(v) }));
+      this.kvRows.set(rows);
+      this.kvOriginalKeys = rows.map((x) => x.key);
+    } else {
+      // No codec → raw-text fallback tier.
+      this.editMode.set('raw');
+      this.editText.set(r.raw ?? '');
+    }
   }
 
   cancelEdit(): void {
     this.editingPath.set(null);
     this.editPreview.set(null);
     this.editError.set(null);
+    this.kvPlan.set(null);
+  }
+
+  setKvKey(i: number, key: string): void {
+    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, key } : r)));
+  }
+  setKvValue(i: number, value: string): void {
+    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, value } : r)));
+  }
+  removeKvRow(i: number): void {
+    this.kvRows.update((rows) => rows.filter((_, j) => j !== i));
+  }
+  addKvRow(): void {
+    this.kvRows.update((rows) => [...rows, { key: '', value: '' }]);
+  }
+
+  /** Build the desired values map: every current row (key→value) plus any
+   * original key the user removed, set to null (codec-level delete). */
+  private kvValues(): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const present = new Set<string>();
+    for (const { key, value } of this.kvRows()) {
+      const k = key.trim();
+      if (!k) continue;
+      out[k] = value;
+      present.add(k);
+    }
+    for (const k of this.kvOriginalKeys) if (!present.has(k)) out[k] = null;
+    return out;
+  }
+
+  private kvResource(r: { path: string; format: string; separator?: string }): ConfigResource {
+    return { type: 'config', path: r.path, format: r.format, separator: r.separator, values: this.kvValues() };
+  }
+
+  /** Dry-run the value edit through the document loop → per-key diff. */
+  previewKv(r: { path: string; format: string; separator?: string }): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.editBusy.set(true);
+    this.editError.set(null);
+    this.agentService.statePlan(agent.id, [this.kvResource(r)]).subscribe({
+      next: (res) => {
+        this.editBusy.set(false);
+        this.kvPlan.set((res.changes || []).find((c) => c.path === r.path) ?? { type: 'config', path: r.path, action: 'noop' });
+      },
+      error: (e) => {
+        this.editError.set(e?.error?.detail ?? 'plan failed');
+        this.editBusy.set(false);
+      },
+    });
+  }
+
+  /** Apply the value edit → codec merge-write + a new generation, then reload. */
+  applyKv(r: { path: string; format: string; separator?: string }): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.editBusy.set(true);
+    this.editError.set(null);
+    this.agentService.stateApply(agent.id, [this.kvResource(r)], false).subscribe({
+      next: () => {
+        this.editBusy.set(false);
+        this.cancelEdit();
+        this.loadObserved();
+      },
+      error: (e) => {
+        this.editError.set(e?.error?.detail ?? 'apply failed');
+        this.editBusy.set(false);
+      },
+    });
+  }
+
+  /** Per-key diff rows for the KV preview (key: before → after). */
+  kvDiffRows(): { key: string; before: string; after: string }[] {
+    const changed = this.kvPlan()?.changed;
+    if (!changed) return [];
+    return Object.entries(changed).map(([key, [b, a]]) => ({
+      key,
+      before: b === null || b === undefined ? '—' : this.scalarStr(b),
+      after: a === null || a === undefined ? '(removed)' : this.scalarStr(a),
+    }));
   }
 
   private pushConfig(r: { path: string }, dryRun: boolean, onDone: (changed: boolean) => void): void {
