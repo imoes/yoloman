@@ -373,14 +373,25 @@ export interface StatePlan {
   changed_count: number;
 }
 
-/** One desired config resource for the document loop (K1): the edited values
- * for a file. A value of null means "delete this key" (codec-level). */
+/** One desired config resource for the document loop (K1/K2): edited values for
+ * a file. type 'config' = codec merge (null value = delete key); type
+ * 'template_render' = render the inline `template` against values into path. */
 export interface ConfigResource {
-  type: 'config';
+  type: 'config' | 'template_render';
   path: string;
-  format: string;
+  format?: string;
   separator?: string;
   values: Record<string, unknown>;
+  template?: string;
+}
+
+/** Block K2 — a Class-B config template from the catalog. `schema` maps each
+ * variable to {type: string|number|bool|list, default?, description?}. */
+export interface ConfigTemplate {
+  name: string;
+  template: string;
+  schema: Record<string, { type?: string; default?: unknown; description?: string }>;
+  sample: Record<string, unknown>;
 }
 
 export interface StateRollbackResponse {

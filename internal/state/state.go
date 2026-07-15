@@ -37,6 +37,10 @@ type Resource struct {
 	Separator string         `json:"separator,omitempty"`
 	Comment   string         `json:"comment,omitempty"`
 	Manage    string         `json:"manage,omitempty"`
+	// Template (Block K2): for Type "template_render", the inline Jinja2 source
+	// rendered against Values into Path. Class-B configs (whole file derived
+	// from high-level values) managed through the same document loop as codecs.
+	Template string `json:"template,omitempty"`
 }
 
 // Document is the whole desired state: an ordered list of resources.
@@ -131,6 +135,10 @@ func (r Resource) readParams() map[string]any {
 }
 
 func (r Resource) writeParams() map[string]any {
+	if r.Type == "template_render" {
+		// Class-B: render the inline template against Values into Path (dest).
+		return map[string]any{"template": r.Template, "dest": r.Path, "values": r.Values}
+	}
 	p := r.readParams()
 	p["values"] = r.Values
 	if r.Manage != "" {
@@ -159,6 +167,22 @@ func planResource(ctx context.Context, reg *modules.Registry, r Resource) Resour
 	mod, ok := reg.Get(r.Type)
 	if !ok {
 		rc.Error = "unknown resource type " + r.Type
+		return rc
+	}
+	// Template-rendered (Class-B) resource: whole-file text, not per-key values.
+	// A dry-run render reports whether the file would change; the detailed text
+	// diff is shown client-side. Skip the config-codec read/diff below.
+	if r.Type == "template_render" {
+		res, rerr := mod.Run(ctx, r.writeParams(), true)
+		if rerr != nil {
+			rc.Error = "render: " + rerr.Error()
+			return rc
+		}
+		if _, statErr := os.Stat(r.Path); statErr != nil {
+			rc.Action = "create"
+		} else if res.Changed {
+			rc.Action = "update"
+		}
 		return rc
 	}
 	observedRes, err := mod.Run(ctx, r.readParams(), true)

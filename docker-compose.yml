@@ -44,6 +44,7 @@ services:
       # pin an explicit key instead.)
       BOSSMAN_VAULT_KEY_PATH: /app/data/tls/vault.key
       BOSSMAN_PLANS_DIR: /app/plans
+      BOSSMAN_CONFIG_TEMPLATES_DIR: /app/config-templates
       BOSSMAN_JWT_SECRET: dev-only-not-for-production
       # Enrollment is open (no secret). Enrolling a real host needs
       # BOSSMAN_PUBLIC_URL set to a reachable address, which is host-specific
@@ -51,6 +52,7 @@ services:
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ./bossman/plans:/app/plans:ro
+      - ./configs/config_templates:/app/config-templates:ro
       - bossman-tls:/app/data/tls
     depends_on:
       migrate:

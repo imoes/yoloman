@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, ConfigResource, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -102,6 +102,21 @@ export class AgentService {
   stateApply(id: string, resources: ConfigResource[], dryRun: boolean) {
     return this.http.post<{ agent_id: string; plan: StatePlan; generation: number; dry_run: boolean }>(
       `${this.base}/${id}/state/apply`, { resources, dry_run: dryRun },
+    );
+  }
+
+  /** Block K2 — the Class-B config template catalog (name + j2 text + schema +
+   * sample). Bossman-level, not agent-scoped. */
+  configTemplates() {
+    return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
+  }
+
+  /** Block K2 — render a template (inline j2 + values) on the host via
+   * template_render dry-run, returning the rendered file text (data.rendered)
+   * without writing — the template-form preview. */
+  renderTemplate(id: string, template: string, values: Record<string, unknown>, dest: string) {
+    return this.http.post<{ agent_id: string; tool: string; result: { changed: boolean; data?: { rendered?: string } } }>(
+      `${this.base}/${id}/tools/template_render`, { params: { template, values, dest, dry_run: true } },
     );
   }
 

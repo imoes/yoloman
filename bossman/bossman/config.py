@@ -70,6 +70,10 @@ class Settings(BaseSettings):
 
     # Where plan YAML files live (see docs/plan.md's plan-format design).
     plans_dir: str = "/etc/bossman/plans"
+    # Block K2: the Class-B config template library (configs/config_templates/
+    # in the repo), each a <name>/ dir with template.j2 + schema.json +
+    # sample.json. Served as a catalog and bound to discovered config files.
+    config_templates_dir: str = "/app/config-templates"
 
     # The Starlark module library (docs/plan.md Blocks G7/G8): translated
     # collection modules land here as <collection>/<name>.{yaml,star},

@@ -12,7 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
-import { Agent, ConfigResource, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { Agent, ConfigResource, ConfigTemplate, EbpfDetail, LatestMetric, MetricPoint, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -511,6 +511,29 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
                         </div>
                       }
+                    } @else if (tplEditPath() === r.path) {
+                      <!-- Block K2: schema-driven template form -->
+                      <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
+                      @for (f of tplFields(); track f.key; let i = $index) {
+                        <div class="bm-tpl-field">
+                          <label>{{ f.key }} <span class="bm-dim">{{ f.desc }}</span></label>
+                          @if (f.json) {
+                            <textarea class="bm-cfg-edit" rows="5" [value]="f.value" (input)="setTplField(i, $any($event.target).value)"></textarea>
+                          } @else {
+                            <input class="bm-kvin" [value]="f.value" (input)="setTplField(i, $any($event.target).value)" />
+                          }
+                        </div>
+                      }
+                      @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
+                      @if (tplRendered(); as rendered) {
+                        <p class="bm-dim">Rendered file (would be written):</p>
+                        <pre class="bm-cfg-values">{{ rendered }}</pre>
+                      }
+                      <div class="bm-rollback-actions">
+                        <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
+                        <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
+                        <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">Apply</button>
+                      </div>
                     } @else {
                       @if (r.values) {
                         <pre class="bm-cfg-values">{{ configText(r) }}</pre>
@@ -519,9 +542,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       } @else if (r.sha256) {
                         <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                       }
-                      @if (isEditable(r)) {
-                        <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit</button>
-                      }
+                      <div class="bm-cfg-editrow">
+                        @if (isEditable(r)) {
+                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit values</button>
+                        }
+                        @if (templateFor(r.path); as tpl) {
+                          <button mat-button class="bm-cfg-editbtn" (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template: {{ tpl.name }}</button>
+                        }
+                      </div>
                     }
                   </mat-card>
                 }
@@ -926,6 +954,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-kvedit td { padding: 2px 6px; vertical-align: middle; }
       .bm-kvedit td:nth-child(3) { width: 40px; }
       .bm-kvin { width: 100%; box-sizing: border-box; padding: 5px 8px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+      .bm-cfg-editrow { display: flex; gap: 8px; flex-wrap: wrap; }
+      .bm-tpl-field { margin: 8px 0; }
+      .bm-tpl-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+      .bm-tpl-field label .bm-dim { font-weight: 400; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1753,6 +1785,13 @@ export class HostDetailComponent implements OnInit {
       next: (res) => this.generations.set(res.generations ?? []),
       error: () => this.generations.set([]),
     });
+    // Class-B template catalog (Block K2), for path↔template binding.
+    if (!this.templates().length) {
+      this.agentService.configTemplates().subscribe({
+        next: (res) => this.templates.set(res.templates ?? []),
+        error: () => this.templates.set([]),
+      });
+    }
   }
 
   /** True for the newest generation — the one currently applied. */
@@ -1992,6 +2031,125 @@ export class HostDetailComponent implements OnInit {
       error: (e) => {
         this.editError.set(e?.error?.detail ?? 'apply failed');
         this.editBusy.set(false);
+      },
+    });
+  }
+
+  // --- Block K2: bind a discovered file to a Class-B template + edit via a
+  // schema-driven form (opt-in; the raw codec-less alternative is K1's raw
+  // fallback, and codec'd files still have the K1 KV editor) ---
+
+  templates = signal<ConfigTemplate[]>([]);
+
+  /** The template whose name matches a config file's basename (sans a
+   * .conf/.cfg extension) — chrony.conf→chrony, rsyslog.conf→rsyslog, hosts. */
+  templateFor(path: string): ConfigTemplate | null {
+    const base = (path.split('/').pop() || '').replace(/\.(conf|cfg)$/, '');
+    return this.templates().find((t) => t.name === base) ?? null;
+  }
+
+  tplEditPath = signal<string | null>(null);
+  tplName = signal('');
+  tplFields = signal<{ key: string; type: string; value: string; json: boolean; desc?: string }[]>([]);
+  private tplTemplate = '';
+  tplRendered = signal<string | null>(null);
+  tplBusy = signal(false);
+  tplError = signal<string | null>(null);
+
+  startTemplateEdit(r: { path: string }, tpl: ConfigTemplate): void {
+    this.cancelEdit();
+    this.tplEditPath.set(r.path);
+    this.tplName.set(tpl.name);
+    this.tplTemplate = tpl.template;
+    this.tplRendered.set(null);
+    this.tplError.set(null);
+    const fields = Object.entries(tpl.schema || {}).map(([key, def]) => {
+      const type = (def?.type as string) || 'string';
+      const json = type === 'list' || type === 'object';
+      const sample = (tpl.sample || {})[key] ?? def?.default;
+      const value = sample === undefined ? '' : json ? JSON.stringify(sample, null, 2) : String(sample);
+      return { key, type, value, json, desc: def?.description };
+    });
+    this.tplFields.set(fields);
+  }
+
+  cancelTemplateEdit(): void {
+    this.tplEditPath.set(null);
+    this.tplRendered.set(null);
+    this.tplError.set(null);
+  }
+
+  setTplField(i: number, value: string): void {
+    this.tplFields.update((fs) => fs.map((f, j) => (j === i ? { ...f, value } : f)));
+  }
+
+  /** Build the template values map, parsing each field by its schema type
+   * (numbers, bools, and list/object JSON). Throws on invalid JSON. */
+  private tplValues(): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const f of this.tplFields()) {
+      if (f.value === '' && !f.json) continue;
+      if (f.json) out[f.key] = JSON.parse(f.value);
+      else if (f.type === 'number') out[f.key] = Number(f.value);
+      else if (f.type === 'bool') out[f.key] = f.value === 'true';
+      else out[f.key] = f.value;
+    }
+    return out;
+  }
+
+  private tplResource(path: string): ConfigResource {
+    return { type: 'template_render', path, template: this.tplTemplate, values: this.tplValues() };
+  }
+
+  /** Render the template with the form values (dry-run) → the file that would
+   * be written. */
+  previewTemplate(r: { path: string }): void {
+    const agent = this.agent();
+    if (!agent) return;
+    let values: Record<string, unknown>;
+    try {
+      values = this.tplValues();
+    } catch (e) {
+      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
+      return;
+    }
+    this.tplBusy.set(true);
+    this.tplError.set(null);
+    this.agentService.renderTemplate(agent.id, this.tplTemplate, values, r.path).subscribe({
+      next: (res) => {
+        this.tplBusy.set(false);
+        this.tplRendered.set(res.result?.data?.rendered ?? '(empty render)');
+      },
+      error: (e) => {
+        this.tplError.set(e?.error?.detail ?? 'render failed');
+        this.tplBusy.set(false);
+      },
+    });
+  }
+
+  /** Apply the template through the document loop → renders + writes the file
+   * and records a generation. */
+  applyTemplate(r: { path: string }): void {
+    const agent = this.agent();
+    if (!agent) return;
+    let resource: ConfigResource;
+    try {
+      resource = this.tplResource(r.path);
+    } catch (e) {
+      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
+      return;
+    }
+    this.tplBusy.set(true);
+    this.tplError.set(null);
+    this.agentService.stateApply(agent.id, [resource], false).subscribe({
+      next: () => {
+        this.tplBusy.set(false);
+        this.cancelTemplateEdit();
+        this.loadObserved();
+      },
+      error: (e) => {
+        this.tplError.set(e?.error?.detail ?? 'apply failed');
+        this.tplBusy.set(false);
       },
     });
   }

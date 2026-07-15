@@ -59,7 +59,7 @@ Ad-hoc pushes (tools/config, tools/copy) skip all of that.
   (comments intact, rtcsync line gone), generation created, reverted cleanly;
   same flow through the UI KV table. ini null-delete + the KV editor for ini
   still to come.
-- **K2 — template binding**: Bossman endpoint serving
+- **K2 — template binding** ✅ DONE + live-verified (0.46.0): Bossman endpoint serving
   `configs/config_templates/` (name, schema, sample); match discovered path ↔
   template name (chrony.conf→chrony, rsyslog.conf→rsyslog, /etc/hosts→hosts,
   …); schema-driven form; preview = template_render dry-run + unified diff vs
