@@ -1255,6 +1255,34 @@ class CheckRuleOuLink(Base):
     )
 
 
+class HostConfigResource(Base):
+    """Block K3 — the desired config VALUES for one file on one host: the
+    fleet-side key-value database. Written whenever a config edit is applied
+    through the document loop (K1 codec merge / K2 template render); drift is
+    this desired `values` re-planned against the host's live observed state.
+    `type` is "config" (codec merge) or "template_render" (Class-B); `template`
+    holds the inline Jinja2 source for the latter. One row per (agent, path)."""
+
+    __tablename__ = "host_config_resources"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    path: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False, default="config")
+    config_format: Mapped[str | None] = mapped_column(String)
+    separator: Mapped[str | None] = mapped_column(String)
+    values: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    template: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_by: Mapped[str | None] = mapped_column(String)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "path", name="uq_host_config_resources_agent_path"),
+        Index("idx_host_config_resources_agent", "agent_id"),
+    )
+
+
 class Service(Base):
     """The materialized, per-host result of evaluating a CheckRule against
     the most recently polled metric value — CheckMK's own "Service"

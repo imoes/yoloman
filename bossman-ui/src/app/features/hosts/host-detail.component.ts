@@ -459,11 +459,29 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   <span class="bm-dim">The host as one document — {{ obs.config.length }} config file(s), read {{ obs.generated_at | date: 'medium' }}.</span>
                   <button mat-stroked-button (click)="loadObserved()"><mat-icon>refresh</mat-icon> Reload</button>
                 </div>
+                @if (drift().managed.length) {
+                  <div class="bm-drift-banner" [class.bm-drift-on]="drift().drift.length">
+                    <mat-icon>{{ drift().drift.length ? 'sync_problem' : 'verified' }}</mat-icon>
+                    @if (drift().drift.length) {
+                      <span>{{ drift().drift.length }} of {{ drift().managed.length }} managed file(s) drifted from desired.</span>
+                      <button mat-flat-button color="primary" (click)="reapplyConfig()" [disabled]="driftBusy()">Re-sync to desired</button>
+                    } @else {
+                      <span>{{ drift().managed.length }} managed file(s), all in sync with desired.</span>
+                    }
+                  </div>
+                }
                 @for (r of obs.config; track r.path) {
                   <mat-card class="bm-cfg-card">
                     <div class="bm-cfg-row">
                       <code class="bm-cfg-path">{{ r.path }}</code>
                       <span class="bm-tag">{{ r.format }}</span>
+                      @if (isManaged(r.path)) {
+                        @if (driftFor(r.path)) {
+                          <span class="bm-tag bm-tag-drift" title="Live differs from desired">drifted</span>
+                        } @else {
+                          <span class="bm-tag bm-tag-sync" title="Matches desired">managed ✓</span>
+                        }
+                      }
                     </div>
                     @if (r.error) {
                       <p class="bm-cfg-err">{{ r.error }}</p>
@@ -541,6 +559,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <pre class="bm-cfg-values">{{ r.raw }}</pre>
                       } @else if (r.sha256) {
                         <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
+                      }
+                      @if (driftRows(r.path).length) {
+                        <p class="bm-dim bm-drift-h">Drift — live vs desired:</p>
+                        <table class="bm-diff">
+                          <thead><tr><th>Key</th><th>Live</th><th>Desired</th></tr></thead>
+                          <tbody>
+                            @for (d of driftRows(r.path); track d.key) {
+                              <tr><td>{{ d.key }}</td><td>{{ d.live }}</td><td>{{ d.desired }}</td></tr>
+                            }
+                          </tbody>
+                        </table>
                       }
                       <div class="bm-cfg-editrow">
                         @if (isEditable(r)) {
@@ -958,6 +987,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tpl-field { margin: 8px 0; }
       .bm-tpl-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
       .bm-tpl-field label .bm-dim { font-weight: 400; }
+      .bm-drift-banner { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); font-size: 13px; }
+      .bm-drift-banner.bm-drift-on { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 16%, transparent); }
+      .bm-drift-banner mat-icon { flex: 0 0 auto; }
+      .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
+      .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
+      .bm-drift-h { margin: 8px 0 2px; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1792,6 +1827,48 @@ export class HostDetailComponent implements OnInit {
         error: () => this.templates.set([]),
       });
     }
+    // Drift: desired (Bossman DB) vs observed (Block K3).
+    this.agentService.configDrift(agent.id).subscribe({
+      next: (res) => this.drift.set(res),
+      error: () => this.drift.set({ managed: [], drift: [] }),
+    });
+  }
+
+  // Block K3: drift = the recorded desired config re-planned against the host.
+  drift = signal<{ managed: string[]; drift: StateResourceChange[] }>({ managed: [], drift: [] });
+  driftBusy = signal(false);
+
+  isManaged(path: string): boolean {
+    return this.drift().managed.includes(path);
+  }
+  driftFor(path: string): StateResourceChange | null {
+    return this.drift().drift.find((c) => c.path === path) ?? null;
+  }
+  /** Per-key drift rows for a managed file that has drifted. */
+  driftRows(path: string): { key: string; desired: string; live: string }[] {
+    const changed = this.driftFor(path)?.changed;
+    if (!changed) return [];
+    // plan diff is observed(before) → desired(after); for drift we show desired
+    // vs the live value, i.e. after=desired, before=live.
+    return Object.entries(changed).map(([key, [live, desired]]) => ({
+      key,
+      desired: desired === null || desired === undefined ? '(remove)' : this.scalarStr(desired),
+      live: live === null || live === undefined ? '—' : this.scalarStr(live),
+    }));
+  }
+
+  /** Re-sync the whole host to its recorded desired config (converge drift). */
+  reapplyConfig(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.driftBusy.set(true);
+    this.agentService.reapplyConfig(agent.id).subscribe({
+      next: () => {
+        this.driftBusy.set(false);
+        this.loadObserved();
+      },
+      error: () => this.driftBusy.set(false),
+    });
   }
 
   /** True for the newest generation — the one currently applied. */

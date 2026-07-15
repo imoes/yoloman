@@ -15,17 +15,19 @@ read-only agent returns 403, surfaced here as a 502 with the agent's message.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, HostConfigResource
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.cve_collect import collect_host
@@ -192,6 +194,108 @@ async def post_agent_state_apply(
     client = client_factory(agent, settings)
     try:
         result = await client.state_apply({"resources": body.resources}, body.dry_run)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    # K3: on a real apply, record the desired resources in Bossman's DB (the
+    # fleet-side key-value database) so drift = desired-vs-observed and the
+    # values can later be scoped to an OU (K4). One row per (agent, path).
+    if not body.dry_run:
+        for r in body.resources:
+            path = r.get("path")
+            if not path:
+                continue
+            existing = await session.scalar(
+                select(HostConfigResource).where(
+                    HostConfigResource.agent_id == agent.id, HostConfigResource.path == path
+                )
+            )
+            if existing is None:
+                existing = HostConfigResource(tenant_id=UUID(DEFAULT_TENANT_ID), agent_id=agent.id, path=path)
+                session.add(existing)
+            existing.type = r.get("type", "config")
+            existing.config_format = r.get("format")
+            existing.separator = r.get("separator")
+            existing.values = r.get("values", {})
+            existing.template = r.get("template")
+            existing.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+    return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}
+
+
+@router.get("/api/v1/agents/{agent_id}/config-drift")
+async def get_agent_config_drift(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Drift for this host (Block K3): re-plan every desired config resource
+    Bossman has recorded against the host's live state. A resource whose plan
+    action isn't 'noop' has drifted (someone/something changed the file out of
+    band). Returns the managed paths + the drifted ones with their per-key
+    changes — the same plan shape the value editor's preview uses."""
+    agent = await _agent_with_address(session, agent_id)
+    rows = (
+        await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))
+    ).all()
+    if not rows:
+        return {"agent_id": str(agent.id), "managed": [], "drift": []}
+    resources = []
+    for row in rows:
+        res: dict[str, Any] = {"type": row.type, "path": row.path, "values": row.values or {}}
+        if row.config_format:
+            res["format"] = row.config_format
+        if row.separator:
+            res["separator"] = row.separator
+        if row.template:
+            res["template"] = row.template
+        resources.append(res)
+    client = client_factory(agent, settings)
+    try:
+        plan = await client.state_plan({"resources": resources})
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    changes = plan.get("changes", []) if isinstance(plan, dict) else []
+    drift = [c for c in changes if c.get("action") not in (None, "noop") or c.get("error")]
+    return {
+        "agent_id": str(agent.id),
+        "managed": [row.path for row in rows],
+        "drift": drift,
+    }
+
+
+def _row_to_resource(row: HostConfigResource) -> dict[str, Any]:
+    res: dict[str, Any] = {"type": row.type, "path": row.path, "values": row.values or {}}
+    if row.config_format:
+        res["format"] = row.config_format
+    if row.separator:
+        res["separator"] = row.separator
+    if row.template:
+        res["template"] = row.template
+    return res
+
+
+@router.post("/api/v1/agents/{agent_id}/config/reapply")
+async def post_agent_config_reapply(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Re-sync the host to its recorded desired config (Block K3): re-apply
+    every stored resource through the document loop, converging any drift back
+    and recording a generation. The desired values win over out-of-band edits."""
+    agent = await _agent_with_address(session, agent_id)
+    rows = (
+        await session.scalars(select(HostConfigResource).where(HostConfigResource.agent_id == agent.id))
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="no desired config recorded for this host")
+    client = client_factory(agent, settings)
+    try:
+        result = await client.state_apply({"resources": [_row_to_resource(r) for r in rows]}, False)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), **(result if isinstance(result, dict) else {"result": result})}

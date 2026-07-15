@@ -111,6 +111,20 @@ export class AgentService {
     return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
   }
 
+  /** Block K3 — drift: the desired config resources Bossman recorded for this
+   * host, re-planned against its live state. `drift` = the ones that differ. */
+  configDrift(id: string) {
+    return this.http.get<{ agent_id: string; managed: string[]; drift: StateResourceChange[] }>(
+      `${this.base}/${id}/config-drift`,
+    );
+  }
+
+  /** Block K3 — re-sync the host to its recorded desired config (converge drift,
+   * records a generation). */
+  reapplyConfig(id: string) {
+    return this.http.post<{ agent_id: string; generation: number }>(`${this.base}/${id}/config/reapply`, {});
+  }
+
   /** Block K2 — render a template (inline j2 + values) on the host via
    * template_render dry-run, returning the rendered file text (data.rendered)
    * without writing — the template-form preview. */
