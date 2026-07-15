@@ -80,6 +80,15 @@ export class AgentService {
     return this.http.post<StateRollbackResponse>(`${this.base}/${id}/state/rollback`, { generation, dry_run: dryRun });
   }
 
+  /** Push edited config values to a host file via the `config` module (codec
+   * merge-write), proxied through the generic tool route. dry_run=true previews
+   * (changed? + merged result) without touching the host. */
+  writeConfig(id: string, params: { path: string; format: string; separator?: string; values: Record<string, unknown>; dry_run: boolean }) {
+    return this.http.post<{ agent_id: string; tool: string; result: { changed: boolean; msg: string; data?: unknown } }>(
+      `${this.base}/${id}/tools/config`, { params },
+    );
+  }
+
   updateGroups(id: string, groups: string[]) {
     return this.http.patch<Agent>(`${this.base}/${id}/groups`, { groups });
   }

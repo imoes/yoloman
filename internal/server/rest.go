@@ -548,7 +548,11 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		if !authorizeTool(w, r, cfg, name, m.Writes()) {
 			return
 		}
-		res, err := m.Run(r.Context(), params, false)
+		// A caller may request a preview with "dry_run": true — a write module
+		// then computes what would change without touching the host (config's
+		// merge, template_render, …). Absent/false keeps always-apply.
+		dryRun, _ := params["dry_run"].(bool)
+		res, err := m.Run(r.Context(), params, dryRun)
 		cfg.Audit.LogCall(identity, name, m.Writes(), res.Changed, params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)

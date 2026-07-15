@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe, JsonPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
@@ -99,7 +99,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     RouterLink,
     DatePipe,
     DecimalPipe,
-    JsonPipe,
     MatTabsModule,
     MatCardModule,
     MatButtonToggleModule,
@@ -469,7 +468,22 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     @if (r.error) {
                       <p class="bm-cfg-err">{{ r.error }}</p>
                     } @else if (r.values) {
-                      <pre class="bm-cfg-values">{{ r.values | json }}</pre>
+                      @if (editingPath() === r.path) {
+                        <textarea class="bm-cfg-edit" rows="12" [value]="editText()"
+                                  (input)="editText.set($any($event.target).value)"></textarea>
+                        @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
+                        @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
+                        <div class="bm-rollback-actions">
+                          <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
+                          <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
+                          <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
+                        </div>
+                      } @else {
+                        <pre class="bm-cfg-values">{{ configText(r) }}</pre>
+                        @if (isEditable(r)) {
+                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit</button>
+                        }
+                      }
                     } @else if (r.sha256) {
                       <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                     }
@@ -869,6 +883,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-cfg-path { font-weight: 600; word-break: break-all; }
       .bm-cfg-values { margin: 8px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; font-size: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
       .bm-cfg-err { color: var(--bm-crit, #c62828); margin: 8px 0 0; font-size: 13px; }
+      .bm-cfg-editbtn { margin-top: 6px; }
+      .bm-cfg-edit { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); resize: vertical; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
       .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-cfg-gen th, .bm-cfg-gen td, .bm-diff th, .bm-diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
@@ -1748,6 +1764,163 @@ export class HostDetailComponent implements OnInit {
         this.rollbackError.set(e?.error?.detail ?? 'rollback failed');
         this.rollbackBusy.set(false);
       },
+    });
+  }
+
+  // --- Block F1b: render stored JSON values in the file's native format, and
+  // edit + push keyvalue configs (the "server is a key-value document") ---
+
+  /** The config file's values rendered in its native format (ini/yaml/keyvalue)
+   * — the DB/API carry structured JSON, but an admin reads ini/yaml. */
+  configText(r: { format: string; separator?: string; values?: Record<string, unknown> }): string {
+    const v = r.values;
+    if (!v) return '';
+    switch (r.format) {
+      case 'keyvalue':
+        return this.kvText(v, r.separator || ' ');
+      case 'ini':
+        return this.iniText(v);
+      case 'yaml':
+      case 'json':
+        return this.yamlText(v, 0);
+      default:
+        return JSON.stringify(v, null, 2);
+    }
+  }
+
+  private scalarStr(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'string') return v;
+    return JSON.stringify(v);
+  }
+
+  private kvText(v: Record<string, unknown>, sep: string): string {
+    return Object.entries(v)
+      .map(([k, val]) => {
+        const s = this.scalarStr(val);
+        return s === '' ? k : `${k}${sep}${s}`;
+      })
+      .join('\n');
+  }
+
+  private iniText(v: Record<string, unknown>): string {
+    const lines: string[] = [];
+    const globals = v[''] as Record<string, unknown> | undefined;
+    if (globals) for (const [k, val] of Object.entries(globals)) lines.push(`${k} = ${this.scalarStr(val)}`);
+    for (const [sec, kv] of Object.entries(v)) {
+      if (sec === '') continue;
+      if (lines.length) lines.push('');
+      lines.push(`[${sec}]`);
+      for (const [k, val] of Object.entries((kv as Record<string, unknown>) || {})) lines.push(`${k} = ${this.scalarStr(val)}`);
+    }
+    return lines.join('\n');
+  }
+
+  private yamlText(v: unknown, indent: number): string {
+    const pad = '  '.repeat(indent);
+    if (Array.isArray(v)) {
+      if (!v.length) return `${pad}[]`;
+      return v
+        .map((item) =>
+          item !== null && typeof item === 'object'
+            ? `${pad}-\n${this.yamlText(item, indent + 1)}`
+            : `${pad}- ${this.scalarStr(item)}`,
+        )
+        .join('\n');
+    }
+    if (v !== null && typeof v === 'object') {
+      const entries = Object.entries(v as Record<string, unknown>);
+      if (!entries.length) return `${pad}{}`;
+      return entries
+        .map(([k, val]) =>
+          val !== null && typeof val === 'object'
+            ? `${pad}${k}:\n${this.yamlText(val, indent + 1)}`
+            : `${pad}${k}: ${this.scalarStr(val)}`,
+        )
+        .join('\n');
+    }
+    return `${pad}${this.scalarStr(v)}`;
+  }
+
+  /** Only keyvalue configs are editable for now (the key-value-database push);
+   * ini/yaml/xml stay read-only until their in-UI parsers land. */
+  isEditable(r: { format: string }): boolean {
+    return r.format === 'keyvalue';
+  }
+
+  editingPath = signal<string | null>(null);
+  editText = signal('');
+  editBusy = signal(false);
+  editError = signal<string | null>(null);
+  editPreview = signal<string | null>(null); // dry-run result message
+
+  startEdit(r: { path: string; format: string; separator?: string; values?: Record<string, unknown> }): void {
+    this.editingPath.set(r.path);
+    this.editText.set(this.configText(r));
+    this.editError.set(null);
+    this.editPreview.set(null);
+  }
+
+  cancelEdit(): void {
+    this.editingPath.set(null);
+    this.editPreview.set(null);
+    this.editError.set(null);
+  }
+
+  /** Parse the edited keyvalue text back into a values map: split each
+   * non-comment line on the codec's separator (first occurrence); a bare key
+   * (no separator) maps to "". */
+  private parseKv(text: string, sep: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    const s = sep || ' ';
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+      let key: string, val: string;
+      if (s.trim() === '') {
+        const i = line.search(/\s/);
+        if (i < 0) { key = line; val = ''; } else { key = line.slice(0, i); val = line.slice(i).trim(); }
+      } else {
+        const i = line.indexOf(s);
+        if (i < 0) { key = line; val = ''; } else { key = line.slice(0, i).trim(); val = line.slice(i + s.length).trim(); }
+      }
+      if (key) out[key] = val;
+    }
+    return out;
+  }
+
+  private pushConfig(r: { path: string; format: string; separator?: string }, dryRun: boolean, onDone: () => void): void {
+    const agent = this.agent();
+    if (!agent) return;
+    const values = this.parseKv(this.editText(), r.separator || ' ');
+    this.editBusy.set(true);
+    this.editError.set(null);
+    this.agentService
+      .writeConfig(agent.id, { path: r.path, format: r.format, separator: r.separator, values, dry_run: dryRun })
+      .subscribe({
+        next: (res) => {
+          this.editBusy.set(false);
+          onDone();
+          void res;
+        },
+        error: (e) => {
+          this.editError.set(e?.error?.detail ?? 'config write failed');
+          this.editBusy.set(false);
+        },
+      });
+  }
+
+  /** Dry-run the edit: the agent merges + reports whether it would change the
+   * file, without writing. */
+  previewEdit(r: { path: string; format: string; separator?: string }): void {
+    this.pushConfig(r, true, () => this.editPreview.set('preview ok — will merge the edited keys into ' + r.path + ' (nothing written yet)'));
+  }
+
+  /** Apply the edit for real, then reload observed state + generations. */
+  applyEdit(r: { path: string; format: string; separator?: string }): void {
+    this.pushConfig(r, false, () => {
+      this.cancelEdit();
+      this.loadObserved();
     });
   }
 
