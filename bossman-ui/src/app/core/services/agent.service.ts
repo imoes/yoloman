@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, SnmpDevice, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -130,15 +130,15 @@ export class AgentService {
     );
   }
 
-  // Block 3 — SNMP devices (agent-less, polled via the co-located poller).
-  snmpDevices() {
-    return this.http.get<SnmpDevice[]>(`${environment.apiUrl}/snmp-devices`);
+  // Block 3 — agent-less devices (snmp|ssh), polled via the co-located poller.
+  devices() {
+    return this.http.get<Device[]>(`${environment.apiUrl}/devices`);
   }
-  createSnmpDevice(body: { name: string; target: string; community: string; check_names: string[] }) {
-    return this.http.post<SnmpDevice>(`${environment.apiUrl}/snmp-devices`, body);
+  createDevice(body: { name: string; kind: 'snmp' | 'ssh'; target: string; community?: string; user?: string; password?: string; check_names: string[] }) {
+    return this.http.post<Device>(`${environment.apiUrl}/devices`, body);
   }
-  deleteSnmpDevice(id: string) {
-    return this.http.delete<{ deleted: string }>(`${environment.apiUrl}/snmp-devices/${id}`);
+  deleteDevice(id: string) {
+    return this.http.delete<{ deleted: string }>(`${environment.apiUrl}/devices/${id}`);
   }
 
   /** Force an immediate poll of this agent — the same full cycle the

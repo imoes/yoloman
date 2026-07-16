@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { EnrollService } from '../../core/services/enroll.service';
 import { EnrollInfo } from '../../core/models/enroll.model';
+import { AgentService } from '../../core/services/agent.service';
 
 /** "Add host" — the enrollment entry point, surfaced from the Hosts page
  * instead of being buried in Settings. Two paths, mirroring Settings:
@@ -51,6 +52,29 @@ import { EnrollInfo } from '../../core/models/enroll.model';
             }
           </section>
         }
+
+        <section class="bm-method">
+          <h3><mat-icon>router</mat-icon> Monitor an agent-less device (SNMP / SSH)</h3>
+          <p class="bm-dim">No agent to install — the co-located poller polls it on its behalf. It appears as a monitored host; assign checks on the Devices page.</p>
+          <div class="bm-dev-form">
+            <select [(ngModel)]="devKind" class="bm-dev-kind">
+              <option value="snmp">SNMP</option>
+              <option value="ssh">SSH</option>
+            </select>
+            <input [(ngModel)]="devName" placeholder="name (e.g. sw-core-01)" [disabled]="devBusy()" />
+            <input [(ngModel)]="devTarget" placeholder="target IP / host" [disabled]="devBusy()" />
+            @if (devKind === 'snmp') {
+              <input [(ngModel)]="devCommunity" placeholder="community (public)" [disabled]="devBusy()" />
+            } @else {
+              <input [(ngModel)]="devUser" placeholder="ssh user" [disabled]="devBusy()" />
+              <input [(ngModel)]="devPassword" type="password" placeholder="ssh password" [disabled]="devBusy()" />
+            }
+            <button mat-flat-button color="primary" [disabled]="devBusy() || !devName.trim() || !devTarget.trim()" (click)="addDevice()">
+              {{ devBusy() ? 'Adding…' : 'Add device' }}
+            </button>
+          </div>
+          @if (devMsg()) { <p class="bm-result" [class.bm-ok]="devOk()" [class.bm-fail]="!devOk()"><mat-icon>{{ devOk() ? 'check_circle' : 'error' }}</mat-icon> {{ devMsg() }}</p> }
+        </section>
       } @else {
         <p class="bm-dim">Loading enrollment options…</p>
       }
@@ -72,16 +96,50 @@ import { EnrollInfo } from '../../core/models/enroll.model';
     .bm-result { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 4px 0; }
     .bm-result mat-icon { font-size: 17px; width: 17px; height: 17px; }
     .bm-ok { color: #2e7d32; } .bm-fail { color: var(--bm-red); }
+    .bm-dev-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .bm-dev-form input, .bm-dev-kind { padding: 7px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
+    .bm-dev-form input { flex: 1 1 130px; min-width: 110px; }
   `],
 })
 export class AddHostDialogComponent {
   private enroll = inject(EnrollService);
+  private agentService = inject(AgentService);
   info = signal<EnrollInfo | null>(null);
   hosts = '';
   copied = signal(false);
   deploying = signal(false);
   results = signal<{ host: string; ok: boolean; msg: string }[]>([]);
   deployedCount = signal(0);
+
+  // Agent-less device (snmp|ssh) creation, mirroring the Devices page.
+  devKind: 'snmp' | 'ssh' = 'snmp';
+  devName = '';
+  devTarget = '';
+  devCommunity = 'public';
+  devUser = '';
+  devPassword = '';
+  devBusy = signal(false);
+  devMsg = signal<string | null>(null);
+  devOk = signal(false);
+
+  addDevice(): void {
+    if (!this.devName.trim() || !this.devTarget.trim() || this.devBusy()) return;
+    this.devBusy.set(true);
+    this.devMsg.set(null);
+    this.agentService.createDevice({
+      name: this.devName.trim(), kind: this.devKind, target: this.devTarget.trim(),
+      community: this.devCommunity.trim() || 'public', user: this.devUser.trim(), password: this.devPassword,
+      check_names: [],
+    }).subscribe({
+      next: (d) => {
+        this.devBusy.set(false); this.devOk.set(true);
+        this.devMsg.set(`added ${this.devKind.toUpperCase()} device "${d.name}" — assign checks on the Devices page`);
+        this.deployedCount.update((n) => n + 1);
+        this.devName = ''; this.devTarget = ''; this.devUser = ''; this.devPassword = '';
+      },
+      error: (e) => { this.devBusy.set(false); this.devOk.set(false); this.devMsg.set(e?.error?.detail ?? 'failed to add device'); },
+    });
+  }
 
   constructor(public ref: MatDialogRef<AddHostDialogComponent, number>) {
     this.enroll.info().subscribe({ next: (i) => this.info.set(i), error: () => this.info.set({ configured: false, enroll_url: null, register_command: null, deploy_configured: false }) });

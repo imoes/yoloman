@@ -326,12 +326,14 @@ export interface DirectiveSpec {
   description?: string;
 }
 
-/** Block 3 — an SNMP device monitored via the co-located poller. */
-export interface SnmpDevice {
+/** Block 3 — an agent-less device (snmp|ssh) monitored via the co-located poller. */
+export interface Device {
   id: string;
   name: string;
+  kind: 'snmp' | 'ssh';
   target: string;
   community: string;
+  user: string;
   check_names: string[];
   last_seen_at: string | null;
 }

@@ -303,22 +303,32 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
 async def _poll_snmp_device(
     session: AsyncSession, device: Agent, settings: Settings, client_factory: ClientFactory,
 ) -> PollResult:
-    """Block 3: poll one SNMP device by running its assigned SNMP checks through
-    its parent poller agent, with the device's target/community merged in, and
-    attributing the resulting Services to the device. The device row itself has
-    no address/token — it exists so the device shows up as a monitored host."""
+    """Block 3: poll one agent-less device (snmp or ssh) by running its assigned
+    checks through its parent poller agent, with the device's connection params
+    (snmp: target/community; ssh: target/user/password) merged into each check,
+    and attributing the resulting Services to the device. The device row has no
+    address/token — it exists so the device shows up as a monitored host."""
     result = PollResult(agent_id=str(device.id), agent_name=device.name)
     meta = device.agent_metadata or {}
     poller = await session.get(Agent, device.parent_agent_id) if device.parent_agent_id else None
     if poller is None or not poller.address:
-        result.errors.append("no reachable poller agent for this SNMP device")
+        result.errors.append("no reachable poller agent for this device")
         return result
 
+    kind = meta.get("kind", "snmp")
     extra: dict[str, str] = {}
-    if meta.get("snmp_target"):
-        extra["target"] = str(meta["snmp_target"])
-    if meta.get("snmp_community"):
-        extra["community"] = str(meta["snmp_community"])
+    target = meta.get("target") or meta.get("snmp_target")
+    if target:
+        extra["target"] = str(target)
+    if kind == "snmp":
+        community = meta.get("community") or meta.get("snmp_community")
+        if community:
+            extra["community"] = str(community)
+    elif kind == "ssh":
+        if meta.get("user"):
+            extra["user"] = str(meta["user"])
+        if meta.get("password"):
+            extra["password"] = str(meta["password"])
 
     client = client_factory(poller, settings)
     now = datetime.now(timezone.utc)
@@ -350,10 +360,10 @@ async def poll_agent(
         if agent is None or agent.enrollment_state != "enrolled":
             return PollResult(agent_id=str(agent_id), agent_name=agent.name if agent else "?")
 
-        # Block 3: an SNMP device has no address of its own — the co-located
-        # poller agent runs its SNMP checks on its behalf (target/community from
-        # the device's metadata) and the Services attribute to the device.
-        if (agent.agent_metadata or {}).get("kind") == "snmp":
+        # Block 3: an agent-less device (snmp/ssh) has no address of its own —
+        # the co-located poller runs its checks on its behalf (connection params
+        # from the device's metadata) and the Services attribute to the device.
+        if (agent.agent_metadata or {}).get("kind") in ("snmp", "ssh"):
             return await _poll_snmp_device(session, agent, settings, client_factory)
 
         if not agent.address:

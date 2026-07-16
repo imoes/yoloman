@@ -51,7 +51,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
-  { path: '/snmp-devices', label: 'SNMP devices', icon: 'router' },
+  { path: '/snmp-devices', label: 'Devices', icon: 'router' },
   { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
   { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
