@@ -69,6 +69,13 @@ Ad-hoc pushes (tools/config, tools/copy) skip all of that.
   this is the fleet-side half of the key-value database.
 - **K4 — scope** ✅ DONE + live-verified: attach the same values document to an OU/group (GPO-style),
   compiled into hosts' desired state — config policy, Host A = Host B.
+  - Authored two ways: (a) from a host's Configuration tab via the scope
+    selector (host/OU/group), and (b) — matching the Windows model where the
+    host shows the *resolved* result and policies are authored at scope —
+    from the **OU/Policy console**: right-click an OU or host group →
+    *Config setting…* → dialog (file/codec/key/value or removed). This POSTs
+    `/api/v1/config-policies` (agent-free: works for an OU with no reachable
+    host yet), upserts the ConfigPolicy, and converges every reachable member.
 
 Order: K1 → K2 → K3 → K4. Each block: implement → Playwright verify against
 docker-test → update docs/ui-parity.md → commit (no push without approval).
