@@ -74,6 +74,25 @@ content-first, precise, forgiving.
   screen), the same control does the same thing, icons are stable. Learn once,
   apply everywhere.
 
+## Appearance: Rastafari (the skin over the macOS bones)
+
+The *structure and behaviour* are macOS; the *skin* is Rastafari. The two
+reconcile through restraint — the tricolour is an **identity signature**, not a
+background flood (rule 1 still holds).
+
+- **Palette**: green `#1e9600`, gold `#ffc800`, red `#d0021b`, on near-black
+  surfaces `#0d0d0d`. These are exactly the status/accent tokens
+  (`--bm-green/gold/red/black`), so brand and meaning share one language.
+- **Semantics stay honest**: green = primary action / current selection /
+  healthy; gold = warning; red = danger / critical. A user never has to wonder
+  whether a colour means something — it always does.
+- **The tricolour is the signature**, applied only at identity moments:
+  the nav's top band, the brand block's underline, and a small accent on a
+  page header. `--bm-tricolor` (red→gold→green) is the one gradient; use it as
+  a thin rule/band, never as a fill behind content.
+- **Black is the canvas**: dark, calm surfaces let the tricolour and the data
+  read. No coloured panels, no coloured table rows.
+
 ## Implementation
 
 Global tokens + rules live in `src/styles.scss` (the spacing scale, hairline,
