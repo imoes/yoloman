@@ -611,6 +611,35 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
     return updated
 
 
+import re as _re
+
+# Block 2b: retarget an SNMP check without rewriting its (root-owned) .star.
+# Translated SNMP checks hardcode `snmpwalk -c public localhost <oids>`. This
+# rewrites that argv IN MEMORY at push time so the community + target come from
+# the check's params — so the same check can be pointed at any device
+# (params: {target, community}). No params → defaults (localhost/public), i.e.
+# unchanged behaviour on a normal host. Only the dominant adjacent
+# "-c","<community>","<localhost|127.0.0.1>" form is handled; anything else is
+# left as-is.
+_SNMP_TARGET = _re.compile(r'("-c",\s*)"[A-Za-z0-9_]+"(,\s*)"(?:localhost|127\.0\.0\.1)"')
+
+
+def parameterize_snmp_star(star: str) -> str:
+    if '"snmpwalk"' not in star and '"snmpget"' not in star:
+        return star
+    if "_snmp_target" in star:  # already parameterized
+        return star
+    new, n = _SNMP_TARGET.subn(r'\1_snmp_community\2_snmp_target', star)
+    if n == 0:
+        return star
+    return _re.sub(
+        r"(def main\(ctx, params\):\n)",
+        r'\1    _snmp_community = params.get("community", "public")\n'
+        r'    _snmp_target = params.get("target", "localhost")\n',
+        new, count=1,
+    )
+
+
 def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
     """The fqcn a pushed check registers under (its sidecar's `fqcn:`, e.g.
     checkmk.sshd_config), so we call the right tool name after pushing."""
@@ -658,6 +687,7 @@ async def evaluate_assigned_checks(session: AsyncSession, agent: Agent, client, 
         except OSError:
             continue
         fqcn = _sidecar_fqcn(sidecar, f"checks.{ec.check_name}")
+        star = parameterize_snmp_star(star)  # Block 2b: retargetable SNMP checks
         deliveries.append({
             "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": "nt",
             "sha256": hashlib.sha256(star.encode()).hexdigest(),
