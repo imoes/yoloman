@@ -221,7 +221,7 @@ interface PaletteItem {
                 </table>
               }
               <p class="bm-hint">Right-click to add OUs/objects, assign a check, toggle Block Inheritance, or delete. A host's own check config overrides these.</p>
-              <app-ou-config-editor [ouId]="sel.ou!.id" [ouPath]="sel.ou!.path" />
+              <app-ou-config-editor [scope]="{ kind: 'ou', id: sel.ou!.id, label: sel.ou!.path }" />
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
               <table class="bm-kv">
@@ -230,6 +230,11 @@ interface PaletteItem {
                 <tr><th>Enabled</th><td>{{ sel.obj!.enabled ? 'yes' : 'no' }}</td></tr>
               </table>
               <p class="bm-hint">Right-click to toggle Enforced / Enabled or delete.</p>
+              <!-- A host group gets the SAME full gpedit editor as an OU,
+                   scoped to the group (policies for groups, like OUs). -->
+              @if (sel.obj!.kind === 'host_group') {
+                <app-ou-config-editor [scope]="{ kind: 'group', id: sel.obj!.id, label: sel.obj!.label }" />
+              }
             }
           } @else {
             <p class="bm-empty">Select a node to see its scope.</p>

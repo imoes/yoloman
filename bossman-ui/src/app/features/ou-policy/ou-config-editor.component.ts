@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../core/services/agent.service';
 import { OuService } from '../../core/services/ou.service';
+import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { ObservedResource } from '../../core/models/agent.model';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
@@ -25,6 +26,16 @@ interface SettingRow {
   live: string;
 }
 
+/** What the gpedit editor is scoped to — an OU or a host group. For a group
+ * the catalog host is resolved from its member agent ids (an OU resolves it
+ * from its subtree members endpoint). */
+export interface EditorScope {
+  kind: 'ou' | 'group';
+  id: string;
+  label: string;
+  memberAgentIds?: string[];
+}
+
 /** The full gpedit editor ON the Policy console (Block K5): select an OU and
  * author config-value policies for it right there — the Windows model, where
  * policies live at scope and a host only shows the resolved result. The
@@ -41,7 +52,7 @@ interface SettingRow {
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
       @if (catalogHost(); as ch) {
-        <p class="bm-oce-src">Catalog from member host <strong>{{ ch }}</strong> — policies here apply to every host under this OU.</p>
+        <p class="bm-oce-src">Catalog from member host <strong>{{ ch }}</strong> — policies here apply to every host under this {{ scopeWord }}.</p>
       } @else if (loaded()) {
         <p class="bm-oce-src">No reachable member host — showing this scope's policies only.</p>
       }
@@ -91,7 +102,7 @@ interface SettingRow {
             @if (editKey(); as ek) {
               <div class="bm-oce-editor">
                 <strong>{{ ek }}</strong>
-                <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Not configured — no policy at this OU</label>
+                <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Not configured — no policy at this {{ scopeWord }}</label>
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'configured'" (change)="mode.set('configured')" /> Configured</label>
                 @if (mode() === 'configured') {
                   <input class="bm-oce-val" [ngModel]="value()" (ngModelChange)="value.set($event)" list="bm-oce-suggest" />
@@ -103,7 +114,7 @@ interface SettingRow {
                 @if (error(); as e) { <p class="bm-oce-err">{{ e }}</p> }
                 <div class="bm-oce-actions">
                   <button mat-button (click)="closeRow()" [disabled]="busy()">Cancel</button>
-                  <button mat-flat-button color="primary" (click)="apply()" [disabled]="busy()">Apply to OU</button>
+                  <button mat-flat-button color="primary" (click)="apply()" [disabled]="busy()">Apply to {{ scopeWord }}</button>
                 </div>
               </div>
             }
@@ -154,12 +165,16 @@ interface SettingRow {
   ],
 })
 export class OuConfigEditorComponent implements OnChanges {
-  @Input({ required: true }) ouId!: string;
-  @Input() ouPath = '';
+  @Input({ required: true }) scope!: EditorScope;
 
   private agentService = inject(AgentService);
   private ouService = inject(OuService);
+  private hostGroupService = inject(HostGroupService);
   private appDialog = inject(DialogService);
+
+  get scopeWord(): string { return this.scope.kind === 'group' ? 'group' : 'OU'; }
+  private listArg() { return this.scope.kind === 'ou' ? { ouId: this.scope.id } : { groupId: this.scope.id }; }
+  private scopeArg() { return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id } : { host_group_id: this.scope.id }; }
 
   loaded = signal(false);
   catalogHost = signal<string | null>(null);
@@ -176,7 +191,7 @@ export class OuConfigEditorComponent implements OnChanges {
   error = signal<string | null>(null);
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['ouId']) this.reload();
+    if (changes['scope']) this.reload();
   }
 
   private reload(): void {
@@ -186,22 +201,43 @@ export class OuConfigEditorComponent implements OnChanges {
     this.selected.set(null);
     this.editKey.set(null);
     this.catalogHost.set(null);
-    this.ouService.listConfigPolicies({ ouId: this.ouId }).subscribe((ps) => this.policies.set(ps));
-    this.ouService.members(this.ouId).subscribe({
-      next: (members) => {
-        const reachable = members.find((m) => m.address);
-        if (!reachable) { this.loaded.set(true); return; }
-        this.agentService.observedState(reachable.id).subscribe({
-          next: (res) => {
-            this.catalog.set((res.observed?.config ?? []).filter((r) => !r.error && r.values));
-            this.catalogHost.set(reachable.name);
-            this.loaded.set(true);
-          },
+    this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
+    // Resolve a reachable member as the settings catalog host: an OU asks its
+    // subtree members endpoint; a group uses its own member agent ids.
+    const useCatalog = (host: { id: string; name: string } | null) => {
+      if (!host) { this.loaded.set(true); return; }
+      this.agentService.observedState(host.id).subscribe({
+        next: (res) => {
+          this.catalog.set((res.observed?.config ?? []).filter((r) => !r.error && r.values));
+          this.catalogHost.set(host.name);
+          this.loaded.set(true);
+        },
+        error: () => this.loaded.set(true),
+      });
+    };
+    if (this.scope.kind === 'ou') {
+      this.ouService.members(this.scope.id).subscribe({
+        next: (members) => useCatalog(members.find((m) => m.address) ?? null),
+        error: () => this.loaded.set(true),
+      });
+    } else {
+      // Group: resolve member agent ids (given, or looked up), then use the
+      // first reachable member as the catalog host.
+      const pick = (ids: Set<string>) => {
+        this.agentService.list().subscribe({
+          next: (agents) => useCatalog(agents.find((a) => ids.has(a.id) && a.address) ?? null),
           error: () => this.loaded.set(true),
         });
-      },
-      error: () => this.loaded.set(true),
-    });
+      };
+      if (this.scope.memberAgentIds?.length) {
+        pick(new Set(this.scope.memberAgentIds));
+      } else {
+        this.hostGroupService.list().subscribe({
+          next: (groups) => pick(new Set(groups.find((g) => g.id === this.scope.id)?.member_agent_ids ?? [])),
+          error: () => this.loaded.set(true),
+        });
+      }
+    }
   }
 
   /** Catalog files ∪ policy-only paths, category-grouped, search-filtered by
@@ -308,7 +344,7 @@ export class OuConfigEditorComponent implements OnChanges {
     const done = () => {
       this.busy.set(false);
       this.editKey.set(null);
-      this.ouService.listConfigPolicies({ ouId: this.ouId }).subscribe((ps) => this.policies.set(ps));
+      this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
     };
     const fail = (e: { error?: { detail?: string } }) => {
       this.error.set(e?.error?.detail ?? 'failed');
@@ -316,12 +352,12 @@ export class OuConfigEditorComponent implements OnChanges {
     };
     if (this.mode() === 'notconf') {
       if (!this.policyFor(path)) { done(); return; }
-      this.ouService.unsetConfigPolicyKey({ scope_ou_id: this.ouId, path, key }).subscribe({ next: done, error: fail });
+      this.ouService.unsetConfigPolicyKey({ ...this.scopeArg(), path, key }).subscribe({ next: done, error: fail });
       return;
     }
     const value = this.mode() === 'removed' ? null : this.value();
     const values = this.unflatten(key, value, fmt !== 'keyvalue');
-    this.ouService.createConfigPolicy({ scope_ou_id: this.ouId, path, format: fmt ?? 'keyvalue', values }).subscribe({
+    this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: fmt ?? 'keyvalue', values }).subscribe({
       next: (r) => {
         this.appDialog.notify(
           r.applied_hosts.length ? `Applied to ${r.applied_hosts.length} host(s).` : 'Policy saved (no reachable member yet).',
