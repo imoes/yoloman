@@ -499,6 +499,36 @@ async def unset_config_policy_key(
     return {"path": body.path, "key": body.key, "unset": True}
 
 
+class ConfigPolicyScopeIn(BaseModel):
+    scope_ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+
+
+@router.patch("/api/v1/config-policies/{policy_id}")
+async def rescope_config_policy(
+    policy_id: UUID,
+    body: ConfigPolicyScopeIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Move a config policy to another OU/group scope (the OU-console 'drag a
+    placed policy onto another OU' gesture). Exactly one of scope_ou_id /
+    host_group_id. Doesn't re-converge here — member hosts pick it up on their
+    next sync (deleting/adding a scope link mirrors unlinking a GPO)."""
+    is_ou = body.scope_ou_id is not None
+    if is_ou == (body.host_group_id is not None):
+        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
+    cp = await session.get(ConfigPolicy, policy_id)
+    if cp is None:
+        raise HTTPException(status_code=404, detail=f"no such config policy {policy_id}")
+    cp.scope_ou_id = body.scope_ou_id if is_ou else None
+    cp.host_group_id = None if is_ou else body.host_group_id
+    cp.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"id": str(cp.id), "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
+            "host_group_id": str(cp.host_group_id) if cp.host_group_id else None}
+
+
 @router.delete("/api/v1/config-policies/{policy_id}", status_code=204)
 async def delete_config_policy(
     policy_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)

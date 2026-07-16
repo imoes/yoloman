@@ -49,6 +49,11 @@ export class OuService {
     return this.http.post<{ unset: boolean }>(`${environment.apiUrl}/config-policies/unset`, body);
   }
 
+  /** Move a placed config policy to another OU/group scope. */
+  rescopeConfigPolicy(id: string, body: { scope_ou_id?: string; host_group_id?: string }) {
+    return this.http.patch<{ id: string }>(`${environment.apiUrl}/config-policies/${id}`, body);
+  }
+
   /** Block K4 — author a config-value policy at OU/group scope (gpedit's
    * "add a setting") and converge every reachable member host. Exactly one of
    * ouId / hostGroupId is set. `values` is the desired key→value document

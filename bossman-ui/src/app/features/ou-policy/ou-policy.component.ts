@@ -145,8 +145,12 @@ interface PaletteItem {
                   [class.bm-disabled]="!row.obj!.enabled"
                   [style.paddingLeft.px]="8 + row.depth * 18"
                   (click)="select(row)"
+                  draggable="true"
+                  (dragstart)="onPlacedObjDragStart(row, $event)"
+                  (dragend)="onDragEnd()"
                   [cdkContextMenuTriggerFor]="objMenu"
                   (contextmenu)="ctx.set(row)"
+                  title="Drag onto another OU to move it there"
                 >
                   <span class="bm-twisty">·</span>
                   <mat-icon class="bm-obj-icon">{{ objIcon(row.obj!.kind) }}</mat-icon>
@@ -647,6 +651,21 @@ export class OuPolicyComponent implements OnInit {
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'link';
   }
 
+  /** Drag an ALREADY-PLACED object (a policy nested under an OU) onto another
+   * OU to move/re-scope it — the piece that was missing (you could place from
+   * the palette but not move afterwards). Reuses the palette drop path by
+   * presenting the object as a PaletteItem carrying its current owner OU. */
+  onPlacedObjDragStart(row: TreeRow, event: DragEvent): void {
+    const o = row.obj!;
+    this.dragPolicy.set({
+      kind: o.kind, id: o.id, label: o.label,
+      ownerOuId: row.ownerOuId ?? null, ownerPath: null, planId: o.plan_id ?? undefined,
+    });
+    event.dataTransfer?.setData('text/plain', o.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    event.stopPropagation();
+  }
+
   onDragEnd(): void {
     this.dragOuId.set(null);
     this.dragPolicy.set(null);
@@ -727,6 +746,9 @@ export class OuPolicyComponent implements OnInit {
         this.orchestration
           .createLink(item.planId!, { target_type: 'ou', ou_id: ouId, require_approval: true })
           .subscribe({ next: done, error: fail });
+        break;
+      case 'config_policy':
+        this.ouService.rescopeConfigPolicy(item.id, { scope_ou_id: ouId }).subscribe({ next: done, error: fail });
         break;
     }
   }
