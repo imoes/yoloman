@@ -75,10 +75,16 @@ over the MCP protocol against docker-test:
   is unhealthy and decide to correct config (`call_agent_tool`) or tune a
   threshold (`set_threshold`). All monitoring tools now expose the F-17
   thresholds via `_service_view_dict`.
-Still open: a persisted **config-policy** write tool (K4) — today the AI corrects
-config by running a config module via `call_agent_tool`; a first-class
-"set desired config value at scope X" tool (like set_threshold for config) is
-the remaining piece.
+- **`set_host_config`** (K4) — the AI correcting config through the document
+  loop (diffable/versioned/rollback-able, not ad-hoc): converges a file toward
+  a desired key→value map via its codec. dry_run=true by default (returns the
+  diff), so the AI previews then applies. Verified live: a dry-run against
+  docker-test's sshd_config returned the PermitRootLogin yes→no diff.
+
+The AI can now diagnose (diagnose_host + get_host_logs) AND correct (set_threshold
+for monitoring policy, set_host_config for config) across signals — the vision's
+core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
+(the REST `/config-policies` exists; only host-scope is wired via MCP so far).
 
 ## Open UI-parity findings (docs/ui-parity.md)
 

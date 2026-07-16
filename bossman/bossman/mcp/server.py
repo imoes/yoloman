@@ -508,6 +508,33 @@ def build_mcp_server(
         }
 
     @mcp.tool()
+    async def set_host_config(
+        host: str,
+        path: str,
+        values: dict[str, Any],
+        config_format: str = "keyvalue",
+        separator: str = "",
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
+        """Correct a host's config (K4) — the write side of the document loop,
+        diffable/versioned/rollback-able (NOT an ad-hoc edit). Converges `path`
+        toward `values` using the file's codec (`config_format`: keyvalue|ini|
+        …; `separator` for keyvalue). `values` is the desired key→value map (for
+        ini, section→{key:value}). dry_run=true (default) returns the diff
+        WITHOUT writing — always preview first, then re-call dry_run=false to
+        apply. Needs the host's write gate open. Pair with diagnose_host: find
+        the cause, preview the fix, apply it."""
+        resource = {"type": "config", "path": path, "format": config_format,
+                    "separator": separator, "values": values}
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        try:
+            return await client.state_apply({"resources": [resource]}, dry_run)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
     async def fleet_health() -> dict[str, Any]:
         """Fleet-wide counters: hosts by enrollment state, services by monitoring state, and how
         many are genuinely open problems (non-OK, unacknowledged, not in downtime) needing
