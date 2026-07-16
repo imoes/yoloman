@@ -10,7 +10,7 @@ convention from Block K11).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,10 +22,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import re
 
 from bossman.api.auth import get_current_identity
+from bossman.api.management import _merge_values
+from bossman.api.plans import get_client_factory
+from bossman.config import get_settings
 from bossman.db.models import (
+    DEFAULT_TENANT_ID,
     Agent,
     CheckRule,
     CheckRuleOuLink,
+    ConfigPolicy,
     HostGroup,
     NotificationRule,
     OrchestrationPlan,
@@ -33,6 +38,7 @@ from bossman.db.models import (
     OUNode,
 )
 from bossman.db.session import get_session
+from bossman.services.agent_client import AgentClientError
 from bossman.services.compiler import affected_agent_ids, compile_host_desired_state, resolve_ou_ancestry
 
 router = APIRouter()
@@ -254,7 +260,7 @@ class OUObject(BaseModel):
     UI's per-node child list. `kind` discriminates the object type; the
     common GPO fields (enforced/enabled) drive the tree's status markers."""
 
-    kind: str  # check_rule | notification | host_group | orchestration_link
+    kind: str  # check_rule | notification | host_group | orchestration_link | config_policy
     id: UUID
     label: str
     enforced: bool = False
@@ -297,6 +303,12 @@ async def list_ou_objects(
     for g in (await session.scalars(select(HostGroup).where(HostGroup.ou_id == ou_id, HostGroup.deleted_at.is_(None)))).all():
         out.append(OUObject(kind="host_group", id=g.id, label=g.name))
 
+    # Block K4: OU-scoped config policies (one desired config file → every host
+    # under the OU). Label: the path + how many keys (or "template").
+    for cp in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == ou_id))).all():
+        detail = "template" if cp.type == "template_render" else f"{len(cp.values or {})} keys"
+        out.append(OUObject(kind="config_policy", id=cp.id, label=f"{cp.path} ({detail})"))
+
     links = (await session.scalars(select(OrchestrationPlanLink).where(OrchestrationPlanLink.ou_id == ou_id))).all()
     for link in links:
         plan = await session.get(OrchestrationPlan, link.plan_id)
@@ -308,6 +320,113 @@ async def list_ou_objects(
             )
         )
     return out
+
+
+class ConfigPolicyIn(BaseModel):
+    """Author a config-value policy at OU or group scope (gpedit's 'add a
+    setting to a policy'). Exactly one of scope_ou_id / host_group_id is set.
+    `values` is the desired key→value document for the file; a null value on a
+    key enforces its absence. Persisting the policy is the authoring act; on a
+    real (non-dry_run) save we also converge every reachable member host so it
+    takes effect immediately, like linking a GPO."""
+
+    scope_ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+    path: str
+    type: str = "config"
+    format: str | None = "keyvalue"
+    separator: str | None = None
+    values: dict = {}
+    template: str | None = None
+    dry_run: bool = False
+
+
+@router.post("/api/v1/config-policies")
+async def create_config_policy(
+    body: ConfigPolicyIn,
+    session: AsyncSession = Depends(get_session),
+    settings=Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict:
+    """Create/update a config policy at OU/group scope and converge members
+    (Block K4, authored from the Policy console). No agent context needed — you
+    can define a policy for an OU that has no reachable host yet; it applies
+    when hosts appear/re-sync."""
+    is_ou = body.scope_ou_id is not None
+    if is_ou == (body.host_group_id is not None):
+        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
+    if is_ou and await session.get(OUNode, body.scope_ou_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such OU {body.scope_ou_id}")
+    if not is_ou and await session.get(HostGroup, body.host_group_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such host group {body.host_group_id}")
+
+    if not body.dry_run:
+        if is_ou:
+            q = select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.scope_ou_id, ConfigPolicy.path == body.path)
+        else:
+            q = select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == body.path)
+        pol = await session.scalar(q)
+        if pol is None:
+            # DEFAULT_TENANT_ID may be a str or already a UUID depending on
+            # import order (some modules coerce the module attribute) — str()
+            # first so UUID() accepts it either way.
+            pol = ConfigPolicy(
+                tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=body.path,
+                scope_ou_id=body.scope_ou_id if is_ou else None,
+                host_group_id=None if is_ou else body.host_group_id,
+            )
+            session.add(pol)
+        pol.type = body.type
+        pol.config_format = body.format
+        pol.separator = body.separator
+        if body.type == "template_render":
+            pol.values = body.values  # template = whole-file, replace
+        else:
+            pol.values = _merge_values(pol.values, body.values, body.format)
+        pol.template = body.template
+        pol.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+
+    resource = {
+        "type": body.type, "path": body.path, "format": body.format,
+        "separator": body.separator, "values": body.values, "template": body.template,
+    }
+    if is_ou:
+        member_ids = await affected_agent_ids(session, "ou", ou_id=body.scope_ou_id)
+    else:
+        member_ids = await affected_agent_ids(session, "group", host_group_id=body.host_group_id)
+    applied, skipped = [], []
+    for mid in member_ids:
+        m = await session.get(Agent, mid)
+        if m is None or not m.address:
+            skipped.append(str(mid))
+            continue
+        try:
+            await client_factory(m, settings).state_apply({"resources": [resource]}, body.dry_run)
+            applied.append(m.name)
+        except AgentClientError:
+            skipped.append(m.name)
+    return {
+        "scope": "ou" if is_ou else "group",
+        "scope_ou_id": str(body.scope_ou_id) if is_ou else None,
+        "host_group_id": None if is_ou else str(body.host_group_id),
+        "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run,
+    }
+
+
+@router.delete("/api/v1/config-policies/{policy_id}", status_code=204)
+async def delete_config_policy(
+    policy_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+) -> None:
+    """Remove an OU config policy (Block K4). Member hosts keep the last-applied
+    file until re-synced — deleting the policy just stops distributing it; it
+    does not revert hosts (mirrors unlinking a GPO)."""
+    cp = await session.get(ConfigPolicy, policy_id)
+    if cp is None:
+        raise HTTPException(status_code=404, detail=f"no such config policy {policy_id}")
+    await session.delete(cp)
+    await session.commit()
 
 
 class AssignHostOUIn(BaseModel):

@@ -27,6 +27,24 @@ export class OuService {
     return this.http.delete<void>(`${environment.apiUrl}/config-policies/${id}`);
   }
 
+  /** Block K4 — author a config-value policy at OU/group scope (gpedit's
+   * "add a setting") and converge every reachable member host. Exactly one of
+   * ouId / hostGroupId is set. `values` is the desired key→value document
+   * (a null value enforces the key's absence). */
+  createConfigPolicy(body: {
+    scope_ou_id?: string;
+    host_group_id?: string;
+    path: string;
+    format: string;
+    values: Record<string, unknown>;
+    dry_run?: boolean;
+  }) {
+    return this.http.post<{ scope: string; applied_hosts: string[]; skipped_hosts: string[]; dry_run: boolean }>(
+      `${environment.apiUrl}/config-policies`,
+      body,
+    );
+  }
+
   ancestry(id: string) {
     return this.http.get<OUNode[]>(`${this.base}/${id}/ancestry`);
   }

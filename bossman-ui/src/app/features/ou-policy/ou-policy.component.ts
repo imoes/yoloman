@@ -37,6 +37,7 @@ import {
   HostGroupMembersDialogData,
 } from '../../shared/components/host-group-members-dialog/host-group-members-dialog.component';
 import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/components/threshold-dialog/threshold-dialog.component';
+import { ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult } from '../../shared/components/config-policy-dialog/config-policy-dialog.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import {
   OuLinkPlanDialogComponent,
@@ -245,6 +246,7 @@ interface PaletteItem {
         <div class="bm-menu-sep"></div>
         <div class="bm-menu-label">Quick add (single entry)</div>
         <button class="bm-menu-item" cdkMenuItem (click)="newThreshold(ctx()!.ou!)">Threshold…</button>
+        <button class="bm-menu-item" cdkMenuItem (click)="newConfigSetting(ctx()!.ou!)">Config setting…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newNotification(ctx()!.ou!)">Notification…</button>
         <button class="bm-menu-item" cdkMenuItem (click)="newHostGroup(ctx()!.ou!)">Host Group…</button>
         <div class="bm-menu-sep"></div>
@@ -279,6 +281,7 @@ interface PaletteItem {
         @if (ctx()?.obj?.kind === 'host_group') {
           <button class="bm-menu-item" cdkMenuItem (click)="manageMembers(ctx()!)">Members…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="assignCheckToGroup(ctx()!)">Assign Check…</button>
+          <button class="bm-menu-item" cdkMenuItem (click)="newGroupConfigSetting(ctx()!)">Config setting…</button>
           <button class="bm-menu-item" cdkMenuItem (click)="editGroupVars(ctx()!)">Variables…</button>
           <div class="bm-menu-sep"></div>
         }
@@ -786,6 +789,66 @@ export class OuPolicyComponent implements OnInit {
       if (!input) return;
       this.monitoring.createCheckRule(input).subscribe(() => this.afterObjectChange(ou.id));
     });
+  }
+
+  /** Block K4 — author a config-value policy at OU scope from the Policy
+   * console (gpedit's "add a setting"). The dialog names a file/codec/key/
+   * value; we build the {key: value} document (null = removed) and POST it,
+   * which persists the policy and converges every reachable member host. */
+  newConfigSetting(ou: OUNode): void {
+    this.openConfigSettingDialog('OU ' + ou.path, (values, format, path) =>
+      this.ouService.createConfigPolicy({ scope_ou_id: ou.id, path, format, values }),
+      () => this.afterObjectChange(ou.id),
+    );
+  }
+
+  newGroupConfigSetting(row: TreeRow): void {
+    const groupId = row.obj!.id;
+    this.openConfigSettingDialog('group ' + row.obj!.label, (values, format, path) =>
+      this.ouService.createConfigPolicy({ host_group_id: groupId, path, format, values }),
+      () => this.reload(),
+    );
+  }
+
+  private openConfigSettingDialog(
+    scopeLabel: string,
+    post: (values: Record<string, unknown>, format: string, path: string) => ReturnType<OuService['createConfigPolicy']>,
+    done: () => void,
+  ): void {
+    const ref = this.dialog.open<ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult>(
+      ConfigPolicyDialogComponent, { width: '480px', data: { scopeLabel } },
+    );
+    ref.afterClosed().subscribe((res) => {
+      if (!res) return;
+      const value = res.removed ? null : res.value;
+      const values = this.unflattenSetting(res.key, value, res.format !== 'keyvalue');
+      post(values, res.format, res.path).subscribe({
+        next: (r) => {
+          const msg = r.applied_hosts.length
+            ? `Policy applied to ${r.applied_hosts.length} host(s)${r.skipped_hosts.length ? `, ${r.skipped_hosts.length} skipped` : ''}.`
+            : 'Policy saved (no reachable member host to converge yet).';
+          this.appDialog.notify(msg, 'info');
+          done();
+        },
+        error: (e) => this.appDialog.notify(e?.error?.detail ?? 'Failed to create config policy.', 'error'),
+      });
+    });
+  }
+
+  /** {key: value} for keyvalue; for nested codecs a dotted key (section.key)
+   * becomes a nested document. Mirrors the host editor's unflatten. */
+  private unflattenSetting(key: string, value: unknown, deep: boolean): Record<string, unknown> {
+    if (!deep || !key.includes('.')) return { [key]: value };
+    const parts = key.split('.');
+    const root: Record<string, unknown> = {};
+    let node = root;
+    for (const p of parts.slice(0, -1)) {
+      const n: Record<string, unknown> = {};
+      node[p] = n;
+      node = n;
+    }
+    node[parts[parts.length - 1]] = value;
+    return root;
   }
 
   newNotification(ou: OUNode): void {
