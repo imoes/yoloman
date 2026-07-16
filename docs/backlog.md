@@ -70,11 +70,14 @@ over the MCP protocol against docker-test:
 - **`get_host_logs`** — read a host's journald log (level/since/unit filters) for
   cross-signal debugging.
 - **`diagnose_host`** — the cross-signal snapshot in ONE call: the host's non-OK
-  services (each with the value + the warn/crit threshold it tripped, via F-17)
-  plus recent error-level log lines — the signals to reason about *why* a host
-  is unhealthy and decide to correct config (`call_agent_tool`) or tune a
-  threshold (`set_threshold`). All monitoring tools now expose the F-17
-  thresholds via `_service_view_dict`.
+  services (each with the value + the warn/crit threshold it tripped, via F-17),
+  recent error-level log lines, AND the top processes by CPU + by memory — the
+  signals to reason about *why* a host is unhealthy (e.g. attribute a CPU/mem
+  alert to the offending process) and decide to correct config
+  (`call_agent_tool`), tune a threshold (`set_threshold`), or act on a process.
+  All monitoring tools now expose the F-17 thresholds via `_service_view_dict`.
+- **`get_host_processes`** — the live process table (top-N by CPU) as a
+  standalone diagnosis source.
 - **`set_host_config`** (K4) — the AI correcting config through the document
   loop (diffable/versioned/rollback-able, not ad-hoc): converges a file toward
   a desired key→value map via its codec. dry_run=true by default (returns the

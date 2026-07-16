@@ -470,13 +470,30 @@ def build_mcp_server(
             raise ValueError(str(exc)) from exc
 
     @mcp.tool()
+    async def get_host_processes(host: str, limit: int = 20) -> dict[str, Any]:
+        """The host's live process table (top `limit` by CPU), for cross-signal
+        debugging — each row is {pid, user, comm, command, cpu_percent (100 % =
+        one core), rss_kib, ...}. On-demand pass-through; pair with diagnose_host
+        to attribute a CPU/memory problem to the offending process."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        try:
+            return await client.processes(limit=max(1, min(limit, 200)))
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
     async def diagnose_host(host: str, log_lines: int = 40) -> dict[str, Any]:
         """Cross-signal snapshot for diagnosing a host's problems in ONE call:
         its non-OK services (each with the value + the warn/crit threshold it
-        tripped), plus the most recent error-level journal lines — the signals
-        an AI needs to reason about *why* a host is unhealthy and decide whether
-        to correct config (call_agent_tool) or tune a threshold (set_threshold).
-        Read-only. Logs are best-effort (empty if the host is unreachable)."""
+        tripped), the most recent error-level journal lines, AND the top
+        processes by CPU and by memory — the signals an AI needs to reason about
+        *why* a host is unhealthy (e.g. attribute a CPU/mem alert to the
+        offending process) and decide whether to correct config
+        (call_agent_tool), tune a threshold (set_threshold), or act on a
+        process. Read-only. Logs + processes are best-effort (empty if the host
+        is unreachable)."""
         async with session_factory() as session:
             agent = await session.scalar(select(Agent).where(Agent.name == host))
             if agent is None:
@@ -486,7 +503,10 @@ def build_mcp_server(
         problems = [_service_view_dict(v) for v in (views or []) if v.service.state != "OK"]
         all_services = len(views or [])
         recent_errors: list[Any] = []
+        top_cpu: list[Any] = []
+        top_mem: list[Any] = []
         log_error = None
+        proc_error = None
         if reachable:
             async with session_factory() as session:
                 agent = await _addressed_agent_or_raise(session, host)
@@ -497,6 +517,16 @@ def build_mcp_server(
                 recent_errors = (data or {}).get("entries") or (data or {}).get("lines") or (data if isinstance(data, list) else [])
             except AgentClientError as exc:
                 log_error = str(exc)
+            # Processes as a diagnosis source: the top few by CPU and by RSS, so
+            # a high-cpu/high-mem service alert can be tied to a specific process.
+            try:
+                procs = (await client.processes(limit=0)).get("processes") or []
+                def _slim(p: dict) -> dict:
+                    return {k: p.get(k) for k in ("pid", "user", "comm", "command", "cpu_percent", "rss_kib")}
+                top_cpu = [_slim(p) for p in sorted(procs, key=lambda p: p.get("cpu_percent") or 0, reverse=True)[:5]]
+                top_mem = [_slim(p) for p in sorted(procs, key=lambda p: p.get("rss_kib") or 0, reverse=True)[:5]]
+            except AgentClientError as exc:
+                proc_error = str(exc)
         return {
             "host": host,
             "reachable": reachable,
@@ -504,7 +534,10 @@ def build_mcp_server(
             "problem_count": len(problems),
             "problems": problems,
             "recent_errors": recent_errors,
+            "top_processes_by_cpu": top_cpu,
+            "top_processes_by_memory": top_mem,
             "log_error": log_error,
+            "process_error": proc_error,
         }
 
     @mcp.tool()
