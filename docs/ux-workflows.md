@@ -55,20 +55,20 @@ right-click actions (Config setting…, Threshold…, Notification…, Assign
 Check…, Host Group…). Policies show as objects under the OU and can be
 **dragged onto another OU to move/re-scope** them.
 
-## 5 · Create a policy for a group  ⚠️
+## 5 · Create a policy for a group  ✅
 
-Path: **OU/Policy → right-click a host group** → Config setting… / Threshold…
-/ Assign Check… (the focused dialogs).
-
-⚠️ Groups get the focused *dialogs* but not the full gpedit **Miller-column
-editor** that OU nodes get (that panel renders only for `sel.kind === 'ou'`).
-Target: show the same gpedit editor when a host group is selected, scoped to
-the group (the backend already supports `host_group_id` on config policies +
-the editor is scope-agnostic — it just needs a group entry point).
+Path: **OU/Policy → select a host group** → the SAME full gpedit editor as an
+OU (Miller columns), scoped to the group; plus the right-click dialogs. ✅
+RESOLVED — ou-config-editor generalised to a scope {kind: 'ou'|'group'}; a
+selected host_group renders the editor (catalog from a reachable member,
+policies via host_group_id).
 
 ## Follow-ups (ranked)
 
-1. **F-4 check/service unification** on the host (biggest confusion).
-2. **Group gpedit** — give host groups the same Miller-column editor as OUs.
+1. ~~**F-4 check/service unification**~~ ✅ RESOLVED — the Checks tab now also
+   lists the host's live Monitoring services with links to thresholds + the
+   Services tab.
+2. ~~**Group gpedit**~~ ✅ RESOLVED (see §5).
 3. **F-5** Modules page "checkmk 0/1444" vs the Checks catalog count.
 4. Deploy: allow reordering roles in a Run; persist a Run as a reusable set.
+5. Roll out `<app-icon>` + the source-list treatment to the remaining screens.
