@@ -69,6 +69,13 @@ policies via host_group_id).
    lists the host's live Monitoring services with links to thresholds + the
    Services tab.
 2. ~~**Group gpedit**~~ ✅ RESOLVED (see §5).
-3. **F-5** Modules page "checkmk 0/1444" vs the Checks catalog count.
+3. ~~**F-5** Modules "checkmk 0/1444"~~ ✅ RESOLVED — Modules excludes the
+   checkmk checks (they're checks, not modules) and links to the Checks page
+   with the real count; filter chips count only real modules.
 4. Deploy: allow reordering roles in a Run; persist a Run as a reusable set.
-5. Roll out `<app-icon>` + the source-list treatment to the remaining screens.
+5. Roll out `<app-icon>` + the source-list treatment to the remaining screens
+   (deferred — broad cosmetic sweep; the nav flagship + tokens are in place).
+6. Discovery UX: ~~expand a proposal to read its full description~~ ✅ DONE.
+   Residual: a few translated checks self-report OK in normal mode without
+   real data, so they still surface as false-positive proposals — per-check
+   translation quality, not the discovery mechanism.
