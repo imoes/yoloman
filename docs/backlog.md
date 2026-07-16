@@ -66,17 +66,23 @@ The AI must, exposed **as an MCP skill**:
   logged) with a service hint from well-known ports, and an aggregated edge per
   talking agent. Verified live: docker-test's DCs show as "192.0.2.98 · Kerberos,
   LDAP" etc. — 7 external nodes, 7 edges. UI draws them as neutral slate diamonds.
-- **F-4** Three notions of "checks" with no cross-links (Services vs Checks
+- ~~**F-4** Three notions of "checks" with no cross-links (Services vs Checks
   tab vs OU thresholds) — "why is this service checked / where's its
-  threshold from?" unanswerable on the host.
-- **F-5** Modules page "checkmk 0 / 1444 translated" contradicts the Checks
-  catalog count — two bookkeepings; reconcile now that categorization is done.
+  threshold from?" unanswerable on the host.~~ ✅ DONE (see docs/ux-workflows.md
+  §2) — Checks tab now lists the host's live Monitoring services with links to
+  their thresholds; F-17 further shows the actual warn/crit each is graded on.
+- ~~**F-5** Modules page "checkmk 0 / 1444 translated" contradicts the Checks
+  catalog count — two bookkeepings; reconcile now that categorization is done.~~
+  ✅ DONE — Modules excludes checkmk checks and links to Checks with the real
+  count; filter chips count only real modules.
 - **F-8** Codec registry still has no UI (config-templates page exists; codecs
   don't).
 - **F-9** Virtualization: piggyback sources not visible/configurable.
 - **F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
   Runbooks page (currently text-only NestedText).
-- **F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense.
+- ~~**F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense.~~ ✅ DONE
+  — the seeded defaults are Memory/Disk warn=80/crit=90, Disk IOPS 5000/10000
+  (`_DEFAULT_CHECK_RULES`); verified against the live DB, no 10/20 rule exists.
 - **F-15** Security page is manual-only (no scheduled CVE poll surfaced).
 - ~~**F-16** Network provider detection (NetworkManager reported on docker-test,
   believed ifupdown) — verify.~~ ✅ DONE — real bug: NetworkManager was running
