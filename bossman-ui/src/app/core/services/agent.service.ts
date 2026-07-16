@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, SnmpDevice, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -120,6 +120,17 @@ export class AgentService {
     return this.http.get<{ agent_id: string; guests: { name: string; mode: string; metrics: Record<string, number> }[] }>(
       `${this.base}/${id}/piggyback`,
     );
+  }
+
+  // Block 3 — SNMP devices (agent-less, polled via the co-located poller).
+  snmpDevices() {
+    return this.http.get<SnmpDevice[]>(`${environment.apiUrl}/snmp-devices`);
+  }
+  createSnmpDevice(body: { name: string; target: string; community: string; check_names: string[] }) {
+    return this.http.post<SnmpDevice>(`${environment.apiUrl}/snmp-devices`, body);
+  }
+  deleteSnmpDevice(id: string) {
+    return this.http.delete<{ deleted: string }>(`${environment.apiUrl}/snmp-devices/${id}`);
   }
 
   /** Force an immediate poll of this agent — the same full cycle the

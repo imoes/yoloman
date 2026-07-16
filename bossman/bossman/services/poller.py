@@ -300,6 +300,44 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
         agent.facts_updated_at = now
 
 
+async def _poll_snmp_device(
+    session: AsyncSession, device: Agent, settings: Settings, client_factory: ClientFactory,
+) -> PollResult:
+    """Block 3: poll one SNMP device by running its assigned SNMP checks through
+    its parent poller agent, with the device's target/community merged in, and
+    attributing the resulting Services to the device. The device row itself has
+    no address/token — it exists so the device shows up as a monitored host."""
+    result = PollResult(agent_id=str(device.id), agent_name=device.name)
+    meta = device.agent_metadata or {}
+    poller = await session.get(Agent, device.parent_agent_id) if device.parent_agent_id else None
+    if poller is None or not poller.address:
+        result.errors.append("no reachable poller agent for this SNMP device")
+        return result
+
+    extra: dict[str, str] = {}
+    if meta.get("snmp_target"):
+        extra["target"] = str(meta["snmp_target"])
+    if meta.get("snmp_community"):
+        extra["community"] = str(meta["snmp_community"])
+
+    client = client_factory(poller, settings)
+    now = datetime.now(timezone.utc)
+    try:
+        touched = await evaluate_assigned_checks(session, device, client, settings.checks_dir, extra_params=extra)
+        device.last_seen_at = now
+        await session.commit()
+        try:
+            sent = await notification.collect_and_dispatch(session, settings, touched)
+            if sent:
+                await session.commit()
+        except Exception:
+            logger.exception("notification dispatch failed for SNMP device %s", device.name)
+    except Exception as exc:  # noqa: BLE001 — one device must not sink the cycle
+        logger.exception("SNMP device poll failed for %s", device.name)
+        result.errors.append(f"snmp: {exc}")
+    return result
+
+
 async def poll_agent(
     session_factory: async_sessionmaker[AsyncSession],
     agent_id: uuid.UUID,
@@ -309,8 +347,17 @@ async def poll_agent(
 ) -> PollResult:
     async with semaphore, session_factory() as session:
         agent = await session.get(Agent, agent_id)
-        if agent is None or agent.enrollment_state != "enrolled" or not agent.address:
+        if agent is None or agent.enrollment_state != "enrolled":
             return PollResult(agent_id=str(agent_id), agent_name=agent.name if agent else "?")
+
+        # Block 3: an SNMP device has no address of its own — the co-located
+        # poller agent runs its SNMP checks on its behalf (target/community from
+        # the device's metadata) and the Services attribute to the device.
+        if (agent.agent_metadata or {}).get("kind") == "snmp":
+            return await _poll_snmp_device(session, agent, settings, client_factory)
+
+        if not agent.address:
+            return PollResult(agent_id=str(agent_id), agent_name=agent.name)
 
         result = PollResult(agent_id=str(agent.id), agent_name=agent.name)
         client = client_factory(agent, settings)

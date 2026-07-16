@@ -61,6 +61,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/config-codecs/config-codecs.component').then((m) => m.ConfigCodecsComponent),
   },
   {
+    path: 'snmp-devices',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/snmp-devices/snmp-devices.component').then((m) => m.SnmpDevicesComponent),
+  },
+  {
     path: 'runbooks',
     canActivate: [authGuard],
     loadComponent: () => import('./features/runbooks/runbook-editor.component').then((m) => m.RunbookEditorComponent),

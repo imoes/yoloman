@@ -25,7 +25,10 @@ if [ ! -f "$CONF" ]; then
     cat > "$CONF" <<EOF
 listen: "0.0.0.0:8010"
 token: "${TOKEN}"
-write: false
+# The poller runs SNMP/SSH checks on behalf of agent-less devices (Block 3),
+# which means Bossman PUSHES check modules to it — a write action. So the write
+# gate must be on, or module delivery answers 403 "disabled (write=false)".
+write: true
 tls:
   enabled: true
   cert_file: /etc/agentic-mcp/tls.crt

@@ -316,6 +316,16 @@ export interface VirtResponse {
   libvirt: StorageSection & { domains?: any[] };
 }
 
+/** Block 3 — an SNMP device monitored via the co-located poller. */
+export interface SnmpDevice {
+  id: string;
+  name: string;
+  target: string;
+  community: string;
+  check_names: string[];
+  last_seen_at: string | null;
+}
+
 /** F-9 — one configured piggyback source + its live status. */
 export interface PiggybackSource {
   type: string;         // docker | proxmox | vsphere | libvirt

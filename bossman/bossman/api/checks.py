@@ -202,22 +202,10 @@ async def _agent_with_address(session: AsyncSession, agent_id: UUID) -> Agent:
     return agent
 
 
-import re as _re
-
-_SNMP_CMD = _re.compile(r'"(snmpwalk|snmpget|snmpbulkget|snmpbulkwalk|snmptable)"')
-_SSH_CMD = _re.compile(r'"(sshpass|scp)"|\[\s*"ssh"')
-
-
 def _check_datasource(star: str) -> str:
-    """Which data source a check needs, read straight from its Starlark
-    (exact — SNMP checks ctx.run snmpwalk/snmpget). Bossman-side twin of
-    scripts/classify_check_datasource.py; used to keep discovery from running,
-    say, SNMP checks against a plain agent host."""
-    if _SNMP_CMD.search(star):
-        return "snmp"
-    if _SSH_CMD.search(star):
-        return "ssh"
-    return "agent"
+    """Bossman-side datasource classifier — now centralised in checks_library
+    (kept as a thin alias so existing call sites don't churn)."""
+    return checks_library.check_datasource(star)
 
 
 def _load_candidate_checks(

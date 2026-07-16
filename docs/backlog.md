@@ -18,30 +18,44 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
   per poll; no separate agent-side loop needed. This also fixed the "assigned
   check never appears in Services" bug and unblocks 2b/3 (an SNMP check
   assigned to the poller with target/community params will now run).
-- **Block 2b — parameterize SNMP checks.** ⬜ Deterministic transform (no
-  qwen79b): `snmpwalk -c public <ip>` → `params.community` / `params.target`.
-  1284× the same pattern, target hardcoded `localhost`/`127.0.0.1`, only 1
-  v3 check. Blocker: `.star` files are **root-owned** (written by the MCP
-  server) → write via the MCP submit path, not direct. Registry of which
-  checks are SNMP: `configs/check_datasources.json` (629 snmp).
-- **Block 3 — SNMP device model + UI.** ⬜ "Create SNMP device" (name,
-  target IP, v2c community / v3 creds) = check assignments on the poller with
-  connection params; shows up as a monitored host. Depends on 2a+2b.
+- **Block 2b — parameterize SNMP checks.** ✅ DONE — solved without touching the
+  root-owned `.star` files: `parameterize_snmp_star()` rewrites the argv IN
+  MEMORY at push time (community/target from the check's params, injected after
+  `def main`; no params → localhost/public so a normal host is unchanged),
+  applied in `evaluate_assigned_checks`. So an SNMP check assigned with
+  {target, community} now polls that device.
+- **Block 3 — SNMP device model + UI.** ✅ DONE — an SNMP device is a satellite
+  Agent row (parent = the poller, no address/token, `agent_metadata.kind=snmp`
+  + target/community). The poller's `_poll_snmp_device` runs the device's
+  assigned SNMP checks THROUGH the co-located poller agent (extra_params merges
+  the device's target/community; Block 2b retargets), attributing Services to
+  the device — so it shows up as a monitored host. API: `/api/v1/snmp-devices`
+  (list/create/delete); UI: Setup → SNMP devices (create form with the 630
+  SNMP-datasource checks + a device table linking to the host). Verified live:
+  created via UI, appears as a host, poller runs the check + attributes a
+  Service. Fixed en route: the poller's own write gate was off (module delivery
+  403) → poller entrypoint now writes `write: true`; and monitoring.py had no
+  `logger` (its assigned-check except-paths would NameError) → added.
+  v3 creds not modelled yet (v2c community only).
 
-## qwen79b batches (may still be running — verify + review output)
+## qwen79b batches — now a systemd user service ([[project-config-batches]])
 
-- **Codecs** (`scripts/classify_config_codecs.py` → `configs/config_codecs.json`,
-  was 114 entries) — confirm it finished, review new classifications.
-- **Templates** (`scripts/batch_config_templates.py` → `configs/config_templates/*`,
-  18 free-form configs) — confirm finished; verify each directive got a
-  per-option explanatory comment where the file had none (the required
-  behaviour; verified on `sudoers`).
+- ~~**Codecs / Templates** — confirm finished.~~ ✅ DONE — both run as the
+  `agentic-config-batch.service` systemd user unit (Restart=always, linger, so
+  they survive reboot) via `scripts/config-batch-supervisor.sh`; the passes are
+  resumable/idempotent. State: 114 configs classified (LLM universe exhausted
+  for installed packages), config_templates filled for the codec:"none" files
+  (a few like corosync.conf have no man page → skipped). Logs in
+  `~/.local/state/agentic-batches/`.
 
 ## Checkmk translation tail
 
-- **Hand-translate the ~6 non-Windows stragglers** (the batch was stopped at
-  1432/1444): `printer_supply`, `smart_stats`, `ucd_mem`, `vms_queuejobs`,
-  `wlc_clients`, `wut_webtherm_humidity`.
+- **Non-Windows stragglers** — mostly cleared (now 1440/1444). `smart_stats` +
+  `vms_queuejobs` were already present; `printer_supply`, `ucd_mem`,
+  `wut_webtherm_humidity` translated 2026-07-16 via `translate_checkmk.py
+  --only`. **`wlc_clients` still fails validation** — qwen emits a Starlark
+  list-comprehension with a syntax error (`got for, want ','`); needs a
+  hand-fix or a different prompt. The rest of the missing are Windows checks.
 - **Windows client** (PowerShell modules) — the remaining hard checks
   (`winperf_*`, `wmi_cpuload`, `w32time_*`) belong there, not the Linux agent.
   See the `project-windows-client` memory.

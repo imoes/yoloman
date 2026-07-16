@@ -16,6 +16,7 @@ the REST API, MCP tools, and tests without duplicating logic.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -25,6 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, CheckRuleOuLink, Downtime, Metric, Service, ServiceStateHistory, ValueMap
 from bossman.services import gpo, render
+
+logger = logging.getLogger(__name__)
 
 _COMPARISONS = {
     "gt": lambda value, threshold: value > threshold,
@@ -654,7 +657,9 @@ def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
     return fallback
 
 
-async def evaluate_assigned_checks(session: AsyncSession, agent: Agent, client, checks_dir: str) -> list[Service]:
+async def evaluate_assigned_checks(
+    session: AsyncSession, agent: Agent, client, checks_dir: str, *, extra_params: dict | None = None,
+) -> list[Service]:
     """Run the host's ASSIGNED Starlark checks and turn each result into a
     Service — the missing execution path (a CheckAssignment resolved but never
     run means the check never appears in Services). Resolves the effective
@@ -663,7 +668,13 @@ async def evaluate_assigned_checks(session: AsyncSession, agent: Agent, client, 
     returned {state, metrics, details} via the shared ingester. rule_id stays
     NULL (like agent-reported checks); the service is named for the check.
     Best-effort per check; a failure yields an UNKNOWN service, never a raise.
-    Does not commit — the poller owns the transaction."""
+    Does not commit — the poller owns the transaction.
+
+    `extra_params` (Block 3) is merged into every check's params — used for an
+    SNMP device polled on its behalf by the co-located poller agent: the checks
+    + Services attribute to `agent` (the device), but `client` is the poller's,
+    and extra_params carries the device's {target, community} into the (Block 2b
+    retargetable) SNMP check."""
     import hashlib
     from pathlib import Path
 
@@ -707,7 +718,10 @@ async def evaluate_assigned_checks(session: AsyncSession, agent: Agent, client, 
     for ec, fqcn in runnable:
         state, output, value = "UNKNOWN", "check did not return data", None
         try:
-            res = await client.call_tool(fqcn, dict(getattr(ec, "parameters", {}) or {}))
+            params = dict(getattr(ec, "parameters", {}) or {})
+            if extra_params:
+                params = {**params, **extra_params}
+            res = await client.call_tool(fqcn, params)
             data = (res or {}).get("data") if isinstance(res, dict) else None
             if isinstance(data, dict):
                 state = str(data.get("state", "UNKNOWN")).upper()

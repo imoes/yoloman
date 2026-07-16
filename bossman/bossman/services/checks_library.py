@@ -15,12 +15,28 @@ validates here runs there. Only the on-disk layout (flat) and the metadata
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 import nestedtext
 
 from bossman.services.module_library import ModuleLibraryError, load_metadata, validate_star
+
+_SNMP_CMD = re.compile(r'"(snmpwalk|snmpget|snmpbulkget|snmpbulkwalk|snmptable)"')
+_SSH_CMD = re.compile(r'"(sshpass|scp)"|\[\s*"ssh"')
+
+
+def check_datasource(star: str) -> str:
+    """Which data source a check needs, read straight from its Starlark: SNMP
+    checks ctx.run snmpwalk/snmpget; SSH checks sshpass/scp/ssh; else the local
+    agent. Used to filter the catalog (SNMP devices offer only SNMP checks) and
+    to keep discovery from running SNMP checks against a plain agent host."""
+    if _SNMP_CMD.search(star):
+        return "snmp"
+    if _SSH_CMD.search(star):
+        return "ssh"
+    return "agent"
 
 
 def check_paths(checks_dir: str | Path, name: str) -> tuple[Path, Path]:
@@ -91,6 +107,10 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
             entry["category"] = meta.get("category", "") or "Other"
         except (OSError, ModuleLibraryError):
             entry["options"] = {}
+        try:
+            entry["datasource"] = check_datasource(star.read_text(encoding="utf-8"))
+        except OSError:
+            entry["datasource"] = "agent"
         out.append(entry)
     return out
 
