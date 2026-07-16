@@ -234,17 +234,34 @@ type Duration time.Duration
 
 func (d Duration) Duration() time.Duration { return time.Duration(d) }
 
+// MarshalYAML writes the duration as a Go duration string ("24h", "30s"), NOT
+// the raw int64 nanoseconds the underlying time.Duration would marshal as.
+// Without this, rewriting config.yaml (e.g. `register` updating it in place)
+// stored e.g. session_ttl as 86400000000000, which then failed to reload
+// ("missing unit in duration") — the config-corruption that left a
+// re-registered agent unable to even parse its own config.
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return time.Duration(d).String(), nil
+}
+
 func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	// Preferred form: a Go duration string like "24h".
 	var s string
-	if err := value.Decode(&s); err != nil {
-		return err
+	if err := value.Decode(&s); err == nil {
+		if parsed, perr := time.ParseDuration(s); perr == nil {
+			*d = Duration(parsed)
+			return nil
+		}
 	}
-	parsed, err := time.ParseDuration(s)
-	if err != nil {
-		return fmt.Errorf("invalid duration %q: %w", s, err)
+	// Tolerate a bare integer (nanoseconds) — how a pre-MarshalYAML agent
+	// wrote it. Accepting it lets such an already-corrupted config.yaml load
+	// and be rewritten correctly instead of wedging the agent.
+	var ns int64
+	if err := value.Decode(&ns); err == nil {
+		*d = Duration(time.Duration(ns))
+		return nil
 	}
-	*d = Duration(parsed)
-	return nil
+	return fmt.Errorf("invalid duration %q: want a Go duration string like \"24h\"", value.Value)
 }
 
 type PAM struct {

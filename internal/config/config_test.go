@@ -3,8 +3,11 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func writeTemp(t *testing.T, content string) string {
@@ -82,6 +85,50 @@ db:
 `)
 	if _, err := Load(path); err == nil {
 		t.Fatal("expected error for invalid duration string")
+	}
+}
+
+// A Config written back out (as `register` does) must reload cleanly — the
+// bug that wedged re-registered agents was Duration marshalling to raw
+// nanoseconds ("86400000000000") that then failed to parse on reload.
+func TestConfig_DurationRoundTrip(t *testing.T) {
+	cfg := Default()
+	cfg.PAM.SessionTTL = Duration(24 * time.Hour)
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(out), "86400000000000") {
+		t.Fatalf("duration marshalled as raw nanoseconds, not a unit string:\n%s", out)
+	}
+	if !strings.Contains(string(out), "session_ttl: 24h") {
+		t.Fatalf("expected 'session_ttl: 24h' in output, got:\n%s", out)
+	}
+	path := writeTemp(t, string(out))
+	got, err := Load(path)
+	if err != nil {
+		t.Fatalf("reload of a freshly-written config failed: %v", err)
+	}
+	if got.PAM.SessionTTL.Duration() != 24*time.Hour {
+		t.Errorf("session_ttl = %v, want 24h", got.PAM.SessionTTL.Duration())
+	}
+}
+
+// An already-corrupted config (a bare integer where a duration string is
+// expected, how a pre-fix agent wrote it) must still load, so `register` can
+// read it and rewrite it correctly instead of failing outright.
+func TestLoad_BareIntegerDurationTolerated(t *testing.T) {
+	path := writeTemp(t, `
+listen: "127.0.0.1:8010"
+pam:
+  session_ttl: 86400000000000
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("expected a bare-ns duration to be tolerated, got: %v", err)
+	}
+	if cfg.PAM.SessionTTL.Duration() != 24*time.Hour {
+		t.Errorf("session_ttl = %v, want 24h (86400000000000 ns)", cfg.PAM.SessionTTL.Duration())
 	}
 }
 
