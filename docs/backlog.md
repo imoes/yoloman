@@ -91,8 +91,15 @@ The AI must, exposed **as an MCP skill**:
   **Still open — configurable**: adding/editing remote Proxmox/vSphere endpoints
   (credentials → write the agent's piggyback config + restart) needs secret
   handling; deferred as its own block.
-- **F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
-  Runbooks page (currently text-only NestedText).
+- ~~**F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
+  Runbooks page (currently text-only NestedText).~~ ✅ DONE — the fleet runbook
+  editor now has a Text ⇄ Visual toggle. Visual mode is the Sequential Workflow
+  Designer (module/set_fact/debug steps, per-step module/args/when/register
+  editors) ported from agent-ui; every edit serialises the definition into the
+  same Monaco NestedText the existing lint/dry-run/apply/save read (Monaco stays
+  the single source of truth; visual is an authoring overlay, one-way
+  visual→text). SWD CSS added to the bossman-ui build. Verified live via
+  Playwright: designer + toolbox render, no console errors.
 - ~~**F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense.~~ ✅ DONE
   — the seeded defaults are Memory/Disk warn=80/crit=90, Disk IOPS 5000/10000
   (`_DEFAULT_CHECK_RULES`); verified against the live DB, no 10/20 rule exists.

@@ -8,6 +8,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import * as monaco from 'monaco-editor';
+import { SequentialWorkflowDesignerModule } from 'sequential-workflow-designer-angular';
+import { Definition, Step, StepsConfiguration, ToolboxConfiguration, DefinitionChangedEvent } from 'sequential-workflow-designer';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { AgentService } from '../../core/services/agent.service';
@@ -30,6 +32,44 @@ interface RunResult {
 interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number; error?: string; line?: number; }
 interface RunRow { id: string; runbook: string; status: string; dry_run: boolean; created_at: string; }
 interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string }; }
+
+// F-10 visual builder helpers. A toolbox step is a plain SWD task; each maps
+// 1:1 to a fleet NestedText runbook step on serialize.
+let vuidCounter = 0;
+function vtask(type: string, name: string, properties: Record<string, unknown>): Step {
+  vuidCounter += 1;
+  return { id: 'vstep-' + vuidCounter, componentType: 'task', type, name, properties } as Step;
+}
+
+function safeJson(s: string | undefined): Record<string, unknown> {
+  if (!s) return {};
+  try {
+    const v = JSON.parse(s);
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Serialize a params object as indented NestedText (the fleet runbook format:
+ * `key: value`, nested dicts indented, arrays as `- item`). Handles the common
+ * flat string-map args plus one level of nesting / scalar lists. */
+function ntBlock(obj: Record<string, unknown>, indent: number): string {
+  const pad = ' '.repeat(indent);
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (Array.isArray(v)) {
+      out.push(`${pad}${k}:`);
+      for (const item of v) out.push(`${pad}  - ${item}`);
+    } else if (v && typeof v === 'object') {
+      out.push(`${pad}${k}:`);
+      out.push(ntBlock(v as Record<string, unknown>, indent + 2));
+    } else {
+      out.push(`${pad}${k}: ${v}`);
+    }
+  }
+  return out.join('\n');
+}
 
 const STARTER = `name: web baseline
 targets: group:web-servers
@@ -71,7 +111,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -108,9 +148,70 @@ const MAGIC_VARS = [
             </mat-form-field>
             <button mat-stroked-button (click)="save()"><mat-icon>save</mat-icon> {{ currentId() ? 'Save' : 'Save as new' }}</button>
             @if (currentId()) { <button mat-button (click)="newRunbook()">New</button> }
+            <span class="bm-mode">
+              <button mat-button [class.bm-mode-on]="mode() === 'text'" (click)="setMode('text')">
+                <mat-icon>code</mat-icon> Text
+              </button>
+              <button mat-button [class.bm-mode-on]="mode() === 'visual'" (click)="setMode('visual')">
+                <mat-icon>account_tree</mat-icon> Visual
+              </button>
+            </span>
             @if (saveMsg()) { <span class="bm-dim">{{ saveMsg() }}</span> }
           </div>
-          <div #editor class="bm-editor"></div>
+
+          @if (mode() === 'visual') {
+            <div class="bm-vbar">
+              <mat-form-field appearance="outline" class="bm-host" subscriptSizing="dynamic">
+                <mat-label>Name</mat-label>
+                <input matInput [(ngModel)]="visualName" (ngModelChange)="syncVisual()" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="bm-host" subscriptSizing="dynamic">
+                <mat-label>Targets</mat-label>
+                <input matInput [(ngModel)]="visualTargets" (ngModelChange)="syncVisual()" placeholder="group:web-servers" />
+              </mat-form-field>
+              <span class="bm-dim">Drag steps onto the canvas; the NestedText below is generated for lint/dry-run/apply.</span>
+            </div>
+            <sqd-designer class="bm-designer"
+              theme="light"
+              [definition]="definition"
+              [toolboxConfiguration]="toolbox"
+              [stepsConfiguration]="stepsConfig"
+              [controlBar]="true"
+              [rootEditor]="rootEditor"
+              [stepEditor]="stepEditor"
+              (onDefinitionChanged)="onVisualChanged($event)"
+            ></sqd-designer>
+
+            <ng-template #rootEditor>
+              <div class="bm-veditor">
+                <h4>Runbook</h4>
+                <p class="bm-dim">Drag steps from the left onto the canvas, then click a step to set its
+                  module, args, when/register. The NestedText below regenerates as you edit.</p>
+              </div>
+            </ng-template>
+
+            <ng-template #stepEditor let-editor>
+              <div class="bm-veditor">
+                <h4>{{ editor.step.type }}</h4>
+                <label>Name <input [(ngModel)]="editor.step.name" (ngModelChange)="editor.context.notifyNameChanged(); syncVisual()" /></label>
+                @switch (editor.step.type) {
+                  @case ('module') {
+                    <label>Module <input [(ngModel)]="editor.step.properties['module']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="apt, service, file…" /></label>
+                    <label>Args (JSON) <textarea rows="6" [(ngModel)]="editor.step.properties['args']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"name":"nginx","state":"present"}'></textarea></label>
+                  }
+                  @case ('set_fact') {
+                    <label>Facts (JSON) <textarea rows="5" [(ngModel)]="editor.step.properties['facts']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"web_pkg":"nginx"}'></textarea></label>
+                  }
+                  @case ('debug') {
+                    <label>Message <input [(ngModel)]="editor.step.properties['msg']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="installing &#36;&#123;web_pkg&#125;" /></label>
+                  }
+                }
+                <label>when: <input [(ngModel)]="editor.step.properties['when']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="optional condition" /></label>
+                <label>register: <input [(ngModel)]="editor.step.properties['register']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="optional var name" /></label>
+              </div>
+            </ng-template>
+          }
+          <div #editor class="bm-editor" [style.display]="mode() === 'text' ? 'block' : 'none'"></div>
           <div class="bm-toolbar">
             <button mat-stroked-button (click)="doLint()"><mat-icon>check_circle</mat-icon> Lint</button>
             <mat-form-field appearance="outline" class="bm-host">
@@ -197,6 +298,14 @@ const MAGIC_VARS = [
       .bm-left { flex: 1 1 60%; min-width: 0; }
       .bm-right { flex: 1 1 30%; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
       .bm-editor { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; }
+      .bm-mode { display: inline-flex; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; margin-left: auto; }
+      .bm-mode button { border-radius: 0; }
+      .bm-mode-on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); font-weight: 600; }
+      .bm-vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+      .bm-designer { display: block; height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+      .bm-veditor { padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 260px; }
+      .bm-veditor label { display: flex; flex-direction: column; font-size: 12px; gap: 3px; }
+      .bm-veditor input, .bm-veditor textarea { padding: 4px 6px; font-family: monospace; }
       .bm-toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
       .bm-host { width: 220px; }
       .bm-lint { padding: 8px 12px; border-radius: 6px; font-size: 13px; }
@@ -244,6 +353,62 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   // Library folder tree (mirrors Plan library): runbooks grouped by `folder`.
   expanded = signal<Set<string>>(new Set(['']));
   moveFolder = ''; // folder the current runbook is saved into
+
+  // F-10: visual authoring mode. Visual edits serialize into Monaco (the single
+  // source lint/dry-run/apply read), so the designer is an authoring overlay,
+  // not a second format. text→visual is not reverse-parsed (one-way).
+  mode = signal<'text' | 'visual'>('text');
+  visualName = 'my-runbook';
+  visualTargets = '';
+  definition: Definition = { sequence: [], properties: {} };
+  toolbox: ToolboxConfiguration = {
+    groups: [{
+      name: 'Steps',
+      steps: [
+        vtask('module', 'module', { module: '', args: '{}' }),
+        vtask('set_fact', 'set_fact', { facts: '{}' }),
+        vtask('debug', 'debug', { msg: '' }),
+      ],
+    }],
+  };
+  stepsConfig: StepsConfiguration = { iconUrlProvider: () => null };
+
+  setMode(m: 'text' | 'visual'): void {
+    this.mode.set(m);
+    // Monaco mis-measures while display:none; relayout once it's visible again.
+    if (m === 'text') setTimeout(() => this.ed?.layout(), 0);
+  }
+
+  onVisualChanged(e: DefinitionChangedEvent): void {
+    this.definition = e.definition;
+    this.syncVisual();
+  }
+
+  /** Serialize the visual definition into the NestedText runbook and write it
+   * into Monaco, so lint/dry-run/apply/save (all read source()) stay unchanged. */
+  syncVisual(): void {
+    const lines: string[] = [`name: ${this.visualName || 'my-runbook'}`];
+    if (this.visualTargets.trim()) lines.push(`targets: ${this.visualTargets.trim()}`);
+    lines.push('steps:');
+    for (const s of this.definition.sequence as Step[]) {
+      const p = s.properties as Record<string, string>;
+      let module = '';
+      let args: Record<string, unknown> = {};
+      switch (s.type) {
+        case 'module': module = p['module'] || ''; args = safeJson(p['args']); break;
+        case 'set_fact': module = 'set_fact'; args = safeJson(p['facts']); break;
+        case 'debug': module = 'debug'; args = { msg: p['msg'] || '' }; break;
+      }
+      lines.push('  -');
+      lines.push(`    name: ${s.name}`);
+      lines.push(`    module: ${module}`);
+      if (p['when']) lines.push(`    when: ${p['when']}`);
+      if (p['register']) lines.push(`    register: ${p['register']}`);
+      const argBlock = ntBlock(args, 6);
+      if (argBlock) { lines.push('    args:'); lines.push(argBlock); }
+    }
+    this.ed?.setValue(lines.join('\n') + '\n');
+  }
 
   /** Flatten runbooks into an indented folder tree honoring the expanded set. */
   rows = computed<RbRow[]>(() => {
