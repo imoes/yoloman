@@ -21,6 +21,7 @@ interface RunItem {
   name: string;
   params: ParamField[];
   loadingParams: boolean;
+  showAdvanced?: boolean;
   result?: DeploymentRun;
   error?: string;
 }
@@ -83,21 +84,51 @@ interface RunItem {
             @if (it.loadingParams) {
               <p class="bm-dim bm-pad"><mat-spinner diameter="16"></mat-spinner> loading parameters…</p>
             } @else if (it.params.length) {
-              <div class="bm-params">
-                @for (p of it.params; track p.key) {
-                  <label class="bm-param">
-                    <span class="bm-param-key">{{ p.key }}@if (p.required) { <span class="bm-req">*</span> } <span class="bm-param-type">{{ p.type }}</span></span>
-                    @if (p.type === 'bool') {
-                      <select [ngModel]="p.value" (ngModelChange)="p.value = $event">
-                        <option value="true">true</option><option value="false">false</option>
-                      </select>
-                    } @else {
-                      <input [ngModel]="p.value" (ngModelChange)="p.value = $event"
-                             [placeholder]="p.default === null || p.default === undefined ? '' : (p.default + '')" />
+              <!-- Essential only: variables the operator MUST supply (required,
+                   or with no default). Everything with a safe default is
+                   auto-configured and tucked under Advanced. -->
+              @if (essential(it).length) {
+                <div class="bm-params">
+                  @for (p of essential(it); track p.key) {
+                    <label class="bm-param">
+                      <span class="bm-param-key">{{ p.key }}@if (p.required) { <span class="bm-req">*</span> } <span class="bm-param-type">{{ p.type }}</span></span>
+                      @if (p.type === 'bool') {
+                        <select [ngModel]="p.value" (ngModelChange)="p.value = $event">
+                          <option value="true">true</option><option value="false">false</option>
+                        </select>
+                      } @else {
+                        <input [ngModel]="p.value" (ngModelChange)="p.value = $event"
+                               [placeholder]="p.default === null || p.default === undefined ? '' : (p.default + '')" />
+                      }
+                    </label>
+                  }
+                </div>
+              } @else {
+                <p class="bm-dim bm-pad">Ready — no required values (defaults auto-configured).</p>
+              }
+              @if (advanced(it).length) {
+                <button class="bm-adv-toggle" (click)="it.showAdvanced = !it.showAdvanced">
+                  <mat-icon>{{ it.showAdvanced ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  Advanced ({{ advanced(it).length }} auto-configured)
+                </button>
+                @if (it.showAdvanced) {
+                  <div class="bm-params">
+                    @for (p of advanced(it); track p.key) {
+                      <label class="bm-param">
+                        <span class="bm-param-key">{{ p.key }} <span class="bm-param-type">{{ p.type }}</span></span>
+                        @if (p.type === 'bool') {
+                          <select [ngModel]="p.value" (ngModelChange)="p.value = $event">
+                            <option value="true">true</option><option value="false">false</option>
+                          </select>
+                        } @else {
+                          <input [ngModel]="p.value" (ngModelChange)="p.value = $event"
+                                 [placeholder]="p.default === null || p.default === undefined ? '' : (p.default + '')" />
+                        }
+                      </label>
                     }
-                  </label>
+                  </div>
                 }
-              </div>
+              }
             } @else {
               <p class="bm-dim bm-pad">No parameters.</p>
             }
@@ -175,6 +206,9 @@ interface RunItem {
     .bm-param-type { opacity: 0.5; font-weight: 400; font-size: 11px; }
     .bm-req { color: var(--bm-red); }
     .bm-param input, .bm-param select { padding: 6px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
+    .bm-adv-toggle { display: flex; align-items: center; gap: 4px; margin: 6px 4px 2px; padding: 4px 6px; background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer; font-size: 12px; }
+    .bm-adv-toggle:hover { opacity: 1; }
+    .bm-adv-toggle mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .bm-actions { display: flex; align-items: center; gap: 12px; margin: 8px 4px 20px; }
     .bm-res { padding: 6px 4px; display: flex; gap: 10px; align-items: center; }
     .bm-pill { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); }
@@ -250,6 +284,16 @@ export class DeployComponent implements OnInit {
       next: (d) => this.patch(item, { params: this.extractParams(d.formats.json), loadingParams: false }),
       error: () => this.patch(item, { loadingParams: false, error: 'could not load plan parameters' }),
     });
+  }
+
+  /** Essential-only (docs/design-philosophy.md §10): only variables the
+   * operator must supply — required, or with no default — are shown; anything
+   * with a safe default is auto-configured and lives under Advanced. */
+  essential(it: RunItem): ParamField[] {
+    return it.params.filter((p) => p.required || p.default === null || p.default === undefined);
+  }
+  advanced(it: RunItem): ParamField[] {
+    return it.params.filter((p) => !(p.required || p.default === null || p.default === undefined));
   }
 
   /** Extract the role's fillable variables from a plan document. Prefer the

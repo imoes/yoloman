@@ -69,7 +69,23 @@ content-first, precise, forgiving.
 - Separate with 1px hairline dividers and whitespace, not heavy borders/boxes.
   Cards are subtle raised surfaces, not outlined containers.
 
-### 10. Consistency
+### 10. Essential-only + auto-discovery (the biggest one)
+- A screen offers **only the essential decisions** a person must actually make;
+  everything else is **discovered and configured automatically** with sensible
+  defaults. "Ask nothing you can find out yourself."
+- **Progressive disclosure**: optional/defaulted settings live behind an
+  *Advanced* disclosure, collapsed by default. The common path is one glance,
+  one primary action.
+- **Especially at deployment**: don't present a wall of knobs. Auto-discover
+  what applies (the relevant checks, the role's variables, the target's facts),
+  pre-fill safe defaults, and surface only the values the operator *must*
+  supply (e.g. a required credential with no default). Optional variables that
+  already have a default are hidden under *Advanced* — the deploy "just works"
+  with defaults, and power users can still reach everything.
+- A field the system can determine (an address, a codec, a section, a
+  distro) is filled in, not asked.
+
+### 11. Consistency
 - The same concept is named the same everywhere (a "role" is a role on every
   screen), the same control does the same thing, icons are stable. Learn once,
   apply everywhere.
