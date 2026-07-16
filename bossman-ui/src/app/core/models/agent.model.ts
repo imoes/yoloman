@@ -316,6 +316,16 @@ export interface VirtResponse {
   libvirt: StorageSection & { domains?: any[] };
 }
 
+/** ADMX — one config directive's value spec (from config_directives.json). */
+export interface DirectiveSpec {
+  type: 'enum' | 'bool' | 'int' | 'string' | 'list';
+  values?: string[];
+  default?: string;
+  min?: number;
+  max?: number;
+  description?: string;
+}
+
 /** Block 3 — an SNMP device monitored via the co-located poller. */
 export interface SnmpDevice {
   id: string;

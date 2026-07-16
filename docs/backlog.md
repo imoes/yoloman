@@ -141,3 +141,15 @@ The AI must, exposed **as an MCP skill**:
   perf-o-meter uses the real thresholds (fallback 80/90 for rule-less builtins).
 - **ADMX-equivalent**: mine man-page value catalogs (qwen79b) so the GPO
   editor offers full per-directive listbox options, not just boolean families.
+  ⏳ IN PROGRESS — the third config layer (per-DIRECTIVE value schema), distinct
+  from codecs (per-file grammar) + templates (whole-file render).
+  `scripts/mine_directive_values.py` reads each codec'd file's man page and has
+  qwen extract per-directive {type, values (enum), default, min/max, description}
+  → `configs/config_directives.json`; wired as a 3rd pass in the
+  config-batch-supervisor (after codecs/templates). Served read-only at
+  `/api/v1/config-directives`; the gpedit `valueOptions()` now prefers the
+  catalog (enum's real values / bool) over the yes/no-family guess, with the
+  directive's description + default shown in the editor. Verified: sshd_config
+  mined = 99 directives, PermitRootLogin -> [yes, prohibit-password,
+  forced-commands-only, no]. The supervisor will fill the rest of the ~90
+  codec'd files after it finishes the codec/template passes.

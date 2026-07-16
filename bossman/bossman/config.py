@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # the repo, also go:embedded in the agent). Read-only; served as a catalog
     # so an operator can see how each config file's grammar is read/written.
     config_codecs_path: str = "/app/config_codecs.json"
+    # ADMX equivalent: per-directive value catalog (configs/config_directives.json,
+    # mined by scripts/mine_directive_values.py) so the gpedit editor offers real
+    # per-directive listboxes. Read-only.
+    config_directives_path: str = "/app/config_directives.json"
     # Block 3: the co-located poller agent that runs SNMP checks on behalf of
     # agent-less devices (see project-ssh-snmp-checks). SNMP devices are created
     # as satellites of this agent.

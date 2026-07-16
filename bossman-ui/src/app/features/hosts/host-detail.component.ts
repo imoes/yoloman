@@ -17,7 +17,7 @@ import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
-import { Agent, ConfigResource, ConfigTemplate, EbpfDetail, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { Agent, ConfigResource, ConfigTemplate, DirectiveSpec, EbpfDetail, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -630,6 +630,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         @if (settingKey(); as sk) {
                           <mat-card class="bm-setting-dlg">
                             <strong>{{ sk }}</strong>
+                            @if (directiveSpec(r); as ds) {
+                              @if (ds.description) { <p class="bm-dim bm-directive-desc">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
+                            }
                             <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Not configured — stop managing (file keeps its live value)</label>
                             <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
                             @if (settingMode() === 'configured') {
@@ -1854,6 +1857,13 @@ export class HostDetailComponent implements OnInit {
     const idx = this.tabOrder.indexOf(tab);
     if (idx >= 0) this.initialTabIndex = idx;
 
+    // ADMX: the per-directive value catalog, so a config setting's editor can
+    // offer the real allowed values (enum) instead of guessing a yes/no family.
+    this.agentService.configDirectives().subscribe({
+      next: (r) => this.directiveCatalog.set(r.directives || {}),
+      error: () => {},
+    });
+
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
       this.healthStatus.set(agentHealthStatus(agent));
@@ -2206,11 +2216,33 @@ export class HostDetailComponent implements OnInit {
     this.settingKey.set(null);
     this.settingError.set(null);
   }
-  /** Possible values as a listbox where they're inferable from the current
-   * value's family (yes/no, true/false, on/off, enabled/disabled). Free-text
-   * input otherwise. (Full per-directive value catalogs mined from man pages —
-   * the ADMX equivalent — are a planned follow-up.) */
+  /** ADMX per-directive value catalog ({file: {directive: spec}}), loaded once. */
+  directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
+
+  /** The mined spec for the setting currently being edited on this resource,
+   * looked up by the file's basename + the directive name. Null if unmined. */
+  directiveSpec(r: ObservedResource): DirectiveSpec | null {
+    const key = this.settingKey();
+    if (!key) return null;
+    const file = (r.path || '').split('/').pop() || '';
+    return this.directiveCatalog()[file]?.[key] ?? null;
+  }
+
+  /** Possible values as a listbox. Prefers the ADMX catalog (enum's real
+   * allowed values / bool), so e.g. PermitRootLogin offers all four values —
+   * not just the yes/no family guessed from the current value. Falls back to
+   * the family heuristic when the directive isn't in the catalog, and to a
+   * free-text input (null) otherwise. */
   valueOptions(r: ObservedResource): string[] | null {
+    const spec = this.directiveSpec(r);
+    if (spec) {
+      if (spec.type === 'enum' && spec.values?.length) {
+        const val = this.settingValue();
+        return spec.values.includes(val) || !val ? spec.values : [val, ...spec.values];
+      }
+      if (spec.type === 'bool') return ['yes', 'no'];
+      if (spec.type === 'int' || spec.type === 'string' || spec.type === 'list') return null;
+    }
     const key = this.settingKey();
     if (!key) return null;
     const row = this.settingRows(r).find((x) => x.key === key);

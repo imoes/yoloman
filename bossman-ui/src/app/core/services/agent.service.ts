@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, SnmpDevice, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, SnmpDevice, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -119,6 +119,14 @@ export class AgentService {
   piggyback(id: string) {
     return this.http.get<{ agent_id: string; guests: { name: string; mode: string; metrics: Record<string, number> }[] }>(
       `${this.base}/${id}/piggyback`,
+    );
+  }
+
+  /** ADMX — the per-directive value catalog ({file: {directive: spec}}), used
+   * by the gpedit editor to offer real per-directive listboxes. */
+  configDirectives() {
+    return this.http.get<{ directives: Record<string, Record<string, DirectiveSpec>>; available: boolean }>(
+      `${environment.apiUrl}/config-directives`,
     );
   }
 
