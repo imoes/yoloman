@@ -30,7 +30,7 @@ from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
 from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
-from bossman.services.monitoring import evaluate_host, expire_acknowledgements, ingest_agent_checks
+from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks
 
 logger = logging.getLogger(__name__)
 
@@ -363,6 +363,16 @@ async def poll_agent(
             await expire_acknowledgements(session, now)
         except Exception:
             logger.exception("evaluate_host failed for agent %s", agent.name)
+
+        # Run the host's ASSIGNED Starlark checks (sshd_config etc.) and turn
+        # each into a Service — needs the live agent client, so only when we
+        # reached it this cycle. Isolated so an execution bug can't crash the
+        # poll cycle.
+        if reached_agent:
+            try:
+                touched += await evaluate_assigned_checks(session, agent, client, settings.checks_dir)
+            except Exception:
+                logger.exception("evaluate_assigned_checks failed for agent %s", agent.name)
 
         await session.commit()
 

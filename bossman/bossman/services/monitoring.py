@@ -611,6 +611,97 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
     return updated
 
 
+def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
+    """The fqcn a pushed check registers under (its sidecar's `fqcn:`, e.g.
+    checkmk.sshd_config), so we call the right tool name after pushing."""
+    import nestedtext
+
+    try:
+        meta = nestedtext.loads(sidecar, top="dict")
+        if isinstance(meta, dict) and meta.get("fqcn"):
+            return str(meta["fqcn"])
+    except nestedtext.NestedTextError:
+        pass
+    return fallback
+
+
+async def evaluate_assigned_checks(session: AsyncSession, agent: Agent, client, checks_dir: str) -> list[Service]:
+    """Run the host's ASSIGNED Starlark checks and turn each result into a
+    Service — the missing execution path (a CheckAssignment resolved but never
+    run means the check never appears in Services). Resolves the effective
+    checks GPO-style, pushes their modules to the agent, invokes each in normal
+    (non-discovery) mode with its merged params, and upserts a Service from the
+    returned {state, metrics, details} via the shared ingester. rule_id stays
+    NULL (like agent-reported checks); the service is named for the check.
+    Best-effort per check; a failure yields an UNKNOWN service, never a raise.
+    Does not commit — the poller owns the transaction."""
+    import hashlib
+    from pathlib import Path
+
+    from bossman.services import checks_library
+    from bossman.services.check_assignments import resolve_host_checks
+
+    effective = await resolve_host_checks(session, agent)
+    if not effective:
+        return []
+
+    catalog = {c["name"]: c for c in checks_library.list_checks(checks_dir)}
+    deliveries: list[dict] = []
+    runnable: list[tuple[object, str]] = []
+    for ec in effective:
+        if not catalog.get(ec.check_name):
+            continue
+        yaml_path, star_path = checks_library.check_paths(checks_dir, ec.check_name)
+        try:
+            star = Path(star_path).read_text(encoding="utf-8")
+            sidecar = Path(yaml_path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fqcn = _sidecar_fqcn(sidecar, f"checks.{ec.check_name}")
+        deliveries.append({
+            "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": "nt",
+            "sha256": hashlib.sha256(star.encode()).hexdigest(),
+        })
+        runnable.append((ec, fqcn))
+    if not deliveries:
+        return []
+
+    try:
+        await client.push_modules(deliveries)
+    except Exception:  # noqa: BLE001 — a push failure means no assigned-check services this cycle
+        logger.exception("pushing assigned checks failed for agent %s", agent.name)
+        return []
+
+    now = datetime.now(timezone.utc)
+    updated: list[Service] = []
+    for ec, fqcn in runnable:
+        state, output, value = "UNKNOWN", "check did not return data", None
+        try:
+            res = await client.call_tool(fqcn, dict(getattr(ec, "parameters", {}) or {}))
+            data = (res or {}).get("data") if isinstance(res, dict) else None
+            if isinstance(data, dict):
+                state = str(data.get("state", "UNKNOWN")).upper()
+                if state not in ("OK", "WARN", "CRIT", "UNKNOWN"):
+                    state = "UNKNOWN"
+                output = str(data.get("details") or (res or {}).get("msg") or "")
+                metrics = data.get("metrics")
+                if isinstance(metrics, dict):
+                    for v in metrics.values():
+                        if isinstance(v, (int, float)):
+                            value = float(v)
+                            break
+        except Exception:  # noqa: BLE001 — one bad check must not sink the cycle
+            output = "check execution failed"
+        svc = await _upsert_service_state(
+            session, agent.id, ec.check_name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
+            metric=ec.check_name, rule_id=None, agent_name=agent.name, agent_tags=agent.tags,
+        )
+        updated.append(svc)
+
+    await session.flush()
+    return updated
+
+
 # ---------------------------------------------------------------------------
 # Shared query/mutation layer for the "unbehandelte Probleme" surface —
 # used by both api/monitoring.py (REST) and mcp/server.py (the MCP-native
