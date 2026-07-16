@@ -11,14 +11,13 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
 
 - **Block 1 — poller agent in the stack.** ✅ DONE (compose service
   `bossman-poller`, zero-touch enroll, polled 200 OK).
-- **Block 2a — Starlark check execution on the agent.** ⬜ FOUNDATION, not built.
-  Today the agent only runs builtin (CPU/mem/disk) + configured *command*
-  checks (`checks.RunDefault`); the 1435 translated `.star` checks are a
-  Bossman-side library and are **never executed on an agent**. Need: an
-  agent-side loop that loads `.star` checks, runs them via the `ctx` runtime
-  on an interval, and registers results into the CheckRegistry →
-  `hosts/overview`; plus **distribution** of the checks to the poller (it
-  currently ships only 10 embedded modules, 0 checks in checks.d).
+- **Block 2a — Starlark check execution.** ✅ DONE (Bossman-driven, not an
+  agent loop): the poller now pushes a host's assigned checks to the agent and
+  invokes each in normal mode each cycle, upserting a Service from the result
+  (services/monitoring.py `evaluate_assigned_checks`). Distribution = the push
+  per poll; no separate agent-side loop needed. This also fixed the "assigned
+  check never appears in Services" bug and unblocks 2b/3 (an SNMP check
+  assigned to the poller with target/community params will now run).
 - **Block 2b — parameterize SNMP checks.** ⬜ Deterministic transform (no
   qwen79b): `snmpwalk -c public <ip>` → `params.community` / `params.target`.
   1284× the same pattern, target hardcoded `localhost`/`127.0.0.1`, only 1
