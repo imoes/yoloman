@@ -122,6 +122,16 @@ export class AgentService {
     );
   }
 
+  /** Force an immediate poll of this agent — the same full cycle the
+   * background poller runs (metrics/edges/hosts-overview pull, state
+   * evaluation, AND the host's assigned Starlark checks), on demand instead
+   * of waiting for the next tick. Returns what the poll wrote. */
+  pollNow(id: string) {
+    return this.http.post<{ agent_id: string; agent_name: string; metrics_written: number; satellites_discovered: number; edges_written: number; errors: string[] }>(
+      `${this.base}/${id}/poll-now`, {},
+    );
+  }
+
   /** F-9 — the piggyback sources this host is configured with + live status. */
   piggybackSources(id: string) {
     return this.http.get<{ agent_id: string; sources: PiggybackSource[] }>(

@@ -12,6 +12,7 @@ import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } fro
 import { ServiceState } from '../../core/models/monitoring.model';
 import { CheckService } from '../../core/services/check.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { AgentService } from '../../core/services/agent.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue } from '../../shared/format.util';
@@ -42,6 +43,10 @@ import {
       <div class="bm-add">
         <button mat-flat-button color="primary" (click)="runDiscover()" [disabled]="discovering()">
           <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
+        </button>
+        <button mat-stroked-button (click)="recheckNow()" [disabled]="rechecking()"
+                title="Run this host's checks now instead of waiting for the next poll">
+          <mat-icon>refresh</mat-icon> {{ rechecking() ? 'Rechecking…' : 'Recheck now' }}
         </button>
         <mat-form-field appearance="outline" class="bm-ff" subscriptSizing="dynamic">
           <mat-label>Add a check manually</mat-label>
@@ -256,6 +261,7 @@ import {
 export class HostChecksComponent {
   private checkService = inject(CheckService);
   private monitoringService = inject(MonitoringService);
+  private agentService = inject(AgentService);
   private dialog = inject(MatDialog);
   agent = input.required<Agent>();
   /** F-4 bridge: the monitoring services actually active on this host (from
@@ -308,6 +314,7 @@ export class HostChecksComponent {
   // discovery wizard state
   proposals = signal<DiscoveryProposal[] | null>(null);
   discovering = signal(false);
+  rechecking = signal(false);
   private selected = signal<Set<string>>(new Set());
   private creds = signal<Record<string, Record<string, string>>>({});
   // provisioning: per-check {available, title, admin_params} + collected admin creds
@@ -331,6 +338,18 @@ export class HostChecksComponent {
     effect(() => {
       const a = this.agent();
       if (a?.id) this.reload(a.id);
+    });
+  }
+
+  /** Force an immediate poll (runs the host's assigned checks + rebuilds its
+   * services), then refresh the tab — instead of waiting for the next poll. */
+  recheckNow(): void {
+    const id = this.agent()?.id;
+    if (!id || this.rechecking()) return;
+    this.rechecking.set(true);
+    this.agentService.pollNow(id).subscribe({
+      next: () => { this.rechecking.set(false); this.reload(id); },
+      error: (e) => { this.rechecking.set(false); this.fail(e); },
     });
   }
 

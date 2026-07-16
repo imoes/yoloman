@@ -83,6 +83,7 @@ func runRegister(args []string) error {
 	keyName := fs.String("key-name", "enroller", "name under which to pin the fetched key in tls.trusted_client_keys")
 	trustedKeyPath := fs.String("trusted-key-path", "/etc/agentic-mcp/trusted/enroller.pub.pem", "where to write the enrollment authority's public key")
 	noRestart := fs.Bool("no-restart", false, "don't try to restart agentic-mcp.service after writing the config (e.g. in a container)")
+	write := fs.Bool("write", true, "enable the write gate so server-management tools (config/network/storage/...) can actually mutate; --write=false enrolls read-only")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -137,6 +138,12 @@ func runRegister(args []string) error {
 		return fmt.Errorf("register: TLS cert: %w", err)
 	}
 	cfg.TLS.Enabled = true
+
+	// A freshly-enrolled host is a MANAGED host: the whole point is that
+	// Bossman can drive its config/network/storage. So the write gate is on
+	// by default — otherwise every management tool answers 403 "disabled
+	// (write=false)". --write=false enrolls a read-only (monitor-only) agent.
+	cfg.Write = *write
 
 	// Work out this agent's own reachable address (host:port) so Bossman can
 	// pull from it — the whole point of enrolling. This MUST work without

@@ -179,6 +179,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="Services"><ng-template matTabContent>
             <div class="bm-tab-content">
+              <div class="bm-svc-toolbar">
+                <button mat-stroked-button (click)="pollNow()" [disabled]="polling()"
+                        title="Poll this host now instead of waiting for the next cycle">
+                  <mat-icon>refresh</mat-icon> {{ polling() ? 'Polling…' : 'Poll now' }}
+                </button>
+                @if (pollMsg()) { <span class="bm-poll-msg">{{ pollMsg() }}</span> }
+              </div>
               <!-- CheckMK-style services view (Block H3): every check as one
                    row — State | Service | Summary | Age | Checked |
                    Perf-O-Meter — expanding inline into the history chart.
@@ -1398,6 +1405,16 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         font-variant-numeric: tabular-nums;
         margin-top: 2px;
       }
+      .bm-svc-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .bm-poll-msg {
+        font-size: 12px;
+        opacity: 0.7;
+      }
       .bm-flag {
         margin-left: 6px;
         font-size: 12px;
@@ -1862,6 +1879,27 @@ export class HostDetailComponent implements OnInit {
         const updated = services.find((s) => s.id === selected.id) ?? null;
         this.selectedService.set(updated);
       }
+    });
+  }
+
+  polling = signal(false);
+  pollMsg = signal('');
+
+  /** Poll this host immediately (metrics + state + assigned checks), then
+   * refresh the services table — instead of waiting for the next poll tick. */
+  pollNow(): void {
+    const agent = this.agent();
+    if (!agent || this.polling()) return;
+    this.polling.set(true);
+    this.pollMsg.set('');
+    this.agentService.pollNow(agent.id).subscribe({
+      next: (r) => {
+        this.polling.set(false);
+        this.pollMsg.set(r.errors?.length ? `polled with errors: ${r.errors.join('; ')}` : `polled · ${r.metrics_written} metrics`);
+        this.reloadServices(agent.id);
+        this.agentService.metricsLatest(agent.id).subscribe((res) => this.latestMetrics.set(res.metrics));
+      },
+      error: () => { this.polling.set(false); this.pollMsg.set('poll failed'); },
     });
   }
 
