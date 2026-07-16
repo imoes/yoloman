@@ -42,10 +42,29 @@ type Collector interface {
 	Collect(ctx context.Context) ([]Host, error)
 	// Kind labels the reported hosts' Mode, e.g. "container".
 	Kind() string
+	// Source describes this collector for display (F-9): what kind of source
+	// it is and where it points, so the operator can see which piggyback
+	// sources a host is configured with — not just the guests they produce.
+	Source() SourceInfo
+}
+
+// SourceInfo describes a configured piggyback source for display (F-9).
+type SourceInfo struct {
+	Type   string `json:"type"`   // "docker" | "proxmox" | "vsphere" | "libvirt"
+	Target string `json:"target"` // socket path / API host / connection URI
 }
 
 // Kind implements Collector.
 func (c *DockerCollector) Kind() string { return "container" }
+
+// Source implements Collector.
+func (c *DockerCollector) Source() SourceInfo {
+	target := c.SocketPath
+	if target == "" {
+		target = "/var/run/docker.sock"
+	}
+	return SourceInfo{Type: "docker", Target: target}
+}
 
 // DockerCollector reports each running container as a piggyback host. SocketPath
 // defaults to /var/run/docker.sock; on a containerized agent point it at

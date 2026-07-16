@@ -114,6 +114,14 @@ class AgentClient:
         body = await self._get_json("/api/v1/hosts/overview", {})
         return body.get("hosts", [])
 
+    async def piggyback_sources(self) -> list[dict[str, Any]]:
+        """GET /api/v1/piggyback/sources (F-9) — the configured piggyback
+        sources on this host + a live status each: `{type, target, kind,
+        reachable, guest_count, error}`. Read-only; the agent probes each
+        source once per request."""
+        body = await self._get_json("/api/v1/piggyback/sources", {})
+        return body.get("sources", [])
+
     async def processes(self, limit: int = 0) -> dict[str, Any]:
         """GET /api/v1/processes — the agent's live process table (Block J1):
         per-PID CPU%/RSS/owner/command plus eBPF enrichment (container id,

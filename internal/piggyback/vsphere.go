@@ -36,6 +36,11 @@ func NewVSphereCollector(host, user, password string, insecure bool) *VSphereCol
 // Kind implements Collector.
 func (v *VSphereCollector) Kind() string { return "vm" }
 
+// Source implements Collector (F-9): the vCenter/ESXi host, no credentials.
+func (v *VSphereCollector) Source() SourceInfo {
+	return SourceInfo{Type: "vsphere", Target: v.Host}
+}
+
 type vsphereVM struct {
 	VM         string `json:"vm"`
 	Name       string `json:"name"`

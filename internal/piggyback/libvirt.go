@@ -36,6 +36,11 @@ func NewLibvirtCollector(uri string) *LibvirtCollector {
 // Kind implements Collector.
 func (l *LibvirtCollector) Kind() string { return "vm" }
 
+// Source implements Collector (F-9): the libvirt connection URI.
+func (l *LibvirtCollector) Source() SourceInfo {
+	return SourceInfo{Type: "libvirt", Target: l.URI}
+}
+
 // virsh runs `virsh -c <uri> <args...>` with a bounded timeout and returns its
 // stdout.
 func (l *LibvirtCollector) virsh(ctx context.Context, args ...string) (string, error) {

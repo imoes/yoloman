@@ -296,6 +296,11 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	mux.HandleFunc("GET /api/v1/hosts/overview", func(w http.ResponseWriter, r *http.Request) {
 		handleHostsOverview(w, r, cfg)
 	})
+	// F-9: the configured piggyback sources + their live status (read-only),
+	// so the fleet UI can show which sources a host reports guests from.
+	mux.HandleFunc("GET /api/v1/piggyback/sources", func(w http.ResponseWriter, r *http.Request) {
+		handlePiggybackSources(w, r, cfg)
+	})
 
 	// Block L4: Bossman PUSHES the compiled desired state here (server→agent,
 	// the single-firewall-rule direction). Write-gated — applying pushed

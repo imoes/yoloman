@@ -38,6 +38,12 @@ func NewProxmoxCollector(host, user, password string, insecure bool) *ProxmoxCol
 // Kind implements Collector.
 func (p *ProxmoxCollector) Kind() string { return "vm" }
 
+// Source implements Collector (F-9): the Proxmox API host, credentials never
+// exposed.
+func (p *ProxmoxCollector) Source() SourceInfo {
+	return SourceInfo{Type: "proxmox", Target: p.Host}
+}
+
 func (p *ProxmoxCollector) base() string {
 	host := p.Host
 	if !strings.Contains(host, ":") {

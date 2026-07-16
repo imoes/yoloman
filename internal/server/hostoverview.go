@@ -125,6 +125,39 @@ func handleHostsOverview(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 	writeJSON(w, http.StatusOK, HostsOverviewResponse{Hosts: hosts})
 }
 
+// PiggybackSource is one configured piggyback source with a live status (F-9),
+// so an operator can see which sources a host reports guests from — and whether
+// each is reachable — instead of only seeing the guests they happen to produce.
+type PiggybackSource struct {
+	Type       string `json:"type"`        // docker | proxmox | vsphere | libvirt
+	Target     string `json:"target"`      // socket / API host / URI (no credentials)
+	Kind       string `json:"kind"`        // the Mode guests get: container | vm
+	Reachable  bool   `json:"reachable"`   // Collect() succeeded
+	GuestCount int    `json:"guest_count"` // guests found this probe
+	Error      string `json:"error"`       // reachability error, if any
+}
+
+// handlePiggybackSources probes every configured piggyback source once and
+// reports its status. Read-only: it runs the same Collect() the overview uses,
+// but surfaces the source + outcome rather than the guests.
+func handlePiggybackSources(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	sources := make([]PiggybackSource, 0, len(cfg.Piggyback))
+	for _, col := range cfg.Piggyback {
+		info := col.Source()
+		ps := PiggybackSource{Type: info.Type, Target: info.Target, Kind: col.Kind()}
+		guests, err := col.Collect(r.Context())
+		if err != nil {
+			ps.Error = err.Error()
+		} else {
+			ps.Reachable = true
+			ps.GuestCount = len(guests)
+		}
+		sources = append(sources, ps)
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].Type < sources[j].Type })
+	writeJSON(w, http.StatusOK, map[string]any{"sources": sources})
+}
+
 // selfSnapshot builds this agent's own HostSnapshot from the local store's
 // latest per-series values and cfg.CheckRegistry's latest check results.
 func selfSnapshot(ctx context.Context, cfg RESTConfig) (HostSnapshot, error) {

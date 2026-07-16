@@ -995,3 +995,24 @@ async def get_agent_virt(
         "proxmox": data.get("proxmox", {"available": False}),
         "libvirt": data.get("libvirt", {"available": False}),
     }
+
+
+@router.get("/api/v1/agents/{agent_id}/piggyback/sources")
+async def get_agent_piggyback_sources(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """F-9 — the piggyback sources this host is configured to report guests
+    from (Docker/Proxmox/vSphere/libvirt), each with a live reachability
+    status + guest count. Makes the sources visible in their own right, not
+    only via the guests they produce (which the /piggyback endpoint lists)."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        sources = await client.piggyback_sources()
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "sources": sources}

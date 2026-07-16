@@ -316,6 +316,16 @@ export interface VirtResponse {
   libvirt: StorageSection & { domains?: any[] };
 }
 
+/** F-9 — one configured piggyback source + its live status. */
+export interface PiggybackSource {
+  type: string;         // docker | proxmox | vsphere | libvirt
+  target: string;       // socket / API host / URI (no credentials)
+  kind: string;         // guest Mode: container | vm
+  reachable: boolean;
+  guest_count: number;
+  error: string;
+}
+
 /** Block F1 — the server-as-a-document read (GET /agents/{id}/state/observed).
  * One config file read back either structured (via its codec → `values`) or as
  * an opaque ref (`sha256` + `size`); `error` if it couldn't be read/parsed. */

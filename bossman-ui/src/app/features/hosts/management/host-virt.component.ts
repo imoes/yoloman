@@ -2,7 +2,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
-import { VirtResponse } from '../../../core/models/agent.model';
+import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model';
 
 /** Virtualization section: which hypervisor stack(s) the host runs (Proxmox /
  * libvirt) and their guests, from virt_facts. Per-guest start/stop go through
@@ -26,7 +26,30 @@ import { VirtResponse } from '../../../core/models/agent.model';
       } @else if (loadErr()) {
         <p class="bm-svc-err">{{ loadErr() }}</p>
       } @else if (data(); as v) {
-        @if (!v.hypervisors.length && !guests().length) {
+        <h4>Piggyback sources <span class="bm-mgmt-count">— where this host reports guests from</span></h4>
+        @if (sources().length) {
+          <table class="bm-mgmt-table"><thead><tr><th>Source</th><th>Target</th><th>Reports</th><th>Guests</th><th>Status</th></tr></thead><tbody>
+            @for (s of sources(); track s.type + s.target) {
+              <tr>
+                <td class="bm-src-type">{{ s.type }}</td>
+                <td class="bm-mgmt-unit">{{ s.target }}</td>
+                <td>{{ s.kind === 'container' ? 'containers' : 'VMs' }}</td>
+                <td>{{ s.reachable ? s.guest_count : '—' }}</td>
+                <td>
+                  @if (s.reachable) {
+                    <span class="bm-active">reachable</span>
+                  } @else {
+                    <span class="bm-svc-err" [title]="s.error">unreachable</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody></table>
+        } @else {
+          <p class="bm-empty">No piggyback sources configured on this host.</p>
+        }
+
+        @if (!v.hypervisors.length && !guests().length && !sources().length) {
           <p class="bm-empty">No local virtualization stack detected on this host.</p>
         }
 
@@ -115,6 +138,7 @@ import { VirtResponse } from '../../../core/models/agent.model';
       .bm-mgmt-unit { font-family: monospace; }
       .bm-mgmt-actions { white-space: nowrap; }
       .bm-active { color: #2e7d32; }
+      .bm-src-type { font-weight: 600; text-transform: capitalize; }
       .bm-empty { color: var(--bm-muted, #888); }
       .bm-chk { font-size: 12px; color: var(--bm-muted, #888); display: flex; align-items: center; gap: 4px; }
       .bm-acct-new { display: flex; gap: 8px; margin: 6px 0 12px; flex-wrap: wrap; align-items: center; }
@@ -130,6 +154,7 @@ export class HostVirtComponent {
   agentId = input.required<string>();
 
   data = signal<VirtResponse | null>(null);
+  sources = signal<PiggybackSource[]>([]);
   guests = signal<{ name: string; mode: string; metrics: Record<string, number> }[]>([]);
   loading = signal(false);
   loaded = signal(false);
@@ -170,6 +195,11 @@ export class HostVirtComponent {
     this.agentService.piggyback(this.agentId()).subscribe({
       next: (res) => this.guests.set(res.guests ?? []),
       error: () => this.guests.set([]),
+    });
+    // F-9: the configured piggyback sources + their reachability.
+    this.agentService.piggybackSources(this.agentId()).subscribe({
+      next: (res) => this.sources.set(res.sources ?? []),
+      error: () => this.sources.set([]),
     });
   }
 
