@@ -6,9 +6,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
+import { RouterLink } from '@angular/router';
 import { Agent } from '../../core/models/agent.model';
 import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } from '../../core/models/check.model';
+import { ServiceState } from '../../core/models/monitoring.model';
 import { CheckService } from '../../core/services/check.service';
+import { MonitoringService } from '../../core/services/monitoring.service';
+import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
+import { serviceStateBadge } from '../../shared/status.util';
 import {
   ScopeVarsDialogComponent,
   ScopeVarsDialogData,
@@ -26,7 +31,7 @@ import {
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink, HostStatusBadgeComponent],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
@@ -146,13 +151,43 @@ import {
           </tbody>
         </table>
       } @else {
-        <p class="bm-dim">No checks apply to this host yet. Add one above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy.</p>
+        <p class="bm-dim">No assigned checks on this host yet. Add one above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
+      }
+
+      <!-- F-4: the monitoring services actually running on this host, so the
+           tab reconciles the two notions of "check" (assigned Starlark checks
+           above vs. threshold/built-in monitoring services here). -->
+      <h3 class="bm-svc-h">Monitoring services <span class="bm-dim">({{ services().length }})</span></h3>
+      <p class="bm-dim bm-svc-note">
+        From threshold rules + the agent's built-in metrics — distinct from the assigned checks above.
+        Edit thresholds in <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>; full detail on the
+        <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab.
+      </p>
+      @if (services().length) {
+        <table class="bm-table">
+          <thead><tr><th>Service</th><th>State</th><th>Value</th><th>Metric</th></tr></thead>
+          <tbody>
+            @for (s of services(); track s.id) {
+              <tr>
+                <td>{{ s.name }}</td>
+                <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
+                <td class="bm-dim">{{ s.value ?? '—' }}</td>
+                <td class="bm-dim bm-mono">{{ s.metric }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="bm-dim">No monitoring services reported yet.</p>
       }
     </div>
   `,
   styles: [
     `
       .bm-checks { padding: 4px 2px; }
+      .bm-svc-h { margin-top: 24px; }
+      .bm-svc-note { font-size: 12px; margin: 2px 0 10px; }
+      .bm-svc-note a { color: var(--mat-sys-primary); }
       .bm-add, .bm-form { margin-bottom: 12px; }
       .bm-ff { width: 320px; max-width: 100%; margin-right: 12px; }
       .bm-form { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
@@ -186,8 +221,15 @@ import {
 })
 export class HostChecksComponent {
   private checkService = inject(CheckService);
+  private monitoringService = inject(MonitoringService);
   private dialog = inject(MatDialog);
   agent = input.required<Agent>();
+  /** F-4 bridge: the monitoring services actually active on this host (from
+   * threshold check-rules + the agent's built-in metrics) — a different notion
+   * of "check" than the assigned Starlark checks above, shown here so the tab
+   * is the single "what's monitored on this host" view. */
+  services = signal<ServiceState[]>([]);
+  serviceBadge(s: ServiceState) { return serviceStateBadge(s.state); }
 
   /** Host-scope runbook variables (strongest in the GPO merge). */
   editHostVars(): void {
@@ -239,6 +281,7 @@ export class HostChecksComponent {
       error: (e) => this.fail(e),
     });
     this.checkService.listChecks().subscribe({ next: (r) => this.catalog.set(r.checks) });
+    this.monitoringService.agentServices(agentId).subscribe({ next: (s) => this.services.set(s ?? []), error: () => this.services.set([]) });
   }
 
   private fail(e: unknown): void {
