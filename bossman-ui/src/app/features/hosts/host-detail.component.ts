@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -118,6 +119,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     PerfOMeterComponent,
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
+    FormsModule,
   ],
   template: `
     @if (agent(); as agent) {
@@ -606,7 +608,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
                             @if (settingMode() === 'configured') {
                               @if (valueOptions(r); as opts) {
-                                <select class="bm-kvin bm-setting-val" [value]="settingValue()" (change)="settingValue.set($any($event.target).value)">
+                                <select class="bm-kvin bm-setting-val" [ngModel]="settingValue()" (ngModelChange)="settingValue.set($event)">
                                   @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
                                 </select>
                               } @else {
