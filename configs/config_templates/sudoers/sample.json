@@ -1,0 +1,162 @@
+{
+  "sudo_conf_plugins": [
+    {
+      "name": "sudoers_audit",
+      "path": "sudoers.so",
+      "args": [
+        "error_recovery=false"
+      ]
+    },
+    {
+      "name": "sudoers_policy",
+      "path": "sudoers.so",
+      "args": []
+    },
+    {
+      "name": "sudoers_io",
+      "path": "sudoers.so",
+      "args": []
+    }
+  ],
+  "env_reset": true,
+  "env_check": [],
+  "env_delete": [],
+  "env_keep": [
+    "DISPLAY",
+    "HOME",
+    "LOGNAME",
+    "MAIL",
+    "PATH",
+    "SHELL",
+    "TERM",
+    "USER",
+    "LANG",
+    "LC_*"
+  ],
+  "secure_path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "set_logname": false,
+  "always_set_home": false,
+  "set_home": false,
+  "setenv": false,
+  "timestamp_timeout": 15,
+  "logfile": "/var/log/sudo.log",
+  "syslog": "authpriv",
+  "log_allowed": false,
+  "log_denied": false,
+  "mailto": "security@example.com",
+  "mail_always": false,
+  "mail_badpass": true,
+  "rlimit_core": "0",
+  "rlimit_nofile": "65535",
+  "rlimit_nproc": "1024",
+  "rlimit_cpu": "infinity",
+  "rlimit_as": "",
+  "rlimit_memlock": "",
+  "rlimit_locks": "",
+  "rlimit_fsize": "",
+  "rlimit_stack": "",
+  "restricted_env_file": "",
+  "env_file": "/etc/sudoers.env",
+  "rootpw": false,
+  "targetpw": false,
+  "runaspw": false,
+  "timestamp_type": "tty",
+  "error_recovery": false,
+  "ignore_perms": false,
+  "ldap_conf": "",
+  "ldap_secret": "",
+  "sudoers_file": "",
+  "sudoers_uid": 0,
+  "sudoers_gid": 0,
+  "sudoers_mode": 288,
+  "log_servers": [
+    "loghost.example.com:514"
+  ],
+  "user_aliases": [
+    {
+      "name": "ADMINS",
+      "members": [
+        "alice",
+        "bob",
+        "%wheel"
+      ]
+    }
+  ],
+  "runas_aliases": [
+    {
+      "name": "DBUSERS",
+      "members": [
+        "mysql",
+        "postgres"
+      ]
+    }
+  ],
+  "host_aliases": [
+    {
+      "name": "DBSERVERS",
+      "members": [
+        "db01",
+        "db02"
+      ]
+    }
+  ],
+  "cmnd_aliases": [
+    {
+      "name": "DBCMDS",
+      "commands": [
+        "/usr/bin/systemctl restart mysql",
+        "/usr/bin/mysql -e *"
+      ]
+    }
+  ],
+  "user_specs": [
+    {
+      "user": "root",
+      "hosts": [
+        "ALL"
+      ],
+      "runas": [
+        "ALL"
+      ],
+      "commands": [
+        "ALL"
+      ]
+    },
+    {
+      "user": "%wheel",
+      "hosts": [
+        "ALL"
+      ],
+      "runas": [
+        "ALL"
+      ],
+      "commands": [
+        "ALL"
+      ]
+    },
+    {
+      "user": "deploy",
+      "hosts": [
+        "ALL"
+      ],
+      "runas": [
+        "ALL"
+      ],
+      "commands": [
+        "/usr/bin/systemctl restart nginx"
+      ]
+    },
+    {
+      "user": "alice",
+      "hosts": [
+        "DBSERVERS"
+      ],
+      "runas": [
+        "DBUSERS"
+      ],
+      "commands": [
+        "DBCMDS"
+      ]
+    }
+  ]
+}

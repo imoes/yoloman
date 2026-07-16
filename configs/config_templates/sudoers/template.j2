@@ -1,0 +1,283 @@
+# sudoers configuration template
+# This file is managed by a configuration management system.
+# DO NOT EDIT MANUALLY.
+
+# Plugin configuration — specifies which sudoers plugin modules to load for auditing, policy, and I/O logging
+{% for plugin in sudo_conf_plugins %}
+Plugin {{ plugin.name }} {{ plugin.path }}{% if plugin.args %} {{ plugin.args | join(' ') }}{% endif %}
+{% endfor %}
+
+# Defaults for environment handling
+# env_reset — resets user environment to minimal defaults for security (recommended unless explicitly disabled)
+{% if env_reset == false %}
+Defaults env_reset
+{% else %}
+# Defaults !env_reset is not set; env_reset defaults to true, so no line needed unless overriding
+{% endif %}
+
+# env_check — list of regex patterns for environment variables to *preserve* or *deny* based on value
+{% for pattern in env_check | default([]) %}
+Defaults env_check += "{{ pattern }}"
+{% endfor %}
+
+# env_delete — list of regex patterns for environment variables to *remove* from the user's environment
+{% for pattern in env_delete | default([]) %}
+Defaults env_delete += "{{ pattern }}"
+{% endfor %}
+
+# env_keep — list of regex patterns for environment variables to preserve from user's environment
+{% for pattern in env_keep | default([]) %}
+Defaults env_keep += "{{ pattern }}"
+{% endfor %}
+
+# secure_path — a safe PATH used when executing commands; prevents execution of malicious binaries in user's PATH
+{% if secure_path %}
+Defaults secure_path="{{ secure_path }}"
+{% endif %}
+
+# set_logname — ensures LOGNAME and USER are set to target user, even if user tried to manipulate via SUDO_USER
+{% if set_logname %}
+Defaults set_logname
+{% endif %}
+
+# always_set_home — forces HOME to be set to target user's home (overrides user's HOME env var)
+{% if always_set_home %}
+Defaults always_set_home
+{% endif %}
+
+# set_home — allows use of -H to set HOME to target user's home (default behavior with -i)
+{% if set_home %}
+Defaults set_home
+{% endif %}
+
+# setenv — whether user may preserve environment with -E (default is false unless overridden)
+{% if setenv is defined %}
+{% if setenv %}
+Defaults setenv
+{% else %}
+Defaults !setenv
+{% endif %}
+{% endif %}
+
+# timestamp_timeout — number of minutes to cache a sudo authentication (default 15)
+Defaults timestamp_timeout={{ timestamp_timeout }}
+
+# logfile — path to the sudo log file (instead of syslog)
+{% if logfile %}
+Defaults logfile="{{ logfile }}"
+{% endif %}
+
+# syslog — syslog facility to log sudo events to (e.g., auth, authpriv, local0)
+{% if syslog %}
+Defaults syslog={{ syslog }}
+{% endif %}
+
+# log_allowed — log only successful commands (default is to log all attempts unless overridden)
+{% if log_allowed %}
+Defaults log_allowed
+{% endif %}
+
+# log_denied — log only failed/permission-denied commands
+{% if log_denied %}
+Defaults log_denied
+{% endif %}
+
+# mailto — email address to notify about unauthorized sudo attempts
+{% if mailto %}
+Defaults mailto="{{ mailto }}"
+{% endif %}
+
+# mail_always — always send mail on successful or failed sudo attempts (even without errors)
+{% if mail_always %}
+Defaults mail_always
+{% endif %}
+
+# mail_badpass — send mail if authentication fails (default only if not -l or -v)
+{% if mail_badpass %}
+Defaults mail_badpass
+{% endif %}
+
+# rlimit_core — resource limit for core dump file size (e.g., "0", "infinity", "soft,hard")
+{% if rlimit_core is defined %}
+Defaults rlimit_core={{ rlimit_core }}
+{% endif %}
+
+# rlimit_nofile — max number of open file descriptors (e.g., 1024, 65535, "infinity")
+{% if rlimit_nofile is defined %}
+Defaults rlimit_nofile={{ rlimit_nofile }}
+{% endif %}
+
+# rlimit_nproc — max number of processes (e.g., 256, "infinity")
+{% if rlimit_nproc is defined %}
+Defaults rlimit_nproc={{ rlimit_nproc }}
+{% endif %}
+
+# rlimit_cpu — max CPU time in seconds (e.g., 60, "infinity")
+{% if rlimit_cpu is defined %}
+Defaults rlimit_cpu={{ rlimit_cpu }}
+{% endif %}
+
+# rlimit_as — max address space (virtual memory) in bytes or "infinity"
+{% if rlimit_as is defined %}
+Defaults rlimit_as={{ rlimit_as }}
+{% endif %}
+
+# rlimit_memlock — max locked-in-memory address space (e.g., 65536, "infinity")
+{% if rlimit_memlock is defined %}
+Defaults rlimit_memlock={{ rlimit_memlock }}
+{% endif %}
+
+# rlimit_locks — max number of file locks
+{% if rlimit_locks is defined %}
+Defaults rlimit_locks={{ rlimit_locks }}
+{% endif %}
+
+# rlimit_fsize — max size of files created (e.g., "1G", "infinity")
+{% if rlimit_fsize is defined %}
+Defaults rlimit_fsize={{ rlimit_fsize }}
+{% endif %}
+
+# rlimit_stack — max stack size (e.g., "8M", "infinity")
+{% if rlimit_stack is defined %}
+Defaults rlimit_stack={{ rlimit_stack }}
+{% endif %}
+
+# restricted_env_file — path to additional environment file applied *before* user’s env (with restrictions)
+{% if restricted_env_file %}
+Defaults restricted_env_file="{{ restricted_env_file }}"
+{% endif %}
+
+# env_file — path to additional environment file applied *last*, unrestricted
+{% if env_file %}
+Defaults env_file="{{ env_file }}"
+{% endif %}
+
+# Authentication method defaults
+# rootpw — require root's password instead of the invoking user's
+{% if rootpw %}
+Defaults rootpw
+{% endif %}
+
+# targetpw — require target user’s password instead of invoking user’s
+{% if targetpw %}
+Defaults targetpw
+{% endif %}
+
+# runaspw — require the user specified by -u to authenticate
+{% if runaspw %}
+Defaults runaspw
+{% endif %}
+
+# timestamp_type — how timestamps are scoped (e.g., tty, ppid, global)
+{% if timestamp_type %}
+Defaults timestamp_type={{ timestamp_type }}
+{% endif %}
+
+# error_recovery — whether to ignore syntax errors and attempt recovery (true = recover, false = fail hard)
+{% if error_recovery is defined %}
+{% if error_recovery %}
+Defaults error_recovery=true
+{% else %}
+Defaults error_recovery=false
+{% endif %}
+{% endif %}
+
+# ignore_perms — disable file permission checks for sudoers (dangerous, only for testing)
+{% if ignore_perms is defined %}
+{% if ignore_perms %}
+Defaults ignore_perms=true
+{% else %}
+Defaults ignore_perms=false
+{% endif %}
+{% endif %}
+
+# LDAP override paths (used only if sudoers is LDAP-backed)
+# ldap_conf — override path to ldap.conf (e.g., "/etc/ldap/ldap.conf")
+{% if ldap_conf %}
+Defaults ldap_conf="{{ ldap_conf }}"
+{% endif %}
+
+# ldap_secret — override path to ldap.secret file (e.g., "/etc/ldap/ldap.secret")
+{% if ldap_secret %}
+Defaults ldap_secret="{{ ldap_secret }}"
+{% endif %}
+
+# sudoers_file — override path to sudoers file
+{% if sudoers_file %}
+Defaults sudoers_file="{{ sudoers_file }}"
+{% endif %}
+
+# sudoers_uid — numeric UID expected for sudoers file ownership (e.g., 0)
+{% if sudoers_uid is defined %}
+Defaults sudoers_uid={{ sudoers_uid }}
+{% endif %}
+
+# sudoers_gid — numeric GID expected for sudoers file group (e.g., 0)
+{% if sudoers_gid is defined %}
+Defaults sudoers_gid={{ sudoers_gid }}
+{% endif %}
+
+# sudoers_mode — octal mode expected for sudoers file (e.g., 0440)
+{% if sudoers_mode is defined %}
+Defaults sudoers_mode={{ sudoers_mode }}
+{% endif %}
+
+# log_servers — list of hosts to forward event/I/O logs (sudo 1.9+)
+{% for server in log_servers | default([]) %}
+Defaults log_servers="{{ server }}"
+{% endfor %}
+
+{% if log_servers is defined and log_servers | length == 0 %}
+# No log_servers configured (default is no remote logging)
+{% endif %}
+
+# ============================================
+# Aliases (optional, for readability/maintainability)
+# ============================================
+
+{% if user_aliases | length > 0 %}
+# User_Alias — group users (by username, UID, group, etc.) into named sets
+{% for item in user_aliases %}
+User_Alias {{ item.name }} = {{ item.members | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if runas_aliases | length > 0 %}
+# Runas_Alias — define users that commands may be run as
+{% for item in runas_aliases %}
+Runas_Alias {{ item.name }} = {{ item.members | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if host_aliases | length > 0 %}
+# Host_Alias — define groups of hosts (for multi-host sudoers)
+{% for item in host_aliases %}
+Host_Alias {{ item.name }} = {{ item.members | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if cmnd_aliases | length > 0 %}
+# Cmnd_Alias — group commands into named sets
+{% for item in cmnd_aliases %}
+Cmnd_Alias {{ item.name }} = {{ item.commands | join(', ') }}
+{% endfor %}
+{% endif %}
+
+# ============================================
+# User specifications
+# ============================================
+
+# Format: WHO (WHOM) [NOPASSWD:] COMMANDS
+# WHO: user or %group or User_Alias
+# WHOM: runas user/group or Runas_Alias (optional, default = root)
+# COMMANDS: list of commands or Cmnd_Alias, possibly with arguments
+
+{% for spec in user_specs %}
+# User: {{ spec.user }}
+{% if spec.hosts | length > 0 %}# Host(s): {{ spec.hosts | join(', ') }}{% endif %}
+{% if spec.runas | length > 0 %}# Runas user(s): {{ spec.runas | join(', ') }}{% endif %}
+{{ spec.user }}
+{% if spec.hosts | length > 0 %}({{ spec.hosts | join(', ') }}){% endif %}
+{% if spec.runas | length > 0 %}:{{ spec.runas | join(', ') }}{% endif %}
+{{ spec.commands | join(', ') }}
+{% endfor %}
