@@ -40,6 +40,23 @@ html {
   --mat-sys-primary: var(--bm-green);
   --mat-sys-tertiary: var(--bm-gold);
   --mat-sys-error: var(--bm-red);
+
+  // ── macOS-derived design tokens (see docs/design-philosophy.md) ──
+  // One spacing scale — screens reference these instead of ad-hoc px, so
+  // padding/gaps stay consistent (generous, content breathes).
+  --bm-space-1: 4px;
+  --bm-space-2: 8px;
+  --bm-space-3: 12px;
+  --bm-space-4: 16px;
+  --bm-space-6: 24px;
+  --bm-space-8: 32px;
+  // Hairline separators + subtle radius — we divide with 1px lines and
+  // whitespace, not heavy boxes.
+  --bm-hairline: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --bm-radius: 8px;
+  // The one subtle fill used for a current selection in source lists.
+  --bm-sel: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
+  --bm-hover: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
 }
 
 body {
@@ -58,3 +75,45 @@ body {
 /* In-app snackbar (DialogService.notify) — replaces browser alert(). */
 .bm-snack-error { --mdc-snackbar-container-color: #7f1d1d; --mdc-snackbar-supporting-text-color: #fff; }
 .bm-snack-info  { --mdc-snackbar-container-color: #1f2937; --mdc-snackbar-supporting-text-color: #fff; }
+
+/* ── macOS-derived global rules (docs/design-philosophy.md) ── */
+
+/* Accessible, calm focus ring — a soft accent halo, macOS-style, only for
+   keyboard focus (never a hard outline on click). */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mat-sys-primary) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Shared page header: title left, one primary action right — consistent
+   across screens (Hosts, Roles, …) instead of each rolling its own. */
+.bm-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bm-space-4);
+  margin-bottom: var(--bm-space-4);
+}
+.bm-page-head h1 { margin: 0; }
+
+/* Source list (nav + trees): quiet rows, subtle selection with an accent bar,
+   hairline grouping — the Finder/Mail sidebar treatment. Opt-in via class so
+   it doesn't disturb components not yet migrated. */
+.bm-source-list .bm-source-item {
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-2);
+  padding: var(--bm-space-2) var(--bm-space-3);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  border-radius: 0 6px 6px 0;
+}
+.bm-source-list .bm-source-item:hover { background: var(--bm-hover); }
+.bm-source-list .bm-source-item.bm-selected {
+  background: var(--bm-sel);
+  border-left-color: var(--mat-sys-primary);
+}
+
+/* Dialogs read as sheets: a hairline-topped action bar, comfortable padding. */
+.mat-mdc-dialog-actions { border-top: 1px solid var(--bm-hairline); padding: var(--bm-space-3) var(--bm-space-6); }
