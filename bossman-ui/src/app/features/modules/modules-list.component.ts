@@ -5,7 +5,9 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 import { ModuleService } from '../../core/services/module.service';
+import { CheckService } from '../../core/services/check.service';
 import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../../core/models/module.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
@@ -28,6 +30,7 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
     MatIconModule,
     HostStatusBadgeComponent,
     PerfOMeterComponent,
+    RouterLink,
   ],
   template: `
     <div class="bm-page">
@@ -51,6 +54,14 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
               <app-perf-o-meter [value]="(entry.translated / entry.total) * 100" unit="%" />
             </mat-card>
           }
+          <!-- Checkmk items are read-only CHECKS, not modules — they live in
+               the Checks library, so point there with the real count instead
+               of showing a misleading '0 / 1444' module row (F-5). -->
+          <a class="bm-collection-card bm-collection-card--link" routerLink="/checks">
+            <div class="bm-collection-name">checkmk <span class="bm-chip">checks</span></div>
+            <div class="bm-collection-count">{{ checkmkCount() }} checks — open Checks →</div>
+            <app-perf-o-meter [value]="100" unit="%" />
+          </a>
         </div>
 
         <div class="bm-toolbar">
@@ -59,9 +70,9 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
             <input matInput [(ngModel)]="search" placeholder="docker_container, sysctl, x509…" />
           </mat-form-field>
           <mat-button-toggle-group [value]="filter()" (change)="filter.set($event.value)">
-            <mat-button-toggle value="all">All ({{ cat.total }})</mat-button-toggle>
-            <mat-button-toggle value="translated">Translated ({{ cat.translated }})</mat-button-toggle>
-            <mat-button-toggle value="pending">Pending ({{ cat.total - cat.translated }})</mat-button-toggle>
+            <mat-button-toggle value="all">All ({{ moduleCounts().total }})</mat-button-toggle>
+            <mat-button-toggle value="translated">Translated ({{ moduleCounts().translated }})</mat-button-toggle>
+            <mat-button-toggle value="pending">Pending ({{ moduleCounts().total - moduleCounts().translated }})</mat-button-toggle>
           </mat-button-toggle-group>
         </div>
 
@@ -169,6 +180,14 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
       .bm-collection-card--builtin {
         border-left: 3px solid var(--bm-green);
       }
+      .bm-collection-card--link {
+        text-decoration: none;
+        color: inherit;
+        border-left: 3px solid var(--bm-gold);
+        cursor: pointer;
+      }
+      .bm-collection-card--link:hover { background: var(--bm-hover, rgba(255,255,255,0.04)); }
+      .bm-chip { font-family: system-ui, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--bm-gold) 25%, transparent); margin-left: 6px; vertical-align: middle; }
       .bm-collection-name {
         font-family: monospace;
         font-weight: 600;
@@ -286,10 +305,21 @@ export class ModulesListComponent implements OnInit {
   expanded = signal<string | null>(null);
   detail = signal<ModuleDetail | null>(null);
 
+  // checkmk items are checks, not modules — surfaced as a link to the Checks
+  // page, so they're excluded from the module collection cards (F-5).
+  checkmkCount = signal(0);
+  /** Module counts EXCLUDING checkmk (those are checks, counted on Checks). */
+  moduleCounts = computed(() => {
+    const cat = this.catalog();
+    if (!cat) return { total: 0, translated: 0 };
+    const mods = cat.modules.filter((m) => !m.fqcn.startsWith('checkmk.'));
+    return { total: mods.length, translated: mods.filter((m) => m.translated).length };
+  });
   collectionEntries = computed(() => {
     const cat = this.catalog();
     if (!cat) return [];
     return Object.entries(cat.collections)
+      .filter(([name]) => name !== 'checkmk')
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
@@ -300,6 +330,7 @@ export class ModulesListComponent implements OnInit {
     const filter = this.filter();
     const q = this.search.trim().toLowerCase();
     return cat.modules.filter((m) => {
+      if (m.fqcn.startsWith('checkmk.')) return false; // checks, not modules — on the Checks page
       if (filter === 'translated' && !m.translated) return false;
       if (filter === 'pending' && m.translated) return false;
       if (q && !m.fqcn.toLowerCase().includes(q) && !(m.short_description ?? '').toLowerCase().includes(q)) return false;
@@ -307,8 +338,10 @@ export class ModulesListComponent implements OnInit {
     });
   });
 
+  private checkService = inject(CheckService);
   ngOnInit(): void {
     this.moduleService.catalog().subscribe((cat) => this.catalog.set(cat));
+    this.checkService.listChecks().subscribe({ next: (r) => this.checkmkCount.set((r.checks ?? []).length), error: () => {} });
   }
 
   toggle(m: ModuleInfo): void {
