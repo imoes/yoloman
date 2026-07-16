@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal, viewChild } from '@angular
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
+import { formatMetricValue } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -229,7 +230,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           @if (serviceIsPct(svc) && svc.value !== null) {
                             <app-perf-o-meter [value]="svc.value" [warn]="80" [crit]="90" />
                           } @else if (svc.value !== null) {
-                            <span class="bm-svc-value">{{ svc.value | number: '1.0-2' }}</span>
+                            <span class="bm-svc-value">{{ svcValue(svc) }}</span>
                           }
                         </td>
                         <td class="bm-actions">
@@ -308,7 +309,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                                       <app-status-badge [status]="historyBadge(h)" [label]="h.state" />
                                       <span>{{ h.time | date: 'medium' }}</span>
                                       @if (h.value !== null) {
-                                        <span class="bm-history-value">{{ h.value | number: '1.0-2' }}</span>
+                                        <span class="bm-history-value">{{ formatValue(selectedService()?.metric ?? '', h.value) }}</span>
                                       }
                                     </li>
                                   }
@@ -2916,31 +2917,11 @@ export class HostDetailComponent implements OnInit {
    * KiB/MiB/…, percentages get a %, uptime becomes a duration, load stays
    * two-decimal — so the list reads like a monitoring tool, not raw floats. */
   formatValue(metric: string, value: number): string {
-    if (metric.endsWith('_pct')) return `${value.toFixed(1)} %`;
-    if (metric.endsWith('_bytes')) return this.humanBytes(value);
-    if (metric === 'uptime_seconds') return this.humanDuration(value);
-    if (metric.startsWith('cpu_load')) return value.toFixed(2);
-    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+    return formatMetricValue(value, metric);
   }
-
-  private humanBytes(bytes: number): string {
-    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
-    let v = bytes;
-    let i = 0;
-    while (v >= 1024 && i < units.length - 1) {
-      v /= 1024;
-      i++;
-    }
-    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-  }
-
-  private humanDuration(seconds: number): string {
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor((seconds % 86400) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}d ${h}h`;
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
+  /** Humane value for a service row (unit-aware from metric + name). */
+  svcValue(svc: ServiceState): string {
+    return formatMetricValue(svc.value, svc.metric, svc.name);
   }
 
   /** Elapsed-time label for the "Last check" column (Zabbix's own idiom). */

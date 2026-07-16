@@ -14,6 +14,7 @@ import { CheckService } from '../../core/services/check.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { serviceStateBadge } from '../../shared/status.util';
+import { formatMetricValue } from '../../shared/format.util';
 import {
   ScopeVarsDialogComponent,
   ScopeVarsDialogData,
@@ -264,24 +265,8 @@ export class HostChecksComponent {
   services = signal<ServiceState[]>([]);
   serviceBadge(s: ServiceState) { return serviceStateBadge(s.state); }
 
-  /** Humane value formatting (design-philosophy §12): unit-aware, sensible
-   * precision — never a raw float or raw seconds. */
-  fmtValue(s: ServiceState): string {
-    const v = s.value;
-    if (v === null || v === undefined) return '—';
-    const m = (s.metric || '').toLowerCase();
-    if (m === 'uptime' || m.endsWith('_seconds') || s.name.toLowerCase() === 'uptime') {
-      const d = Math.floor(v / 86400);
-      const h = Math.floor((v % 86400) / 3600);
-      if (d > 0) return `${d} d ${h} h`;
-      const min = Math.floor((v % 3600) / 60);
-      return h > 0 ? `${h} h ${min} min` : `${min} min`;
-    }
-    if (m.endsWith('_pct') || m.includes('percent')) return `${v.toFixed(1)} %`;
-    if (Math.abs(v) >= 100) return v.toFixed(0);
-    if (Math.abs(v) >= 10) return v.toFixed(1);
-    return v.toFixed(2);
-  }
+  /** Humane value formatting (design-philosophy §12) — shared formatter. */
+  fmtValue(s: ServiceState): string { return formatMetricValue(s.value, s.metric, s.name); }
 
   // Expand a discovery proposal to read its full description before selecting.
   private expanded = signal<Set<string>>(new Set());
