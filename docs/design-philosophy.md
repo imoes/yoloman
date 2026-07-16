@@ -65,9 +65,13 @@ content-first, precise, forgiving.
   always present and safe. Every list has a helpful empty state that tells you
   the next step (and links to it) — never a blank void.
 
-### 9. Hairlines, not boxes
+### 9. Hairlines, not boxes — and grouped inset lists
 - Separate with 1px hairline dividers and whitespace, not heavy borders/boxes.
   Cards are subtle raised surfaces, not outlined containers.
+- Object lists/tables sit in **grouped inset lists** (macOS System Settings):
+  a rounded, hairline-bordered group with a quiet header row — never a
+  full-bleed grid stretching to the viewport edge. Content has a comfortable
+  max width; columns are sized to their content.
 
 ### 10. Essential-only + auto-discovery (the biggest one)
 - A screen offers **only the essential decisions** a person must actually make;
@@ -89,6 +93,16 @@ content-first, precise, forgiving.
 - The same concept is named the same everywhere (a "role" is a role on every
   screen), the same control does the same thing, icons are stable. Learn once,
   apply everywhere.
+
+### 12. Humane data formatting
+- Values shown to a person carry **units and sensible precision**: `37.1 %`,
+  `15 d 3 h`, `4.5` — never a raw float (`37.05206631905181`) or raw seconds
+  (`1306051`). Machine tokens (metric keys, hashes, paths) stay monospace and
+  dim; human values are formatted.
+- **Numbers right-align** in their column; text left-aligns. A column of
+  numbers must be scannable top-to-bottom.
+- If the UI knows the unit (a `_pct` metric, a seconds counter, bytes), it
+  formats it — showing the raw value is a bug, not a style choice.
 
 ## Appearance: Rastafari (the skin over the macOS bones)
 

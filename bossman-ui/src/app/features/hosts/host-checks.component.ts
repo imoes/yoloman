@@ -36,19 +36,21 @@ import {
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
 
+      <!-- Toolbar: auto-discovery is THE primary path (essential-only, §10);
+           the manual picker and variables are secondary/tertiary. -->
       <div class="bm-add">
-        <mat-form-field appearance="outline" class="bm-ff">
-          <mat-label>Add a check to this host</mat-label>
+        <button mat-flat-button color="primary" (click)="runDiscover()" [disabled]="discovering()">
+          <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
+        </button>
+        <mat-form-field appearance="outline" class="bm-ff" subscriptSizing="dynamic">
+          <mat-label>Add a check manually</mat-label>
           <mat-select [(ngModel)]="pickName" (ngModelChange)="onPick($event)">
             @for (c of addable(); track c.name) {
               <mat-option [value]="c.name">{{ c.name }}{{ c.short_description ? ' — ' + c.short_description : '' }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
-        <button mat-stroked-button (click)="runDiscover()" [disabled]="discovering()">
-          <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
-        </button>
-        <button mat-stroked-button (click)="editHostVars()">
+        <button mat-button (click)="editHostVars()">
           <mat-icon>data_object</mat-icon> Variables…
         </button>
       </div>
@@ -131,6 +133,7 @@ import {
 
       <h3>Effective checks</h3>
       @if (checks().length) {
+        <div class="bm-group">
         <table class="bm-table">
           <thead><tr><th>Check</th><th>From</th><th>Parameters</th><th></th></tr></thead>
           <tbody>
@@ -150,6 +153,7 @@ import {
             }
           </tbody>
         </table>
+        </div>
       } @else {
         <p class="bm-dim">No assigned checks on this host yet. Add one above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
       }
@@ -164,19 +168,21 @@ import {
         <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab.
       </p>
       @if (services().length) {
-        <table class="bm-table">
-          <thead><tr><th>Service</th><th>State</th><th>Value</th><th>Metric</th></tr></thead>
-          <tbody>
-            @for (s of services(); track s.id) {
-              <tr>
-                <td>{{ s.name }}</td>
-                <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
-                <td class="bm-dim">{{ s.value ?? '—' }}</td>
-                <td class="bm-dim bm-mono">{{ s.metric }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+        <div class="bm-group">
+          <table class="bm-table">
+            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Metric</th></tr></thead>
+            <tbody>
+              @for (s of services(); track s.id) {
+                <tr>
+                  <td>{{ s.name }}</td>
+                  <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
+                  <td class="bm-num">{{ fmtValue(s) }}</td>
+                  <td class="bm-dim bm-mono">{{ s.metric }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       } @else {
         <p class="bm-dim">No monitoring services reported yet.</p>
       }
@@ -184,18 +190,27 @@ import {
   `,
   styles: [
     `
-      .bm-checks { padding: 4px 2px; }
-      .bm-svc-h { margin-top: 24px; }
+      /* Grouped-inset layout (design-philosophy §9): comfortable max width,
+         rounded hairline groups, quiet header rows. */
+      .bm-checks { padding: 4px 2px; max-width: 960px; }
+      .bm-svc-h { margin-top: 28px; }
       .bm-svc-note { font-size: 12px; margin: 2px 0 10px; }
       .bm-svc-note a { color: var(--mat-sys-primary); }
-      .bm-add, .bm-form { margin-bottom: 12px; }
-      .bm-ff { width: 320px; max-width: 100%; margin-right: 12px; }
+      .bm-add { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .bm-add, .bm-form { margin-bottom: 16px; }
+      .bm-ff { width: 300px; max-width: 100%; }
       .bm-form { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
       .bm-form-title { margin-bottom: 8px; }
       .bm-form-actions { display: flex; gap: 8px; margin-top: 4px; }
+      .bm-group { border: 1px solid var(--bm-hairline, var(--mat-sys-outline-variant)); border-radius: 10px; overflow: hidden; }
+      .bm-group .bm-table td, .bm-group .bm-table th { padding-left: 14px; padding-right: 14px; }
+      .bm-group .bm-table thead tr { background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
+      .bm-group .bm-table tbody tr:first-child td { border-top: none; }
       .bm-table { width: 100%; border-collapse: collapse; }
-      .bm-table th { text-align: left; opacity: 0.6; font-weight: 500; padding: 4px 10px 4px 0; }
-      .bm-table td { padding: 6px 10px 6px 0; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+      .bm-table th { text-align: left; opacity: 0.6; font-weight: 500; padding: 8px 10px 8px 0; font-size: 12px; }
+      .bm-table td { padding: 8px 10px 8px 0; border-top: 1px solid var(--bm-hairline, var(--mat-sys-outline-variant)); vertical-align: middle; }
+      /* Humane numbers (§12): right-aligned, tabular digits, scannable. */
+      .bm-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 110px; }
       .bm-mono { font-family: monospace; }
       .bm-sd { font-size: 11.5px; }
       .bm-dim { opacity: 0.6; }
@@ -230,6 +245,25 @@ export class HostChecksComponent {
    * is the single "what's monitored on this host" view. */
   services = signal<ServiceState[]>([]);
   serviceBadge(s: ServiceState) { return serviceStateBadge(s.state); }
+
+  /** Humane value formatting (design-philosophy §12): unit-aware, sensible
+   * precision — never a raw float or raw seconds. */
+  fmtValue(s: ServiceState): string {
+    const v = s.value;
+    if (v === null || v === undefined) return '—';
+    const m = (s.metric || '').toLowerCase();
+    if (m === 'uptime' || m.endsWith('_seconds') || s.name.toLowerCase() === 'uptime') {
+      const d = Math.floor(v / 86400);
+      const h = Math.floor((v % 86400) / 3600);
+      if (d > 0) return `${d} d ${h} h`;
+      const min = Math.floor((v % 3600) / 60);
+      return h > 0 ? `${h} h ${min} min` : `${min} min`;
+    }
+    if (m.endsWith('_pct') || m.includes('percent')) return `${v.toFixed(1)} %`;
+    if (Math.abs(v) >= 100) return v.toFixed(0);
+    if (Math.abs(v) >= 10) return v.toFixed(1);
+    return v.toFixed(2);
+  }
 
   /** Host-scope runbook variables (strongest in the GPO merge). */
   editHostVars(): void {
