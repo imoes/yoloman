@@ -2,23 +2,22 @@
 
 Auto-generated from `configs/checks.d/*.nt` by `scripts/generate_check_docs.py` — do not edit by hand. Each check is a read-only Starlark module translated from Checkmk; the prose below is the translation's own documentation.
 
-**1433 checks** in **11 categories**.
+**1435 checks** in **10 categories**.
 
 ## Categories
 
 | Category | Checks |
 | --- | ---: |
-| [Operating System](#check-operating-system) | 3 |
-| [Hardware & Sensors](#check-hardware-sensors) | 153 |
-| [Storage](#check-storage) | 27 |
-| [Network](#check-network) | 32 |
-| [Applications](#check-applications) | 61 |
-| [Database](#check-database) | 8 |
-| [Virtualization & Cloud](#check-virtualization-cloud) | 2 |
-| [Environment & Power](#check-environment-power) | 17 |
-| [Security](#check-security) | 3 |
-| [Other](#check-other) | 15 |
-| [Uncategorized](#check-uncategorized) | 1112 |
+| [Operating System](#check-operating-system) | 77 |
+| [Hardware & Sensors](#check-hardware-sensors) | 474 |
+| [Storage](#check-storage) | 146 |
+| [Network](#check-network) | 115 |
+| [Applications](#check-applications) | 254 |
+| [Database](#check-database) | 136 |
+| [Virtualization & Cloud](#check-virtualization-cloud) | 32 |
+| [Environment & Power](#check-environment-power) | 117 |
+| [Security](#check-security) | 34 |
+| [Other](#check-other) | 50 |
 
 ## Operating System
 
@@ -28,7 +27,81 @@ Auto-generated from `configs/checks.d/*.nt` by `scripts/generate_check_docs.py` 
 | --- | --- |
 | [aix_paging](#check-aix-paging) | Page Space %s |
 | [apt](#check-apt) | APT Updates |
+| [cadvisor_cpu](#check-cadvisor-cpu) | CPU utilization |
+| [chrony](#check-chrony) | NTP Time |
+| [ciena_cpu_util_5171](#check-ciena-cpu-util-5171) | CPU utilization |
+| [cpu_loads](#check-cpu-loads) | CPU load |
+| [cpu_threads](#check-cpu-threads) | Number of threads |
+| [cpu_utilization_os](#check-cpu-utilization-os) | CPU utilization |
+| [decru_cpu](#check-decru-cpu) | CPU utilization |
+| [emc_isilon_cpu](#check-emc-isilon-cpu) | Node CPU utilization |
+| [emc_vplex_cpu](#check-emc-vplex-cpu) | CPU Utilization %s |
+| [enterasys_cpu_util](#check-enterasys-cpu-util) | CPU util %s |
+| [filehandler](#check-filehandler) | Filehandler |
+| [fileinfo_groups](#check-fileinfo-groups) | File group %s |
+| [fortimail_cpu_load](#check-fortimail-cpu-load) | CPU load |
+| [fritz_uptime](#check-fritz-uptime) | Uptime |
+| [heartbeat_rscstatus](#check-heartbeat-rscstatus) | Heartbeat Ressource Status |
+| [hepta_syncmoduletimesyncstate](#check-hepta-syncmoduletimesyncstate) | %s |
+| [hp_hh3c_ext_cpu](#check-hp-hh3c-ext-cpu) | CPU utilization %s |
+| [hp_hh3c_ext_mem](#check-hp-hh3c-ext-mem) | Memory %s |
+| [hp_procurve_mem](#check-hp-procurve-mem) | Memory |
+| [hpux_snmp_cs_cpu](#check-hpux-snmp-cs-cpu) | CPU utilization |
+| [hpux_tunables_maxfiles_lim](#check-hpux-tunables-maxfiles-lim) | Number of open files |
+| [hpux_tunables_nkthread](#check-hpux-tunables-nkthread) | Number of threads |
+| [hpux_tunables_nproc](#check-hpux-tunables-nproc) | Number of processes |
+| [hpux_tunables_semmni](#check-hpux-tunables-semmni) | Number of IPC Semaphore IDs |
+| [hpux_tunables_semmns](#check-hpux-tunables-semmns) | Number of IPC Semaphores |
+| [hpux_tunables_shmseg](#check-hpux-tunables-shmseg) | Number of shared memory segments |
+| [hr_cpu](#check-hr-cpu) | CPU utilization |
+| [hr_ps](#check-hr-ps) | Process %s |
+| [ibm_svc_nodestats_cpu_util](#check-ibm-svc-nodestats-cpu-util) | CPU utilization %s |
+| [ibm_svc_systemstats_cpu_util](#check-ibm-svc-systemstats-cpu-util) | CPU utilization Total |
+| [inotify](#check-inotify) | INotify %s |
+| [kernel_performance](#check-kernel-performance) | Kernel Performance |
+| [kernel_util](#check-kernel-util) | CPU utilization |
+| [lparstat_aix](#check-lparstat-aix) | lparstat |
+| [lparstat_aix_cpu_util](#check-lparstat-aix-cpu-util) | CPU utilization |
+| [mem_linux](#check-mem-linux) | Memory |
+| [mem_used](#check-mem-used) | Memory |
+| [mem_vmalloc](#check-mem-vmalloc) | Vmalloc address space |
+| [mem_win](#check-mem-win) | Memory |
+| [memory_utilization](#check-memory-utilization) | Memory |
+| [mknotifyd_connection](#check-mknotifyd-connection) | OMD %s Notify Connection |
+| [mrpe](#check-mrpe) | %s |
+| [ntp](#check-ntp) | NTP Peer %s |
+| [ntp_time](#check-ntp-time) | NTP Time |
+| [ps](#check-ps) | Process %s |
+| [services_summary](#check-services-summary) | Service Summary |
+| [sni_octopuse_cpu](#check-sni-octopuse-cpu) | CPU utilization |
+| [snmp_info](#check-snmp-info) | SNMP Info |
+| [solaris_fmadm](#check-solaris-fmadm) | FMD Status |
+| [solaris_services](#check-solaris-services) | SMF Service %s |
+| [solaris_services_summary](#check-solaris-services-summary) | SMF Services Summary |
+| [statgrab_cpu](#check-statgrab-cpu) | CPU utilization |
+| [storeonce_clusterinfo_uptime](#check-storeonce-clusterinfo-uptime) | Uptime |
+| [suseconnect](#check-suseconnect) | SLES license |
+| [synology_info](#check-synology-info) | Info |
+| [systemd_units_services](#check-systemd-units-services) | Systemd Service %s |
+| [systemd_units_services_summary](#check-systemd-units-services-summary) | Systemd Service Summary |
+| [systemd_units_sockets](#check-systemd-units-sockets) | Systemd Socket %s |
+| [systemd_units_sockets_summary](#check-systemd-units-sockets-summary) | Systemd Socket Summary |
+| [systemtime](#check-systemtime) | System Time |
+| [timesyncd](#check-timesyncd) | Systemd Timesyncd Time |
+| [ucd_cpu_util](#check-ucd-cpu-util) | CPU utilization |
+| [ucd_processes](#check-ucd-processes) | Processes %s |
 | [uptime](#check-uptime) | Uptime |
+| [viprinet_mem](#check-viprinet-mem) | Memory |
+| [vms_cpu](#check-vms-cpu) | CPU utilization |
+| [vms_system_ios](#check-vms-system-ios) | IOs |
+| [vms_system_procs](#check-vms-system-procs) | Number of processes |
+| [w32time_status](#check-w32time-status) | Windows time service |
+| [windows_tasks](#check-windows-tasks) | Task %s |
+| [windows_updates](#check-windows-updates) | System Updates |
+| [winperf_mem](#check-winperf-mem) | Memory Pages |
+| [winperf_ts_sessions](#check-winperf-ts-sessions) | Sessions |
+| [wmic_process](#check-wmic-process) | Process %s |
+| [zypper](#check-zypper) | Zypper Updates |
 
 ### aix_paging
 
@@ -94,6 +167,384 @@ None.
 - `security_updates` — count of security updates
 - `removals` — count of packages to be removed
 
+### cadvisor_cpu
+
+<a id="check-cadvisor-cpu"></a>
+
+*CPU utilization*
+
+### chrony
+
+<a id="check-chrony"></a>
+
+*NTP Time*
+
+### ciena_cpu_util_5171
+
+<a id="check-ciena-cpu-util-5171"></a>
+
+*CPU utilization*
+
+### cpu_loads
+
+<a id="check-cpu-loads"></a>
+
+*CPU load*
+
+### cpu_threads
+
+<a id="check-cpu-threads"></a>
+
+*Number of threads*
+
+### cpu_utilization_os
+
+<a id="check-cpu-utilization-os"></a>
+
+*CPU utilization*
+
+### decru_cpu
+
+<a id="check-decru-cpu"></a>
+
+*CPU utilization*
+
+### emc_isilon_cpu
+
+<a id="check-emc-isilon-cpu"></a>
+
+*Node CPU utilization*
+
+### emc_vplex_cpu
+
+<a id="check-emc-vplex-cpu"></a>
+
+*CPU Utilization %s*
+
+### enterasys_cpu_util
+
+<a id="check-enterasys-cpu-util"></a>
+
+*CPU util %s*
+
+### filehandler
+
+<a id="check-filehandler"></a>
+
+*Filehandler*
+
+### fileinfo_groups
+
+<a id="check-fileinfo-groups"></a>
+
+*File group %s*
+
+### fortimail_cpu_load
+
+<a id="check-fortimail-cpu-load"></a>
+
+*CPU load*
+
+### fritz_uptime
+
+<a id="check-fritz-uptime"></a>
+
+*Uptime*
+
+### heartbeat_rscstatus
+
+<a id="check-heartbeat-rscstatus"></a>
+
+*Heartbeat Ressource Status*
+
+### hepta_syncmoduletimesyncstate
+
+<a id="check-hepta-syncmoduletimesyncstate"></a>
+
+*%s*
+
+### hp_hh3c_ext_cpu
+
+<a id="check-hp-hh3c-ext-cpu"></a>
+
+*CPU utilization %s*
+
+### hp_hh3c_ext_mem
+
+<a id="check-hp-hh3c-ext-mem"></a>
+
+*Memory %s*
+
+### hp_procurve_mem
+
+<a id="check-hp-procurve-mem"></a>
+
+*Memory*
+
+### hpux_snmp_cs_cpu
+
+<a id="check-hpux-snmp-cs-cpu"></a>
+
+*CPU utilization*
+
+### hpux_tunables_maxfiles_lim
+
+<a id="check-hpux-tunables-maxfiles-lim"></a>
+
+*Number of open files*
+
+### hpux_tunables_nkthread
+
+<a id="check-hpux-tunables-nkthread"></a>
+
+*Number of threads*
+
+### hpux_tunables_nproc
+
+<a id="check-hpux-tunables-nproc"></a>
+
+*Number of processes*
+
+### hpux_tunables_semmni
+
+<a id="check-hpux-tunables-semmni"></a>
+
+*Number of IPC Semaphore IDs*
+
+### hpux_tunables_semmns
+
+<a id="check-hpux-tunables-semmns"></a>
+
+*Number of IPC Semaphores*
+
+### hpux_tunables_shmseg
+
+<a id="check-hpux-tunables-shmseg"></a>
+
+*Number of shared memory segments*
+
+### hr_cpu
+
+<a id="check-hr-cpu"></a>
+
+*CPU utilization*
+
+### hr_ps
+
+<a id="check-hr-ps"></a>
+
+*Process %s*
+
+### ibm_svc_nodestats_cpu_util
+
+<a id="check-ibm-svc-nodestats-cpu-util"></a>
+
+*CPU utilization %s*
+
+### ibm_svc_systemstats_cpu_util
+
+<a id="check-ibm-svc-systemstats-cpu-util"></a>
+
+*CPU utilization Total*
+
+### inotify
+
+<a id="check-inotify"></a>
+
+*INotify %s*
+
+### kernel_performance
+
+<a id="check-kernel-performance"></a>
+
+*Kernel Performance*
+
+### kernel_util
+
+<a id="check-kernel-util"></a>
+
+*CPU utilization*
+
+### lparstat_aix
+
+<a id="check-lparstat-aix"></a>
+
+*lparstat*
+
+### lparstat_aix_cpu_util
+
+<a id="check-lparstat-aix-cpu-util"></a>
+
+*CPU utilization*
+
+### mem_linux
+
+<a id="check-mem-linux"></a>
+
+*Memory*
+
+### mem_used
+
+<a id="check-mem-used"></a>
+
+*Memory*
+
+### mem_vmalloc
+
+<a id="check-mem-vmalloc"></a>
+
+*Vmalloc address space*
+
+### mem_win
+
+<a id="check-mem-win"></a>
+
+*Memory*
+
+### memory_utilization
+
+<a id="check-memory-utilization"></a>
+
+*Memory*
+
+### mknotifyd_connection
+
+<a id="check-mknotifyd-connection"></a>
+
+*OMD %s Notify Connection*
+
+### mrpe
+
+<a id="check-mrpe"></a>
+
+*%s*
+
+### ntp
+
+<a id="check-ntp"></a>
+
+*NTP Peer %s*
+
+### ntp_time
+
+<a id="check-ntp-time"></a>
+
+*NTP Time*
+
+### ps
+
+<a id="check-ps"></a>
+
+*Process %s*
+
+### services_summary
+
+<a id="check-services-summary"></a>
+
+*Service Summary*
+
+### sni_octopuse_cpu
+
+<a id="check-sni-octopuse-cpu"></a>
+
+*CPU utilization*
+
+### snmp_info
+
+<a id="check-snmp-info"></a>
+
+*SNMP Info*
+
+### solaris_fmadm
+
+<a id="check-solaris-fmadm"></a>
+
+*FMD Status*
+
+### solaris_services
+
+<a id="check-solaris-services"></a>
+
+*SMF Service %s*
+
+### solaris_services_summary
+
+<a id="check-solaris-services-summary"></a>
+
+*SMF Services Summary*
+
+### statgrab_cpu
+
+<a id="check-statgrab-cpu"></a>
+
+*CPU utilization*
+
+### storeonce_clusterinfo_uptime
+
+<a id="check-storeonce-clusterinfo-uptime"></a>
+
+*Uptime*
+
+### suseconnect
+
+<a id="check-suseconnect"></a>
+
+*SLES license*
+
+### synology_info
+
+<a id="check-synology-info"></a>
+
+*Info*
+
+### systemd_units_services
+
+<a id="check-systemd-units-services"></a>
+
+*Systemd Service %s*
+
+### systemd_units_services_summary
+
+<a id="check-systemd-units-services-summary"></a>
+
+*Systemd Service Summary*
+
+### systemd_units_sockets
+
+<a id="check-systemd-units-sockets"></a>
+
+*Systemd Socket %s*
+
+### systemd_units_sockets_summary
+
+<a id="check-systemd-units-sockets-summary"></a>
+
+*Systemd Socket Summary*
+
+### systemtime
+
+<a id="check-systemtime"></a>
+
+*System Time*
+
+### timesyncd
+
+<a id="check-timesyncd"></a>
+
+*Systemd Timesyncd Time*
+
+### ucd_cpu_util
+
+<a id="check-ucd-cpu-util"></a>
+
+*CPU utilization*
+
+### ucd_processes
+
+<a id="check-ucd-processes"></a>
+
+*Processes %s*
+
 ### uptime
 
 <a id="check-uptime"></a>
@@ -118,6 +569,72 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 #### Metrics
 `uptime` — system uptime in seconds.
 
+### viprinet_mem
+
+<a id="check-viprinet-mem"></a>
+
+*Memory*
+
+### vms_cpu
+
+<a id="check-vms-cpu"></a>
+
+*CPU utilization*
+
+### vms_system_ios
+
+<a id="check-vms-system-ios"></a>
+
+*IOs*
+
+### vms_system_procs
+
+<a id="check-vms-system-procs"></a>
+
+*Number of processes*
+
+### w32time_status
+
+<a id="check-w32time-status"></a>
+
+*Windows time service*
+
+### windows_tasks
+
+<a id="check-windows-tasks"></a>
+
+*Task %s*
+
+### windows_updates
+
+<a id="check-windows-updates"></a>
+
+*System Updates*
+
+### winperf_mem
+
+<a id="check-winperf-mem"></a>
+
+*Memory Pages*
+
+### winperf_ts_sessions
+
+<a id="check-winperf-ts-sessions"></a>
+
+*Sessions*
+
+### wmic_process
+
+<a id="check-wmic-process"></a>
+
+*Process %s*
+
+### zypper
+
+<a id="check-zypper"></a>
+
+*Zypper Updates*
+
 ## Hardware & Sensors
 
 <a id="check-hardware-sensors"></a>
@@ -138,6 +655,7 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [akcp_exp_temp](#check-akcp-exp-temp) | Temperature %s |
 | [akcp_sensor_drycontact](#check-akcp-sensor-drycontact) | Dry Contact %s |
 | [akcp_sensor_humidity](#check-akcp-sensor-humidity) | Humidity %s |
+| [akcp_sensor_temp](#check-akcp-sensor-temp) | Temperature %s |
 | [alcatel_cpu](#check-alcatel-cpu) | CPU utilization |
 | [alcatel_cpu_aos7](#check-alcatel-cpu-aos7) | CPU utilization |
 | [alcatel_fans](#check-alcatel-fans) | Fan %s |
@@ -146,6 +664,7 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [alcatel_power_aos7](#check-alcatel-power-aos7) | Power Supply %s |
 | [alcatel_temp](#check-alcatel-temp) | Temperature %s |
 | [alcatel_temp_aos7](#check-alcatel-temp-aos7) | Temperature Board %s |
+| [alcatel_timetra_chassis](#check-alcatel-timetra-chassis) | Device %s |
 | [alcatel_timetra_cpu](#check-alcatel-timetra-cpu) | CPU utilization |
 | [allnet_ip_sensoric_humidity](#check-allnet-ip-sensoric-humidity) | Humidity %s |
 | [allnet_ip_sensoric_pressure](#check-allnet-ip-sensoric-pressure) | Pressure %s |
@@ -154,6 +673,7 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [apc_inputs](#check-apc-inputs) | Input %s |
 | [apc_inrow_airflow](#check-apc-inrow-airflow) | Airflow |
 | [apc_inrow_fanspeed](#check-apc-inrow-fanspeed) | Fanspeed |
+| [apc_mod_pdu_modules](#check-apc-mod-pdu-modules) | Module %s |
 | [apc_netbotz_other_sensors](#check-apc-netbotz-other-sensors) | Numeric sensors summary |
 | [apc_netbotz_smoke](#check-apc-netbotz-smoke) | Smoke Detector %s |
 | [apc_netshelterpdu_power](#check-apc-netshelterpdu-power) | PDU %s |
@@ -170,6 +690,7 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [arbor_peakflow_sp_disk_usage](#check-arbor-peakflow-sp-disk-usage) | Disk Usage %s |
 | [arbor_pravail_host_fault](#check-arbor-pravail-host-fault) | Host Fault |
 | [arris_cmts_cpu](#check-arris-cmts-cpu) | CPU utilization Module %s |
+| [arris_cmts_mem](#check-arris-cmts-mem) | Memory Module %s |
 | [arris_cmts_temp](#check-arris-cmts-temp) | Temperature Module %s |
 | [artec_temp](#check-artec-temp) | Temperature %s |
 | [aruba_chassis_temp](#check-aruba-chassis-temp) | Temperature %s |
@@ -214,6 +735,8 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [blade_powerfan](#check-blade-powerfan) | Power Module Cooling Device %s |
 | [blade_powermod](#check-blade-powermod) | Power Module %s |
 | [bluecoat_diskcpu](#check-bluecoat-diskcpu) | %s |
+| [bluecoat_sensors](#check-bluecoat-sensors) | %s |
+| [bluecoat_sensors_temp](#check-bluecoat-sensors-temp) | Temperature %s |
 | [bluenet2_powerrail](#check-bluenet2-powerrail) | Inlet %s |
 | [bluenet2_powerrail_fuses](#check-bluenet2-powerrail-fuses) | Fuse %s |
 | [bluenet2_powerrail_inlet](#check-bluenet2-powerrail-inlet) | Inlet %s |
@@ -223,21 +746,27 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [brocade_fan](#check-brocade-fan) | FAN %s |
 | [brocade_info](#check-brocade-info) | Brocade Info |
 | [brocade_mlx_fan](#check-brocade-mlx-fan) | Fan %s |
+| [brocade_mlx_module_cpu](#check-brocade-mlx-module-cpu) | CPU utilization Module %s |
 | [brocade_mlx_module_mem](#check-brocade-mlx-module-mem) | Memory Module %s |
 | [brocade_mlx_module_status](#check-brocade-mlx-module-status) | Status Module %s |
 | [brocade_mlx_power](#check-brocade-mlx-power) | Power supply %s |
 | [brocade_mlx_temp](#check-brocade-mlx-temp) | Temperature %s |
+| [brocade_optical](#check-brocade-optical) | Interface %s Optical |
 | [brocade_power](#check-brocade-power) | Power supply %s |
+| [brocade_sfp](#check-brocade-sfp) | SFP %s |
+| [brocade_sfp_temp](#check-brocade-sfp-temp) | SFP Temperature %s |
 | [brocade_sys](#check-brocade-sys) | CPU utilization |
 | [brocade_sys_mem](#check-brocade-sys-mem) | Memory |
 | [brocade_temp](#check-brocade-temp) | Temperature Ambient %s |
 | [brocade_vdx_status](#check-brocade-vdx-status) | Status |
+| [bvip_fans](#check-bvip-fans) | Fan %s |
 | [bvip_info](#check-bvip-info) | System Info |
 | [bvip_poe](#check-bvip-poe) | POE Power |
 | [bvip_temp](#check-bvip-temp) | Temperature %s |
 | [bvip_util](#check-bvip-util) | CPU utilization %s |
 | [cadvisor_diskstat](#check-cadvisor-diskstat) | Disk IO %s |
 | [canon_pages](#check-canon-pages) | Pages |
+| [carel_sensors](#check-carel-sensors) | Temperature %s |
 | [casa_fan](#check-casa-fan) | Fan %s |
 | [cbl_airlaser_hardware](#check-cbl-airlaser-hardware) | CBL Airlaser Hardware |
 | [checkpoint_fan](#check-checkpoint-fan) | Fan %s |
@@ -255,11 +784,17 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [cisco_fru_power](#check-cisco-fru-power) | FRU Power %s |
 | [cisco_ie_temp](#check-cisco-ie-temp) | Temperature %s |
 | [cisco_meraki_org_device_status_ps](#check-cisco-meraki-org-device-status-ps) | Power Supply %s |
+| [cisco_meraki_org_sensor_temperature](#check-cisco-meraki-org-sensor-temperature) | Cisco Meraki Temperature %s |
+| [cisco_power](#check-cisco-power) | Power %s |
 | [cisco_sma_cpu_utilization](#check-cisco-sma-cpu-utilization) | CPU utilization |
+| [cisco_sma_resource_conservation](#check-cisco-sma-resource-conservation) | Resource conservation |
 | [cisco_temp](#check-cisco-temp) | Temperature %s |
+| [cisco_temperature](#check-cisco-temperature) | Temperature %s |
 | [cisco_ucs_cpu](#check-cisco-ucs-cpu) | CPU %s |
 | [cisco_ucs_fan](#check-cisco-ucs-fan) | Fan %s |
 | [cisco_ucs_faults](#check-cisco-ucs-faults) | Cisco UCS Faults |
+| [cisco_ucs_hdd](#check-cisco-ucs-hdd) | HDD %s |
+| [cisco_ucs_mem](#check-cisco-ucs-mem) | Memory %s |
 | [cisco_ucs_mem_total](#check-cisco-ucs-mem-total) | Memory total |
 | [cisco_ucs_psu](#check-cisco-ucs-psu) | psu %s |
 | [cisco_ucs_raid](#check-cisco-ucs-raid) | RAID Controller |
@@ -267,9 +802,15 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [cisco_ucs_temp_cpu](#check-cisco-ucs-temp-cpu) | Temperature CPU %s |
 | [cisco_ucs_temp_env](#check-cisco-ucs-temp-env) | Temperature %s |
 | [cisco_ucs_temp_mem](#check-cisco-ucs-temp-mem) | Temperature Mem %s |
+| [climaveneta_fan](#check-climaveneta-fan) | Fan %s |
+| [climaveneta_temp](#check-climaveneta-temp) | Temperature %s |
+| [cmc_temp](#check-cmc-temp) | Temperature Sensor %s |
+| [cmciii_can_current](#check-cmciii-can-current) | %s |
 | [cmciii_io](#check-cmciii-io) | %s |
 | [cmciii_lcp_fans](#check-cmciii-lcp-fans) | LCP Fanunit FAN %s |
 | [cmciii_lcp_waterflow](#check-cmciii-lcp-waterflow) | LCP Fanunit WATER FLOW |
+| [cmciii_phase](#check-cmciii-phase) | Input %s |
+| [cmciii_psm_current](#check-cmciii-psm-current) | Current %s |
 | [cmciii_temp](#check-cmciii-temp) | Temperature %s |
 | [cmciii_temp_in_out](#check-cmciii-temp-in-out) | Temperature %s |
 | [cmctc_lcp_blower](#check-cmctc-lcp-blower) | Blower %s |
@@ -277,6 +818,303 @@ OK: Always. The check does not implement warning or critical thresholds; it simp
 | [cmctc_lcp_temp](#check-cmctc-lcp-temp) | Temperature %s |
 | [cmctc_ports](#check-cmctc-ports) | Port %s |
 | [cmctc_psm_m](#check-cmctc-psm-m) | CMC %s |
+| [cmctc_temp](#check-cmctc-temp) | Temperature %s |
+| [datapower_fan](#check-datapower-fan) | Fan %s |
+| [datapower_pdrive](#check-datapower-pdrive) | Physical Drive %s |
+| [datapower_raid_bat](#check-datapower-raid-bat) | Raid Battery %s |
+| [datapower_temp](#check-datapower-temp) | Temperature %s |
+| [decru_fans](#check-decru-fans) | FAN %s |
+| [decru_power](#check-decru-power) | POWER %s |
+| [decru_temps](#check-decru-temps) | Temperature %s |
+| [didactum_can_sensors_analog](#check-didactum-can-sensors-analog) | Temperature CAN %s |
+| [didactum_can_sensors_analog_humidity](#check-didactum-can-sensors-analog-humidity) | Humidity CAN %s |
+| [didactum_can_sensors_analog_voltage](#check-didactum-can-sensors-analog-voltage) | Phase CAN %s |
+| [didactum_sensors_analog](#check-didactum-sensors-analog) | Temperature %s |
+| [didactum_sensors_analog_humidity](#check-didactum-sensors-analog-humidity) | Humidity %s |
+| [didactum_sensors_analog_voltage](#check-didactum-sensors-analog-voltage) | Phase %s |
+| [didactum_sensors_discrete](#check-didactum-sensors-discrete) | Discrete sensor %s |
+| [diskstat](#check-diskstat) | Disk IO %s |
+| [diskstat_io](#check-diskstat-io) | Disk IO %s |
+| [diskstat_io_director](#check-diskstat-io-director) | Disk IO Director %s |
+| [dmi_sysinfo](#check-dmi-sysinfo) | DMI Sysinfo |
+| [dmraid_ldisks](#check-dmraid-ldisks) | RAID LDisk %s |
+| [dmraid_pdisks](#check-dmraid-pdisks) | RAID PDisk %s |
+| [eltek_systemstatus](#check-eltek-systemstatus) | System Status |
+| [emc_datadomain_disks](#check-emc-datadomain-disks) | Hard Disk %s |
+| [emc_datadomain_fans](#check-emc-datadomain-fans) | FAN %s |
+| [emc_datadomain_power](#check-emc-datadomain-power) | Power Module %s |
+| [emc_datadomain_temps](#check-emc-datadomain-temps) | Temperature %s |
+| [emc_isilon_diskstatus](#check-emc-isilon-diskstatus) | Disk bay %s Status |
+| [emc_isilon_fans](#check-emc-isilon-fans) | Fan %s |
+| [emc_isilon_nodehealth](#check-emc-isilon-nodehealth) | Node Health |
+| [emc_isilon_power](#check-emc-isilon-power) | Voltage %s |
+| [emc_isilon_temp](#check-emc-isilon-temp) | Temperature %s |
+| [emc_isilon_temp_cpu](#check-emc-isilon-temp-cpu) | Temperature %s |
+| [emerson_stat](#check-emerson-stat) | Status |
+| [emerson_temp](#check-emerson-temp) | Temperature %s |
+| [emka_modules_handle](#check-emka-modules-handle) | Handle %s |
+| [emka_modules_relay](#check-emka-modules-relay) | Relay %s |
+| [emka_modules_sensor_temp](#check-emka-modules-sensor-temp) | Temperature %s |
+| [emka_modules_sensor_volt](#check-emka-modules-sensor-volt) | Phase %s |
+| [enterasys_fans](#check-enterasys-fans) | FAN %s |
+| [enterasys_powersupply](#check-enterasys-powersupply) | PSU %s |
+| [enterasys_temp](#check-enterasys-temp) | Temperature %s |
+| [entity_sensors_fan](#check-entity-sensors-fan) | Fan %s |
+| [entity_sensors_power_presence](#check-entity-sensors-power-presence) | Power %s |
+| [entity_sensors_temp](#check-entity-sensors-temp) | Temperature %s |
+| [enviromux](#check-enviromux) | Sensor %s |
+| [enviromux_all_external_voltage](#check-enviromux-all-external-voltage) | Sensor External %s |
+| [enviromux_aux_voltage](#check-enviromux-aux-voltage) | Sensor %s |
+| [enviromux_digital](#check-enviromux-digital) | Digital Sensor: %s |
+| [enviromux_micro_temperature](#check-enviromux-micro-temperature) | Sensor %s |
+| [enviromux_sems_digital](#check-enviromux-sems-digital) | Digital Sensor: %s |
+| [enviromux_sems_e2d](#check-enviromux-sems-e2d) | Sensor %s |
+| [enviromux_sems_e2d_digital](#check-enviromux-sems-e2d-digital) | Digital Sensor: %s |
+| [enviromux_sems_e2d_external](#check-enviromux-sems-e2d-external) | Sensor External %s |
+| [enviromux_sems_voltage](#check-enviromux-sems-voltage) | Sensor %s |
+| [enviromux_voltage](#check-enviromux-voltage) | Sensor %s |
+| [epson_beamer_lamp](#check-epson-beamer-lamp) | Beamer Lamp |
+| [etherbox2_temp](#check-etherbox2-temp) | Temperature %s |
+| [etherbox_nosensor](#check-etherbox-nosensor) | Sensor %s |
+| [etherbox_smoke](#check-etherbox-smoke) | Sensor %s |
+| [etherbox_switch](#check-etherbox-switch) | Sensor %s |
+| [etherbox_temp](#check-etherbox-temp) | Temperature %s |
+| [etherbox_voltage](#check-etherbox-voltage) | Sensor %s |
+| [extreme_vsp_switches_fan](#check-extreme-vsp-switches-fan) | VSP Switch Fan %s |
+| [extreme_vsp_switches_power_supply](#check-extreme-vsp-switches-power-supply) | VSP Switch Power Supply %s |
+| [extreme_vsp_switches_temperature](#check-extreme-vsp-switches-temperature) | VSP Switch %s Temperature |
+| [fjdarye_ca_ports](#check-fjdarye-ca-ports) | CA Port IO %s |
+| [fjdarye_ce_power_supply_units](#check-fjdarye-ce-power-supply-units) | CPSU %s |
+| [fjdarye_channel_modules](#check-fjdarye-channel-modules) | Controller Module %s |
+| [fjdarye_controller_enclosures](#check-fjdarye-controller-enclosures) | Controller Enclosure %s |
+| [fjdarye_controller_modules_flash](#check-fjdarye-controller-modules-flash) | Controller Module Flash %s |
+| [fjdarye_controller_modules_memory](#check-fjdarye-controller-modules-memory) | Controller Module Memory %s |
+| [fjdarye_device_enclosures](#check-fjdarye-device-enclosures) | Device Enclosure %s |
+| [fjdarye_disks](#check-fjdarye-disks) | Disk %s |
+| [fjdarye_disks_summary](#check-fjdarye-disks-summary) | Disk summary |
+| [fjdarye_expanders](#check-fjdarye-expanders) | Expander %s |
+| [fjdarye_inlet_thermal_sensors](#check-fjdarye-inlet-thermal-sensors) | Inlet Thermal %s |
+| [fjdarye_pcie_flash_modules](#check-fjdarye-pcie-flash-modules) | PCIe flash module %s |
+| [fjdarye_power_supply_units](#check-fjdarye-power-supply-units) | PSU %s |
+| [fjdarye_system_capacitors](#check-fjdarye-system-capacitors) | System Capacitor Unit %s |
+| [fjdarye_thermal_sensors](#check-fjdarye-thermal-sensors) | Thermal %s |
+| [fortigate_node_memory](#check-fortigate-node-memory) | Memory %s |
+| [fortigate_sensors](#check-fortigate-sensors) | Sensor Summary |
+| [fsc_ipmi_mem_status](#check-fsc-ipmi-mem-status) | IPMI Memory status %s |
+| [fsc_subsystems](#check-fsc-subsystems) | FSC %s |
+| [gude_relayport](#check-gude-relayport) | Relay port %s |
+| [gude_temp](#check-gude-temp) | Temperature %s |
+| [h3c_lanswitch_cpu](#check-h3c-lanswitch-cpu) | CPU Utilization %s |
+| [h3c_lanswitch_sensors](#check-h3c-lanswitch-sensors) | %s |
+| [hepta](#check-hepta) | HPF Info |
+| [hitachi_hnas_span](#check-hitachi-hnas-span) | Span %s |
+| [hitachi_hus_dkc](#check-hitachi-hus-dkc) | HUS DKC Chassis %s |
+| [hitachi_hus_dku](#check-hitachi-hus-dku) | HUS DKU Chassis %s |
+| [hp_blade](#check-hp-blade) | General Status |
+| [hp_blade_blades](#check-hp-blade-blades) | Blade %s |
+| [hp_blade_fan](#check-hp-blade-fan) | FAN %s |
+| [hp_blade_manager](#check-hp-blade-manager) | Manager %s |
+| [hp_blade_psu](#check-hp-blade-psu) | PSU %s |
+| [hp_eml_sum](#check-hp-eml-sum) | Summary Status |
+| [hp_fan](#check-hp-fan) | Fan %s |
+| [hp_hh3c_ext](#check-hp-hh3c-ext) | Temperature %s |
+| [hp_hh3c_ext_states](#check-hp-hh3c-ext-states) | Status %s |
+| [hp_hh3c_fan](#check-hp-hh3c-fan) | Fan %s |
+| [hp_hh3c_power](#check-hp-hh3c-power) | Power %s |
+| [hp_mcs_sensors](#check-hp-mcs-sensors) | Sensor %s |
+| [hp_mcs_sensors_fan](#check-hp-mcs-sensors-fan) | Sensor %s |
+| [hp_mcs_system](#check-hp-mcs-system) | %s |
+| [hp_msa_controller](#check-hp-msa-controller) | CPU Utilization %s |
+| [hp_msa_controller_io](#check-hp-msa-controller-io) | Controller IO %s |
+| [hp_msa_disk](#check-hp-msa-disk) | Disk Health %s |
+| [hp_msa_disk_io](#check-hp-msa-disk-io) | Disk IO %s |
+| [hp_msa_disk_temp](#check-hp-msa-disk-temp) | Temperature %s |
+| [hp_msa_fan](#check-hp-msa-fan) | Fan %s |
+| [hp_msa_psu](#check-hp-msa-psu) | Power Supply Health %s |
+| [hp_msa_psu_sensor](#check-hp-msa-psu-sensor) | Power Supply Voltage %s |
+| [hp_msa_psu_temp](#check-hp-msa-psu-temp) | Temperature Power Supply %s |
+| [hp_msa_system](#check-hp-msa-system) | System Health %s |
+| [hp_procurve_cpu](#check-hp-procurve-cpu) | CPU utilization |
+| [hp_procurve_sensors](#check-hp-procurve-sensors) | Sensor %s |
+| [hp_procurve_temp](#check-hp-procurve-temp) | Temperature %s |
+| [hp_proliant](#check-hp-proliant) | General Status |
+| [hp_proliant_cpu](#check-hp-proliant-cpu) | HW CPU %s |
+| [hp_proliant_da_cntlr](#check-hp-proliant-da-cntlr) | HW Controller %s |
+| [hp_proliant_da_phydrv](#check-hp-proliant-da-phydrv) | HW Phydrv %s |
+| [hp_proliant_fans](#check-hp-proliant-fans) | HW FAN%s |
+| [hp_proliant_mem](#check-hp-proliant-mem) | HW Mem %s |
+| [hp_proliant_power](#check-hp-proliant-power) | HW Power Meter |
+| [hp_proliant_psu](#check-hp-proliant-psu) | HW PSU %s |
+| [hp_proliant_raid](#check-hp-proliant-raid) | Logical Device %s |
+| [hp_proliant_temp](#check-hp-proliant-temp) | Temperature %s |
+| [hp_psu](#check-hp-psu) | Power Supply Status %s |
+| [hp_psu_temp](#check-hp-psu-temp) | Temperature Power Supply %s |
+| [hp_sts_drvbox](#check-hp-sts-drvbox) | Drive Box %s |
+| [hpux_fchba](#check-hpux-fchba) | FC HBA %s |
+| [huawei_osn_fan](#check-huawei-osn-fan) |  |
+| [huawei_osn_laser](#check-huawei-osn-laser) | Laser %s |
+| [huawei_osn_power](#check-huawei-osn-power) |  |
+| [huawei_osn_temp](#check-huawei-osn-temp) | Temperature %s |
+| [huawei_switch_fan](#check-huawei-switch-fan) | Fan %s |
+| [huawei_switch_psu](#check-huawei-switch-psu) | Powersupply %s |
+| [huawei_switch_temp](#check-huawei-switch-temp) | Temperature %s |
+| [huawei_wlc_aps_mem](#check-huawei-wlc-aps-mem) | AP %s Memory |
+| [huawei_wlc_aps_temp](#check-huawei-wlc-aps-temp) | AP %s Temperature |
+| [huawei_wlc_devs_cpu](#check-huawei-wlc-devs-cpu) | Device %s CPU |
+| [huawei_wlc_devs_mem](#check-huawei-wlc-devs-mem) | Device %s Memory |
+| [hwg_ste2](#check-hwg-ste2) | Temperature %s |
+| [hwg_ste2_humidity](#check-hwg-ste2-humidity) | Humidity %s |
+| [hwg_temp](#check-hwg-temp) | Temperature %s |
+| [ibm_imm_fan](#check-ibm-imm-fan) | Fan %s |
+| [ibm_imm_health](#check-ibm-imm-health) | System health |
+| [ibm_imm_temp](#check-ibm-imm-temp) | Temperature %s |
+| [ibm_imm_voltage](#check-ibm-imm-voltage) | Voltage %s |
+| [ibm_rsa_health](#check-ibm-rsa-health) | System health |
+| [ibm_storage_ts_drive](#check-ibm-storage-ts-drive) | Drive %s |
+| [ibm_storage_ts_library](#check-ibm-storage-ts-library) | Library %s |
+| [ibm_svc_array](#check-ibm-svc-array) | RAID Array %s |
+| [ibm_svc_disks](#check-ibm-svc-disks) | Disk Summary |
+| [ibm_svc_enclosure](#check-ibm-svc-enclosure) | Enclosure %s |
+| [ibm_svc_enclosurestats_power](#check-ibm-svc-enclosurestats-power) | Power Enclosure %s |
+| [ibm_svc_enclosurestats_temp](#check-ibm-svc-enclosurestats-temp) | Temperature Enclosure %s |
+| [ibm_svc_node](#check-ibm-svc-node) | IO Group %s |
+| [ibm_svc_nodestats_disk_latency](#check-ibm-svc-nodestats-disk-latency) | Disk Latency %s |
+| [ibm_svc_portsas](#check-ibm-svc-portsas) | SAS %s |
+| [ibm_svc_system](#check-ibm-svc-system) | Info |
+| [ibm_tl_changer_devices](#check-ibm-tl-changer-devices) | Changer device %s |
+| [ibm_tl_media_access_devices](#check-ibm-tl-media-access-devices) | Media access device %s |
+| [ibm_xraid_pdisks](#check-ibm-xraid-pdisks) | RAID PDisk %s |
+| [icom_repeater_pll_volt](#check-icom-repeater-pll-volt) | %s PLL Lock Voltage |
+| [icom_repeater_ps_volt](#check-icom-repeater-ps-volt) | Power Supply Voltage |
+| [icom_repeater_temp](#check-icom-repeater-temp) | Temperature %s |
+| [infoblox_temp](#check-infoblox-temp) | Temperature %s |
+| [ipr400_in_voltage](#check-ipr400-in-voltage) | IN Voltage %s |
+| [ipr400_temp](#check-ipr400-temp) | Temperature %s |
+| [janitza_umg_freq](#check-janitza-umg-freq) | Frequency %s |
+| [janitza_umg_temp](#check-janitza-umg-temp) | Temperature External %s |
+| [juniper_alarm](#check-juniper-alarm) | Chassis |
+| [juniper_fru](#check-juniper-fru) | Power Supply FRU %s |
+| [juniper_fru_fan](#check-juniper-fru-fan) | Fan FRU %s |
+| [juniper_mem](#check-juniper-mem) | Memory %s |
+| [juniper_screenos_fan](#check-juniper-screenos-fan) | FAN %s |
+| [juniper_screenos_temp](#check-juniper-screenos-temp) | Temperature %s |
+| [juniper_temp](#check-juniper-temp) | Temperature %s |
+| [juniper_trpz_flash](#check-juniper-trpz-flash) | Flash |
+| [juniper_trpz_power](#check-juniper-trpz-power) | PSU %s |
+| [kentix_amp_sensors](#check-kentix-amp-sensors) | Temperature %s |
+| [kentix_motion](#check-kentix-motion) | Motion Detector %s |
+| [kentix_temp](#check-kentix-temp) | Temperature %s |
+| [knuerr_rms_temp](#check-knuerr-rms-temp) | Temperature %s |
+| [knuerr_sensors](#check-knuerr-sensors) | Sensor %s |
+| [lgp_info](#check-lgp-info) | Liebert Info |
+| [liebert_bat_temp](#check-liebert-bat-temp) | Temperature %s |
+| [liebert_compressor](#check-liebert-compressor) | %s |
+| [liebert_fans](#check-liebert-fans) | %s |
+| [liebert_fans_condenser](#check-liebert-fans-condenser) | %s |
+| [liebert_system](#check-liebert-system) | Status %s |
+| [lnx_thermal](#check-lnx-thermal) | Temperature %s |
+| [lsi_array](#check-lsi-array) | RAID array %s |
+| [lsi_disk](#check-lsi-disk) | RAID disk %s |
+| [mbg_lantime_ng_refclock_gps](#check-mbg-lantime-ng-refclock-gps) | LANTIME Refclock %s |
+| [megaraid_bbu](#check-megaraid-bbu) | RAID BBU %s |
+| [megaraid_ldisks](#check-megaraid-ldisks) | RAID logical disk %s |
+| [megaraid_pdisks](#check-megaraid-pdisks) | RAID pysical disk %s |
+| [moxa_iologik_register](#check-moxa-iologik-register) | Moxa Register %s |
+| [nvidia_errors](#check-nvidia-errors) | NVIDIA GPU Errors |
+| [nvidia_smi_en_de_coder_util](#check-nvidia-smi-en-de-coder-util) | Nvidia GPU En-/Decoder utilization %s |
+| [nvidia_smi_gpu_util](#check-nvidia-smi-gpu-util) | Nvidia GPU utilization %s |
+| [nvidia_smi_memory_util](#check-nvidia-smi-memory-util) | Nvidia GPU Memory utilization %s |
+| [nvidia_smi_power](#check-nvidia-smi-power) | Nvidia GPU Power %s |
+| [nvidia_smi_temperature](#check-nvidia-smi-temperature) | Nvidia GPU Temperature %s |
+| [nvidia_temp](#check-nvidia-temp) | Temperature %s |
+| [nvidia_temp_core](#check-nvidia-temp-core) | Temperature %s |
+| [openbsd_sensors](#check-openbsd-sensors) | Temperature %s |
+| [openbsd_sensors_drive](#check-openbsd-sensors-drive) | Drive %s |
+| [openbsd_sensors_fan](#check-openbsd-sensors-fan) | Fan %s |
+| [openbsd_sensors_indicator](#check-openbsd-sensors-indicator) | Indicator %s |
+| [openbsd_sensors_powersupply](#check-openbsd-sensors-powersupply) | Powersupply %s |
+| [openbsd_sensors_voltage](#check-openbsd-sensors-voltage) | Voltage Type %s |
+| [openhardwaremonitor](#check-openhardwaremonitor) | Clock %s |
+| [openhardwaremonitor_fan](#check-openhardwaremonitor-fan) | Fan %s |
+| [openhardwaremonitor_power](#check-openhardwaremonitor-power) | Power %s |
+| [openhardwaremonitor_smart](#check-openhardwaremonitor-smart) | SMART %s Stats |
+| [openhardwaremonitor_temperature](#check-openhardwaremonitor-temperature) | Temperature %s |
+| [oracle_diva_csm_drive](#check-oracle-diva-csm-drive) | DIVA Status %s |
+| [orion_system](#check-orion-system) | Temperature %s |
+| [orion_system_charging](#check-orion-system-charging) | Charge %s |
+| [packeteer_fan_status](#check-packeteer-fan-status) | Fan Status %s |
+| [packeteer_ps_status](#check-packeteer-ps-status) | Power Supply Status |
+| [pandacom_10gm_temp](#check-pandacom-10gm-temp) | Temperature 10GM Module %s |
+| [pandacom_fan](#check-pandacom-fan) | Fan %s |
+| [pandacom_fc_temp](#check-pandacom-fc-temp) | Temperature FC Module %s |
+| [pandacom_psu](#check-pandacom-psu) | Power Supply %s |
+| [pandacom_sys_temp](#check-pandacom-sys-temp) | Temperature %s |
+| [papouch_th2e_sensors](#check-papouch-th2e-sensors) | Temperature %s |
+| [papouch_th2e_sensors_dewpoint](#check-papouch-th2e-sensors-dewpoint) | Dew point %s |
+| [papouch_th2e_sensors_humidity](#check-papouch-th2e-sensors-humidity) | Humidity %s |
+| [poseidon_temp](#check-poseidon-temp) | Temperatur: %s |
+| [primekey_cpu_temperature](#check-primekey-cpu-temperature) | Temperature PrimeKey %s |
+| [primekey_fan](#check-primekey-fan) | PrimeKey Fan %s |
+| [primekey_hsm_battery_voltage](#check-primekey-hsm-battery-voltage) | PrimeKey HSM Battery %s |
+| [pse_poe](#check-pse-poe) | POE%s consumption |
+| [pulse_secure_temp](#check-pulse-secure-temp) | Pulse Secure %s Temperature |
+| [qlogic_sanbox_psu](#check-qlogic-sanbox-psu) | PSU %s |
+| [qlogic_sanbox_temp](#check-qlogic-sanbox-temp) | Temperature Sensor %s |
+| [quanta_fan](#check-quanta-fan) | Fan %s |
+| [quanta_temperature](#check-quanta-temperature) | Temperature %s |
+| [quanta_voltage](#check-quanta-voltage) | Voltage %s |
+| [quantum_libsmall_door](#check-quantum-libsmall-door) | Tape library door |
+| [quantum_libsmall_status](#check-quantum-libsmall-status) | Tape library status |
+| [ra32e_sensors](#check-ra32e-sensors) | Temperature %s |
+| [ra32e_sensors_humidity](#check-ra32e-sensors-humidity) | Humidity %s |
+| [ra32e_sensors_power](#check-ra32e-sensors-power) | Power State %s |
+| [ra32e_sensors_voltage](#check-ra32e-sensors-voltage) | Voltage %s |
+| [ra3s_internal_temperature](#check-ra3s-internal-temperature) | Temperature %s |
+| [ra3s_sensors_humidity](#check-ra3s-sensors-humidity) | Humidity %s |
+| [ra3s_sensors_power](#check-ra3s-sensors-power) | Power State %s |
+| [ra3s_sensors_voltage](#check-ra3s-sensors-voltage) | Voltage %s |
+| [raritan_px2_residual_current](#check-raritan-px2-residual-current) | Residual Current %s |
+| [rms200_temp](#check-rms200-temp) | Temperature %s |
+| [rstcli](#check-rstcli) | RAID Volume %s |
+| [rstcli_pdisks](#check-rstcli-pdisks) | RAID Disk %s |
+| [safenet_hsm](#check-safenet-hsm) | HSM Operation Stats |
+| [security_master_temp](#check-security-master-temp) | Sensor %s |
+| [seh_ports](#check-seh-ports) | Port %s |
+| [sensatronics_temp](#check-sensatronics-temp) | Temperature %s |
+| [siemens_plc_temp](#check-siemens-plc-temp) | Temperature %s |
+| [smart_ata_stats](#check-smart-ata-stats) | SMART %s Stats |
+| [smart_ata_temp](#check-smart-ata-temp) | Temperature SMART %s |
+| [smart_nvme_stats](#check-smart-nvme-stats) | SMART %s Stats |
+| [smart_nvme_temp](#check-smart-nvme-temp) | Temperature SMART %s |
+| [smart_scsi_temp](#check-smart-scsi-temp) | Temperature SMART %s |
+| [solaris_prtdiag_status](#check-solaris-prtdiag-status) | Hardware Overall State |
+| [storcli_pdisks](#check-storcli-pdisks) | RAID PDisk EID:Slot-Device %s |
+| [storcli_vdrives](#check-storcli-vdrives) | RAID Virtual Drive %s |
+| [storeonce4x_appliances](#check-storeonce4x-appliances) | Appliance %s Status |
+| [stormshield_cpu_temp](#check-stormshield-cpu-temp) | CPU Temp %s |
+| [strem1_sensors](#check-strem1-sensors) | Sensor - %s |
+| [supermicro](#check-supermicro) | Overall Hardware Health |
+| [supermicro_sensors](#check-supermicro-sensors) | Sensor %s |
+| [supermicro_smart](#check-supermicro-smart) | SMART Health %s |
+| [superstack3_sensors](#check-superstack3-sensors) | %s |
+| [synology_fans](#check-synology-fans) | Fan %s |
+| [synology_raid](#check-synology-raid) | Raid %s |
+| [synology_status](#check-synology-status) | Status |
+| [teracom_tcw241_analog](#check-teracom-tcw241-analog) | Analog Sensor %s |
+| [teracom_tcw241_digital](#check-teracom-tcw241-digital) | Digital Sensor %s |
+| [ucd_diskio](#check-ucd-diskio) | Disk IO %s |
+| [viprinet_firmware](#check-viprinet-firmware) | Firmware Version |
+| [vxvm_enclosures](#check-vxvm-enclosures) | Enclosure %s |
+| [wagner_titanus_topsense_chamber_deviation](#check-wagner-titanus-topsense-chamber-deviation) | Chamber Deviation Detector %s |
+| [wagner_titanus_topsense_temp](#check-wagner-titanus-topsense-temp) | Temperature %s |
+| [watchdog_sensors](#check-watchdog-sensors) | %s |
+| [watchdog_sensors_dew](#check-watchdog-sensors-dew) | %s |
+| [watchdog_sensors_humidity](#check-watchdog-sensors-humidity) | %s |
+| [watchdog_sensors_temp](#check-watchdog-sensors-temp) | %s |
+| [winperf_phydisk](#check-winperf-phydisk) | Disk IO %s |
+| [wut_webio](#check-wut-webio) | Check plug-in for W&T WebIO device |
+| [wut_webtherm](#check-wut-webtherm) | Temperature %s |
+| [zebra_printer_status](#check-zebra-printer-status) | Zebra Printer Status |
 
 ### 3ware_disks
 
@@ -679,6 +1517,12 @@ None.
 #### Metrics
 - `humidity` — humidity percentage (%) measured by the sensor.
 
+### akcp_sensor_temp
+
+<a id="check-akcp-sensor-temp"></a>
+
+*Temperature %s*
+
 ### alcatel_cpu
 
 <a id="check-alcatel-cpu"></a>
@@ -898,6 +1742,12 @@ None.
 
 #### Metrics
 - `temp` — current temperature reading for the board, in °C.
+
+### alcatel_timetra_chassis
+
+<a id="check-alcatel-timetra-chassis"></a>
+
+*Device %s*
 
 ### alcatel_timetra_cpu
 
@@ -1122,6 +1972,12 @@ None.
 
 #### Metrics
 - `fan_perc` — fan speed as a percentage (float, unit: %).
+
+### apc_mod_pdu_modules
+
+<a id="check-apc-mod-pdu-modules"></a>
+
+*Module %s*
 
 ### apc_netbotz_other_sensors
 
@@ -1584,6 +2440,12 @@ None.
 
 #### Metrics
 - `util` — CPU utilization percentage (%)
+
+### arris_cmts_mem
+
+<a id="check-arris-cmts-mem"></a>
+
+*Memory Module %s*
 
 ### arris_cmts_temp
 
@@ -2851,6 +3713,18 @@ None.
 #### Metrics
 - `value` — numeric sensor reading (unit depends on sensor type, e.g., %, °C).
 
+### bluecoat_sensors
+
+<a id="check-bluecoat-sensors"></a>
+
+*%s*
+
+### bluecoat_sensors_temp
+
+<a id="check-bluecoat-sensors-temp"></a>
+
+*Temperature %s*
+
 ### bluenet2_powerrail
 
 <a id="check-bluenet2-powerrail"></a>
@@ -3125,6 +3999,12 @@ None.
 #### Metrics
 None.
 
+### brocade_mlx_module_cpu
+
+<a id="check-brocade-mlx-module-cpu"></a>
+
+*CPU utilization Module %s*
+
 ### brocade_mlx_module_mem
 
 <a id="check-brocade-mlx-module-mem"></a>
@@ -3238,6 +4118,12 @@ None.
 #### Metrics
 - `temp` — Current temperature in degrees Celsius (°C).
 
+### brocade_optical
+
+<a id="check-brocade-optical"></a>
+
+*Interface %s Optical*
+
 ### brocade_power
 
 <a id="check-brocade-power"></a>
@@ -3265,6 +4151,18 @@ None.
 
 #### Metrics
 None.
+
+### brocade_sfp
+
+<a id="check-brocade-sfp"></a>
+
+*SFP %s*
+
+### brocade_sfp_temp
+
+<a id="check-brocade-sfp-temp"></a>
+
+*SFP Temperature %s*
 
 ### brocade_sys
 
@@ -3376,6 +4274,12 @@ None.
 
 #### Metrics
 None.
+
+### bvip_fans
+
+<a id="check-bvip-fans"></a>
+
+*Fan %s*
 
 ### bvip_info
 
@@ -3552,6 +4456,12 @@ None.
 - `pages_a4` — A4 pages (pages)
 - `pages_a3` — A3 pages (pages)
 - `pages_color_a4`, `pages_bw_a4`, `pages_color_a3`, `pages_bw_a3` — respective combinations (pages)
+
+### carel_sensors
+
+<a id="check-carel-sensors"></a>
+
+*Temperature %s*
 
 ### casa_fan
 
@@ -4059,6 +4969,18 @@ None.
 #### Metrics
 None.
 
+### cisco_meraki_org_sensor_temperature
+
+<a id="check-cisco-meraki-org-sensor-temperature"></a>
+
+*Cisco Meraki Temperature %s*
+
+### cisco_power
+
+<a id="check-cisco-power"></a>
+
+*Power %s*
+
 ### cisco_sma_cpu_utilization
 
 <a id="check-cisco-sma-cpu-utilization"></a>
@@ -4086,6 +5008,12 @@ None.
 #### Metrics
 - `util` — CPU utilization percentage (unit: percent)
 
+### cisco_sma_resource_conservation
+
+<a id="check-cisco-sma-resource-conservation"></a>
+
+*Resource conservation*
+
 ### cisco_temp
 
 <a id="check-cisco-temp"></a>
@@ -4112,6 +5040,12 @@ None.
 
 #### Metrics
 None.
+
+### cisco_temperature
+
+<a id="check-cisco-temperature"></a>
+
+*Temperature %s*
 
 ### cisco_ucs_cpu
 
@@ -4197,6 +5131,18 @@ None.
 
 #### Metrics
 None.
+
+### cisco_ucs_hdd
+
+<a id="check-cisco-ucs-hdd"></a>
+
+*HDD %s*
+
+### cisco_ucs_mem
+
+<a id="check-cisco-ucs-mem"></a>
+
+*Memory %s*
 
 ### cisco_ucs_mem_total
 
@@ -4394,6 +5340,30 @@ None.
 #### Metrics
 - `temp` — memory temperature in °C
 
+### climaveneta_fan
+
+<a id="check-climaveneta-fan"></a>
+
+*Fan %s*
+
+### climaveneta_temp
+
+<a id="check-climaveneta-temp"></a>
+
+*Temperature %s*
+
+### cmc_temp
+
+<a id="check-cmc-temp"></a>
+
+*Temperature Sensor %s*
+
+### cmciii_can_current
+
+<a id="check-cmciii-can-current"></a>
+
+*%s*
+
 ### cmciii_io
 
 <a id="check-cmciii-io"></a>
@@ -4478,6 +5448,18 @@ None.
 
 #### Metrics
 - `flow` — current water flow rate, unit: typically L/min or similar (as reported by agent, scaled by factor 1/10 in display)
+
+### cmciii_phase
+
+<a id="check-cmciii-phase"></a>
+
+*Input %s*
+
+### cmciii_psm_current
+
+<a id="check-cmciii-psm-current"></a>
+
+*Current %s*
 
 ### cmciii_temp
 
@@ -4680,6 +5662,1784 @@ None.
 #### Metrics
 - `kW`, `hz`, `V`, or `A` — the sensor’s unit and scaled reading (e.g., `230.5` for `V`). Units are emitted as metric keys only if known; otherwise, no metric is produced.
 
+### cmctc_temp
+
+<a id="check-cmctc-temp"></a>
+
+*Temperature %s*
+
+### datapower_fan
+
+<a id="check-datapower-fan"></a>
+
+*Fan %s*
+
+### datapower_pdrive
+
+<a id="check-datapower-pdrive"></a>
+
+*Physical Drive %s*
+
+### datapower_raid_bat
+
+<a id="check-datapower-raid-bat"></a>
+
+*Raid Battery %s*
+
+### datapower_temp
+
+<a id="check-datapower-temp"></a>
+
+*Temperature %s*
+
+### decru_fans
+
+<a id="check-decru-fans"></a>
+
+*FAN %s*
+
+### decru_power
+
+<a id="check-decru-power"></a>
+
+*POWER %s*
+
+### decru_temps
+
+<a id="check-decru-temps"></a>
+
+*Temperature %s*
+
+### didactum_can_sensors_analog
+
+<a id="check-didactum-can-sensors-analog"></a>
+
+*Temperature CAN %s*
+
+### didactum_can_sensors_analog_humidity
+
+<a id="check-didactum-can-sensors-analog-humidity"></a>
+
+*Humidity CAN %s*
+
+### didactum_can_sensors_analog_voltage
+
+<a id="check-didactum-can-sensors-analog-voltage"></a>
+
+*Phase CAN %s*
+
+### didactum_sensors_analog
+
+<a id="check-didactum-sensors-analog"></a>
+
+*Temperature %s*
+
+### didactum_sensors_analog_humidity
+
+<a id="check-didactum-sensors-analog-humidity"></a>
+
+*Humidity %s*
+
+### didactum_sensors_analog_voltage
+
+<a id="check-didactum-sensors-analog-voltage"></a>
+
+*Phase %s*
+
+### didactum_sensors_discrete
+
+<a id="check-didactum-sensors-discrete"></a>
+
+*Discrete sensor %s*
+
+### diskstat
+
+<a id="check-diskstat"></a>
+
+*Disk IO %s*
+
+### diskstat_io
+
+<a id="check-diskstat-io"></a>
+
+*Disk IO %s*
+
+### diskstat_io_director
+
+<a id="check-diskstat-io-director"></a>
+
+*Disk IO Director %s*
+
+### dmi_sysinfo
+
+<a id="check-dmi-sysinfo"></a>
+
+*DMI Sysinfo*
+
+### dmraid_ldisks
+
+<a id="check-dmraid-ldisks"></a>
+
+*RAID LDisk %s*
+
+### dmraid_pdisks
+
+<a id="check-dmraid-pdisks"></a>
+
+*RAID PDisk %s*
+
+### eltek_systemstatus
+
+<a id="check-eltek-systemstatus"></a>
+
+*System Status*
+
+### emc_datadomain_disks
+
+<a id="check-emc-datadomain-disks"></a>
+
+*Hard Disk %s*
+
+### emc_datadomain_fans
+
+<a id="check-emc-datadomain-fans"></a>
+
+*FAN %s*
+
+### emc_datadomain_power
+
+<a id="check-emc-datadomain-power"></a>
+
+*Power Module %s*
+
+### emc_datadomain_temps
+
+<a id="check-emc-datadomain-temps"></a>
+
+*Temperature %s*
+
+### emc_isilon_diskstatus
+
+<a id="check-emc-isilon-diskstatus"></a>
+
+*Disk bay %s Status*
+
+### emc_isilon_fans
+
+<a id="check-emc-isilon-fans"></a>
+
+*Fan %s*
+
+### emc_isilon_nodehealth
+
+<a id="check-emc-isilon-nodehealth"></a>
+
+*Node Health*
+
+### emc_isilon_power
+
+<a id="check-emc-isilon-power"></a>
+
+*Voltage %s*
+
+### emc_isilon_temp
+
+<a id="check-emc-isilon-temp"></a>
+
+*Temperature %s*
+
+### emc_isilon_temp_cpu
+
+<a id="check-emc-isilon-temp-cpu"></a>
+
+*Temperature %s*
+
+### emerson_stat
+
+<a id="check-emerson-stat"></a>
+
+*Status*
+
+### emerson_temp
+
+<a id="check-emerson-temp"></a>
+
+*Temperature %s*
+
+### emka_modules_handle
+
+<a id="check-emka-modules-handle"></a>
+
+*Handle %s*
+
+### emka_modules_relay
+
+<a id="check-emka-modules-relay"></a>
+
+*Relay %s*
+
+### emka_modules_sensor_temp
+
+<a id="check-emka-modules-sensor-temp"></a>
+
+*Temperature %s*
+
+### emka_modules_sensor_volt
+
+<a id="check-emka-modules-sensor-volt"></a>
+
+*Phase %s*
+
+### enterasys_fans
+
+<a id="check-enterasys-fans"></a>
+
+*FAN %s*
+
+### enterasys_powersupply
+
+<a id="check-enterasys-powersupply"></a>
+
+*PSU %s*
+
+### enterasys_temp
+
+<a id="check-enterasys-temp"></a>
+
+*Temperature %s*
+
+### entity_sensors_fan
+
+<a id="check-entity-sensors-fan"></a>
+
+*Fan %s*
+
+### entity_sensors_power_presence
+
+<a id="check-entity-sensors-power-presence"></a>
+
+*Power %s*
+
+### entity_sensors_temp
+
+<a id="check-entity-sensors-temp"></a>
+
+*Temperature %s*
+
+### enviromux
+
+<a id="check-enviromux"></a>
+
+*Sensor %s*
+
+### enviromux_all_external_voltage
+
+<a id="check-enviromux-all-external-voltage"></a>
+
+*Sensor External %s*
+
+### enviromux_aux_voltage
+
+<a id="check-enviromux-aux-voltage"></a>
+
+*Sensor %s*
+
+### enviromux_digital
+
+<a id="check-enviromux-digital"></a>
+
+*Digital Sensor: %s*
+
+### enviromux_micro_temperature
+
+<a id="check-enviromux-micro-temperature"></a>
+
+*Sensor %s*
+
+### enviromux_sems_digital
+
+<a id="check-enviromux-sems-digital"></a>
+
+*Digital Sensor: %s*
+
+### enviromux_sems_e2d
+
+<a id="check-enviromux-sems-e2d"></a>
+
+*Sensor %s*
+
+### enviromux_sems_e2d_digital
+
+<a id="check-enviromux-sems-e2d-digital"></a>
+
+*Digital Sensor: %s*
+
+### enviromux_sems_e2d_external
+
+<a id="check-enviromux-sems-e2d-external"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_voltage
+
+<a id="check-enviromux-sems-voltage"></a>
+
+*Sensor %s*
+
+### enviromux_voltage
+
+<a id="check-enviromux-voltage"></a>
+
+*Sensor %s*
+
+### epson_beamer_lamp
+
+<a id="check-epson-beamer-lamp"></a>
+
+*Beamer Lamp*
+
+### etherbox2_temp
+
+<a id="check-etherbox2-temp"></a>
+
+*Temperature %s*
+
+### etherbox_nosensor
+
+<a id="check-etherbox-nosensor"></a>
+
+*Sensor %s*
+
+### etherbox_smoke
+
+<a id="check-etherbox-smoke"></a>
+
+*Sensor %s*
+
+### etherbox_switch
+
+<a id="check-etherbox-switch"></a>
+
+*Sensor %s*
+
+### etherbox_temp
+
+<a id="check-etherbox-temp"></a>
+
+*Temperature %s*
+
+### etherbox_voltage
+
+<a id="check-etherbox-voltage"></a>
+
+*Sensor %s*
+
+### extreme_vsp_switches_fan
+
+<a id="check-extreme-vsp-switches-fan"></a>
+
+*VSP Switch Fan %s*
+
+### extreme_vsp_switches_power_supply
+
+<a id="check-extreme-vsp-switches-power-supply"></a>
+
+*VSP Switch Power Supply %s*
+
+### extreme_vsp_switches_temperature
+
+<a id="check-extreme-vsp-switches-temperature"></a>
+
+*VSP Switch %s Temperature*
+
+### fjdarye_ca_ports
+
+<a id="check-fjdarye-ca-ports"></a>
+
+*CA Port IO %s*
+
+### fjdarye_ce_power_supply_units
+
+<a id="check-fjdarye-ce-power-supply-units"></a>
+
+*CPSU %s*
+
+### fjdarye_channel_modules
+
+<a id="check-fjdarye-channel-modules"></a>
+
+*Controller Module %s*
+
+### fjdarye_controller_enclosures
+
+<a id="check-fjdarye-controller-enclosures"></a>
+
+*Controller Enclosure %s*
+
+### fjdarye_controller_modules_flash
+
+<a id="check-fjdarye-controller-modules-flash"></a>
+
+*Controller Module Flash %s*
+
+### fjdarye_controller_modules_memory
+
+<a id="check-fjdarye-controller-modules-memory"></a>
+
+*Controller Module Memory %s*
+
+### fjdarye_device_enclosures
+
+<a id="check-fjdarye-device-enclosures"></a>
+
+*Device Enclosure %s*
+
+### fjdarye_disks
+
+<a id="check-fjdarye-disks"></a>
+
+*Disk %s*
+
+### fjdarye_disks_summary
+
+<a id="check-fjdarye-disks-summary"></a>
+
+*Disk summary*
+
+### fjdarye_expanders
+
+<a id="check-fjdarye-expanders"></a>
+
+*Expander %s*
+
+### fjdarye_inlet_thermal_sensors
+
+<a id="check-fjdarye-inlet-thermal-sensors"></a>
+
+*Inlet Thermal %s*
+
+### fjdarye_pcie_flash_modules
+
+<a id="check-fjdarye-pcie-flash-modules"></a>
+
+*PCIe flash module %s*
+
+### fjdarye_power_supply_units
+
+<a id="check-fjdarye-power-supply-units"></a>
+
+*PSU %s*
+
+### fjdarye_system_capacitors
+
+<a id="check-fjdarye-system-capacitors"></a>
+
+*System Capacitor Unit %s*
+
+### fjdarye_thermal_sensors
+
+<a id="check-fjdarye-thermal-sensors"></a>
+
+*Thermal %s*
+
+### fortigate_node_memory
+
+<a id="check-fortigate-node-memory"></a>
+
+*Memory %s*
+
+### fortigate_sensors
+
+<a id="check-fortigate-sensors"></a>
+
+*Sensor Summary*
+
+### fsc_ipmi_mem_status
+
+<a id="check-fsc-ipmi-mem-status"></a>
+
+*IPMI Memory status %s*
+
+### fsc_subsystems
+
+<a id="check-fsc-subsystems"></a>
+
+*FSC %s*
+
+### gude_relayport
+
+<a id="check-gude-relayport"></a>
+
+*Relay port %s*
+
+### gude_temp
+
+<a id="check-gude-temp"></a>
+
+*Temperature %s*
+
+### h3c_lanswitch_cpu
+
+<a id="check-h3c-lanswitch-cpu"></a>
+
+*CPU Utilization %s*
+
+### h3c_lanswitch_sensors
+
+<a id="check-h3c-lanswitch-sensors"></a>
+
+*%s*
+
+### hepta
+
+<a id="check-hepta"></a>
+
+*HPF Info*
+
+### hitachi_hnas_span
+
+<a id="check-hitachi-hnas-span"></a>
+
+*Span %s*
+
+### hitachi_hus_dkc
+
+<a id="check-hitachi-hus-dkc"></a>
+
+*HUS DKC Chassis %s*
+
+### hitachi_hus_dku
+
+<a id="check-hitachi-hus-dku"></a>
+
+*HUS DKU Chassis %s*
+
+### hp_blade
+
+<a id="check-hp-blade"></a>
+
+*General Status*
+
+### hp_blade_blades
+
+<a id="check-hp-blade-blades"></a>
+
+*Blade %s*
+
+### hp_blade_fan
+
+<a id="check-hp-blade-fan"></a>
+
+*FAN %s*
+
+### hp_blade_manager
+
+<a id="check-hp-blade-manager"></a>
+
+*Manager %s*
+
+### hp_blade_psu
+
+<a id="check-hp-blade-psu"></a>
+
+*PSU %s*
+
+### hp_eml_sum
+
+<a id="check-hp-eml-sum"></a>
+
+*Summary Status*
+
+### hp_fan
+
+<a id="check-hp-fan"></a>
+
+*Fan %s*
+
+### hp_hh3c_ext
+
+<a id="check-hp-hh3c-ext"></a>
+
+*Temperature %s*
+
+### hp_hh3c_ext_states
+
+<a id="check-hp-hh3c-ext-states"></a>
+
+*Status %s*
+
+### hp_hh3c_fan
+
+<a id="check-hp-hh3c-fan"></a>
+
+*Fan %s*
+
+### hp_hh3c_power
+
+<a id="check-hp-hh3c-power"></a>
+
+*Power %s*
+
+### hp_mcs_sensors
+
+<a id="check-hp-mcs-sensors"></a>
+
+*Sensor %s*
+
+### hp_mcs_sensors_fan
+
+<a id="check-hp-mcs-sensors-fan"></a>
+
+*Sensor %s*
+
+### hp_mcs_system
+
+<a id="check-hp-mcs-system"></a>
+
+*%s*
+
+### hp_msa_controller
+
+<a id="check-hp-msa-controller"></a>
+
+*CPU Utilization %s*
+
+### hp_msa_controller_io
+
+<a id="check-hp-msa-controller-io"></a>
+
+*Controller IO %s*
+
+### hp_msa_disk
+
+<a id="check-hp-msa-disk"></a>
+
+*Disk Health %s*
+
+### hp_msa_disk_io
+
+<a id="check-hp-msa-disk-io"></a>
+
+*Disk IO %s*
+
+### hp_msa_disk_temp
+
+<a id="check-hp-msa-disk-temp"></a>
+
+*Temperature %s*
+
+### hp_msa_fan
+
+<a id="check-hp-msa-fan"></a>
+
+*Fan %s*
+
+### hp_msa_psu
+
+<a id="check-hp-msa-psu"></a>
+
+*Power Supply Health %s*
+
+### hp_msa_psu_sensor
+
+<a id="check-hp-msa-psu-sensor"></a>
+
+*Power Supply Voltage %s*
+
+### hp_msa_psu_temp
+
+<a id="check-hp-msa-psu-temp"></a>
+
+*Temperature Power Supply %s*
+
+### hp_msa_system
+
+<a id="check-hp-msa-system"></a>
+
+*System Health %s*
+
+### hp_procurve_cpu
+
+<a id="check-hp-procurve-cpu"></a>
+
+*CPU utilization*
+
+### hp_procurve_sensors
+
+<a id="check-hp-procurve-sensors"></a>
+
+*Sensor %s*
+
+### hp_procurve_temp
+
+<a id="check-hp-procurve-temp"></a>
+
+*Temperature %s*
+
+### hp_proliant
+
+<a id="check-hp-proliant"></a>
+
+*General Status*
+
+### hp_proliant_cpu
+
+<a id="check-hp-proliant-cpu"></a>
+
+*HW CPU %s*
+
+### hp_proliant_da_cntlr
+
+<a id="check-hp-proliant-da-cntlr"></a>
+
+*HW Controller %s*
+
+### hp_proliant_da_phydrv
+
+<a id="check-hp-proliant-da-phydrv"></a>
+
+*HW Phydrv %s*
+
+### hp_proliant_fans
+
+<a id="check-hp-proliant-fans"></a>
+
+*HW FAN%s*
+
+### hp_proliant_mem
+
+<a id="check-hp-proliant-mem"></a>
+
+*HW Mem %s*
+
+### hp_proliant_power
+
+<a id="check-hp-proliant-power"></a>
+
+*HW Power Meter*
+
+### hp_proliant_psu
+
+<a id="check-hp-proliant-psu"></a>
+
+*HW PSU %s*
+
+### hp_proliant_raid
+
+<a id="check-hp-proliant-raid"></a>
+
+*Logical Device %s*
+
+### hp_proliant_temp
+
+<a id="check-hp-proliant-temp"></a>
+
+*Temperature %s*
+
+### hp_psu
+
+<a id="check-hp-psu"></a>
+
+*Power Supply Status %s*
+
+### hp_psu_temp
+
+<a id="check-hp-psu-temp"></a>
+
+*Temperature Power Supply %s*
+
+### hp_sts_drvbox
+
+<a id="check-hp-sts-drvbox"></a>
+
+*Drive Box %s*
+
+### hpux_fchba
+
+<a id="check-hpux-fchba"></a>
+
+*FC HBA %s*
+
+### huawei_osn_fan
+
+<a id="check-huawei-osn-fan"></a>
+
+### huawei_osn_laser
+
+<a id="check-huawei-osn-laser"></a>
+
+*Laser %s*
+
+### huawei_osn_power
+
+<a id="check-huawei-osn-power"></a>
+
+### huawei_osn_temp
+
+<a id="check-huawei-osn-temp"></a>
+
+*Temperature %s*
+
+### huawei_switch_fan
+
+<a id="check-huawei-switch-fan"></a>
+
+*Fan %s*
+
+### huawei_switch_psu
+
+<a id="check-huawei-switch-psu"></a>
+
+*Powersupply %s*
+
+### huawei_switch_temp
+
+<a id="check-huawei-switch-temp"></a>
+
+*Temperature %s*
+
+### huawei_wlc_aps_mem
+
+<a id="check-huawei-wlc-aps-mem"></a>
+
+*AP %s Memory*
+
+### huawei_wlc_aps_temp
+
+<a id="check-huawei-wlc-aps-temp"></a>
+
+*AP %s Temperature*
+
+### huawei_wlc_devs_cpu
+
+<a id="check-huawei-wlc-devs-cpu"></a>
+
+*Device %s CPU*
+
+### huawei_wlc_devs_mem
+
+<a id="check-huawei-wlc-devs-mem"></a>
+
+*Device %s Memory*
+
+### hwg_ste2
+
+<a id="check-hwg-ste2"></a>
+
+*Temperature %s*
+
+### hwg_ste2_humidity
+
+<a id="check-hwg-ste2-humidity"></a>
+
+*Humidity %s*
+
+### hwg_temp
+
+<a id="check-hwg-temp"></a>
+
+*Temperature %s*
+
+### ibm_imm_fan
+
+<a id="check-ibm-imm-fan"></a>
+
+*Fan %s*
+
+### ibm_imm_health
+
+<a id="check-ibm-imm-health"></a>
+
+*System health*
+
+### ibm_imm_temp
+
+<a id="check-ibm-imm-temp"></a>
+
+*Temperature %s*
+
+### ibm_imm_voltage
+
+<a id="check-ibm-imm-voltage"></a>
+
+*Voltage %s*
+
+### ibm_rsa_health
+
+<a id="check-ibm-rsa-health"></a>
+
+*System health*
+
+### ibm_storage_ts_drive
+
+<a id="check-ibm-storage-ts-drive"></a>
+
+*Drive %s*
+
+### ibm_storage_ts_library
+
+<a id="check-ibm-storage-ts-library"></a>
+
+*Library %s*
+
+### ibm_svc_array
+
+<a id="check-ibm-svc-array"></a>
+
+*RAID Array %s*
+
+### ibm_svc_disks
+
+<a id="check-ibm-svc-disks"></a>
+
+*Disk Summary*
+
+### ibm_svc_enclosure
+
+<a id="check-ibm-svc-enclosure"></a>
+
+*Enclosure %s*
+
+### ibm_svc_enclosurestats_power
+
+<a id="check-ibm-svc-enclosurestats-power"></a>
+
+*Power Enclosure %s*
+
+### ibm_svc_enclosurestats_temp
+
+<a id="check-ibm-svc-enclosurestats-temp"></a>
+
+*Temperature Enclosure %s*
+
+### ibm_svc_node
+
+<a id="check-ibm-svc-node"></a>
+
+*IO Group %s*
+
+### ibm_svc_nodestats_disk_latency
+
+<a id="check-ibm-svc-nodestats-disk-latency"></a>
+
+*Disk Latency %s*
+
+### ibm_svc_portsas
+
+<a id="check-ibm-svc-portsas"></a>
+
+*SAS %s*
+
+### ibm_svc_system
+
+<a id="check-ibm-svc-system"></a>
+
+*Info*
+
+### ibm_tl_changer_devices
+
+<a id="check-ibm-tl-changer-devices"></a>
+
+*Changer device %s*
+
+### ibm_tl_media_access_devices
+
+<a id="check-ibm-tl-media-access-devices"></a>
+
+*Media access device %s*
+
+### ibm_xraid_pdisks
+
+<a id="check-ibm-xraid-pdisks"></a>
+
+*RAID PDisk %s*
+
+### icom_repeater_pll_volt
+
+<a id="check-icom-repeater-pll-volt"></a>
+
+*%s PLL Lock Voltage*
+
+### icom_repeater_ps_volt
+
+<a id="check-icom-repeater-ps-volt"></a>
+
+*Power Supply Voltage*
+
+### icom_repeater_temp
+
+<a id="check-icom-repeater-temp"></a>
+
+*Temperature %s*
+
+### infoblox_temp
+
+<a id="check-infoblox-temp"></a>
+
+*Temperature %s*
+
+### ipr400_in_voltage
+
+<a id="check-ipr400-in-voltage"></a>
+
+*IN Voltage %s*
+
+### ipr400_temp
+
+<a id="check-ipr400-temp"></a>
+
+*Temperature %s*
+
+### janitza_umg_freq
+
+<a id="check-janitza-umg-freq"></a>
+
+*Frequency %s*
+
+### janitza_umg_temp
+
+<a id="check-janitza-umg-temp"></a>
+
+*Temperature External %s*
+
+### juniper_alarm
+
+<a id="check-juniper-alarm"></a>
+
+*Chassis*
+
+### juniper_fru
+
+<a id="check-juniper-fru"></a>
+
+*Power Supply FRU %s*
+
+### juniper_fru_fan
+
+<a id="check-juniper-fru-fan"></a>
+
+*Fan FRU %s*
+
+### juniper_mem
+
+<a id="check-juniper-mem"></a>
+
+*Memory %s*
+
+### juniper_screenos_fan
+
+<a id="check-juniper-screenos-fan"></a>
+
+*FAN %s*
+
+### juniper_screenos_temp
+
+<a id="check-juniper-screenos-temp"></a>
+
+*Temperature %s*
+
+### juniper_temp
+
+<a id="check-juniper-temp"></a>
+
+*Temperature %s*
+
+### juniper_trpz_flash
+
+<a id="check-juniper-trpz-flash"></a>
+
+*Flash*
+
+### juniper_trpz_power
+
+<a id="check-juniper-trpz-power"></a>
+
+*PSU %s*
+
+### kentix_amp_sensors
+
+<a id="check-kentix-amp-sensors"></a>
+
+*Temperature %s*
+
+### kentix_motion
+
+<a id="check-kentix-motion"></a>
+
+*Motion Detector %s*
+
+### kentix_temp
+
+<a id="check-kentix-temp"></a>
+
+*Temperature %s*
+
+### knuerr_rms_temp
+
+<a id="check-knuerr-rms-temp"></a>
+
+*Temperature %s*
+
+### knuerr_sensors
+
+<a id="check-knuerr-sensors"></a>
+
+*Sensor %s*
+
+### lgp_info
+
+<a id="check-lgp-info"></a>
+
+*Liebert Info*
+
+### liebert_bat_temp
+
+<a id="check-liebert-bat-temp"></a>
+
+*Temperature %s*
+
+### liebert_compressor
+
+<a id="check-liebert-compressor"></a>
+
+*%s*
+
+### liebert_fans
+
+<a id="check-liebert-fans"></a>
+
+*%s*
+
+### liebert_fans_condenser
+
+<a id="check-liebert-fans-condenser"></a>
+
+*%s*
+
+### liebert_system
+
+<a id="check-liebert-system"></a>
+
+*Status %s*
+
+### lnx_thermal
+
+<a id="check-lnx-thermal"></a>
+
+*Temperature %s*
+
+### lsi_array
+
+<a id="check-lsi-array"></a>
+
+*RAID array %s*
+
+### lsi_disk
+
+<a id="check-lsi-disk"></a>
+
+*RAID disk %s*
+
+### mbg_lantime_ng_refclock_gps
+
+<a id="check-mbg-lantime-ng-refclock-gps"></a>
+
+*LANTIME Refclock %s*
+
+### megaraid_bbu
+
+<a id="check-megaraid-bbu"></a>
+
+*RAID BBU %s*
+
+### megaraid_ldisks
+
+<a id="check-megaraid-ldisks"></a>
+
+*RAID logical disk %s*
+
+### megaraid_pdisks
+
+<a id="check-megaraid-pdisks"></a>
+
+*RAID pysical disk %s*
+
+### moxa_iologik_register
+
+<a id="check-moxa-iologik-register"></a>
+
+*Moxa Register %s*
+
+### nvidia_errors
+
+<a id="check-nvidia-errors"></a>
+
+*NVIDIA GPU Errors*
+
+### nvidia_smi_en_de_coder_util
+
+<a id="check-nvidia-smi-en-de-coder-util"></a>
+
+*Nvidia GPU En-/Decoder utilization %s*
+
+### nvidia_smi_gpu_util
+
+<a id="check-nvidia-smi-gpu-util"></a>
+
+*Nvidia GPU utilization %s*
+
+### nvidia_smi_memory_util
+
+<a id="check-nvidia-smi-memory-util"></a>
+
+*Nvidia GPU Memory utilization %s*
+
+### nvidia_smi_power
+
+<a id="check-nvidia-smi-power"></a>
+
+*Nvidia GPU Power %s*
+
+### nvidia_smi_temperature
+
+<a id="check-nvidia-smi-temperature"></a>
+
+*Nvidia GPU Temperature %s*
+
+### nvidia_temp
+
+<a id="check-nvidia-temp"></a>
+
+*Temperature %s*
+
+### nvidia_temp_core
+
+<a id="check-nvidia-temp-core"></a>
+
+*Temperature %s*
+
+### openbsd_sensors
+
+<a id="check-openbsd-sensors"></a>
+
+*Temperature %s*
+
+### openbsd_sensors_drive
+
+<a id="check-openbsd-sensors-drive"></a>
+
+*Drive %s*
+
+### openbsd_sensors_fan
+
+<a id="check-openbsd-sensors-fan"></a>
+
+*Fan %s*
+
+### openbsd_sensors_indicator
+
+<a id="check-openbsd-sensors-indicator"></a>
+
+*Indicator %s*
+
+### openbsd_sensors_powersupply
+
+<a id="check-openbsd-sensors-powersupply"></a>
+
+*Powersupply %s*
+
+### openbsd_sensors_voltage
+
+<a id="check-openbsd-sensors-voltage"></a>
+
+*Voltage Type %s*
+
+### openhardwaremonitor
+
+<a id="check-openhardwaremonitor"></a>
+
+*Clock %s*
+
+### openhardwaremonitor_fan
+
+<a id="check-openhardwaremonitor-fan"></a>
+
+*Fan %s*
+
+### openhardwaremonitor_power
+
+<a id="check-openhardwaremonitor-power"></a>
+
+*Power %s*
+
+### openhardwaremonitor_smart
+
+<a id="check-openhardwaremonitor-smart"></a>
+
+*SMART %s Stats*
+
+### openhardwaremonitor_temperature
+
+<a id="check-openhardwaremonitor-temperature"></a>
+
+*Temperature %s*
+
+### oracle_diva_csm_drive
+
+<a id="check-oracle-diva-csm-drive"></a>
+
+*DIVA Status %s*
+
+### orion_system
+
+<a id="check-orion-system"></a>
+
+*Temperature %s*
+
+### orion_system_charging
+
+<a id="check-orion-system-charging"></a>
+
+*Charge %s*
+
+### packeteer_fan_status
+
+<a id="check-packeteer-fan-status"></a>
+
+*Fan Status %s*
+
+### packeteer_ps_status
+
+<a id="check-packeteer-ps-status"></a>
+
+*Power Supply Status*
+
+### pandacom_10gm_temp
+
+<a id="check-pandacom-10gm-temp"></a>
+
+*Temperature 10GM Module %s*
+
+### pandacom_fan
+
+<a id="check-pandacom-fan"></a>
+
+*Fan %s*
+
+### pandacom_fc_temp
+
+<a id="check-pandacom-fc-temp"></a>
+
+*Temperature FC Module %s*
+
+### pandacom_psu
+
+<a id="check-pandacom-psu"></a>
+
+*Power Supply %s*
+
+### pandacom_sys_temp
+
+<a id="check-pandacom-sys-temp"></a>
+
+*Temperature %s*
+
+### papouch_th2e_sensors
+
+<a id="check-papouch-th2e-sensors"></a>
+
+*Temperature %s*
+
+### papouch_th2e_sensors_dewpoint
+
+<a id="check-papouch-th2e-sensors-dewpoint"></a>
+
+*Dew point %s*
+
+### papouch_th2e_sensors_humidity
+
+<a id="check-papouch-th2e-sensors-humidity"></a>
+
+*Humidity %s*
+
+### poseidon_temp
+
+<a id="check-poseidon-temp"></a>
+
+*Temperatur: %s*
+
+### primekey_cpu_temperature
+
+<a id="check-primekey-cpu-temperature"></a>
+
+*Temperature PrimeKey %s*
+
+### primekey_fan
+
+<a id="check-primekey-fan"></a>
+
+*PrimeKey Fan %s*
+
+### primekey_hsm_battery_voltage
+
+<a id="check-primekey-hsm-battery-voltage"></a>
+
+*PrimeKey HSM Battery %s*
+
+### pse_poe
+
+<a id="check-pse-poe"></a>
+
+*POE%s consumption*
+
+### pulse_secure_temp
+
+<a id="check-pulse-secure-temp"></a>
+
+*Pulse Secure %s Temperature*
+
+### qlogic_sanbox_psu
+
+<a id="check-qlogic-sanbox-psu"></a>
+
+*PSU %s*
+
+### qlogic_sanbox_temp
+
+<a id="check-qlogic-sanbox-temp"></a>
+
+*Temperature Sensor %s*
+
+### quanta_fan
+
+<a id="check-quanta-fan"></a>
+
+*Fan %s*
+
+### quanta_temperature
+
+<a id="check-quanta-temperature"></a>
+
+*Temperature %s*
+
+### quanta_voltage
+
+<a id="check-quanta-voltage"></a>
+
+*Voltage %s*
+
+### quantum_libsmall_door
+
+<a id="check-quantum-libsmall-door"></a>
+
+*Tape library door*
+
+### quantum_libsmall_status
+
+<a id="check-quantum-libsmall-status"></a>
+
+*Tape library status*
+
+### ra32e_sensors
+
+<a id="check-ra32e-sensors"></a>
+
+*Temperature %s*
+
+### ra32e_sensors_humidity
+
+<a id="check-ra32e-sensors-humidity"></a>
+
+*Humidity %s*
+
+### ra32e_sensors_power
+
+<a id="check-ra32e-sensors-power"></a>
+
+*Power State %s*
+
+### ra32e_sensors_voltage
+
+<a id="check-ra32e-sensors-voltage"></a>
+
+*Voltage %s*
+
+### ra3s_internal_temperature
+
+<a id="check-ra3s-internal-temperature"></a>
+
+*Temperature %s*
+
+### ra3s_sensors_humidity
+
+<a id="check-ra3s-sensors-humidity"></a>
+
+*Humidity %s*
+
+### ra3s_sensors_power
+
+<a id="check-ra3s-sensors-power"></a>
+
+*Power State %s*
+
+### ra3s_sensors_voltage
+
+<a id="check-ra3s-sensors-voltage"></a>
+
+*Voltage %s*
+
+### raritan_px2_residual_current
+
+<a id="check-raritan-px2-residual-current"></a>
+
+*Residual Current %s*
+
+### rms200_temp
+
+<a id="check-rms200-temp"></a>
+
+*Temperature %s*
+
+### rstcli
+
+<a id="check-rstcli"></a>
+
+*RAID Volume %s*
+
+### rstcli_pdisks
+
+<a id="check-rstcli-pdisks"></a>
+
+*RAID Disk %s*
+
+### safenet_hsm
+
+<a id="check-safenet-hsm"></a>
+
+*HSM Operation Stats*
+
+### security_master_temp
+
+<a id="check-security-master-temp"></a>
+
+*Sensor %s*
+
+### seh_ports
+
+<a id="check-seh-ports"></a>
+
+*Port %s*
+
+### sensatronics_temp
+
+<a id="check-sensatronics-temp"></a>
+
+*Temperature %s*
+
+### siemens_plc_temp
+
+<a id="check-siemens-plc-temp"></a>
+
+*Temperature %s*
+
+### smart_ata_stats
+
+<a id="check-smart-ata-stats"></a>
+
+*SMART %s Stats*
+
+### smart_ata_temp
+
+<a id="check-smart-ata-temp"></a>
+
+*Temperature SMART %s*
+
+### smart_nvme_stats
+
+<a id="check-smart-nvme-stats"></a>
+
+*SMART %s Stats*
+
+### smart_nvme_temp
+
+<a id="check-smart-nvme-temp"></a>
+
+*Temperature SMART %s*
+
+### smart_scsi_temp
+
+<a id="check-smart-scsi-temp"></a>
+
+*Temperature SMART %s*
+
+### solaris_prtdiag_status
+
+<a id="check-solaris-prtdiag-status"></a>
+
+*Hardware Overall State*
+
+### storcli_pdisks
+
+<a id="check-storcli-pdisks"></a>
+
+*RAID PDisk EID:Slot-Device %s*
+
+### storcli_vdrives
+
+<a id="check-storcli-vdrives"></a>
+
+*RAID Virtual Drive %s*
+
+### storeonce4x_appliances
+
+<a id="check-storeonce4x-appliances"></a>
+
+*Appliance %s Status*
+
+### stormshield_cpu_temp
+
+<a id="check-stormshield-cpu-temp"></a>
+
+*CPU Temp %s*
+
+### strem1_sensors
+
+<a id="check-strem1-sensors"></a>
+
+*Sensor - %s*
+
+### supermicro
+
+<a id="check-supermicro"></a>
+
+*Overall Hardware Health*
+
+### supermicro_sensors
+
+<a id="check-supermicro-sensors"></a>
+
+*Sensor %s*
+
+### supermicro_smart
+
+<a id="check-supermicro-smart"></a>
+
+*SMART Health %s*
+
+### superstack3_sensors
+
+<a id="check-superstack3-sensors"></a>
+
+*%s*
+
+### synology_fans
+
+<a id="check-synology-fans"></a>
+
+*Fan %s*
+
+### synology_raid
+
+<a id="check-synology-raid"></a>
+
+*Raid %s*
+
+### synology_status
+
+<a id="check-synology-status"></a>
+
+*Status*
+
+### teracom_tcw241_analog
+
+<a id="check-teracom-tcw241-analog"></a>
+
+*Analog Sensor %s*
+
+### teracom_tcw241_digital
+
+<a id="check-teracom-tcw241-digital"></a>
+
+*Digital Sensor %s*
+
+### ucd_diskio
+
+<a id="check-ucd-diskio"></a>
+
+*Disk IO %s*
+
+### viprinet_firmware
+
+<a id="check-viprinet-firmware"></a>
+
+*Firmware Version*
+
+### vxvm_enclosures
+
+<a id="check-vxvm-enclosures"></a>
+
+*Enclosure %s*
+
+### wagner_titanus_topsense_chamber_deviation
+
+<a id="check-wagner-titanus-topsense-chamber-deviation"></a>
+
+*Chamber Deviation Detector %s*
+
+### wagner_titanus_topsense_temp
+
+<a id="check-wagner-titanus-topsense-temp"></a>
+
+*Temperature %s*
+
+### watchdog_sensors
+
+<a id="check-watchdog-sensors"></a>
+
+*%s*
+
+### watchdog_sensors_dew
+
+<a id="check-watchdog-sensors-dew"></a>
+
+*%s*
+
+### watchdog_sensors_humidity
+
+<a id="check-watchdog-sensors-humidity"></a>
+
+*%s*
+
+### watchdog_sensors_temp
+
+<a id="check-watchdog-sensors-temp"></a>
+
+*%s*
+
+### winperf_phydisk
+
+<a id="check-winperf-phydisk"></a>
+
+*Disk IO %s*
+
+### wut_webio
+
+<a id="check-wut-webio"></a>
+
+*Check plug-in for W&T WebIO device*
+
+### wut_webtherm
+
+<a id="check-wut-webtherm"></a>
+
+*Temperature %s*
+
+### zebra_printer_status
+
+<a id="check-zebra-printer-status"></a>
+
+*Zebra Printer Status*
+
 ## Storage
 
 <a id="check-storage"></a>
@@ -4708,11 +7468,130 @@ None.
 | [ceph_status_osds](#check-ceph-status-osds) | Ceph OSDs |
 | [ceph_status_pgs](#check-ceph-status-pgs) | Ceph PGs |
 | [cephdf](#check-cephdf) | Ceph Pool %s |
+| [cephdfclass](#check-cephdfclass) | Ceph Class %s |
 | [cephosd](#check-cephosd) | Ceph OSD %s |
 | [cephosdbluefs_db](#check-cephosdbluefs-db) | Ceph OSD %s DB |
 | [cephosdbluefs_slow](#check-cephosdbluefs-slow) | Ceph OSD %s Slow |
 | [cephosdbluefs_wal](#check-cephosdbluefs-wal) | Ceph OSD %s WAL |
+| [cephstatus](#check-cephstatus) | Ceph %s |
+| [cifsmounts](#check-cifsmounts) | CIFS mount %s |
 | [cisco_ucs_lun](#check-cisco-ucs-lun) | LUN |
+| [datapower_ldrive](#check-datapower-ldrive) | Logical Drive %s |
+| [decru_perf](#check-decru-perf) | COUNTER %s |
+| [df](#check-df) | Filesystem %s |
+| [df_netapp](#check-df-netapp) | Filesystem %s |
+| [df_netscaler](#check-df-netscaler) | Filesystem %s |
+| [df_zos](#check-df-zos) | Filesystem %s |
+| [disk_io_utilization](#check-disk-io-utilization) | Disk IO Utilization |
+| [disk_smb](#check-disk-smb) |  |
+| [diskstat_io_volumes](#check-diskstat-io-volumes) | Disk IO Volumes %s |
+| [drbd](#check-drbd) | DRBD %s status |
+| [drbd_disk](#check-drbd-disk) | DRBD %s disk |
+| [drbd_net](#check-drbd-net) | DRBD %s net |
+| [drbd_stats](#check-drbd-stats) | DRBD %s stats |
+| [emc_datadomain_fs](#check-emc-datadomain-fs) | DD-Filesystem %s |
+| [emc_datadomain_mtree](#check-emc-datadomain-mtree) | MTree %s |
+| [emc_datadomain_nvbat](#check-emc-datadomain-nvbat) | NVRAM Battery %s |
+| [emc_isilon_ifs](#check-emc-isilon-ifs) | Filesystem %s |
+| [emc_isilon_iops](#check-emc-isilon-iops) | Disk %s IO |
+| [emc_isilon_names](#check-emc-isilon-names) | Isilon Info |
+| [emc_isilon_quota](#check-emc-isilon-quota) | Quota %s |
+| [fast_lta_silent_cubes_capacity](#check-fast-lta-silent-cubes-capacity) | Fast LTA SC Capacity %s |
+| [fast_lta_volumes](#check-fast-lta-volumes) | Fast LTA Volume %s |
+| [fileinfo](#check-fileinfo) | File %s |
+| [filestats](#check-filestats) | File group %s |
+| [filestats_single](#check-filestats-single) | File %s |
+| [fjdarye_pools](#check-fjdarye-pools) | Thin Provisioning Pool %s |
+| [fjdarye_rluns](#check-fjdarye-rluns) | RLUN %s |
+| [fjdarye_summary_status](#check-fjdarye-summary-status) | Summary Status |
+| [fortimail_disk_usage](#check-fortimail-disk-usage) | Disk usage |
+| [fortisandbox_disk_usage](#check-fortisandbox-disk-usage) | Disk usage %s |
+| [hitachi_hnas_volume](#check-hitachi-hnas-volume) | Volumes %s |
+| [hitachi_hnas_volume_virtual](#check-hitachi-hnas-volume-virtual) | Volumes %s |
+| [hp_msa_volume](#check-hp-msa-volume) | Volume Health %s |
+| [hp_msa_volume_df](#check-hp-msa-volume-df) | Filesystem %s |
+| [hp_msa_volume_io](#check-hp-msa-volume-io) | Volume IO %s |
+| [hpux_lvm](#check-hpux-lvm) | Logical Volume %s |
+| [hpux_multipath](#check-hpux-multipath) | Multipath %s |
+| [hr_fs](#check-hr-fs) | Filesystem %s |
+| [ibm_storage_ts](#check-ibm-storage-ts) | Info |
+| [ibm_storage_ts_status](#check-ibm-storage-ts-status) | Status |
+| [ibm_svc_host](#check-ibm-svc-host) | Hosts |
+| [ibm_svc_mdisk](#check-ibm-svc-mdisk) | MDisk %s |
+| [ibm_svc_mdiskgrp](#check-ibm-svc-mdiskgrp) | Pool Capacity %s |
+| [ibm_svc_nodestats_cache](#check-ibm-svc-nodestats-cache) | Cache %s |
+| [ibm_svc_nodestats_diskio](#check-ibm-svc-nodestats-diskio) | Disk IO %s |
+| [ibm_svc_nodestats_iops](#check-ibm-svc-nodestats-iops) | Disk IOPS %s |
+| [ibm_svc_systemstats_cache](#check-ibm-svc-systemstats-cache) | Cache Total |
+| [ibm_svc_systemstats_disk_latency](#check-ibm-svc-systemstats-disk-latency) | Latency %s Total |
+| [ibm_svc_systemstats_diskio](#check-ibm-svc-systemstats-diskio) | Throughput %s Total |
+| [ibm_svc_systemstats_iops](#check-ibm-svc-systemstats-iops) | IOPS %s Total |
+| [lnx_quota](#check-lnx-quota) | Quota: %s |
+| [lvm_lvs](#check-lvm-lvs) | LVM LV Pool %s |
+| [lvm_vgs](#check-lvm-vgs) | LVM VG %s |
+| [md](#check-md) | MD Softraid %s |
+| [mkbackup](#check-mkbackup) | Backup %s |
+| [mkbackup_site](#check-mkbackup-site) | OMD %s |
+| [mounts](#check-mounts) | Mount options of %s |
+| [multipath](#check-multipath) | Multipath %s |
+| [nfsexports](#check-nfsexports) | NFS export %s |
+| [nfsiostat](#check-nfsiostat) | NFS IO stats %s |
+| [nfsmounts](#check-nfsmounts) | NFS mount %s |
+| [nimble_latency](#check-nimble-latency) | Volume %s Read IO |
+| [nimble_latency_write](#check-nimble-latency-write) | Volume %s Write IO |
+| [nimble_volumes](#check-nimble-volumes) | Volume %s |
+| [omd_diskusage](#check-omd-diskusage) | OMD %s disk usage |
+| [oracle_diva_csm_tapes](#check-oracle-diva-csm-tapes) | DIVA Blank Tapes |
+| [orion_backup](#check-orion-backup) | Backup |
+| [podman_disk_usage](#check-podman-disk-usage) | Podman disk usage: %s |
+| [pulse_secure_disk_util](#check-pulse-secure-disk-util) | Pulse Secure disk utilization |
+| [pulse_secure_log_util](#check-pulse-secure-log-util) | Pulse Secure log file utilization |
+| [qlogic_fcport](#check-qlogic-fcport) | FC Port %s |
+| [quantum_storage_status](#check-quantum-storage-status) | Device status |
+| [sansymphony_pool](#check-sansymphony-pool) | Sansymphony Pool %s |
+| [sansymphony_virtualdiskstatus](#check-sansymphony-virtualdiskstatus) | sansymphony Virtual Disk %s |
+| [sap_hana_fileinfo](#check-sap-hana-fileinfo) | File %s |
+| [sap_value_groups](#check-sap-value-groups) | %s |
+| [scaleio_devices](#check-scaleio-devices) | ScaleIO Data Server %s Devices |
+| [scaleio_mdm](#check-scaleio-mdm) | ScaleIO cluster status |
+| [scaleio_pd](#check-scaleio-pd) | ScaleIO PD capacity %s |
+| [scaleio_pd_status](#check-scaleio-pd-status) | ScaleIO PD status %s |
+| [scaleio_sds](#check-scaleio-sds) | ScaleIO SDS capacity %s |
+| [scaleio_sds_status](#check-scaleio-sds-status) | ScaleIO SDS status %s |
+| [scaleio_storage_pool](#check-scaleio-storage-pool) | ScaleIO SP capacity %s |
+| [scaleio_storage_pool_rebalancerw](#check-scaleio-storage-pool-rebalancerw) | ScaleIO SP rebalance IO %s |
+| [scaleio_storage_pool_totalrw](#check-scaleio-storage-pool-totalrw) | ScaleIO SP total IO %s |
+| [scaleio_system](#check-scaleio-system) | ScaleIO System %s |
+| [scaleio_volume](#check-scaleio-volume) | ScaleIO Volume %s |
+| [solaris_multipath](#check-solaris-multipath) | Multipath %s |
+| [storcli_cache_vault](#check-storcli-cache-vault) | RAID cache vault %s |
+| [storeonce4x_appliances_storage](#check-storeonce4x-appliances-storage) | Appliance %s Storage |
+| [storeonce4x_appliances_summaries](#check-storeonce4x-appliances-summaries) | Appliance %s Summaries |
+| [storeonce4x_cat_stores](#check-storeonce4x-cat-stores) | Catalyst Stores %s |
+| [storeonce_clusterinfo](#check-storeonce-clusterinfo) | %s |
+| [storeonce_clusterinfo_cluster](#check-storeonce-clusterinfo-cluster) | Appliance Status |
+| [storeonce_clusterinfo_space](#check-storeonce-clusterinfo-space) | %s |
+| [storeonce_servicesets](#check-storeonce-servicesets) | ServiceSet %s Status |
+| [storeonce_servicesets_capacity](#check-storeonce-servicesets-capacity) | ServiceSet %s Capacity |
+| [storeonce_stores](#check-storeonce-stores) | %s |
+| [stormshield_disk](#check-stormshield-disk) | Disk %s |
+| [synology_disks](#check-synology-disks) | Disks %s |
+| [tsm_drives](#check-tsm-drives) | TSM Drive %s |
+| [tsm_scratch](#check-tsm-scratch) | Scratch Pool %s |
+| [tsm_stagingpools](#check-tsm-stagingpools) | TSM Stagingpool %s |
+| [tsm_storagepools](#check-tsm-storagepools) | TSM Storagepool %s |
+| [ucd_disk](#check-ucd-disk) | Filesystem %s |
+| [unitrends_replication](#check-unitrends-replication) | Replicaion %s |
+| [vms_diskstat_df](#check-vms-diskstat-df) | Filesystem %s |
+| [vnx_quotas](#check-vnx-quotas) | VNX Quota %s |
+| [vxvm_multipath](#check-vxvm-multipath) | Multipath %s |
+| [vxvm_objstatus](#check-vxvm-objstatus) | VXVM objstatus %s |
+| [windows_multipath](#check-windows-multipath) | Multipath |
+| [zfs_arc_cache](#check-zfs-arc-cache) | ZFS arc cache |
+| [zfs_arc_cache_l2](#check-zfs-arc-cache-l2) | ZFS arc cache L2 |
+| [zfsget](#check-zfsget) | Filesystem %s |
+| [zpool](#check-zpool) | Storage Pool %s |
+| [zpool_status](#check-zpool-status) | zpool status |
 
 ### 3par_capacity
 
@@ -5379,6 +8258,12 @@ None.
 - `disk_read_throughput` — read throughput in bytes/s
 - `disk_write_throughput` — write throughput in bytes/s
 
+### cephdfclass
+
+<a id="check-cephdfclass"></a>
+
+*Ceph Class %s*
+
 ### cephosd
 
 <a id="check-cephosd"></a>
@@ -5501,6 +8386,18 @@ None.
 #### Metrics
 - `used_percent` — percentage of WAL device capacity used (unit: %)
 
+### cephstatus
+
+<a id="check-cephstatus"></a>
+
+*Ceph %s*
+
+### cifsmounts
+
+<a id="check-cifsmounts"></a>
+
+*CIFS mount %s*
+
 ### cisco_ucs_lun
 
 <a id="check-cisco-ucs-lun"></a>
@@ -5530,19 +8427,716 @@ None.
 #### Metrics
 None.
 
+### datapower_ldrive
+
+<a id="check-datapower-ldrive"></a>
+
+*Logical Drive %s*
+
+### decru_perf
+
+<a id="check-decru-perf"></a>
+
+*COUNTER %s*
+
+### df
+
+<a id="check-df"></a>
+
+*Filesystem %s*
+
+### df_netapp
+
+<a id="check-df-netapp"></a>
+
+*Filesystem %s*
+
+### df_netscaler
+
+<a id="check-df-netscaler"></a>
+
+*Filesystem %s*
+
+### df_zos
+
+<a id="check-df-zos"></a>
+
+*Filesystem %s*
+
+### disk_io_utilization
+
+<a id="check-disk-io-utilization"></a>
+
+*Disk IO Utilization*
+
+### disk_smb
+
+<a id="check-disk-smb"></a>
+
+### diskstat_io_volumes
+
+<a id="check-diskstat-io-volumes"></a>
+
+*Disk IO Volumes %s*
+
+### drbd
+
+<a id="check-drbd"></a>
+
+*DRBD %s status*
+
+### drbd_disk
+
+<a id="check-drbd-disk"></a>
+
+*DRBD %s disk*
+
+### drbd_net
+
+<a id="check-drbd-net"></a>
+
+*DRBD %s net*
+
+### drbd_stats
+
+<a id="check-drbd-stats"></a>
+
+*DRBD %s stats*
+
+### emc_datadomain_fs
+
+<a id="check-emc-datadomain-fs"></a>
+
+*DD-Filesystem %s*
+
+### emc_datadomain_mtree
+
+<a id="check-emc-datadomain-mtree"></a>
+
+*MTree %s*
+
+### emc_datadomain_nvbat
+
+<a id="check-emc-datadomain-nvbat"></a>
+
+*NVRAM Battery %s*
+
+### emc_isilon_ifs
+
+<a id="check-emc-isilon-ifs"></a>
+
+*Filesystem %s*
+
+### emc_isilon_iops
+
+<a id="check-emc-isilon-iops"></a>
+
+*Disk %s IO*
+
+### emc_isilon_names
+
+<a id="check-emc-isilon-names"></a>
+
+*Isilon Info*
+
+### emc_isilon_quota
+
+<a id="check-emc-isilon-quota"></a>
+
+*Quota %s*
+
+### fast_lta_silent_cubes_capacity
+
+<a id="check-fast-lta-silent-cubes-capacity"></a>
+
+*Fast LTA SC Capacity %s*
+
+### fast_lta_volumes
+
+<a id="check-fast-lta-volumes"></a>
+
+*Fast LTA Volume %s*
+
+### fileinfo
+
+<a id="check-fileinfo"></a>
+
+*File %s*
+
+### filestats
+
+<a id="check-filestats"></a>
+
+*File group %s*
+
+### filestats_single
+
+<a id="check-filestats-single"></a>
+
+*File %s*
+
+### fjdarye_pools
+
+<a id="check-fjdarye-pools"></a>
+
+*Thin Provisioning Pool %s*
+
+### fjdarye_rluns
+
+<a id="check-fjdarye-rluns"></a>
+
+*RLUN %s*
+
+### fjdarye_summary_status
+
+<a id="check-fjdarye-summary-status"></a>
+
+*Summary Status*
+
+### fortimail_disk_usage
+
+<a id="check-fortimail-disk-usage"></a>
+
+*Disk usage*
+
+### fortisandbox_disk_usage
+
+<a id="check-fortisandbox-disk-usage"></a>
+
+*Disk usage %s*
+
+### hitachi_hnas_volume
+
+<a id="check-hitachi-hnas-volume"></a>
+
+*Volumes %s*
+
+### hitachi_hnas_volume_virtual
+
+<a id="check-hitachi-hnas-volume-virtual"></a>
+
+*Volumes %s*
+
+### hp_msa_volume
+
+<a id="check-hp-msa-volume"></a>
+
+*Volume Health %s*
+
+### hp_msa_volume_df
+
+<a id="check-hp-msa-volume-df"></a>
+
+*Filesystem %s*
+
+### hp_msa_volume_io
+
+<a id="check-hp-msa-volume-io"></a>
+
+*Volume IO %s*
+
+### hpux_lvm
+
+<a id="check-hpux-lvm"></a>
+
+*Logical Volume %s*
+
+### hpux_multipath
+
+<a id="check-hpux-multipath"></a>
+
+*Multipath %s*
+
+### hr_fs
+
+<a id="check-hr-fs"></a>
+
+*Filesystem %s*
+
+### ibm_storage_ts
+
+<a id="check-ibm-storage-ts"></a>
+
+*Info*
+
+### ibm_storage_ts_status
+
+<a id="check-ibm-storage-ts-status"></a>
+
+*Status*
+
+### ibm_svc_host
+
+<a id="check-ibm-svc-host"></a>
+
+*Hosts*
+
+### ibm_svc_mdisk
+
+<a id="check-ibm-svc-mdisk"></a>
+
+*MDisk %s*
+
+### ibm_svc_mdiskgrp
+
+<a id="check-ibm-svc-mdiskgrp"></a>
+
+*Pool Capacity %s*
+
+### ibm_svc_nodestats_cache
+
+<a id="check-ibm-svc-nodestats-cache"></a>
+
+*Cache %s*
+
+### ibm_svc_nodestats_diskio
+
+<a id="check-ibm-svc-nodestats-diskio"></a>
+
+*Disk IO %s*
+
+### ibm_svc_nodestats_iops
+
+<a id="check-ibm-svc-nodestats-iops"></a>
+
+*Disk IOPS %s*
+
+### ibm_svc_systemstats_cache
+
+<a id="check-ibm-svc-systemstats-cache"></a>
+
+*Cache Total*
+
+### ibm_svc_systemstats_disk_latency
+
+<a id="check-ibm-svc-systemstats-disk-latency"></a>
+
+*Latency %s Total*
+
+### ibm_svc_systemstats_diskio
+
+<a id="check-ibm-svc-systemstats-diskio"></a>
+
+*Throughput %s Total*
+
+### ibm_svc_systemstats_iops
+
+<a id="check-ibm-svc-systemstats-iops"></a>
+
+*IOPS %s Total*
+
+### lnx_quota
+
+<a id="check-lnx-quota"></a>
+
+*Quota: %s*
+
+### lvm_lvs
+
+<a id="check-lvm-lvs"></a>
+
+*LVM LV Pool %s*
+
+### lvm_vgs
+
+<a id="check-lvm-vgs"></a>
+
+*LVM VG %s*
+
+### md
+
+<a id="check-md"></a>
+
+*MD Softraid %s*
+
+### mkbackup
+
+<a id="check-mkbackup"></a>
+
+*Backup %s*
+
+### mkbackup_site
+
+<a id="check-mkbackup-site"></a>
+
+*OMD %s*
+
+### mounts
+
+<a id="check-mounts"></a>
+
+*Mount options of %s*
+
+### multipath
+
+<a id="check-multipath"></a>
+
+*Multipath %s*
+
+### nfsexports
+
+<a id="check-nfsexports"></a>
+
+*NFS export %s*
+
+### nfsiostat
+
+<a id="check-nfsiostat"></a>
+
+*NFS IO stats %s*
+
+### nfsmounts
+
+<a id="check-nfsmounts"></a>
+
+*NFS mount %s*
+
+### nimble_latency
+
+<a id="check-nimble-latency"></a>
+
+*Volume %s Read IO*
+
+### nimble_latency_write
+
+<a id="check-nimble-latency-write"></a>
+
+*Volume %s Write IO*
+
+### nimble_volumes
+
+<a id="check-nimble-volumes"></a>
+
+*Volume %s*
+
+### omd_diskusage
+
+<a id="check-omd-diskusage"></a>
+
+*OMD %s disk usage*
+
+### oracle_diva_csm_tapes
+
+<a id="check-oracle-diva-csm-tapes"></a>
+
+*DIVA Blank Tapes*
+
+### orion_backup
+
+<a id="check-orion-backup"></a>
+
+*Backup*
+
+### podman_disk_usage
+
+<a id="check-podman-disk-usage"></a>
+
+*Podman disk usage: %s*
+
+### pulse_secure_disk_util
+
+<a id="check-pulse-secure-disk-util"></a>
+
+*Pulse Secure disk utilization*
+
+### pulse_secure_log_util
+
+<a id="check-pulse-secure-log-util"></a>
+
+*Pulse Secure log file utilization*
+
+### qlogic_fcport
+
+<a id="check-qlogic-fcport"></a>
+
+*FC Port %s*
+
+### quantum_storage_status
+
+<a id="check-quantum-storage-status"></a>
+
+*Device status*
+
+### sansymphony_pool
+
+<a id="check-sansymphony-pool"></a>
+
+*Sansymphony Pool %s*
+
+### sansymphony_virtualdiskstatus
+
+<a id="check-sansymphony-virtualdiskstatus"></a>
+
+*sansymphony Virtual Disk %s*
+
+### sap_hana_fileinfo
+
+<a id="check-sap-hana-fileinfo"></a>
+
+*File %s*
+
+### sap_value_groups
+
+<a id="check-sap-value-groups"></a>
+
+*%s*
+
+### scaleio_devices
+
+<a id="check-scaleio-devices"></a>
+
+*ScaleIO Data Server %s Devices*
+
+### scaleio_mdm
+
+<a id="check-scaleio-mdm"></a>
+
+*ScaleIO cluster status*
+
+### scaleio_pd
+
+<a id="check-scaleio-pd"></a>
+
+*ScaleIO PD capacity %s*
+
+### scaleio_pd_status
+
+<a id="check-scaleio-pd-status"></a>
+
+*ScaleIO PD status %s*
+
+### scaleio_sds
+
+<a id="check-scaleio-sds"></a>
+
+*ScaleIO SDS capacity %s*
+
+### scaleio_sds_status
+
+<a id="check-scaleio-sds-status"></a>
+
+*ScaleIO SDS status %s*
+
+### scaleio_storage_pool
+
+<a id="check-scaleio-storage-pool"></a>
+
+*ScaleIO SP capacity %s*
+
+### scaleio_storage_pool_rebalancerw
+
+<a id="check-scaleio-storage-pool-rebalancerw"></a>
+
+*ScaleIO SP rebalance IO %s*
+
+### scaleio_storage_pool_totalrw
+
+<a id="check-scaleio-storage-pool-totalrw"></a>
+
+*ScaleIO SP total IO %s*
+
+### scaleio_system
+
+<a id="check-scaleio-system"></a>
+
+*ScaleIO System %s*
+
+### scaleio_volume
+
+<a id="check-scaleio-volume"></a>
+
+*ScaleIO Volume %s*
+
+### solaris_multipath
+
+<a id="check-solaris-multipath"></a>
+
+*Multipath %s*
+
+### storcli_cache_vault
+
+<a id="check-storcli-cache-vault"></a>
+
+*RAID cache vault %s*
+
+### storeonce4x_appliances_storage
+
+<a id="check-storeonce4x-appliances-storage"></a>
+
+*Appliance %s Storage*
+
+### storeonce4x_appliances_summaries
+
+<a id="check-storeonce4x-appliances-summaries"></a>
+
+*Appliance %s Summaries*
+
+### storeonce4x_cat_stores
+
+<a id="check-storeonce4x-cat-stores"></a>
+
+*Catalyst Stores %s*
+
+### storeonce_clusterinfo
+
+<a id="check-storeonce-clusterinfo"></a>
+
+*%s*
+
+### storeonce_clusterinfo_cluster
+
+<a id="check-storeonce-clusterinfo-cluster"></a>
+
+*Appliance Status*
+
+### storeonce_clusterinfo_space
+
+<a id="check-storeonce-clusterinfo-space"></a>
+
+*%s*
+
+### storeonce_servicesets
+
+<a id="check-storeonce-servicesets"></a>
+
+*ServiceSet %s Status*
+
+### storeonce_servicesets_capacity
+
+<a id="check-storeonce-servicesets-capacity"></a>
+
+*ServiceSet %s Capacity*
+
+### storeonce_stores
+
+<a id="check-storeonce-stores"></a>
+
+*%s*
+
+### stormshield_disk
+
+<a id="check-stormshield-disk"></a>
+
+*Disk %s*
+
+### synology_disks
+
+<a id="check-synology-disks"></a>
+
+*Disks %s*
+
+### tsm_drives
+
+<a id="check-tsm-drives"></a>
+
+*TSM Drive %s*
+
+### tsm_scratch
+
+<a id="check-tsm-scratch"></a>
+
+*Scratch Pool %s*
+
+### tsm_stagingpools
+
+<a id="check-tsm-stagingpools"></a>
+
+*TSM Stagingpool %s*
+
+### tsm_storagepools
+
+<a id="check-tsm-storagepools"></a>
+
+*TSM Storagepool %s*
+
+### ucd_disk
+
+<a id="check-ucd-disk"></a>
+
+*Filesystem %s*
+
+### unitrends_replication
+
+<a id="check-unitrends-replication"></a>
+
+*Replicaion %s*
+
+### vms_diskstat_df
+
+<a id="check-vms-diskstat-df"></a>
+
+*Filesystem %s*
+
+### vnx_quotas
+
+<a id="check-vnx-quotas"></a>
+
+*VNX Quota %s*
+
+### vxvm_multipath
+
+<a id="check-vxvm-multipath"></a>
+
+*Multipath %s*
+
+### vxvm_objstatus
+
+<a id="check-vxvm-objstatus"></a>
+
+*VXVM objstatus %s*
+
+### windows_multipath
+
+<a id="check-windows-multipath"></a>
+
+*Multipath*
+
+### zfs_arc_cache
+
+<a id="check-zfs-arc-cache"></a>
+
+*ZFS arc cache*
+
+### zfs_arc_cache_l2
+
+<a id="check-zfs-arc-cache-l2"></a>
+
+*ZFS arc cache L2*
+
+### zfsget
+
+<a id="check-zfsget"></a>
+
+*Filesystem %s*
+
+### zpool
+
+<a id="check-zpool"></a>
+
+*Storage Pool %s*
+
+### zpool_status
+
+<a id="check-zpool-status"></a>
+
+*zpool status*
+
 ## Network
 
 <a id="check-network"></a>
 
 | Check | Summary |
 | --- | --- |
+| [adva_fsp_if](#check-adva-fsp-if) | Interface %s |
 | [arbor_peakflow_sp_flows](#check-arbor-peakflow-sp-flows) | Flow Count |
 | [arbor_peakflow_tms_disk_usage](#check-arbor-peakflow-tms-disk-usage) | Disk Usage %s |
 | [arbor_peakflow_tms_updates](#check-arbor-peakflow-tms-updates) | Config Update %s |
 | [arbor_pravail_drop_rate](#check-arbor-pravail-drop-rate) | %s drop rate |
 | [aruba_aps](#check-aruba-aps) | Access Points |
 | [aruba_clients](#check-aruba-clients) | WLAN Clients |
+| [audiocodes_ipgroup](#check-audiocodes-ipgroup) | IP group %s |
 | [avaya_88xx_cpu](#check-avaya-88xx-cpu) | CPU utilization |
+| [bgp_peer](#check-bgp-peer) | This is how an Arista BGP SNMP message is constructed: |
 | [bintec_brrp_status](#check-bintec-brrp-status) | BRRP Status %s |
 | [bintec_info](#check-bintec-info) | Bintec Info |
 | [bluecat_dhcp](#check-bluecat-dhcp) | DHCP |
@@ -5551,23 +9145,109 @@ None.
 | [bluecat_threads](#check-bluecat-threads) | Number of threads |
 | [bluenet2_powerrail_humidity](#check-bluenet2-powerrail-humidity) | Humidity %s |
 | [bonding](#check-bonding) | Bonding Interface %s |
+| [brocade_fcport](#check-brocade-fcport) | Port %s |
+| [brocade_tm](#check-brocade-tm) | TM %s |
 | [bvip_link](#check-bvip-link) | Network Link |
 | [by_ssh](#check-by-ssh) |  |
+| [cadvisor_if](#check-cadvisor-if) | Interface %s |
 | [checkpoint_connections](#check-checkpoint-connections) | Connections |
 | [checkpoint_packets](#check-checkpoint-packets) | Packet Statistics |
 | [checkpoint_vsx_connections](#check-checkpoint-vsx-connections) | VS %s Connections |
+| [checkpoint_vsx_traffic](#check-checkpoint-vsx-traffic) | VS %s Traffic |
 | [ciena_port_power](#check-ciena-port-power) | Port %s XCVR Power |
 | [ciena_routing_instance](#check-ciena-routing-instance) | Routing instance %s |
+| [cisco_asa_conn](#check-cisco-asa-conn) | Connection %s |
 | [cisco_cpu_multiitem](#check-cisco-cpu-multiitem) | CPU utilization %s |
 | [cisco_hsrp](#check-cisco-hsrp) | HSRP Group %s |
 | [cisco_mem](#check-cisco-mem) | Cisco memory checks |
+| [cisco_meraki_org_appliance_uplinks](#check-cisco-meraki-org-appliance-uplinks) | Uplink %s |
 | [cisco_meraki_org_appliance_vpns](#check-cisco-meraki-org-appliance-vpns) | VPN peer %s |
+| [cisco_meraki_org_device_status](#check-cisco-meraki-org-device-status) | Device Status |
+| [cisco_meraki_org_switch_ports_statuses](#check-cisco-meraki-org-switch-ports-statuses) | Interface %s |
+| [cisco_qos](#check-cisco-qos) | QoS %s |
+| [cisco_secure](#check-cisco-secure) | Port Security |
 | [cisco_sma_files_and_sockets](#check-cisco-sma-files-and-sockets) | Files and sockets |
 | [cisco_srst_call_legs](#check-cisco-srst-call-legs) | SRST Call Legs |
 | [cisco_stack](#check-cisco-stack) | Switch stack status %s |
 | [cisco_stackpower](#check-cisco-stackpower) | Stackpower Interface %s |
+| [cisco_vpn_tunnel](#check-cisco-vpn-tunnel) | VPN Tunnel %s |
 | [cisco_vss](#check-cisco-vss) | VSS Status |
 | [cisco_wlc](#check-cisco-wlc) | Cisco WLC sections and checks |
+| [dns](#check-dns) |  |
+| [docsis_channels_downstream](#check-docsis-channels-downstream) | Downstream Channel %s |
+| [docsis_channels_upstream](#check-docsis-channels-upstream) | Upstream Channel %s |
+| [docsis_cm_status](#check-docsis-cm-status) | Cable Modem %s Status |
+| [enterasys_lsnat](#check-enterasys-lsnat) | LSNAT Bindings |
+| [extreme_vsp_switches_cpu_util](#check-extreme-vsp-switches-cpu-util) | VSP Switches CPU Utilization |
+| [fc_port](#check-fc-port) | FC Interface %s |
+| [fortigate_ap_connection](#check-fortigate-ap-connection) | AP %s Connection |
+| [fortigate_ipsecvpn](#check-fortigate-ipsecvpn) | VPN IPSec Tunnels |
+| [fritz_conn](#check-fritz-conn) | Connection |
+| [fritz_link](#check-fritz-link) | Link Info |
+| [fritz_wan_if](#check-fritz-wan-if) | Interface %s |
+| [genua_carp](#check-genua-carp) | Carp Interface %s |
+| [genua_vpn](#check-genua-vpn) | VPN %s |
+| [hepta_ntpsysstratum](#check-hepta-ntpsysstratum) | %s |
+| [hitachi_hnas_fc_if](#check-hitachi-hnas-fc-if) | Interface FC %s |
+| [hpux_if](#check-hpux-if) | NIC %s |
+| [huawei_osn_if](#check-huawei-osn-if) | Interface %s |
+| [huawei_switch_cpu](#check-huawei-switch-cpu) | CPU utilization %s |
+| [huawei_switch_mem](#check-huawei-switch-mem) | Memory %s |
+| [huawei_switch_stack](#check-huawei-switch-stack) | Stack role %s |
+| [huawei_wlc_aps_status](#check-huawei-wlc-aps-status) | AP %s Status |
+| [ibm_svc_portfc](#check-ibm-svc-portfc) | FC %s |
+| [icmp](#check-icmp) |  |
+| [if64](#check-if64) | Interface %s |
+| [interfaces](#check-interfaces) | Interface %s |
+| [isc_dhcpd](#check-isc-dhcpd) | DHCP Pool %s |
+| [janitza_umg](#check-janitza-umg) | Input %s |
+| [juniper_bgp_state](#check-juniper-bgp-state) | BGP Status Peer %s |
+| [juniper_screenos_cpu](#check-juniper-screenos-cpu) | CPU utilization |
+| [juniper_screenos_mem](#check-juniper-screenos-mem) | Memory |
+| [juniper_screenos_vpn](#check-juniper-screenos-vpn) | VPN %s |
+| [juniper_trpz_aps](#check-juniper-trpz-aps) | Access Points |
+| [juniper_trpz_cpu_util](#check-juniper-trpz-cpu-util) | CPU utilization |
+| [juniper_trpz_info](#check-juniper-trpz-info) | Info |
+| [juniper_trpz_mem](#check-juniper-trpz-mem) | Memory |
+| [keepalived](#check-keepalived) | VRRP Instance %s |
+| [kemp_loadmaster_realserver](#check-kemp-loadmaster-realserver) | Real Server %s |
+| [kemp_loadmaster_services](#check-kemp-loadmaster-services) | Service %s |
+| [lnx_if](#check-lnx-if) | Interface %s |
+| [mbg_lantime_ng_refclock](#check-mbg-lantime-ng-refclock) | LANTIME Refclock %s |
+| [mcdata_fcport](#check-mcdata-fcport) | Port %s |
+| [mikrotik_signal](#check-mikrotik-signal) | Signal %s |
+| [mtr](#check-mtr) | Mtr to %s |
+| [netctr_combined](#check-netctr-combined) | NIC %s counters |
+| [netscaler_tcp_conns](#check-netscaler-tcp-conns) | TCP Connections |
+| [netstat](#check-netstat) | TCP Connection %s |
+| [openvpn_clients](#check-openvpn-clients) | OpenVPN Client %s |
+| [ovs_bonding](#check-ovs-bonding) | OVS Bonding interface %s |
+| [pfsense_counter](#check-pfsense-counter) | pfSense Firewall Packet Rates |
+| [pfsense_if](#check-pfsense-if) | Firewall Interface %s |
+| [pfsense_status](#check-pfsense-status) | pfSense Status |
+| [qlogic_sanbox_fabric_element](#check-qlogic-sanbox-fabric-element) | Fabric Element %s |
+| [rmon_stats](#check-rmon-stats) | RMON Stats IF %s |
+| [ruckus_spot_ap](#check-ruckus-spot-ap) | Ruckus Spot Access Points %s |
+| [safenet_ntls_links](#check-safenet-ntls-links) | NTLS Links |
+| [silverpeak_VX6000](#check-silverpeak-vx6000) | Alarms |
+| [sni_octopuse_trunks](#check-sni-octopuse-trunks) | Trunk Port %s |
+| [ssh](#check-ssh) |  |
+| [stormshield_packets](#check-stormshield-packets) | Packet Stats %s |
+| [stormshield_route](#check-stormshield-route) | Gateway %s |
+| [tcp](#check-tcp) |  |
+| [tcp_conn_stats](#check-tcp-conn-stats) | TCP Connections |
+| [traceroute](#check-traceroute) |  |
+| [win_dhcp_pools_stats](#check-win-dhcp-pools-stats) | DHCP Stats |
+| [win_netstat](#check-win-netstat) | TCP Connection %s |
+| [windows_broadcom_bonding](#check-windows-broadcom-bonding) | Bonding Interface %s |
+| [windows_intel_bonding](#check-windows-intel-bonding) | Bonding interface %s |
+| [winperf_if](#check-winperf-if) | Interface %s |
+
+### adva_fsp_if
+
+<a id="check-adva-fsp-if"></a>
+
+*Interface %s*
 
 ### arbor_peakflow_sp_flows
 
@@ -5729,6 +9409,12 @@ None.
 #### Metrics
 - `connections` — Number of connected wireless clients (unit: count).
 
+### audiocodes_ipgroup
+
+<a id="check-audiocodes-ipgroup"></a>
+
+*IP group %s*
+
 ### avaya_88xx_cpu
 
 <a id="check-avaya-88xx-cpu"></a>
@@ -5755,6 +9441,12 @@ None.
 
 #### Metrics
 - `util` — CPU utilization percentage (%)
+
+### bgp_peer
+
+<a id="check-bgp-peer"></a>
+
+*This is how an Arista BGP SNMP message is constructed:*
 
 ### bintec_brrp_status
 
@@ -5984,6 +9676,18 @@ Reads `/proc/net/bonding/<item>` on discovery and runtime. On discovery (`_disco
 #### Metrics
 None.
 
+### brocade_fcport
+
+<a id="check-brocade-fcport"></a>
+
+*Port %s*
+
+### brocade_tm
+
+<a id="check-brocade-tm"></a>
+
+*TM %s*
+
 ### bvip_link
 
 <a id="check-bvip-link"></a>
@@ -6039,6 +9743,12 @@ None.
 
 #### Metrics
 None.
+
+### cadvisor_if
+
+<a id="check-cadvisor-if"></a>
+
+*Interface %s*
 
 ### checkpoint_connections
 
@@ -6133,6 +9843,12 @@ During discovery, it runs `snmpwalk` on three OIDs to enumerate VS instances and
 - `connections` — number of active connections, unit: count.
 - `connections_percent` — utilization of connection table, unit: percent (only if table size known and >0).
 
+### checkpoint_vsx_traffic
+
+<a id="check-checkpoint-vsx-traffic"></a>
+
+*VS %s Traffic*
+
 ### ciena_port_power
 
 <a id="check-ciena-port-power"></a>
@@ -6191,6 +9907,12 @@ None.
 #### Metrics
 - `if_out_octets` — transmitted bytes per second
 - `if_in_octets` — received bytes per second
+
+### cisco_asa_conn
+
+<a id="check-cisco-asa-conn"></a>
+
+*Connection %s*
 
 ### cisco_cpu_multiitem
 
@@ -6279,6 +10001,12 @@ None.
 #### Metrics
 - `mem_used_percent` — memory usage percentage for the monitored pool, unit: `%`.
 
+### cisco_meraki_org_appliance_uplinks
+
+<a id="check-cisco-meraki-org-appliance-uplinks"></a>
+
+*Uplink %s*
+
 ### cisco_meraki_org_appliance_vpns
 
 <a id="check-cisco-meraki-org-appliance-vpns"></a>
@@ -6307,6 +10035,30 @@ During discovery (`_discover` mode), the check reads the agent spool file, extra
 
 #### Metrics
 None.
+
+### cisco_meraki_org_device_status
+
+<a id="check-cisco-meraki-org-device-status"></a>
+
+*Device Status*
+
+### cisco_meraki_org_switch_ports_statuses
+
+<a id="check-cisco-meraki-org-switch-ports-statuses"></a>
+
+*Interface %s*
+
+### cisco_qos
+
+<a id="check-cisco-qos"></a>
+
+*QoS %s*
+
+### cisco_secure
+
+<a id="check-cisco-secure"></a>
+
+*Port Security*
 
 ### cisco_sma_files_and_sockets
 
@@ -6419,6 +10171,12 @@ None.
 #### Metrics
 None.
 
+### cisco_vpn_tunnel
+
+<a id="check-cisco-vpn-tunnel"></a>
+
+*VPN Tunnel %s*
+
 ### cisco_vss
 
 <a id="check-cisco-vss"></a>
@@ -6475,6 +10233,410 @@ None.
 #### Metrics
 None.
 
+### dns
+
+<a id="check-dns"></a>
+
+### docsis_channels_downstream
+
+<a id="check-docsis-channels-downstream"></a>
+
+*Downstream Channel %s*
+
+### docsis_channels_upstream
+
+<a id="check-docsis-channels-upstream"></a>
+
+*Upstream Channel %s*
+
+### docsis_cm_status
+
+<a id="check-docsis-cm-status"></a>
+
+*Cable Modem %s Status*
+
+### enterasys_lsnat
+
+<a id="check-enterasys-lsnat"></a>
+
+*LSNAT Bindings*
+
+### extreme_vsp_switches_cpu_util
+
+<a id="check-extreme-vsp-switches-cpu-util"></a>
+
+*VSP Switches CPU Utilization*
+
+### fc_port
+
+<a id="check-fc-port"></a>
+
+*FC Interface %s*
+
+### fortigate_ap_connection
+
+<a id="check-fortigate-ap-connection"></a>
+
+*AP %s Connection*
+
+### fortigate_ipsecvpn
+
+<a id="check-fortigate-ipsecvpn"></a>
+
+*VPN IPSec Tunnels*
+
+### fritz_conn
+
+<a id="check-fritz-conn"></a>
+
+*Connection*
+
+### fritz_link
+
+<a id="check-fritz-link"></a>
+
+*Link Info*
+
+### fritz_wan_if
+
+<a id="check-fritz-wan-if"></a>
+
+*Interface %s*
+
+### genua_carp
+
+<a id="check-genua-carp"></a>
+
+*Carp Interface %s*
+
+### genua_vpn
+
+<a id="check-genua-vpn"></a>
+
+*VPN %s*
+
+### hepta_ntpsysstratum
+
+<a id="check-hepta-ntpsysstratum"></a>
+
+*%s*
+
+### hitachi_hnas_fc_if
+
+<a id="check-hitachi-hnas-fc-if"></a>
+
+*Interface FC %s*
+
+### hpux_if
+
+<a id="check-hpux-if"></a>
+
+*NIC %s*
+
+### huawei_osn_if
+
+<a id="check-huawei-osn-if"></a>
+
+*Interface %s*
+
+### huawei_switch_cpu
+
+<a id="check-huawei-switch-cpu"></a>
+
+*CPU utilization %s*
+
+### huawei_switch_mem
+
+<a id="check-huawei-switch-mem"></a>
+
+*Memory %s*
+
+### huawei_switch_stack
+
+<a id="check-huawei-switch-stack"></a>
+
+*Stack role %s*
+
+### huawei_wlc_aps_status
+
+<a id="check-huawei-wlc-aps-status"></a>
+
+*AP %s Status*
+
+### ibm_svc_portfc
+
+<a id="check-ibm-svc-portfc"></a>
+
+*FC %s*
+
+### icmp
+
+<a id="check-icmp"></a>
+
+### if64
+
+<a id="check-if64"></a>
+
+*Interface %s*
+
+### interfaces
+
+<a id="check-interfaces"></a>
+
+*Interface %s*
+
+### isc_dhcpd
+
+<a id="check-isc-dhcpd"></a>
+
+*DHCP Pool %s*
+
+### janitza_umg
+
+<a id="check-janitza-umg"></a>
+
+*Input %s*
+
+### juniper_bgp_state
+
+<a id="check-juniper-bgp-state"></a>
+
+*BGP Status Peer %s*
+
+### juniper_screenos_cpu
+
+<a id="check-juniper-screenos-cpu"></a>
+
+*CPU utilization*
+
+### juniper_screenos_mem
+
+<a id="check-juniper-screenos-mem"></a>
+
+*Memory*
+
+### juniper_screenos_vpn
+
+<a id="check-juniper-screenos-vpn"></a>
+
+*VPN %s*
+
+### juniper_trpz_aps
+
+<a id="check-juniper-trpz-aps"></a>
+
+*Access Points*
+
+### juniper_trpz_cpu_util
+
+<a id="check-juniper-trpz-cpu-util"></a>
+
+*CPU utilization*
+
+### juniper_trpz_info
+
+<a id="check-juniper-trpz-info"></a>
+
+*Info*
+
+### juniper_trpz_mem
+
+<a id="check-juniper-trpz-mem"></a>
+
+*Memory*
+
+### keepalived
+
+<a id="check-keepalived"></a>
+
+*VRRP Instance %s*
+
+### kemp_loadmaster_realserver
+
+<a id="check-kemp-loadmaster-realserver"></a>
+
+*Real Server %s*
+
+### kemp_loadmaster_services
+
+<a id="check-kemp-loadmaster-services"></a>
+
+*Service %s*
+
+### lnx_if
+
+<a id="check-lnx-if"></a>
+
+*Interface %s*
+
+### mbg_lantime_ng_refclock
+
+<a id="check-mbg-lantime-ng-refclock"></a>
+
+*LANTIME Refclock %s*
+
+### mcdata_fcport
+
+<a id="check-mcdata-fcport"></a>
+
+*Port %s*
+
+### mikrotik_signal
+
+<a id="check-mikrotik-signal"></a>
+
+*Signal %s*
+
+### mtr
+
+<a id="check-mtr"></a>
+
+*Mtr to %s*
+
+### netctr_combined
+
+<a id="check-netctr-combined"></a>
+
+*NIC %s counters*
+
+### netscaler_tcp_conns
+
+<a id="check-netscaler-tcp-conns"></a>
+
+*TCP Connections*
+
+### netstat
+
+<a id="check-netstat"></a>
+
+*TCP Connection %s*
+
+### openvpn_clients
+
+<a id="check-openvpn-clients"></a>
+
+*OpenVPN Client %s*
+
+### ovs_bonding
+
+<a id="check-ovs-bonding"></a>
+
+*OVS Bonding interface %s*
+
+### pfsense_counter
+
+<a id="check-pfsense-counter"></a>
+
+*pfSense Firewall Packet Rates*
+
+### pfsense_if
+
+<a id="check-pfsense-if"></a>
+
+*Firewall Interface %s*
+
+### pfsense_status
+
+<a id="check-pfsense-status"></a>
+
+*pfSense Status*
+
+### qlogic_sanbox_fabric_element
+
+<a id="check-qlogic-sanbox-fabric-element"></a>
+
+*Fabric Element %s*
+
+### rmon_stats
+
+<a id="check-rmon-stats"></a>
+
+*RMON Stats IF %s*
+
+### ruckus_spot_ap
+
+<a id="check-ruckus-spot-ap"></a>
+
+*Ruckus Spot Access Points %s*
+
+### safenet_ntls_links
+
+<a id="check-safenet-ntls-links"></a>
+
+*NTLS Links*
+
+### silverpeak_VX6000
+
+<a id="check-silverpeak-vx6000"></a>
+
+*Alarms*
+
+### sni_octopuse_trunks
+
+<a id="check-sni-octopuse-trunks"></a>
+
+*Trunk Port %s*
+
+### ssh
+
+<a id="check-ssh"></a>
+
+### stormshield_packets
+
+<a id="check-stormshield-packets"></a>
+
+*Packet Stats %s*
+
+### stormshield_route
+
+<a id="check-stormshield-route"></a>
+
+*Gateway %s*
+
+### tcp
+
+<a id="check-tcp"></a>
+
+### tcp_conn_stats
+
+<a id="check-tcp-conn-stats"></a>
+
+*TCP Connections*
+
+### traceroute
+
+<a id="check-traceroute"></a>
+
+### win_dhcp_pools_stats
+
+<a id="check-win-dhcp-pools-stats"></a>
+
+*DHCP Stats*
+
+### win_netstat
+
+<a id="check-win-netstat"></a>
+
+*TCP Connection %s*
+
+### windows_broadcom_bonding
+
+<a id="check-windows-broadcom-bonding"></a>
+
+*Bonding Interface %s*
+
+### windows_intel_bonding
+
+<a id="check-windows-intel-bonding"></a>
+
+*Bonding interface %s*
+
+### winperf_if
+
+<a id="check-winperf-if"></a>
+
+*Interface %s*
+
 ## Applications
 
 <a id="check-applications"></a>
@@ -6498,10 +10660,12 @@ None.
 | [appdynamics_sessions](#check-appdynamics-sessions) | AppDynamics Sessions %s |
 | [appdynamics_web_container](#check-appdynamics-web-container) | AppDynamics Web Container %s |
 | [arbor_memory](#check-arbor-memory) | Memory |
+| [arcserve_backup](#check-arcserve-backup) | Arcserve Backup %s |
 | [artec_documents](#check-artec-documents) | Documents |
 | [audiocodes_calls](#check-audiocodes-calls) | SBC calls |
 | [audiocodes_overall_operational_state](#check-audiocodes-overall-operational-state) | Operational state |
 | [audiocodes_sip_calls](#check-audiocodes-sip-calls) | SIP calls |
+| [audiocodes_system_events](#check-audiocodes-system-events) | System events |
 | [bi_aggregation](#check-bi-aggregation) | Aggr %s |
 | [bi_aggregation_connection](#check-bi-aggregation-connection) | BI Datasource Connection |
 | [bluecat_command_server](#check-bluecat-command-server) | Command Server |
@@ -6516,6 +10680,7 @@ None.
 | [checkpoint_vsx_status](#check-checkpoint-vsx-status) | VS %s Status |
 | [ciena_cfm](#check-ciena-cfm) | CFM-Service %s |
 | [ciena_tunnel](#check-ciena-tunnel) | Tunnel %s |
+| [cisco_ace_rserver](#check-cisco-ace-rserver) | ACE RServer %s |
 | [cisco_cpu_memory](#check-cisco-cpu-memory) | CPU Memory utilization %s |
 | [cisco_meraki_org_api_response_codes](#check-cisco-meraki-org-api-response-codes) | API %s |
 | [cisco_meraki_org_appliance_performance](#check-cisco-meraki-org-appliance-performance) | Appliance performance |
@@ -6535,6 +10700,12 @@ None.
 | [citrix_controller_registered](#check-citrix-controller-registered) | Citrix Desktops Registered |
 | [citrix_controller_services](#check-citrix-controller-services) | Citrix Active Site Services |
 | [citrix_controller_sessions](#check-citrix-controller-sessions) | Citrix Total Sessions |
+| [citrix_licenses](#check-citrix-licenses) | Citrix Licenses %s |
+| [citrix_serverload](#check-citrix-serverload) | Citrix Serverload |
+| [citrix_sessions](#check-citrix-sessions) | Citrix Sessions |
+| [citrix_state](#check-citrix-state) | Citrix Instance State |
+| [citrix_state_controller](#check-citrix-state-controller) | Citrix Controller |
+| [citrix_state_hosting_server](#check-citrix-state-hosting-server) | Citrix Hosting Server |
 | [cmctc_lcp_position](#check-cmctc-lcp-position) | Position %s |
 | [cmctc_lcp_regulator](#check-cmctc-lcp-regulator) | Regulator %s |
 | [cmctc_lcp_user](#check-cmctc-lcp-user) | User Sensor %s |
@@ -6542,6 +10713,190 @@ None.
 | [cmctc_state](#check-cmctc-state) | TC unit state |
 | [cmk_inv](#check-cmk-inv) |  |
 | [cmk_site_statistics](#check-cmk-site-statistics) | Site %s statistics |
+| [couchbase_nodes_operations](#check-couchbase-nodes-operations) | Couchbase %s Operations |
+| [couchbase_nodes_services](#check-couchbase-nodes-services) | Couchbase %s Services |
+| [couchbase_nodes_stats_cpu_util](#check-couchbase-nodes-stats-cpu-util) | Couchbase %s CPU utilization |
+| [couchbase_nodes_uptime](#check-couchbase-nodes-uptime) | Couchbase %s Uptime |
+| [cpsecure_sessions](#check-cpsecure-sessions) | Number of %s sessions |
+| [cups_queues](#check-cups-queues) | CUPS Queue %s |
+| [datadog_events](#check-datadog-events) | The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in |
+| [datadog_logs](#check-datadog-logs) | The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in |
+| [docker_container_status_health](#check-docker-container-status-health) | Docker container health |
+| [docker_container_status_uptime](#check-docker-container-status-uptime) | Uptime |
+| [domino_info](#check-domino-info) | Domino Info |
+| [domino_mailqueues](#check-domino-mailqueues) | Domino Queue %s |
+| [domino_tasks](#check-domino-tasks) | Domino Task %s |
+| [domino_transactions](#check-domino-transactions) | Domino Server Transactions |
+| [domino_users](#check-domino-users) | Domino Users |
+| [dotnet_clrmemory](#check-dotnet-clrmemory) | DotNet Memory Management %s |
+| [emc_isilon_clusterhealth](#check-emc-isilon-clusterhealth) | Cluster Health |
+| [entersekt](#check-entersekt) | Entersekt Server Status |
+| [entersekt_ecerterrors](#check-entersekt-ecerterrors) | Entersekt http Ecert Errors |
+| [entersekt_emrerrors](#check-entersekt-emrerrors) | Entersekt http EMR Errors |
+| [entersekt_soaperrors](#check-entersekt-soaperrors) | Entersekt Soap Service Errors |
+| [f5_bigip_cluster](#check-f5-bigip-cluster) | F5-BIGIP-Cluster Config Sync - SNMP sections and Checks |
+| [f5_bigip_cluster_status](#check-f5-bigip-cluster-status) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
+| [f5_bigip_cluster_status_v11_2](#check-f5-bigip-cluster-status-v11-2) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
+| [f5_bigip_cluster_v11](#check-f5-bigip-cluster-v11) | F5-BIGIP-Cluster Config Sync - SNMP sections and Checks |
+| [f5_bigip_pool](#check-f5-bigip-pool) | Load Balancing Pool %s |
+| [f5_bigip_vcmpfailover](#check-f5-bigip-vcmpfailover) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
+| [fast_lta_headunit_replication](#check-fast-lta-headunit-replication) | Fast LTA Replication |
+| [fast_lta_headunit_status](#check-fast-lta-headunit-status) | Fast LTA Headunit Status |
+| [fireeye_bypass](#check-fireeye-bypass) | Bypass Mail Rate |
+| [fireeye_sys_status](#check-fireeye-sys-status) | System status |
+| [fjdarye_channel_adapters](#check-fjdarye-channel-adapters) | Channel Adapter %s |
+| [fortimail_queue](#check-fortimail-queue) | FortiMail %s |
+| [fortisandbox_mem_usage](#check-fortisandbox-mem-usage) | Memory |
+| [ftp](#check-ftp) |  |
+| [globalprotect_utilization](#check-globalprotect-utilization) | GlobalProtect Gateway Utilization |
+| [haproxy_backend](#check-haproxy-backend) | HAProxy Backend %s |
+| [haproxy_frontend](#check-haproxy-frontend) | HAProxy Frontend %s |
+| [haproxy_server](#check-haproxy-server) | HAProxy Server %s |
+| [heartbeat_crm](#check-heartbeat-crm) | Heartbeat CRM General |
+| [heartbeat_crm_resources](#check-heartbeat-crm-resources) | Heartbeat CRM %s |
+| [hepta_syncmoduletimelocal](#check-hepta-syncmoduletimelocal) | %s |
+| [hivemanager_devices](#check-hivemanager-devices) | Client %s |
+| [hivemanager_ng_devices](#check-hivemanager-ng-devices) | Client %s |
+| [hp_webmgmt_status](#check-hp-webmgmt-status) | Status %s |
+| [hpux_serviceguard](#check-hpux-serviceguard) | Serviceguard %s |
+| [http](#check-http) |  |
+| [httpv2](#check-httpv2) |  |
+| [huawei_wlc_aps_cpu](#check-huawei-wlc-aps-cpu) | AP %s CPU |
+| [ibm_mq_channels](#check-ibm-mq-channels) | IBM MQ Channel %s |
+| [ibm_mq_managers](#check-ibm-mq-managers) | IBM MQ Manager %s |
+| [ibm_mq_plugin](#check-ibm-mq-plugin) | IBM MQ Plugin |
+| [ibm_mq_queues](#check-ibm-mq-queues) | IBM MQ Queue %s |
+| [ibm_svc_eventlog](#check-ibm-svc-eventlog) | Eventlog |
+| [ibm_svc_license](#check-ibm-svc-license) | License %s |
+| [iis_app_pool_state](#check-iis-app-pool-state) | IIS Application Pool %s |
+| [infoblox_node_services](#check-infoblox-node-services) | Infoblox services and node services |
+| [infoblox_services](#check-infoblox-services) | Infoblox services and node services |
+| [jar_signature](#check-jar-signature) | Jar-Signature %s |
+| [jira_custom_svc](#check-jira-custom-svc) | Jira %s |
+| [jira_workflow](#check-jira-workflow) | Jira Workflow %s |
+| [juniper_cpu_util](#check-juniper-cpu-util) | CPU utilization %s |
+| [juniper_trpz_aps_sessions](#check-juniper-trpz-aps-sessions) | Access Point %s |
+| [ldap](#check-ldap) |  |
+| [libelle_business_shadow_archive_dir](#check-libelle-business-shadow-archive-dir) | Libelle Business Shadow %s |
+| [libelle_business_shadow_process](#check-libelle-business-shadow-process) | Libelle Business Shadow Process |
+| [livestatus_status](#check-livestatus-status) | OMD %s performance |
+| [mail](#check-mail) |  |
+| [mail_loop](#check-mail-loop) |  |
+| [mailboxes](#check-mailboxes) |  |
+| [mailman_lists](#check-mailman-lists) | Mailinglist %s |
+| [mcafee_webgateway](#check-mcafee-webgateway) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_http_client_requests](#check-mcafee-webgateway-http-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_https_client_requests](#check-mcafee-webgateway-https-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_httpv2_client_requests](#check-mcafee-webgateway-httpv2-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_info](#check-mcafee-webgateway-info) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_misc](#check-mcafee-webgateway-misc) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_time_consumed_by_rule_engine](#check-mcafee-webgateway-time-consumed-by-rule-engine) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mcafee_webgateway_time_to_resolve_dns](#check-mcafee-webgateway-time-to-resolve-dns) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
+| [mkeventd_status](#check-mkeventd-status) | OMD %s Event Console |
+| [mknotifyd](#check-mknotifyd) | OMD %s Notification Spooler |
+| [mobileiron_statistics](#check-mobileiron-statistics) | Provides summarized insights into the fetched partitions. |
+| [mobileiron_versions](#check-mobileiron-versions) | Mobileiron versions |
+| [mq_queues](#check-mq-queues) | Queue %s |
+| [mqtt_broker](#check-mqtt-broker) | MQTT %s Broker |
+| [mqtt_clients](#check-mqtt-clients) | MQTT %s Clients |
+| [mqtt_messages](#check-mqtt-messages) | MQTT %s Messages |
+| [mqtt_uptime](#check-mqtt-uptime) | MQTT %s Uptime |
+| [msexch_activesync](#check-msexch-activesync) | Exchange ActiveSync |
+| [msexch_autodiscovery](#check-msexch-autodiscovery) | Exchange Autodiscovery |
+| [msexch_availability](#check-msexch-availability) | Exchange Availability Service |
+| [msexch_dag_contentindex](#check-msexch-dag-contentindex) | Exchange DAG ContentIndex of %s |
+| [msexch_dag_copyqueue](#check-msexch-dag-copyqueue) | Exchange DAG CopyQueue of %s |
+| [msexch_dag_dbcopy](#check-msexch-dag-dbcopy) | Exchange DAG DBCopy for %s |
+| [msexch_isclienttype](#check-msexch-isclienttype) | Exchange IS Client Type %s |
+| [msexch_owa](#check-msexch-owa) | Exchange OWA |
+| [msexch_replhealth](#check-msexch-replhealth) | Exchange Replication Health %s |
+| [msexch_rpcclientaccess](#check-msexch-rpcclientaccess) | Exchange RPC Client Access |
+| [msoffice_licenses](#check-msoffice-licenses) | MS Office Licenses %s |
+| [msoffice_serviceplans](#check-msoffice-serviceplans) | MS Office Serviceplans %s |
+| [netscaler_vserver](#check-netscaler-vserver) | VServer %s |
+| [nginx_status](#check-nginx-status) | Nginx %s Status |
+| [nullmailer_mailq](#check-nullmailer-mailq) | Nullmailer Queue |
+| [omd_apache](#check-omd-apache) | OMD %s apache |
+| [omd_broker_queues](#check-omd-broker-queues) | OMD %s |
+| [omd_broker_status](#check-omd-broker-status) | OMD %s message broker |
+| [omd_status](#check-omd-status) | <<<omd_status>>> |
+| [oracle_diva_csm](#check-oracle-diva-csm) | DIVA Status %s |
+| [oracle_diva_csm_archive](#check-oracle-diva-csm-archive) | DIVA Status %s |
+| [palo_alto_users](#check-palo-alto-users) | Palo Alto Users |
+| [plesk_backups](#check-plesk-backups) | Plesk Backup %s |
+| [plesk_domains](#check-plesk-domains) | Plesk Domains |
+| [podman_container_health](#check-podman-container-health) | Health |
+| [podman_container_restarts](#check-podman-container-restarts) | Restarts |
+| [postfix_mailq](#check-postfix-mailq) | Postfix Queue %s |
+| [postfix_mailq_status](#check-postfix-mailq-status) | Postfix status %s |
+| [primekey_data](#check-primekey-data) | PrimeKey %s Status |
+| [prometheus_build](#check-prometheus-build) | Prometheus Build Check |
+| [pulse_secure_cpu_util](#check-pulse-secure-cpu-util) | Pulse Secure IVE CPU utilization |
+| [pulse_secure_mem_util](#check-pulse-secure-mem-util) | Pulse Secure IVE memory utilization |
+| [pulse_secure_users](#check-pulse-secure-users) | Pulse Secure users |
+| [qmail_stats](#check-qmail-stats) | Qmail Queue |
+| [rds_licenses](#check-rds-licenses) | RDS Licenses %s |
+| [safenet_ntls_clients](#check-safenet-ntls-clients) | NTLS Clients |
+| [safenet_ntls_connrate](#check-safenet-ntls-connrate) | NTLS Connection Rate: %s |
+| [salesforce_instances](#check-salesforce-instances) | Salesforce Instance %s |
+| [sansymphony_ports](#check-sansymphony-ports) | sansymphony Port %s |
+| [sansymphony_serverstatus](#check-sansymphony-serverstatus) | sansymphony Serverstatus |
+| [sap_dialog](#check-sap-dialog) | %s Dialog |
+| [sap_hana_ess](#check-sap-hana-ess) | SAP HANA ESS %s |
+| [sap_hana_ess_migration](#check-sap-hana-ess-migration) | SAP HANA ESS Migration %s |
+| [sap_hana_license](#check-sap-hana-license) | SAP HANA License %s |
+| [sap_value](#check-sap-value) | %s |
+| [services](#check-services) | Service %s |
+| [sftp](#check-sftp) |  |
+| [siemens_plc_duration](#check-siemens-plc-duration) | Duration %s |
+| [site_object_counts](#check-site-object-counts) | OMD objects |
+| [skype](#check-skype) | Skype Web Components |
+| [skype_conferencing](#check-skype-conferencing) | Skype Conferencing |
+| [skype_data_proxy](#check-skype-data-proxy) | Skype Data Proxy %s |
+| [skype_edge](#check-skype-edge) | Skype AV Edge %s |
+| [skype_edge_auth](#check-skype-edge-auth) | Skype Edge Authentification |
+| [skype_mcu](#check-skype-mcu) | Skype MCU Health |
+| [skype_mediation_server](#check-skype-mediation-server) | Skype Mediation Server |
+| [skype_mobile](#check-skype-mobile) | Skype Mobile Sessions |
+| [skype_sip_stack](#check-skype-sip-stack) | Skype SIP Stack |
+| [skype_xmpp_proxy](#check-skype-xmpp-proxy) | Skype XMPP Proxy |
+| [smtp](#check-smtp) |  |
+| [sni_octopuse_status](#check-sni-octopuse-status) | Global status |
+| [stormshield_cluster](#check-stormshield-cluster) | HA Status |
+| [stormshield_cluster_node](#check-stormshield-cluster-node) | HA Member %s |
+| [stormshield_services](#check-stormshield-services) | Service %s |
+| [sym_brightmail_queues](#check-sym-brightmail-queues) | Queue %s |
+| [timemachine](#check-timemachine) |  |
+| [tsm_paths](#check-tsm-paths) | TSM Paths |
+| [tsm_sessions](#check-tsm-sessions) | tsm_sessions |
+| [unitrends_backup](#check-unitrends-backup) | Schedule %s |
+| [varnish](#check-varnish) | Varnish Uptime |
+| [varnish_backend](#check-varnish-backend) | Varnish Backend |
+| [varnish_backend_success_ratio](#check-varnish-backend-success-ratio) | Varnish Backend Success Ratio |
+| [varnish_cache](#check-varnish-cache) | Varnish Cache |
+| [varnish_cache_hit_ratio](#check-varnish-cache-hit-ratio) | Varnish Cache Hit Ratio |
+| [varnish_client](#check-varnish-client) | Varnish Client |
+| [varnish_esi](#check-varnish-esi) | Varnish ESI |
+| [varnish_fetch](#check-varnish-fetch) | Varnish Fetch |
+| [varnish_objects](#check-varnish-objects) | Varnish Objects |
+| [varnish_worker](#check-varnish-worker) | Varnish Worker |
+| [varnish_worker_thread_ratio](#check-varnish-worker-thread-ratio) | Varnish Worker Thread Ratio |
+| [veeam_cdp_jobs](#check-veeam-cdp-jobs) | VEEAM CDP Job %s |
+| [veeam_client](#check-veeam-client) | VEEAM Client %s |
+| [veeam_jobs](#check-veeam-jobs) | VEEAM Job %s |
+| [veeam_tapejobs](#check-veeam-tapejobs) | VEEAM Tape Job %s |
+| [veritas_vcs](#check-veritas-vcs) | VCS Cluster %s |
+| [veritas_vcs_resource](#check-veritas-vcs-resource) | VCS Resource %s |
+| [veritas_vcs_servicegroup](#check-veritas-vcs-servicegroup) | VCS Service Group %s |
+| [veritas_vcs_system](#check-veritas-vcs-system) | VCS System %s |
+| [vms_users](#check-vms-users) | VMS Users |
+| [win_dhcp_pools](#check-win-dhcp-pools) | DHCP Pool %s |
+| [win_printers](#check-win-printers) | Printer %s |
+| [winperf_msx_queues](#check-winperf-msx-queues) | Queue %s |
+| [wmi_webservices](#check-wmi-webservices) | Web Service %s |
+| [zertificon_mail_queues](#check-zertificon-mail-queues) | Zertificon Mail Queues |
+| [zerto_agent](#check-zerto-agent) | Zerto Agent Status |
+| [zerto_vpg_rpo](#check-zerto-vpg-rpo) | Zerto VPG RPO %s |
 
 ### acme_agent_sessions
 
@@ -7039,6 +11394,12 @@ None.
 - `mem_used_percent` — RAM usage percentage
 - `swap_used_percent` — Swap usage percentage
 
+### arcserve_backup
+
+<a id="check-arcserve-backup"></a>
+
+*Arcserve Backup %s*
+
 ### artec_documents
 
 <a id="check-artec-documents"></a>
@@ -7163,6 +11524,12 @@ None.
 - `audiocodes_tel2ip_attempted_calls`, `established_calls`, `busy_calls`, `no_answer_calls`, `no_route_calls`, `no_match_calls`, `fail_calls`, `fax_attempted_calls`, `fax_success_calls`, `total_duration`
 - `audiocodes_ip2tel_attempted_calls`, `established_calls`, `busy_calls`, `no_answer_calls`, `no_route_calls`, `no_match_calls`, `fail_calls`, `fax_attempted_calls`, `fax_success_calls`, `total_duration`
 All metrics are counts (integers) or duration in seconds.
+
+### audiocodes_system_events
+
+<a id="check-audiocodes-system-events"></a>
+
+*System events*
 
 ### bi_aggregation
 
@@ -7557,6 +11924,12 @@ None.
 
 #### Metrics
 None.
+
+### cisco_ace_rserver
+
+<a id="check-cisco-ace-rserver"></a>
+
+*ACE RServer %s*
 
 ### cisco_cpu_memory
 
@@ -8124,6 +12497,42 @@ Reads the Citrix controller data from `/var/lib/check_mk_agent/spool/citrix_cont
 - `active_sessions` — number of active sessions, unit: sessions
 - `inactive_sessions` — number of inactive sessions, unit: sessions
 
+### citrix_licenses
+
+<a id="check-citrix-licenses"></a>
+
+*Citrix Licenses %s*
+
+### citrix_serverload
+
+<a id="check-citrix-serverload"></a>
+
+*Citrix Serverload*
+
+### citrix_sessions
+
+<a id="check-citrix-sessions"></a>
+
+*Citrix Sessions*
+
+### citrix_state
+
+<a id="check-citrix-state"></a>
+
+*Citrix Instance State*
+
+### citrix_state_controller
+
+<a id="check-citrix-state-controller"></a>
+
+*Citrix Controller*
+
+### citrix_state_hosting_server
+
+<a id="check-citrix-state-hosting-server"></a>
+
+*Citrix Hosting Server*
+
 ### cmctc_lcp_position
 
 <a id="check-cmctc-lcp-position"></a>
@@ -8330,6 +12739,1090 @@ None.
 - `cmk_hosts_up`, `cmk_hosts_down`, `cmk_hosts_unreachable`, `cmk_hosts_in_downtime` — host count per state
 - `cmk_services_ok`, `cmk_services_in_downtime`, `cmk_services_on_down_hosts`, `cmk_services_warning`, `cmk_services_unknown`, `cmk_services_critical` — service count per state
 
+### couchbase_nodes_operations
+
+<a id="check-couchbase-nodes-operations"></a>
+
+*Couchbase %s Operations*
+
+### couchbase_nodes_services
+
+<a id="check-couchbase-nodes-services"></a>
+
+*Couchbase %s Services*
+
+### couchbase_nodes_stats_cpu_util
+
+<a id="check-couchbase-nodes-stats-cpu-util"></a>
+
+*Couchbase %s CPU utilization*
+
+### couchbase_nodes_uptime
+
+<a id="check-couchbase-nodes-uptime"></a>
+
+*Couchbase %s Uptime*
+
+### cpsecure_sessions
+
+<a id="check-cpsecure-sessions"></a>
+
+*Number of %s sessions*
+
+### cups_queues
+
+<a id="check-cups-queues"></a>
+
+*CUPS Queue %s*
+
+### datadog_events
+
+<a id="check-datadog-events"></a>
+
+*The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in*
+
+### datadog_logs
+
+<a id="check-datadog-logs"></a>
+
+*The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in*
+
+### docker_container_status_health
+
+<a id="check-docker-container-status-health"></a>
+
+*Docker container health*
+
+### docker_container_status_uptime
+
+<a id="check-docker-container-status-uptime"></a>
+
+*Uptime*
+
+### domino_info
+
+<a id="check-domino-info"></a>
+
+*Domino Info*
+
+### domino_mailqueues
+
+<a id="check-domino-mailqueues"></a>
+
+*Domino Queue %s*
+
+### domino_tasks
+
+<a id="check-domino-tasks"></a>
+
+*Domino Task %s*
+
+### domino_transactions
+
+<a id="check-domino-transactions"></a>
+
+*Domino Server Transactions*
+
+### domino_users
+
+<a id="check-domino-users"></a>
+
+*Domino Users*
+
+### dotnet_clrmemory
+
+<a id="check-dotnet-clrmemory"></a>
+
+*DotNet Memory Management %s*
+
+### emc_isilon_clusterhealth
+
+<a id="check-emc-isilon-clusterhealth"></a>
+
+*Cluster Health*
+
+### entersekt
+
+<a id="check-entersekt"></a>
+
+*Entersekt Server Status*
+
+### entersekt_ecerterrors
+
+<a id="check-entersekt-ecerterrors"></a>
+
+*Entersekt http Ecert Errors*
+
+### entersekt_emrerrors
+
+<a id="check-entersekt-emrerrors"></a>
+
+*Entersekt http EMR Errors*
+
+### entersekt_soaperrors
+
+<a id="check-entersekt-soaperrors"></a>
+
+*Entersekt Soap Service Errors*
+
+### f5_bigip_cluster
+
+<a id="check-f5-bigip-cluster"></a>
+
+*F5-BIGIP-Cluster Config Sync - SNMP sections and Checks*
+
+### f5_bigip_cluster_status
+
+<a id="check-f5-bigip-cluster-status"></a>
+
+*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
+
+### f5_bigip_cluster_status_v11_2
+
+<a id="check-f5-bigip-cluster-status-v11-2"></a>
+
+*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
+
+### f5_bigip_cluster_v11
+
+<a id="check-f5-bigip-cluster-v11"></a>
+
+*F5-BIGIP-Cluster Config Sync - SNMP sections and Checks*
+
+### f5_bigip_pool
+
+<a id="check-f5-bigip-pool"></a>
+
+*Load Balancing Pool %s*
+
+### f5_bigip_vcmpfailover
+
+<a id="check-f5-bigip-vcmpfailover"></a>
+
+*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
+
+### fast_lta_headunit_replication
+
+<a id="check-fast-lta-headunit-replication"></a>
+
+*Fast LTA Replication*
+
+### fast_lta_headunit_status
+
+<a id="check-fast-lta-headunit-status"></a>
+
+*Fast LTA Headunit Status*
+
+### fireeye_bypass
+
+<a id="check-fireeye-bypass"></a>
+
+*Bypass Mail Rate*
+
+### fireeye_sys_status
+
+<a id="check-fireeye-sys-status"></a>
+
+*System status*
+
+### fjdarye_channel_adapters
+
+<a id="check-fjdarye-channel-adapters"></a>
+
+*Channel Adapter %s*
+
+### fortimail_queue
+
+<a id="check-fortimail-queue"></a>
+
+*FortiMail %s*
+
+### fortisandbox_mem_usage
+
+<a id="check-fortisandbox-mem-usage"></a>
+
+*Memory*
+
+### ftp
+
+<a id="check-ftp"></a>
+
+### globalprotect_utilization
+
+<a id="check-globalprotect-utilization"></a>
+
+*GlobalProtect Gateway Utilization*
+
+### haproxy_backend
+
+<a id="check-haproxy-backend"></a>
+
+*HAProxy Backend %s*
+
+### haproxy_frontend
+
+<a id="check-haproxy-frontend"></a>
+
+*HAProxy Frontend %s*
+
+### haproxy_server
+
+<a id="check-haproxy-server"></a>
+
+*HAProxy Server %s*
+
+### heartbeat_crm
+
+<a id="check-heartbeat-crm"></a>
+
+*Heartbeat CRM General*
+
+### heartbeat_crm_resources
+
+<a id="check-heartbeat-crm-resources"></a>
+
+*Heartbeat CRM %s*
+
+### hepta_syncmoduletimelocal
+
+<a id="check-hepta-syncmoduletimelocal"></a>
+
+*%s*
+
+### hivemanager_devices
+
+<a id="check-hivemanager-devices"></a>
+
+*Client %s*
+
+### hivemanager_ng_devices
+
+<a id="check-hivemanager-ng-devices"></a>
+
+*Client %s*
+
+### hp_webmgmt_status
+
+<a id="check-hp-webmgmt-status"></a>
+
+*Status %s*
+
+### hpux_serviceguard
+
+<a id="check-hpux-serviceguard"></a>
+
+*Serviceguard %s*
+
+### http
+
+<a id="check-http"></a>
+
+### httpv2
+
+<a id="check-httpv2"></a>
+
+### huawei_wlc_aps_cpu
+
+<a id="check-huawei-wlc-aps-cpu"></a>
+
+*AP %s CPU*
+
+### ibm_mq_channels
+
+<a id="check-ibm-mq-channels"></a>
+
+*IBM MQ Channel %s*
+
+### ibm_mq_managers
+
+<a id="check-ibm-mq-managers"></a>
+
+*IBM MQ Manager %s*
+
+### ibm_mq_plugin
+
+<a id="check-ibm-mq-plugin"></a>
+
+*IBM MQ Plugin*
+
+### ibm_mq_queues
+
+<a id="check-ibm-mq-queues"></a>
+
+*IBM MQ Queue %s*
+
+### ibm_svc_eventlog
+
+<a id="check-ibm-svc-eventlog"></a>
+
+*Eventlog*
+
+### ibm_svc_license
+
+<a id="check-ibm-svc-license"></a>
+
+*License %s*
+
+### iis_app_pool_state
+
+<a id="check-iis-app-pool-state"></a>
+
+*IIS Application Pool %s*
+
+### infoblox_node_services
+
+<a id="check-infoblox-node-services"></a>
+
+*Infoblox services and node services*
+
+### infoblox_services
+
+<a id="check-infoblox-services"></a>
+
+*Infoblox services and node services*
+
+### jar_signature
+
+<a id="check-jar-signature"></a>
+
+*Jar-Signature %s*
+
+### jira_custom_svc
+
+<a id="check-jira-custom-svc"></a>
+
+*Jira %s*
+
+### jira_workflow
+
+<a id="check-jira-workflow"></a>
+
+*Jira Workflow %s*
+
+### juniper_cpu_util
+
+<a id="check-juniper-cpu-util"></a>
+
+*CPU utilization %s*
+
+### juniper_trpz_aps_sessions
+
+<a id="check-juniper-trpz-aps-sessions"></a>
+
+*Access Point %s*
+
+### ldap
+
+<a id="check-ldap"></a>
+
+### libelle_business_shadow_archive_dir
+
+<a id="check-libelle-business-shadow-archive-dir"></a>
+
+*Libelle Business Shadow %s*
+
+### libelle_business_shadow_process
+
+<a id="check-libelle-business-shadow-process"></a>
+
+*Libelle Business Shadow Process*
+
+### livestatus_status
+
+<a id="check-livestatus-status"></a>
+
+*OMD %s performance*
+
+### mail
+
+<a id="check-mail"></a>
+
+### mail_loop
+
+<a id="check-mail-loop"></a>
+
+### mailboxes
+
+<a id="check-mailboxes"></a>
+
+### mailman_lists
+
+<a id="check-mailman-lists"></a>
+
+*Mailinglist %s*
+
+### mcafee_webgateway
+
+<a id="check-mcafee-webgateway"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_http_client_requests
+
+<a id="check-mcafee-webgateway-http-client-requests"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_https_client_requests
+
+<a id="check-mcafee-webgateway-https-client-requests"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_httpv2_client_requests
+
+<a id="check-mcafee-webgateway-httpv2-client-requests"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_info
+
+<a id="check-mcafee-webgateway-info"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_misc
+
+<a id="check-mcafee-webgateway-misc"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_time_consumed_by_rule_engine
+
+<a id="check-mcafee-webgateway-time-consumed-by-rule-engine"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mcafee_webgateway_time_to_resolve_dns
+
+<a id="check-mcafee-webgateway-time-to-resolve-dns"></a>
+
+*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
+
+### mkeventd_status
+
+<a id="check-mkeventd-status"></a>
+
+*OMD %s Event Console*
+
+### mknotifyd
+
+<a id="check-mknotifyd"></a>
+
+*OMD %s Notification Spooler*
+
+### mobileiron_statistics
+
+<a id="check-mobileiron-statistics"></a>
+
+*Provides summarized insights into the fetched partitions.*
+
+### mobileiron_versions
+
+<a id="check-mobileiron-versions"></a>
+
+*Mobileiron versions*
+
+### mq_queues
+
+<a id="check-mq-queues"></a>
+
+*Queue %s*
+
+### mqtt_broker
+
+<a id="check-mqtt-broker"></a>
+
+*MQTT %s Broker*
+
+### mqtt_clients
+
+<a id="check-mqtt-clients"></a>
+
+*MQTT %s Clients*
+
+### mqtt_messages
+
+<a id="check-mqtt-messages"></a>
+
+*MQTT %s Messages*
+
+### mqtt_uptime
+
+<a id="check-mqtt-uptime"></a>
+
+*MQTT %s Uptime*
+
+### msexch_activesync
+
+<a id="check-msexch-activesync"></a>
+
+*Exchange ActiveSync*
+
+### msexch_autodiscovery
+
+<a id="check-msexch-autodiscovery"></a>
+
+*Exchange Autodiscovery*
+
+### msexch_availability
+
+<a id="check-msexch-availability"></a>
+
+*Exchange Availability Service*
+
+### msexch_dag_contentindex
+
+<a id="check-msexch-dag-contentindex"></a>
+
+*Exchange DAG ContentIndex of %s*
+
+### msexch_dag_copyqueue
+
+<a id="check-msexch-dag-copyqueue"></a>
+
+*Exchange DAG CopyQueue of %s*
+
+### msexch_dag_dbcopy
+
+<a id="check-msexch-dag-dbcopy"></a>
+
+*Exchange DAG DBCopy for %s*
+
+### msexch_isclienttype
+
+<a id="check-msexch-isclienttype"></a>
+
+*Exchange IS Client Type %s*
+
+### msexch_owa
+
+<a id="check-msexch-owa"></a>
+
+*Exchange OWA*
+
+### msexch_replhealth
+
+<a id="check-msexch-replhealth"></a>
+
+*Exchange Replication Health %s*
+
+### msexch_rpcclientaccess
+
+<a id="check-msexch-rpcclientaccess"></a>
+
+*Exchange RPC Client Access*
+
+### msoffice_licenses
+
+<a id="check-msoffice-licenses"></a>
+
+*MS Office Licenses %s*
+
+### msoffice_serviceplans
+
+<a id="check-msoffice-serviceplans"></a>
+
+*MS Office Serviceplans %s*
+
+### netscaler_vserver
+
+<a id="check-netscaler-vserver"></a>
+
+*VServer %s*
+
+### nginx_status
+
+<a id="check-nginx-status"></a>
+
+*Nginx %s Status*
+
+### nullmailer_mailq
+
+<a id="check-nullmailer-mailq"></a>
+
+*Nullmailer Queue*
+
+### omd_apache
+
+<a id="check-omd-apache"></a>
+
+*OMD %s apache*
+
+### omd_broker_queues
+
+<a id="check-omd-broker-queues"></a>
+
+*OMD %s*
+
+### omd_broker_status
+
+<a id="check-omd-broker-status"></a>
+
+*OMD %s message broker*
+
+### omd_status
+
+<a id="check-omd-status"></a>
+
+*<<<omd_status>>>*
+
+### oracle_diva_csm
+
+<a id="check-oracle-diva-csm"></a>
+
+*DIVA Status %s*
+
+### oracle_diva_csm_archive
+
+<a id="check-oracle-diva-csm-archive"></a>
+
+*DIVA Status %s*
+
+### palo_alto_users
+
+<a id="check-palo-alto-users"></a>
+
+*Palo Alto Users*
+
+### plesk_backups
+
+<a id="check-plesk-backups"></a>
+
+*Plesk Backup %s*
+
+### plesk_domains
+
+<a id="check-plesk-domains"></a>
+
+*Plesk Domains*
+
+### podman_container_health
+
+<a id="check-podman-container-health"></a>
+
+*Health*
+
+### podman_container_restarts
+
+<a id="check-podman-container-restarts"></a>
+
+*Restarts*
+
+### postfix_mailq
+
+<a id="check-postfix-mailq"></a>
+
+*Postfix Queue %s*
+
+### postfix_mailq_status
+
+<a id="check-postfix-mailq-status"></a>
+
+*Postfix status %s*
+
+### primekey_data
+
+<a id="check-primekey-data"></a>
+
+*PrimeKey %s Status*
+
+### prometheus_build
+
+<a id="check-prometheus-build"></a>
+
+*Prometheus Build Check*
+
+### pulse_secure_cpu_util
+
+<a id="check-pulse-secure-cpu-util"></a>
+
+*Pulse Secure IVE CPU utilization*
+
+### pulse_secure_mem_util
+
+<a id="check-pulse-secure-mem-util"></a>
+
+*Pulse Secure IVE memory utilization*
+
+### pulse_secure_users
+
+<a id="check-pulse-secure-users"></a>
+
+*Pulse Secure users*
+
+### qmail_stats
+
+<a id="check-qmail-stats"></a>
+
+*Qmail Queue*
+
+### rds_licenses
+
+<a id="check-rds-licenses"></a>
+
+*RDS Licenses %s*
+
+### safenet_ntls_clients
+
+<a id="check-safenet-ntls-clients"></a>
+
+*NTLS Clients*
+
+### safenet_ntls_connrate
+
+<a id="check-safenet-ntls-connrate"></a>
+
+*NTLS Connection Rate: %s*
+
+### salesforce_instances
+
+<a id="check-salesforce-instances"></a>
+
+*Salesforce Instance %s*
+
+### sansymphony_ports
+
+<a id="check-sansymphony-ports"></a>
+
+*sansymphony Port %s*
+
+### sansymphony_serverstatus
+
+<a id="check-sansymphony-serverstatus"></a>
+
+*sansymphony Serverstatus*
+
+### sap_dialog
+
+<a id="check-sap-dialog"></a>
+
+*%s Dialog*
+
+### sap_hana_ess
+
+<a id="check-sap-hana-ess"></a>
+
+*SAP HANA ESS %s*
+
+### sap_hana_ess_migration
+
+<a id="check-sap-hana-ess-migration"></a>
+
+*SAP HANA ESS Migration %s*
+
+### sap_hana_license
+
+<a id="check-sap-hana-license"></a>
+
+*SAP HANA License %s*
+
+### sap_value
+
+<a id="check-sap-value"></a>
+
+*%s*
+
+### services
+
+<a id="check-services"></a>
+
+*Service %s*
+
+### sftp
+
+<a id="check-sftp"></a>
+
+### siemens_plc_duration
+
+<a id="check-siemens-plc-duration"></a>
+
+*Duration %s*
+
+### site_object_counts
+
+<a id="check-site-object-counts"></a>
+
+*OMD objects*
+
+### skype
+
+<a id="check-skype"></a>
+
+*Skype Web Components*
+
+### skype_conferencing
+
+<a id="check-skype-conferencing"></a>
+
+*Skype Conferencing*
+
+### skype_data_proxy
+
+<a id="check-skype-data-proxy"></a>
+
+*Skype Data Proxy %s*
+
+### skype_edge
+
+<a id="check-skype-edge"></a>
+
+*Skype AV Edge %s*
+
+### skype_edge_auth
+
+<a id="check-skype-edge-auth"></a>
+
+*Skype Edge Authentification*
+
+### skype_mcu
+
+<a id="check-skype-mcu"></a>
+
+*Skype MCU Health*
+
+### skype_mediation_server
+
+<a id="check-skype-mediation-server"></a>
+
+*Skype Mediation Server*
+
+### skype_mobile
+
+<a id="check-skype-mobile"></a>
+
+*Skype Mobile Sessions*
+
+### skype_sip_stack
+
+<a id="check-skype-sip-stack"></a>
+
+*Skype SIP Stack*
+
+### skype_xmpp_proxy
+
+<a id="check-skype-xmpp-proxy"></a>
+
+*Skype XMPP Proxy*
+
+### smtp
+
+<a id="check-smtp"></a>
+
+### sni_octopuse_status
+
+<a id="check-sni-octopuse-status"></a>
+
+*Global status*
+
+### stormshield_cluster
+
+<a id="check-stormshield-cluster"></a>
+
+*HA Status*
+
+### stormshield_cluster_node
+
+<a id="check-stormshield-cluster-node"></a>
+
+*HA Member %s*
+
+### stormshield_services
+
+<a id="check-stormshield-services"></a>
+
+*Service %s*
+
+### sym_brightmail_queues
+
+<a id="check-sym-brightmail-queues"></a>
+
+*Queue %s*
+
+### timemachine
+
+<a id="check-timemachine"></a>
+
+### tsm_paths
+
+<a id="check-tsm-paths"></a>
+
+*TSM Paths*
+
+### tsm_sessions
+
+<a id="check-tsm-sessions"></a>
+
+*tsm_sessions*
+
+### unitrends_backup
+
+<a id="check-unitrends-backup"></a>
+
+*Schedule %s*
+
+### varnish
+
+<a id="check-varnish"></a>
+
+*Varnish Uptime*
+
+### varnish_backend
+
+<a id="check-varnish-backend"></a>
+
+*Varnish Backend*
+
+### varnish_backend_success_ratio
+
+<a id="check-varnish-backend-success-ratio"></a>
+
+*Varnish Backend Success Ratio*
+
+### varnish_cache
+
+<a id="check-varnish-cache"></a>
+
+*Varnish Cache*
+
+### varnish_cache_hit_ratio
+
+<a id="check-varnish-cache-hit-ratio"></a>
+
+*Varnish Cache Hit Ratio*
+
+### varnish_client
+
+<a id="check-varnish-client"></a>
+
+*Varnish Client*
+
+### varnish_esi
+
+<a id="check-varnish-esi"></a>
+
+*Varnish ESI*
+
+### varnish_fetch
+
+<a id="check-varnish-fetch"></a>
+
+*Varnish Fetch*
+
+### varnish_objects
+
+<a id="check-varnish-objects"></a>
+
+*Varnish Objects*
+
+### varnish_worker
+
+<a id="check-varnish-worker"></a>
+
+*Varnish Worker*
+
+### varnish_worker_thread_ratio
+
+<a id="check-varnish-worker-thread-ratio"></a>
+
+*Varnish Worker Thread Ratio*
+
+### veeam_cdp_jobs
+
+<a id="check-veeam-cdp-jobs"></a>
+
+*VEEAM CDP Job %s*
+
+### veeam_client
+
+<a id="check-veeam-client"></a>
+
+*VEEAM Client %s*
+
+### veeam_jobs
+
+<a id="check-veeam-jobs"></a>
+
+*VEEAM Job %s*
+
+### veeam_tapejobs
+
+<a id="check-veeam-tapejobs"></a>
+
+*VEEAM Tape Job %s*
+
+### veritas_vcs
+
+<a id="check-veritas-vcs"></a>
+
+*VCS Cluster %s*
+
+### veritas_vcs_resource
+
+<a id="check-veritas-vcs-resource"></a>
+
+*VCS Resource %s*
+
+### veritas_vcs_servicegroup
+
+<a id="check-veritas-vcs-servicegroup"></a>
+
+*VCS Service Group %s*
+
+### veritas_vcs_system
+
+<a id="check-veritas-vcs-system"></a>
+
+*VCS System %s*
+
+### vms_users
+
+<a id="check-vms-users"></a>
+
+*VMS Users*
+
+### win_dhcp_pools
+
+<a id="check-win-dhcp-pools"></a>
+
+*DHCP Pool %s*
+
+### win_printers
+
+<a id="check-win-printers"></a>
+
+*Printer %s*
+
+### winperf_msx_queues
+
+<a id="check-winperf-msx-queues"></a>
+
+*Queue %s*
+
+### wmi_webservices
+
+<a id="check-wmi-webservices"></a>
+
+*Web Service %s*
+
+### zertificon_mail_queues
+
+<a id="check-zertificon-mail-queues"></a>
+
+*Zertificon Mail Queues*
+
+### zerto_agent
+
+<a id="check-zerto-agent"></a>
+
+*Zerto Agent Status*
+
+### zerto_vpg_rpo
+
+<a id="check-zerto-vpg-rpo"></a>
+
+*Zerto VPG RPO %s*
+
 ## Database
 
 <a id="check-database"></a>
@@ -8343,7 +13836,135 @@ None.
 | [couchbase_buckets_operations](#check-couchbase-buckets-operations) | Couchbase Bucket %s Operations |
 | [couchbase_buckets_operations_total](#check-couchbase-buckets-operations-total) | Couchbase Bucket Operations |
 | [couchbase_buckets_vbuckets](#check-couchbase-buckets-vbuckets) | Couchbase Bucket %s active vBuckets |
+| [couchbase_buckets_vbuckets_replica](#check-couchbase-buckets-vbuckets-replica) | Couchbase Bucket %s replica vBuckets |
 | [couchbase_nodes_cache](#check-couchbase-nodes-cache) | Couchbase %s Cache |
+| [couchbase_nodes_info](#check-couchbase-nodes-info) | Couchbase %s Info |
+| [couchbase_nodes_items](#check-couchbase-nodes-items) | Couchbase %s vBucket items |
+| [couchbase_nodes_operations_total](#check-couchbase-nodes-operations-total) | Couchbase Total Operations |
+| [couchbase_nodes_size_couch_views](#check-couchbase-nodes-size-couch-views) | Couchbase %s Couch Views |
+| [couchbase_nodes_size_docs](#check-couchbase-nodes-size-docs) | Couchbase %s Documents |
+| [couchbase_nodes_size_spacial_views](#check-couchbase-nodes-size-spacial-views) | Couchbase %s Spacial Views |
+| [couchbase_nodes_stats_mem](#check-couchbase-nodes-stats-mem) | Couchbase %s Memory |
+| [db2_backup](#check-db2-backup) | DB2 Backup %s |
+| [db2_bp_hitratios](#check-db2-bp-hitratios) | DB2 BP-Hitratios %s |
+| [db2_connections](#check-db2-connections) | DB2 Connections %s |
+| [db2_counters](#check-db2-counters) | DB2 Counters %s |
+| [db2_logsizes](#check-db2-logsizes) | DB2 Logsize %s |
+| [db2_mem](#check-db2-mem) | Memory %s |
+| [db2_sort_overflow](#check-db2-sort-overflow) | DB2 Sort Overflow %s |
+| [db2_tablespaces](#check-db2-tablespaces) | DB2 Tablespace %s |
+| [db2_version](#check-db2-version) | DB2 Instance %s |
+| [informix_dbspaces](#check-informix-dbspaces) | Relevant documentation: |
+| [informix_locks](#check-informix-locks) | Informix Locks %s |
+| [informix_logusage](#check-informix-logusage) | Informix Log Usage %s |
+| [informix_sessions](#check-informix-sessions) | Informix Sessions %s |
+| [informix_status](#check-informix-status) | Informix Instance %s |
+| [informix_tabextents](#check-informix-tabextents) | Informix Table Extents %s |
+| [mongodb_asserts](#check-mongodb-asserts) | MongoDB Asserts |
+| [mongodb_cluster](#check-mongodb-cluster) | MongoDB Database: %s |
+| [mongodb_cluster_balancer](#check-mongodb-cluster-balancer) | MongoDB Balancer |
+| [mongodb_cluster_collections](#check-mongodb-cluster-collections) | MongoDB Cluster: %s |
+| [mongodb_collections](#check-mongodb-collections) | MongoDB Collection: %s |
+| [mongodb_connections](#check-mongodb-connections) | MongoDB %s |
+| [mongodb_counters](#check-mongodb-counters) | MongoDB Counters %s |
+| [mongodb_flushing](#check-mongodb-flushing) | MongoDB Flushing |
+| [mongodb_instance](#check-mongodb-instance) | MongoDB Instance |
+| [mongodb_locks](#check-mongodb-locks) | MongoDB Locks |
+| [mongodb_mem](#check-mongodb-mem) | Memory used MongoDB |
+| [mongodb_replica](#check-mongodb-replica) | MongoDB Replica Set Status |
+| [mongodb_replica_set](#check-mongodb-replica-set) | MongoDB Replication Lag |
+| [mongodb_replica_set_election](#check-mongodb-replica-set-election) | MongoDB Replica Set Primary Election |
+| [mongodb_replication_info](#check-mongodb-replication-info) | MongoDB Replication Info |
+| [msexch_database](#check-msexch-database) | Exchange Database %s |
+| [msexch_isstore](#check-msexch-isstore) | Exchange IS Store %s |
+| [mssql_availability_groups](#check-mssql-availability-groups) | MSSQL Availability Group %s |
+| [mssql_backup](#check-mssql-backup) | MSSQL %s Backup |
+| [mssql_backup_per_type](#check-mssql-backup-per-type) | MSSQL %s Backup |
+| [mssql_blocked_sessions](#check-mssql-blocked-sessions) | MSSQL %s Blocked Sessions |
+| [mssql_connections](#check-mssql-connections) | MSSQL Connections %s |
+| [mssql_counters_cache_hits](#check-mssql-counters-cache-hits) | MSSQL %s |
+| [mssql_counters_file_sizes](#check-mssql-counters-file-sizes) | MSSQL %s File Sizes |
+| [mssql_counters_locks](#check-mssql-counters-locks) | MSSQL %s Locks |
+| [mssql_counters_locks_per_batch](#check-mssql-counters-locks-per-batch) | MSSQL %s Locks per Batch |
+| [mssql_counters_page_life_expectancy](#check-mssql-counters-page-life-expectancy) | MSSQL %s |
+| [mssql_counters_pageactivity](#check-mssql-counters-pageactivity) | MSSQL %s Page Activity |
+| [mssql_counters_sqlstats](#check-mssql-counters-sqlstats) | MSSQL %s |
+| [mssql_counters_transactions](#check-mssql-counters-transactions) | MSSQL %s Transactions |
+| [mssql_databases](#check-mssql-databases) | MSSQL %s Database |
+| [mssql_datafiles](#check-mssql-datafiles) | MSSQL Datafile %s |
+| [mssql_instance](#check-mssql-instance) | MSSQL %s Instance |
+| [mssql_jobs](#check-mssql-jobs) | MSSQL job %s |
+| [mssql_mirroring](#check-mssql-mirroring) | MSSQL Mirroring Status: %s |
+| [mssql_tablespaces](#check-mssql-tablespaces) | MSSQL %s Sizes |
+| [mssql_transactionlogs](#check-mssql-transactionlogs) | MSSQL Transactionlog %s |
+| [mysql](#check-mysql) | MySQL Version %s |
+| [mysql_capacity](#check-mysql-capacity) | MySQL DB Size %s |
+| [mysql_connections](#check-mysql-connections) | MySQL Connections %s |
+| [mysql_galeradonor](#check-mysql-galeradonor) | MySQL Galera Donor %s |
+| [mysql_galerasize](#check-mysql-galerasize) | MySQL Galera Size %s |
+| [mysql_galerastartup](#check-mysql-galerastartup) | MySQL Galera Startup %s |
+| [mysql_galerastatus](#check-mysql-galerastatus) | MySQL Galera Status %s |
+| [mysql_galerasync](#check-mysql-galerasync) | MySQL Galera Sync %s |
+| [mysql_innodb_io](#check-mysql-innodb-io) | MySQL InnoDB IO %s |
+| [mysql_ping](#check-mysql-ping) | MySQL Instance %s |
+| [mysql_replica_slave](#check-mysql-replica-slave) | MySQL DB Slave %s |
+| [mysql_sessions](#check-mysql-sessions) | MySQL Sessions %s |
+| [oracle_asm_diskgroup](#check-oracle-asm-diskgroup) | ASM Diskgroup %s |
+| [oracle_crs_res](#check-oracle-crs-res) | ORA-GI %s Resource |
+| [oracle_crs_version](#check-oracle-crs-version) | ORA-GI Version |
+| [oracle_crs_voting](#check-oracle-crs-voting) | ORA-GI Voting |
+| [oracle_dataguard_stats](#check-oracle-dataguard-stats) | ORA %s Dataguard-Stats |
+| [oracle_diva_csm_actor](#check-oracle-diva-csm-actor) | DIVA Status %s |
+| [oracle_diva_csm_objects](#check-oracle-diva-csm-objects) | DIVA Managed Objects |
+| [oracle_instance](#check-oracle-instance) | ORA %s Instance |
+| [oracle_instance_uptime](#check-oracle-instance-uptime) | ORA %s Uptime |
+| [oracle_jobs](#check-oracle-jobs) | ORA %s Job |
+| [oracle_locks](#check-oracle-locks) | ORA %s Locks |
+| [oracle_logswitches](#check-oracle-logswitches) | ORA %s Logswitches |
+| [oracle_longactivesessions](#check-oracle-longactivesessions) | ORA %s Long Active Sessions |
+| [oracle_performance](#check-oracle-performance) | ORA %s Performance |
+| [oracle_performance_dbtime](#check-oracle-performance-dbtime) | ORA %s Performance DB-Time |
+| [oracle_performance_iostat_bytes](#check-oracle-performance-iostat-bytes) | ORA %s Performance IO Stats Bytes |
+| [oracle_performance_iostat_ios](#check-oracle-performance-iostat-ios) | ORA %s Performance IO Stats Requests |
+| [oracle_performance_memory](#check-oracle-performance-memory) | ORA %s Performance Memory |
+| [oracle_performance_waitclasses](#check-oracle-performance-waitclasses) | ORA %s Performance System Wait |
+| [oracle_processes](#check-oracle-processes) | ORA %s Processes |
+| [oracle_recovery_area](#check-oracle-recovery-area) | ORA %s Recovery Area |
+| [oracle_recovery_status](#check-oracle-recovery-status) | ORA %s Recovery Status |
+| [oracle_rman](#check-oracle-rman) | ORA %s RMAN Backup |
+| [oracle_sessions](#check-oracle-sessions) | ORA %s Sessions |
+| [oracle_sql](#check-oracle-sql) | ORA %s |
+| [oracle_tablespaces](#check-oracle-tablespaces) | ORA %s Tablespace |
+| [oracle_undostat](#check-oracle-undostat) | ORA %s Undo Retention |
+| [oracle_version](#check-oracle-version) | ORA Version %s |
+| [postgres_bloat](#check-postgres-bloat) | PostgreSQL Bloat %s |
+| [postgres_conn_time](#check-postgres-conn-time) | PostgreSQL Connection Time %s |
+| [postgres_connections](#check-postgres-connections) | PostgreSQL Connections %s |
+| [postgres_instances](#check-postgres-instances) | PostgreSQL Instance %s |
+| [postgres_locks](#check-postgres-locks) | PostgreSQL Locks %s |
+| [postgres_processes](#check-postgres-processes) | PostgreSQL Process Count |
+| [postgres_query_duration](#check-postgres-query-duration) | PostgreSQL Query Duration %s |
+| [postgres_sessions](#check-postgres-sessions) | PostgreSQL Daemon Sessions %s |
+| [postgres_stat_database](#check-postgres-stat-database) | PostgreSQL DB %s Statistics |
+| [postgres_stat_database_size](#check-postgres-stat-database-size) | PostgreSQL DB %s Size |
+| [postgres_stats](#check-postgres-stats) | PostgreSQL %s |
+| [primekey_db_usage](#check-primekey-db-usage) | PrimeKey DB Usage |
+| [redis_info](#check-redis-info) | Redis %s Server Info |
+| [redis_info_clients](#check-redis-info-clients) | Redis %s Clients |
+| [redis_info_persistence](#check-redis-info-persistence) | Redis %s Persistence |
+| [sap_hana_backup](#check-sap-hana-backup) | SAP HANA Backup %s |
+| [sap_hana_connect](#check-sap-hana-connect) | SAP HANA CONNECT %s |
+| [sap_hana_data_volume](#check-sap-hana-data-volume) | SAP HANA Volume %s |
+| [sap_hana_db_status](#check-sap-hana-db-status) | SAP HANA Database Status %s |
+| [sap_hana_diskusage](#check-sap-hana-diskusage) | SAP HANA Disk %s |
+| [sap_hana_events](#check-sap-hana-events) | SAP HANA Events %s |
+| [sap_hana_fileinfo_groups](#check-sap-hana-fileinfo-groups) | File group %s |
+| [sap_hana_instance_status](#check-sap-hana-instance-status) | SAP HANA Instance Status %s |
+| [sap_hana_memrate](#check-sap-hana-memrate) | SAP HANA Memory %s |
+| [sap_hana_proc](#check-sap-hana-proc) | SAP HANA Process %s |
+| [sap_hana_replication_status](#check-sap-hana-replication-status) | SAP HANA Replication Status %s |
+| [sap_hana_status](#check-sap-hana-status) | SAP HANA %s |
+| [sql](#check-sql) |  |
 
 ### couchbase_buckets_cache
 
@@ -8573,6 +14194,12 @@ None.
 - `item_memory` — Memory (bytes) used by active vBucket items.
 - `pending_vbuckets` — Count of pending vBuckets.
 
+### couchbase_buckets_vbuckets_replica
+
+<a id="check-couchbase-buckets-vbuckets-replica"></a>
+
+*Couchbase Bucket %s replica vBuckets*
+
 ### couchbase_nodes_cache
 
 <a id="check-couchbase-nodes-cache"></a>
@@ -8602,14 +14229,810 @@ None.
 - `cache_misses_rate` — background fetch count per second (unit: count/s)
 - `cache_hit_ratio` — percentage of requests served by cache (unit: %)
 
+### couchbase_nodes_info
+
+<a id="check-couchbase-nodes-info"></a>
+
+*Couchbase %s Info*
+
+### couchbase_nodes_items
+
+<a id="check-couchbase-nodes-items"></a>
+
+*Couchbase %s vBucket items*
+
+### couchbase_nodes_operations_total
+
+<a id="check-couchbase-nodes-operations-total"></a>
+
+*Couchbase Total Operations*
+
+### couchbase_nodes_size_couch_views
+
+<a id="check-couchbase-nodes-size-couch-views"></a>
+
+*Couchbase %s Couch Views*
+
+### couchbase_nodes_size_docs
+
+<a id="check-couchbase-nodes-size-docs"></a>
+
+*Couchbase %s Documents*
+
+### couchbase_nodes_size_spacial_views
+
+<a id="check-couchbase-nodes-size-spacial-views"></a>
+
+*Couchbase %s Spacial Views*
+
+### couchbase_nodes_stats_mem
+
+<a id="check-couchbase-nodes-stats-mem"></a>
+
+*Couchbase %s Memory*
+
+### db2_backup
+
+<a id="check-db2-backup"></a>
+
+*DB2 Backup %s*
+
+### db2_bp_hitratios
+
+<a id="check-db2-bp-hitratios"></a>
+
+*DB2 BP-Hitratios %s*
+
+### db2_connections
+
+<a id="check-db2-connections"></a>
+
+*DB2 Connections %s*
+
+### db2_counters
+
+<a id="check-db2-counters"></a>
+
+*DB2 Counters %s*
+
+### db2_logsizes
+
+<a id="check-db2-logsizes"></a>
+
+*DB2 Logsize %s*
+
+### db2_mem
+
+<a id="check-db2-mem"></a>
+
+*Memory %s*
+
+### db2_sort_overflow
+
+<a id="check-db2-sort-overflow"></a>
+
+*DB2 Sort Overflow %s*
+
+### db2_tablespaces
+
+<a id="check-db2-tablespaces"></a>
+
+*DB2 Tablespace %s*
+
+### db2_version
+
+<a id="check-db2-version"></a>
+
+*DB2 Instance %s*
+
+### informix_dbspaces
+
+<a id="check-informix-dbspaces"></a>
+
+*Relevant documentation:*
+
+### informix_locks
+
+<a id="check-informix-locks"></a>
+
+*Informix Locks %s*
+
+### informix_logusage
+
+<a id="check-informix-logusage"></a>
+
+*Informix Log Usage %s*
+
+### informix_sessions
+
+<a id="check-informix-sessions"></a>
+
+*Informix Sessions %s*
+
+### informix_status
+
+<a id="check-informix-status"></a>
+
+*Informix Instance %s*
+
+### informix_tabextents
+
+<a id="check-informix-tabextents"></a>
+
+*Informix Table Extents %s*
+
+### mongodb_asserts
+
+<a id="check-mongodb-asserts"></a>
+
+*MongoDB Asserts*
+
+### mongodb_cluster
+
+<a id="check-mongodb-cluster"></a>
+
+*MongoDB Database: %s*
+
+### mongodb_cluster_balancer
+
+<a id="check-mongodb-cluster-balancer"></a>
+
+*MongoDB Balancer*
+
+### mongodb_cluster_collections
+
+<a id="check-mongodb-cluster-collections"></a>
+
+*MongoDB Cluster: %s*
+
+### mongodb_collections
+
+<a id="check-mongodb-collections"></a>
+
+*MongoDB Collection: %s*
+
+### mongodb_connections
+
+<a id="check-mongodb-connections"></a>
+
+*MongoDB %s*
+
+### mongodb_counters
+
+<a id="check-mongodb-counters"></a>
+
+*MongoDB Counters %s*
+
+### mongodb_flushing
+
+<a id="check-mongodb-flushing"></a>
+
+*MongoDB Flushing*
+
+### mongodb_instance
+
+<a id="check-mongodb-instance"></a>
+
+*MongoDB Instance*
+
+### mongodb_locks
+
+<a id="check-mongodb-locks"></a>
+
+*MongoDB Locks*
+
+### mongodb_mem
+
+<a id="check-mongodb-mem"></a>
+
+*Memory used MongoDB*
+
+### mongodb_replica
+
+<a id="check-mongodb-replica"></a>
+
+*MongoDB Replica Set Status*
+
+### mongodb_replica_set
+
+<a id="check-mongodb-replica-set"></a>
+
+*MongoDB Replication Lag*
+
+### mongodb_replica_set_election
+
+<a id="check-mongodb-replica-set-election"></a>
+
+*MongoDB Replica Set Primary Election*
+
+### mongodb_replication_info
+
+<a id="check-mongodb-replication-info"></a>
+
+*MongoDB Replication Info*
+
+### msexch_database
+
+<a id="check-msexch-database"></a>
+
+*Exchange Database %s*
+
+### msexch_isstore
+
+<a id="check-msexch-isstore"></a>
+
+*Exchange IS Store %s*
+
+### mssql_availability_groups
+
+<a id="check-mssql-availability-groups"></a>
+
+*MSSQL Availability Group %s*
+
+### mssql_backup
+
+<a id="check-mssql-backup"></a>
+
+*MSSQL %s Backup*
+
+### mssql_backup_per_type
+
+<a id="check-mssql-backup-per-type"></a>
+
+*MSSQL %s Backup*
+
+### mssql_blocked_sessions
+
+<a id="check-mssql-blocked-sessions"></a>
+
+*MSSQL %s Blocked Sessions*
+
+### mssql_connections
+
+<a id="check-mssql-connections"></a>
+
+*MSSQL Connections %s*
+
+### mssql_counters_cache_hits
+
+<a id="check-mssql-counters-cache-hits"></a>
+
+*MSSQL %s*
+
+### mssql_counters_file_sizes
+
+<a id="check-mssql-counters-file-sizes"></a>
+
+*MSSQL %s File Sizes*
+
+### mssql_counters_locks
+
+<a id="check-mssql-counters-locks"></a>
+
+*MSSQL %s Locks*
+
+### mssql_counters_locks_per_batch
+
+<a id="check-mssql-counters-locks-per-batch"></a>
+
+*MSSQL %s Locks per Batch*
+
+### mssql_counters_page_life_expectancy
+
+<a id="check-mssql-counters-page-life-expectancy"></a>
+
+*MSSQL %s*
+
+### mssql_counters_pageactivity
+
+<a id="check-mssql-counters-pageactivity"></a>
+
+*MSSQL %s Page Activity*
+
+### mssql_counters_sqlstats
+
+<a id="check-mssql-counters-sqlstats"></a>
+
+*MSSQL %s*
+
+### mssql_counters_transactions
+
+<a id="check-mssql-counters-transactions"></a>
+
+*MSSQL %s Transactions*
+
+### mssql_databases
+
+<a id="check-mssql-databases"></a>
+
+*MSSQL %s Database*
+
+### mssql_datafiles
+
+<a id="check-mssql-datafiles"></a>
+
+*MSSQL Datafile %s*
+
+### mssql_instance
+
+<a id="check-mssql-instance"></a>
+
+*MSSQL %s Instance*
+
+### mssql_jobs
+
+<a id="check-mssql-jobs"></a>
+
+*MSSQL job %s*
+
+### mssql_mirroring
+
+<a id="check-mssql-mirroring"></a>
+
+*MSSQL Mirroring Status: %s*
+
+### mssql_tablespaces
+
+<a id="check-mssql-tablespaces"></a>
+
+*MSSQL %s Sizes*
+
+### mssql_transactionlogs
+
+<a id="check-mssql-transactionlogs"></a>
+
+*MSSQL Transactionlog %s*
+
+### mysql
+
+<a id="check-mysql"></a>
+
+*MySQL Version %s*
+
+### mysql_capacity
+
+<a id="check-mysql-capacity"></a>
+
+*MySQL DB Size %s*
+
+### mysql_connections
+
+<a id="check-mysql-connections"></a>
+
+*MySQL Connections %s*
+
+### mysql_galeradonor
+
+<a id="check-mysql-galeradonor"></a>
+
+*MySQL Galera Donor %s*
+
+### mysql_galerasize
+
+<a id="check-mysql-galerasize"></a>
+
+*MySQL Galera Size %s*
+
+### mysql_galerastartup
+
+<a id="check-mysql-galerastartup"></a>
+
+*MySQL Galera Startup %s*
+
+### mysql_galerastatus
+
+<a id="check-mysql-galerastatus"></a>
+
+*MySQL Galera Status %s*
+
+### mysql_galerasync
+
+<a id="check-mysql-galerasync"></a>
+
+*MySQL Galera Sync %s*
+
+### mysql_innodb_io
+
+<a id="check-mysql-innodb-io"></a>
+
+*MySQL InnoDB IO %s*
+
+### mysql_ping
+
+<a id="check-mysql-ping"></a>
+
+*MySQL Instance %s*
+
+### mysql_replica_slave
+
+<a id="check-mysql-replica-slave"></a>
+
+*MySQL DB Slave %s*
+
+### mysql_sessions
+
+<a id="check-mysql-sessions"></a>
+
+*MySQL Sessions %s*
+
+### oracle_asm_diskgroup
+
+<a id="check-oracle-asm-diskgroup"></a>
+
+*ASM Diskgroup %s*
+
+### oracle_crs_res
+
+<a id="check-oracle-crs-res"></a>
+
+*ORA-GI %s Resource*
+
+### oracle_crs_version
+
+<a id="check-oracle-crs-version"></a>
+
+*ORA-GI Version*
+
+### oracle_crs_voting
+
+<a id="check-oracle-crs-voting"></a>
+
+*ORA-GI Voting*
+
+### oracle_dataguard_stats
+
+<a id="check-oracle-dataguard-stats"></a>
+
+*ORA %s Dataguard-Stats*
+
+### oracle_diva_csm_actor
+
+<a id="check-oracle-diva-csm-actor"></a>
+
+*DIVA Status %s*
+
+### oracle_diva_csm_objects
+
+<a id="check-oracle-diva-csm-objects"></a>
+
+*DIVA Managed Objects*
+
+### oracle_instance
+
+<a id="check-oracle-instance"></a>
+
+*ORA %s Instance*
+
+### oracle_instance_uptime
+
+<a id="check-oracle-instance-uptime"></a>
+
+*ORA %s Uptime*
+
+### oracle_jobs
+
+<a id="check-oracle-jobs"></a>
+
+*ORA %s Job*
+
+### oracle_locks
+
+<a id="check-oracle-locks"></a>
+
+*ORA %s Locks*
+
+### oracle_logswitches
+
+<a id="check-oracle-logswitches"></a>
+
+*ORA %s Logswitches*
+
+### oracle_longactivesessions
+
+<a id="check-oracle-longactivesessions"></a>
+
+*ORA %s Long Active Sessions*
+
+### oracle_performance
+
+<a id="check-oracle-performance"></a>
+
+*ORA %s Performance*
+
+### oracle_performance_dbtime
+
+<a id="check-oracle-performance-dbtime"></a>
+
+*ORA %s Performance DB-Time*
+
+### oracle_performance_iostat_bytes
+
+<a id="check-oracle-performance-iostat-bytes"></a>
+
+*ORA %s Performance IO Stats Bytes*
+
+### oracle_performance_iostat_ios
+
+<a id="check-oracle-performance-iostat-ios"></a>
+
+*ORA %s Performance IO Stats Requests*
+
+### oracle_performance_memory
+
+<a id="check-oracle-performance-memory"></a>
+
+*ORA %s Performance Memory*
+
+### oracle_performance_waitclasses
+
+<a id="check-oracle-performance-waitclasses"></a>
+
+*ORA %s Performance System Wait*
+
+### oracle_processes
+
+<a id="check-oracle-processes"></a>
+
+*ORA %s Processes*
+
+### oracle_recovery_area
+
+<a id="check-oracle-recovery-area"></a>
+
+*ORA %s Recovery Area*
+
+### oracle_recovery_status
+
+<a id="check-oracle-recovery-status"></a>
+
+*ORA %s Recovery Status*
+
+### oracle_rman
+
+<a id="check-oracle-rman"></a>
+
+*ORA %s RMAN Backup*
+
+### oracle_sessions
+
+<a id="check-oracle-sessions"></a>
+
+*ORA %s Sessions*
+
+### oracle_sql
+
+<a id="check-oracle-sql"></a>
+
+*ORA %s*
+
+### oracle_tablespaces
+
+<a id="check-oracle-tablespaces"></a>
+
+*ORA %s Tablespace*
+
+### oracle_undostat
+
+<a id="check-oracle-undostat"></a>
+
+*ORA %s Undo Retention*
+
+### oracle_version
+
+<a id="check-oracle-version"></a>
+
+*ORA Version %s*
+
+### postgres_bloat
+
+<a id="check-postgres-bloat"></a>
+
+*PostgreSQL Bloat %s*
+
+### postgres_conn_time
+
+<a id="check-postgres-conn-time"></a>
+
+*PostgreSQL Connection Time %s*
+
+### postgres_connections
+
+<a id="check-postgres-connections"></a>
+
+*PostgreSQL Connections %s*
+
+### postgres_instances
+
+<a id="check-postgres-instances"></a>
+
+*PostgreSQL Instance %s*
+
+### postgres_locks
+
+<a id="check-postgres-locks"></a>
+
+*PostgreSQL Locks %s*
+
+### postgres_processes
+
+<a id="check-postgres-processes"></a>
+
+*PostgreSQL Process Count*
+
+### postgres_query_duration
+
+<a id="check-postgres-query-duration"></a>
+
+*PostgreSQL Query Duration %s*
+
+### postgres_sessions
+
+<a id="check-postgres-sessions"></a>
+
+*PostgreSQL Daemon Sessions %s*
+
+### postgres_stat_database
+
+<a id="check-postgres-stat-database"></a>
+
+*PostgreSQL DB %s Statistics*
+
+### postgres_stat_database_size
+
+<a id="check-postgres-stat-database-size"></a>
+
+*PostgreSQL DB %s Size*
+
+### postgres_stats
+
+<a id="check-postgres-stats"></a>
+
+*PostgreSQL %s*
+
+### primekey_db_usage
+
+<a id="check-primekey-db-usage"></a>
+
+*PrimeKey DB Usage*
+
+### redis_info
+
+<a id="check-redis-info"></a>
+
+*Redis %s Server Info*
+
+### redis_info_clients
+
+<a id="check-redis-info-clients"></a>
+
+*Redis %s Clients*
+
+### redis_info_persistence
+
+<a id="check-redis-info-persistence"></a>
+
+*Redis %s Persistence*
+
+### sap_hana_backup
+
+<a id="check-sap-hana-backup"></a>
+
+*SAP HANA Backup %s*
+
+### sap_hana_connect
+
+<a id="check-sap-hana-connect"></a>
+
+*SAP HANA CONNECT %s*
+
+### sap_hana_data_volume
+
+<a id="check-sap-hana-data-volume"></a>
+
+*SAP HANA Volume %s*
+
+### sap_hana_db_status
+
+<a id="check-sap-hana-db-status"></a>
+
+*SAP HANA Database Status %s*
+
+### sap_hana_diskusage
+
+<a id="check-sap-hana-diskusage"></a>
+
+*SAP HANA Disk %s*
+
+### sap_hana_events
+
+<a id="check-sap-hana-events"></a>
+
+*SAP HANA Events %s*
+
+### sap_hana_fileinfo_groups
+
+<a id="check-sap-hana-fileinfo-groups"></a>
+
+*File group %s*
+
+### sap_hana_instance_status
+
+<a id="check-sap-hana-instance-status"></a>
+
+*SAP HANA Instance Status %s*
+
+### sap_hana_memrate
+
+<a id="check-sap-hana-memrate"></a>
+
+*SAP HANA Memory %s*
+
+### sap_hana_proc
+
+<a id="check-sap-hana-proc"></a>
+
+*SAP HANA Process %s*
+
+### sap_hana_replication_status
+
+<a id="check-sap-hana-replication-status"></a>
+
+*SAP HANA Replication Status %s*
+
+### sap_hana_status
+
+<a id="check-sap-hana-status"></a>
+
+*SAP HANA %s*
+
+### sql
+
+<a id="check-sql"></a>
+
 ## Virtualization & Cloud
 
 <a id="check-virtualization-cloud"></a>
 
 | Check | Summary |
 | --- | --- |
+| [checkpoint_vsx_packets](#check-checkpoint-vsx-packets) | VS %s Packets |
 | [citrix_hostsystem](#check-citrix-hostsystem) | Citrix Host Info |
 | [citrix_hostsystem_vms](#check-citrix-hostsystem-vms) | Citrix VMs |
+| [docker_container_status](#check-docker-container-status) | Docker container status |
+| [docker_node_info](#check-docker-node-info) | Docker node info |
+| [docker_node_info_containers](#check-docker-node-info-containers) | Docker containers |
+| [emc_isilon_nodes](#check-emc-isilon-nodes) | Nodes |
+| [f5_bigip_vcmpguests](#check-f5-bigip-vcmpguests) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
+| [fortigate_sync_status](#check-fortigate-sync-status) | Sync Status |
+| [fortinet_controller_aps](#check-fortinet-controller-aps) | AP %s |
+| [hyperv_checkpoints](#check-hyperv-checkpoints) | HyperV Checkpoints |
+| [hyperv_vm_checkpoints](#check-hyperv-vm-checkpoints) | Hyper-V VM Checkpoints |
+| [hyperv_vm_general](#check-hyperv-vm-general) | Hyper-V VM summary |
+| [hyperv_vm_integration](#check-hyperv-vm-integration) | Hyper-V VM integration services |
+| [hyperv_vm_nic](#check-hyperv-vm-nic) | HyperV NIC %s |
+| [hyperv_vm_ram](#check-hyperv-vm-ram) | Hyper-V RAM |
+| [hyperv_vm_vhd_dynamic](#check-hyperv-vm-vhd-dynamic) | Hyper-V VM Disk [%s] |
+| [hyperv_vm_vhd_fixed](#check-hyperv-vm-vhd-fixed) | Hyper-V VM Disk [%s] |
+| [hyperv_vms](#check-hyperv-vms) | VM %s |
+| [hyperv_vmstatus](#check-hyperv-vmstatus) | HyperV Status |
+| [netscaler_ha](#check-netscaler-ha) | HA Node Status |
+| [podman_container_cpu_utilization](#check-podman-container-cpu-utilization) | CPU utilization |
+| [podman_container_diskstat](#check-podman-container-diskstat) | Container IO %s |
+| [podman_container_memory](#check-podman-container-memory) | Memory |
+| [podman_container_status](#check-podman-container-status) | Status |
+| [podman_container_uptime](#check-podman-container-uptime) | Uptime |
+| [podman_containers](#check-podman-containers) | Podman containers |
+| [podman_pods](#check-podman-pods) | Podman pods |
+| [podman_status](#check-podman-status) | Podman status |
+| [pvecm_nodes](#check-pvecm-nodes) | PVE Node %s |
+| [pvecm_status](#check-pvecm-status) | PVE Cluster State |
+| [vbox_guest](#check-vbox-guest) | VBox Guest Additions |
+
+### checkpoint_vsx_packets
+
+<a id="check-checkpoint-vsx-packets"></a>
+
+*VS %s Packets*
 
 ### citrix_hostsystem
 
@@ -8665,6 +15088,180 @@ None.
 #### Metrics
 None.
 
+### docker_container_status
+
+<a id="check-docker-container-status"></a>
+
+*Docker container status*
+
+### docker_node_info
+
+<a id="check-docker-node-info"></a>
+
+*Docker node info*
+
+### docker_node_info_containers
+
+<a id="check-docker-node-info-containers"></a>
+
+*Docker containers*
+
+### emc_isilon_nodes
+
+<a id="check-emc-isilon-nodes"></a>
+
+*Nodes*
+
+### f5_bigip_vcmpguests
+
+<a id="check-f5-bigip-vcmpguests"></a>
+
+*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
+
+### fortigate_sync_status
+
+<a id="check-fortigate-sync-status"></a>
+
+*Sync Status*
+
+### fortinet_controller_aps
+
+<a id="check-fortinet-controller-aps"></a>
+
+*AP %s*
+
+### hyperv_checkpoints
+
+<a id="check-hyperv-checkpoints"></a>
+
+*HyperV Checkpoints*
+
+### hyperv_vm_checkpoints
+
+<a id="check-hyperv-vm-checkpoints"></a>
+
+*Hyper-V VM Checkpoints*
+
+### hyperv_vm_general
+
+<a id="check-hyperv-vm-general"></a>
+
+*Hyper-V VM summary*
+
+### hyperv_vm_integration
+
+<a id="check-hyperv-vm-integration"></a>
+
+*Hyper-V VM integration services*
+
+### hyperv_vm_nic
+
+<a id="check-hyperv-vm-nic"></a>
+
+*HyperV NIC %s*
+
+### hyperv_vm_ram
+
+<a id="check-hyperv-vm-ram"></a>
+
+*Hyper-V RAM*
+
+### hyperv_vm_vhd_dynamic
+
+<a id="check-hyperv-vm-vhd-dynamic"></a>
+
+*Hyper-V VM Disk [%s]*
+
+### hyperv_vm_vhd_fixed
+
+<a id="check-hyperv-vm-vhd-fixed"></a>
+
+*Hyper-V VM Disk [%s]*
+
+### hyperv_vms
+
+<a id="check-hyperv-vms"></a>
+
+*VM %s*
+
+### hyperv_vmstatus
+
+<a id="check-hyperv-vmstatus"></a>
+
+*HyperV Status*
+
+### netscaler_ha
+
+<a id="check-netscaler-ha"></a>
+
+*HA Node Status*
+
+### podman_container_cpu_utilization
+
+<a id="check-podman-container-cpu-utilization"></a>
+
+*CPU utilization*
+
+### podman_container_diskstat
+
+<a id="check-podman-container-diskstat"></a>
+
+*Container IO %s*
+
+### podman_container_memory
+
+<a id="check-podman-container-memory"></a>
+
+*Memory*
+
+### podman_container_status
+
+<a id="check-podman-container-status"></a>
+
+*Status*
+
+### podman_container_uptime
+
+<a id="check-podman-container-uptime"></a>
+
+*Uptime*
+
+### podman_containers
+
+<a id="check-podman-containers"></a>
+
+*Podman containers*
+
+### podman_pods
+
+<a id="check-podman-pods"></a>
+
+*Podman pods*
+
+### podman_status
+
+<a id="check-podman-status"></a>
+
+*Podman status*
+
+### pvecm_nodes
+
+<a id="check-pvecm-nodes"></a>
+
+*PVE Node %s*
+
+### pvecm_status
+
+<a id="check-pvecm-status"></a>
+
+*PVE Cluster State*
+
+### vbox_guest
+
+<a id="check-vbox-guest"></a>
+
+*VBox Guest Additions*
+
 ## Environment & Power
 
 <a id="check-environment-power"></a>
@@ -8673,6 +15270,8 @@ None.
 | --- | --- |
 | [akcp_exp_humidity](#check-akcp-exp-humidity) | Humidity %s |
 | [akcp_exp_water](#check-akcp-exp-water) | Water %s |
+| [allnet_ip_sensoric_tension](#check-allnet-ip-sensoric-tension) | Electric Tension %s |
+| [apc_ats_status](#check-apc-ats-status) | ATS Status |
 | [apc_humidity](#check-apc-humidity) | Humidity %s |
 | [apc_inrow_temp](#check-apc-inrow-temp) | Temperature %s |
 | [apc_netbotz_fluid](#check-apc-netbotz-fluid) | Fluid Detector %s |
@@ -8680,14 +15279,112 @@ None.
 | [apc_netbotz_sensors_dewpoint](#check-apc-netbotz-sensors-dewpoint) | Dew point %s |
 | [apc_netbotz_sensors_humidity](#check-apc-netbotz-sensors-humidity) | Humidity %s |
 | [apc_netshelterpdu_outlet](#check-apc-netshelterpdu-outlet) | Power Outlet Port %s |
+| [apc_symmetra_input](#check-apc-symmetra-input) | Phase %s |
 | [bluenet2_powerrail_temp](#check-bluenet2-powerrail-temp) | Temperature %s |
 | [bluenet_meter](#check-bluenet-meter) | Powermeter %s |
+| [bluenet_sensor](#check-bluenet-sensor) | Temperature %s |
 | [carel_uniflair_cooling](#check-carel-uniflair-cooling) | Carel uniflair cooling |
+| [casa_power](#check-casa-power) | Power %s |
 | [checkpoint_powersupply](#check-checkpoint-powersupply) | Power Supply %s |
+| [cisco_meraki_org_sensor_battery](#check-cisco-meraki-org-sensor-battery) | Cisco Meraki Battery Percentage %s |
+| [cisco_meraki_org_sensor_humidity](#check-cisco-meraki-org-sensor-humidity) | Cisco Meraki Humidity Relative Percentage %s |
+| [climaveneta_alarm](#check-climaveneta-alarm) | Alarm Status |
+| [cmciii](#check-cmciii) | State %s |
+| [cmciii_access](#check-cmciii-access) | %s |
+| [cmciii_humidity](#check-cmciii-humidity) | %s |
+| [cmciii_lcp_water](#check-cmciii-lcp-water) | Temperature Water LCP %s |
 | [cmciii_leakage](#check-cmciii-leakage) | %s |
 | [cmciii_status](#check-cmciii-status) | %s |
 | [cmctc_lcp_access](#check-cmctc-lcp-access) | Access %s |
 | [cmctc_lcp_blowergrade](#check-cmctc-lcp-blowergrade) | Blower Grade %s |
+| [cmctc_lcp_flow](#check-cmctc-lcp-flow) | Waterflow %s |
+| [cmctc_lcp_humidity](#check-cmctc-lcp-humidity) | Humidity %s |
+| [didactum_sensors_outlet](#check-didactum-sensors-outlet) | Relay %s |
+| [emka_modules_sensor_humid](#check-emka-modules-sensor-humid) | Humidity %s |
+| [enviromux_all_external](#check-enviromux-all-external) | Sensor External %s |
+| [enviromux_all_external_humidity](#check-enviromux-all-external-humidity) | Sensor External %s |
+| [enviromux_aux](#check-enviromux-aux) | Sensor %s |
+| [enviromux_aux_humidity](#check-enviromux-aux-humidity) | Sensor %s |
+| [enviromux_external](#check-enviromux-external) | Sensor External %s |
+| [enviromux_external_humidity](#check-enviromux-external-humidity) | Sensor External %s |
+| [enviromux_external_voltage](#check-enviromux-external-voltage) | Sensor External %s |
+| [enviromux_humidity](#check-enviromux-humidity) | Sensor %s |
+| [enviromux_micro_humidity](#check-enviromux-micro-humidity) | Sensor %s |
+| [enviromux_micro_humidity_external](#check-enviromux-micro-humidity-external) | Sensor External %s |
+| [enviromux_micro_temperature_external](#check-enviromux-micro-temperature-external) | Sensor External %s |
+| [enviromux_remote_input](#check-enviromux-remote-input) | Remote Input %s |
+| [enviromux_sems](#check-enviromux-sems) | Sensor %s |
+| [enviromux_sems_e2d_external_humidity](#check-enviromux-sems-e2d-external-humidity) | Sensor External %s |
+| [enviromux_sems_e2d_external_voltage](#check-enviromux-sems-e2d-external-voltage) | Sensor External %s |
+| [enviromux_sems_e2d_humidity](#check-enviromux-sems-e2d-humidity) | Sensor %s |
+| [enviromux_sems_e2d_voltage](#check-enviromux-sems-e2d-voltage) | Sensor %s |
+| [enviromux_sems_external](#check-enviromux-sems-external) | Sensor External %s |
+| [enviromux_sems_external_humidity](#check-enviromux-sems-external-humidity) | Sensor External %s |
+| [enviromux_sems_external_voltage](#check-enviromux-sems-external-voltage) | Sensor External %s |
+| [enviromux_sems_humidity](#check-enviromux-sems-humidity) | Sensor %s |
+| [epower](#check-epower) | Power phase %s |
+| [etherbox_humidity](#check-etherbox-humidity) | Sensor %s |
+| [gude_humidity](#check-gude-humidity) | Humidity %s |
+| [gude_powerbanks](#check-gude-powerbanks) | Powerbank %s |
+| [hwg_humidity](#check-hwg-humidity) | Humidity %s |
+| [kentix_amp_sensors_humidity](#check-kentix-amp-sensors-humidity) | Humidity %s |
+| [kentix_amp_sensors_leakage](#check-kentix-amp-sensors-leakage) | Leakage %s |
+| [kentix_amp_sensors_smoke](#check-kentix-amp-sensors-smoke) | Smoke Detector %s |
+| [kentix_co](#check-kentix-co) | Carbon Monoxide |
+| [kentix_dewpoint](#check-kentix-dewpoint) | Dewpoint %s |
+| [kentix_humidity](#check-kentix-humidity) | Humidity |
+| [knuerr_rms_humidity](#check-knuerr-rms-humidity) | Humidity |
+| [lgp_pdu_aux](#check-lgp-pdu-aux) | Liebert PDU AUX %s |
+| [lgp_pdu_info](#check-lgp-pdu-info) | Liebert PDU Info %s |
+| [liebert_chilled_water](#check-liebert-chilled-water) | %s |
+| [liebert_chiller_status](#check-liebert-chiller-status) | Chiller status |
+| [liebert_cooling](#check-liebert-cooling) | %s |
+| [liebert_cooling_status](#check-liebert-cooling-status) | %s |
+| [liebert_humidity_air](#check-liebert-humidity-air) | %s Humidity |
+| [liebert_pump](#check-liebert-pump) | %s |
+| [liebert_reheating](#check-liebert-reheating) | Reheating Utilization |
+| [liebert_system_events](#check-liebert-system-events) | System events |
+| [liebert_temp_air](#check-liebert-temp-air) | %s Temperature |
+| [liebert_temp_fluid](#check-liebert-temp-fluid) | %s |
+| [liebert_temp_general](#check-liebert-temp-general) | %s |
+| [orion_batterytest](#check-orion-batterytest) | Battery Test |
+| [orion_system_dc](#check-orion-system-dc) | Direct Current %s |
+| [pdu_gude](#check-pdu-gude) | Phase %s |
+| [security_master_humidity](#check-security-master-humidity) | Sensor %s |
+| [sentry_pdu](#check-sentry-pdu) | Plug %s |
+| [sentry_pdu_outlets](#check-sentry-pdu-outlets) | Outlet %s |
+| [sentry_pdu_outlets_v4](#check-sentry-pdu-outlets-v4) | Outlet %s |
+| [sentry_pdu_v4](#check-sentry-pdu-v4) | Plug %s |
+| [ups_bat_temp](#check-ups-bat-temp) | Temperature %s |
+| [ups_battery_state](#check-ups-battery-state) | Battery state |
+| [ups_capacity](#check-ups-capacity) | Battery capacity |
+| [ups_cps_battery](#check-ups-cps-battery) | UPS Battery |
+| [ups_cps_battery_temp](#check-ups-cps-battery-temp) | Temperature %s |
+| [ups_cps_inphase](#check-ups-cps-inphase) | UPS Input Phase %s |
+| [ups_cps_outphase](#check-ups-cps-outphase) | UPS Output Phase %s |
+| [ups_eaton_enviroment](#check-ups-eaton-enviroment) | Enviroment |
+| [ups_in_freq](#check-ups-in-freq) | IN frequency phase %s |
+| [ups_in_voltage](#check-ups-in-voltage) | IN voltage phase %s |
+| [ups_modulys_alarms](#check-ups-modulys-alarms) | UPS Alarms |
+| [ups_modulys_battery](#check-ups-modulys-battery) | Battery Charge |
+| [ups_modulys_battery_temp](#check-ups-modulys-battery-temp) | Temperature %s |
+| [ups_modulys_inphase](#check-ups-modulys-inphase) | Input %s |
+| [ups_modulys_outphase](#check-ups-modulys-outphase) | Output %s |
+| [ups_out_load](#check-ups-out-load) | OUT load phase %s |
+| [ups_out_voltage](#check-ups-out-voltage) | OUT voltage phase %s |
+| [ups_socomec_capacity](#check-ups-socomec-capacity) | Battery capacity |
+| [ups_socomec_in_voltage](#check-ups-socomec-in-voltage) | IN voltage phase %s |
+| [ups_socomec_out_source](#check-ups-socomec-out-source) | Output Source |
+| [ups_socomec_out_voltage](#check-ups-socomec-out-voltage) | OUT voltage phase %s |
+| [ups_socomec_outphase](#check-ups-socomec-outphase) | Output %s |
+| [ups_test](#check-ups-test) | Self Test |
+| [vutlan_ems_smoke](#check-vutlan-ems-smoke) | Smoke Detector %s |
+| [wagner_titanus_topsense_airflow_deviation](#check-wagner-titanus-topsense-airflow-deviation) | Airflow Deviation Detector %s |
+| [wagner_titanus_topsense_alarm](#check-wagner-titanus-topsense-alarm) | Alarm Detector %s |
+| [wagner_titanus_topsense_info](#check-wagner-titanus-topsense-info) | Topsense Info |
+| [wagner_titanus_topsense_overall_status](#check-wagner-titanus-topsense-overall-status) | Overall Status |
+| [wagner_titanus_topsense_smoke](#check-wagner-titanus-topsense-smoke) | Smoke Detector %s |
+| [wut_webtherm_pressure](#check-wut-webtherm-pressure) | Pressure %s |
 
 ### akcp_exp_humidity
 
@@ -8747,6 +15444,18 @@ None.
 
 #### Metrics
 None.
+
+### allnet_ip_sensoric_tension
+
+<a id="check-allnet-ip-sensoric-tension"></a>
+
+*Electric Tension %s*
+
+### apc_ats_status
+
+<a id="check-apc-ats-status"></a>
+
+*ATS Status*
 
 ### apc_humidity
 
@@ -8949,6 +15658,12 @@ None.
 #### Metrics
 None.
 
+### apc_symmetra_input
+
+<a id="check-apc-symmetra-input"></a>
+
+*Phase %s*
+
 ### bluenet2_powerrail_temp
 
 <a id="check-bluenet2-powerrail-temp"></a>
@@ -9007,6 +15722,12 @@ None.
 - `power` — active power, in watts
 - `appower` — apparent power, in volt-amperes
 
+### bluenet_sensor
+
+<a id="check-bluenet-sensor"></a>
+
+*Temperature %s*
+
 ### carel_uniflair_cooling
 
 <a id="check-carel-uniflair-cooling"></a>
@@ -9035,6 +15756,12 @@ None.
 #### Metrics
 - `humidity` — relative humidity measured as a percentage (%).
 
+### casa_power
+
+<a id="check-casa-power"></a>
+
+*Power %s*
+
 ### checkpoint_powersupply
 
 <a id="check-checkpoint-powersupply"></a>
@@ -9062,6 +15789,48 @@ None.
 
 #### Metrics
 None.
+
+### cisco_meraki_org_sensor_battery
+
+<a id="check-cisco-meraki-org-sensor-battery"></a>
+
+*Cisco Meraki Battery Percentage %s*
+
+### cisco_meraki_org_sensor_humidity
+
+<a id="check-cisco-meraki-org-sensor-humidity"></a>
+
+*Cisco Meraki Humidity Relative Percentage %s*
+
+### climaveneta_alarm
+
+<a id="check-climaveneta-alarm"></a>
+
+*Alarm Status*
+
+### cmciii
+
+<a id="check-cmciii"></a>
+
+*State %s*
+
+### cmciii_access
+
+<a id="check-cmciii-access"></a>
+
+*%s*
+
+### cmciii_humidity
+
+<a id="check-cmciii-humidity"></a>
+
+*%s*
+
+### cmciii_lcp_water
+
+<a id="check-cmciii-lcp-water"></a>
+
+*Temperature Water LCP %s*
 
 ### cmciii_leakage
 
@@ -9176,6 +15945,534 @@ None.
 #### Metrics
 - `blowergrade` — current blower grade percentage (unitless, float).
 
+### cmctc_lcp_flow
+
+<a id="check-cmctc-lcp-flow"></a>
+
+*Waterflow %s*
+
+### cmctc_lcp_humidity
+
+<a id="check-cmctc-lcp-humidity"></a>
+
+*Humidity %s*
+
+### didactum_sensors_outlet
+
+<a id="check-didactum-sensors-outlet"></a>
+
+*Relay %s*
+
+### emka_modules_sensor_humid
+
+<a id="check-emka-modules-sensor-humid"></a>
+
+*Humidity %s*
+
+### enviromux_all_external
+
+<a id="check-enviromux-all-external"></a>
+
+*Sensor External %s*
+
+### enviromux_all_external_humidity
+
+<a id="check-enviromux-all-external-humidity"></a>
+
+*Sensor External %s*
+
+### enviromux_aux
+
+<a id="check-enviromux-aux"></a>
+
+*Sensor %s*
+
+### enviromux_aux_humidity
+
+<a id="check-enviromux-aux-humidity"></a>
+
+*Sensor %s*
+
+### enviromux_external
+
+<a id="check-enviromux-external"></a>
+
+*Sensor External %s*
+
+### enviromux_external_humidity
+
+<a id="check-enviromux-external-humidity"></a>
+
+*Sensor External %s*
+
+### enviromux_external_voltage
+
+<a id="check-enviromux-external-voltage"></a>
+
+*Sensor External %s*
+
+### enviromux_humidity
+
+<a id="check-enviromux-humidity"></a>
+
+*Sensor %s*
+
+### enviromux_micro_humidity
+
+<a id="check-enviromux-micro-humidity"></a>
+
+*Sensor %s*
+
+### enviromux_micro_humidity_external
+
+<a id="check-enviromux-micro-humidity-external"></a>
+
+*Sensor External %s*
+
+### enviromux_micro_temperature_external
+
+<a id="check-enviromux-micro-temperature-external"></a>
+
+*Sensor External %s*
+
+### enviromux_remote_input
+
+<a id="check-enviromux-remote-input"></a>
+
+*Remote Input %s*
+
+### enviromux_sems
+
+<a id="check-enviromux-sems"></a>
+
+*Sensor %s*
+
+### enviromux_sems_e2d_external_humidity
+
+<a id="check-enviromux-sems-e2d-external-humidity"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_e2d_external_voltage
+
+<a id="check-enviromux-sems-e2d-external-voltage"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_e2d_humidity
+
+<a id="check-enviromux-sems-e2d-humidity"></a>
+
+*Sensor %s*
+
+### enviromux_sems_e2d_voltage
+
+<a id="check-enviromux-sems-e2d-voltage"></a>
+
+*Sensor %s*
+
+### enviromux_sems_external
+
+<a id="check-enviromux-sems-external"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_external_humidity
+
+<a id="check-enviromux-sems-external-humidity"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_external_voltage
+
+<a id="check-enviromux-sems-external-voltage"></a>
+
+*Sensor External %s*
+
+### enviromux_sems_humidity
+
+<a id="check-enviromux-sems-humidity"></a>
+
+*Sensor %s*
+
+### epower
+
+<a id="check-epower"></a>
+
+*Power phase %s*
+
+### etherbox_humidity
+
+<a id="check-etherbox-humidity"></a>
+
+*Sensor %s*
+
+### gude_humidity
+
+<a id="check-gude-humidity"></a>
+
+*Humidity %s*
+
+### gude_powerbanks
+
+<a id="check-gude-powerbanks"></a>
+
+*Powerbank %s*
+
+### hwg_humidity
+
+<a id="check-hwg-humidity"></a>
+
+*Humidity %s*
+
+### kentix_amp_sensors_humidity
+
+<a id="check-kentix-amp-sensors-humidity"></a>
+
+*Humidity %s*
+
+### kentix_amp_sensors_leakage
+
+<a id="check-kentix-amp-sensors-leakage"></a>
+
+*Leakage %s*
+
+### kentix_amp_sensors_smoke
+
+<a id="check-kentix-amp-sensors-smoke"></a>
+
+*Smoke Detector %s*
+
+### kentix_co
+
+<a id="check-kentix-co"></a>
+
+*Carbon Monoxide*
+
+### kentix_dewpoint
+
+<a id="check-kentix-dewpoint"></a>
+
+*Dewpoint %s*
+
+### kentix_humidity
+
+<a id="check-kentix-humidity"></a>
+
+*Humidity*
+
+### knuerr_rms_humidity
+
+<a id="check-knuerr-rms-humidity"></a>
+
+*Humidity*
+
+### lgp_pdu_aux
+
+<a id="check-lgp-pdu-aux"></a>
+
+*Liebert PDU AUX %s*
+
+### lgp_pdu_info
+
+<a id="check-lgp-pdu-info"></a>
+
+*Liebert PDU Info %s*
+
+### liebert_chilled_water
+
+<a id="check-liebert-chilled-water"></a>
+
+*%s*
+
+### liebert_chiller_status
+
+<a id="check-liebert-chiller-status"></a>
+
+*Chiller status*
+
+### liebert_cooling
+
+<a id="check-liebert-cooling"></a>
+
+*%s*
+
+### liebert_cooling_status
+
+<a id="check-liebert-cooling-status"></a>
+
+*%s*
+
+### liebert_humidity_air
+
+<a id="check-liebert-humidity-air"></a>
+
+*%s Humidity*
+
+### liebert_pump
+
+<a id="check-liebert-pump"></a>
+
+*%s*
+
+### liebert_reheating
+
+<a id="check-liebert-reheating"></a>
+
+*Reheating Utilization*
+
+### liebert_system_events
+
+<a id="check-liebert-system-events"></a>
+
+*System events*
+
+### liebert_temp_air
+
+<a id="check-liebert-temp-air"></a>
+
+*%s Temperature*
+
+### liebert_temp_fluid
+
+<a id="check-liebert-temp-fluid"></a>
+
+*%s*
+
+### liebert_temp_general
+
+<a id="check-liebert-temp-general"></a>
+
+*%s*
+
+### orion_batterytest
+
+<a id="check-orion-batterytest"></a>
+
+*Battery Test*
+
+### orion_system_dc
+
+<a id="check-orion-system-dc"></a>
+
+*Direct Current %s*
+
+### pdu_gude
+
+<a id="check-pdu-gude"></a>
+
+*Phase %s*
+
+### security_master_humidity
+
+<a id="check-security-master-humidity"></a>
+
+*Sensor %s*
+
+### sentry_pdu
+
+<a id="check-sentry-pdu"></a>
+
+*Plug %s*
+
+### sentry_pdu_outlets
+
+<a id="check-sentry-pdu-outlets"></a>
+
+*Outlet %s*
+
+### sentry_pdu_outlets_v4
+
+<a id="check-sentry-pdu-outlets-v4"></a>
+
+*Outlet %s*
+
+### sentry_pdu_v4
+
+<a id="check-sentry-pdu-v4"></a>
+
+*Plug %s*
+
+### ups_bat_temp
+
+<a id="check-ups-bat-temp"></a>
+
+*Temperature %s*
+
+### ups_battery_state
+
+<a id="check-ups-battery-state"></a>
+
+*Battery state*
+
+### ups_capacity
+
+<a id="check-ups-capacity"></a>
+
+*Battery capacity*
+
+### ups_cps_battery
+
+<a id="check-ups-cps-battery"></a>
+
+*UPS Battery*
+
+### ups_cps_battery_temp
+
+<a id="check-ups-cps-battery-temp"></a>
+
+*Temperature %s*
+
+### ups_cps_inphase
+
+<a id="check-ups-cps-inphase"></a>
+
+*UPS Input Phase %s*
+
+### ups_cps_outphase
+
+<a id="check-ups-cps-outphase"></a>
+
+*UPS Output Phase %s*
+
+### ups_eaton_enviroment
+
+<a id="check-ups-eaton-enviroment"></a>
+
+*Enviroment*
+
+### ups_in_freq
+
+<a id="check-ups-in-freq"></a>
+
+*IN frequency phase %s*
+
+### ups_in_voltage
+
+<a id="check-ups-in-voltage"></a>
+
+*IN voltage phase %s*
+
+### ups_modulys_alarms
+
+<a id="check-ups-modulys-alarms"></a>
+
+*UPS Alarms*
+
+### ups_modulys_battery
+
+<a id="check-ups-modulys-battery"></a>
+
+*Battery Charge*
+
+### ups_modulys_battery_temp
+
+<a id="check-ups-modulys-battery-temp"></a>
+
+*Temperature %s*
+
+### ups_modulys_inphase
+
+<a id="check-ups-modulys-inphase"></a>
+
+*Input %s*
+
+### ups_modulys_outphase
+
+<a id="check-ups-modulys-outphase"></a>
+
+*Output %s*
+
+### ups_out_load
+
+<a id="check-ups-out-load"></a>
+
+*OUT load phase %s*
+
+### ups_out_voltage
+
+<a id="check-ups-out-voltage"></a>
+
+*OUT voltage phase %s*
+
+### ups_socomec_capacity
+
+<a id="check-ups-socomec-capacity"></a>
+
+*Battery capacity*
+
+### ups_socomec_in_voltage
+
+<a id="check-ups-socomec-in-voltage"></a>
+
+*IN voltage phase %s*
+
+### ups_socomec_out_source
+
+<a id="check-ups-socomec-out-source"></a>
+
+*Output Source*
+
+### ups_socomec_out_voltage
+
+<a id="check-ups-socomec-out-voltage"></a>
+
+*OUT voltage phase %s*
+
+### ups_socomec_outphase
+
+<a id="check-ups-socomec-outphase"></a>
+
+*Output %s*
+
+### ups_test
+
+<a id="check-ups-test"></a>
+
+*Self Test*
+
+### vutlan_ems_smoke
+
+<a id="check-vutlan-ems-smoke"></a>
+
+*Smoke Detector %s*
+
+### wagner_titanus_topsense_airflow_deviation
+
+<a id="check-wagner-titanus-topsense-airflow-deviation"></a>
+
+*Airflow Deviation Detector %s*
+
+### wagner_titanus_topsense_alarm
+
+<a id="check-wagner-titanus-topsense-alarm"></a>
+
+*Alarm Detector %s*
+
+### wagner_titanus_topsense_info
+
+<a id="check-wagner-titanus-topsense-info"></a>
+
+*Topsense Info*
+
+### wagner_titanus_topsense_overall_status
+
+<a id="check-wagner-titanus-topsense-overall-status"></a>
+
+*Overall Status*
+
+### wagner_titanus_topsense_smoke
+
+<a id="check-wagner-titanus-topsense-smoke"></a>
+
+*Smoke Detector %s*
+
+### wut_webtherm_pressure
+
+<a id="check-wut-webtherm-pressure"></a>
+
+*Pressure %s*
+
 ## Security
 
 <a id="check-security"></a>
@@ -9185,6 +16482,37 @@ None.
 | [acme_certificates](#check-acme-certificates) | Certificate %s |
 | [cert](#check-cert) |  |
 | [checkpoint_firewall](#check-checkpoint-firewall) | Firewall Module |
+| [checkpoint_ha_problems](#check-checkpoint-ha-problems) | HA Problem %s |
+| [entersekt_certexpiry](#check-entersekt-certexpiry) | Entersekt Certificate Expiration |
+| [fortiauthenticator_auth_fail](#check-fortiauthenticator-auth-fail) | Authentication Failures |
+| [fortigate_antivirus](#check-fortigate-antivirus) | AntiVirus %s |
+| [fortigate_ips](#check-fortigate-ips) | IPS %s |
+| [fortigate_signatures](#check-fortigate-signatures) | Signatures |
+| [genua_state_correlation](#check-genua-state-correlation) | Carp Correlation |
+| [iptables](#check-iptables) | Iptables |
+| [kaspersky_av_client](#check-kaspersky-av-client) | Kaspersky AV |
+| [kaspersky_av_kesl_updates](#check-kaspersky-av-kesl-updates) | AV Update Status |
+| [kaspersky_av_quarantine](#check-kaspersky-av-quarantine) | AV Quarantine |
+| [kaspersky_av_tasks](#check-kaspersky-av-tasks) | AV Task %s |
+| [kaspersky_av_updates](#check-kaspersky-av-updates) | AV Update Status |
+| [logins](#check-logins) | Logins |
+| [mcafee_av_client](#check-mcafee-av-client) | McAfee AV |
+| [mobileiron_compliance](#check-mobileiron-compliance) | Mobileiron compliance |
+| [netscaler_sslcertificates](#check-netscaler-sslcertificates) | SSL Certificate %s |
+| [palo_alto](#check-palo-alto) | Palo Alto State |
+| [safenet_hsm_events](#check-safenet-hsm-events) | HSM Safenet Event Stats |
+| [safenet_ntls](#check-safenet-ntls) | NTLS Operation Status |
+| [safenet_ntls_expiration](#check-safenet-ntls-expiration) | NTLS Expiration Date |
+| [security_master](#check-security-master) | Sensor %s |
+| [sshd_config](#check-sshd-config) | SSH daemon configuration |
+| [stormshield_info](#check-stormshield-info) | Stormshield Info |
+| [stormshield_policy](#check-stormshield-policy) | Policy %s |
+| [stormshield_updates](#check-stormshield-updates) | Autoupdate %s |
+| [symantec_av_progstate](#check-symantec-av-progstate) | AV Program Status |
+| [symantec_av_quarantine](#check-symantec-av-quarantine) | AV Quarantine |
+| [symantec_av_updates](#check-symantec-av-updates) | AV Update Status |
+| [win_license](#check-win-license) | Windows License |
+| [zorp_connections](#check-zorp-connections) | Zorp FW - connections |
 
 ### acme_certificates
 
@@ -9267,6 +16595,192 @@ None.
 #### Metrics
 None.
 
+### checkpoint_ha_problems
+
+<a id="check-checkpoint-ha-problems"></a>
+
+*HA Problem %s*
+
+### entersekt_certexpiry
+
+<a id="check-entersekt-certexpiry"></a>
+
+*Entersekt Certificate Expiration*
+
+### fortiauthenticator_auth_fail
+
+<a id="check-fortiauthenticator-auth-fail"></a>
+
+*Authentication Failures*
+
+### fortigate_antivirus
+
+<a id="check-fortigate-antivirus"></a>
+
+*AntiVirus %s*
+
+### fortigate_ips
+
+<a id="check-fortigate-ips"></a>
+
+*IPS %s*
+
+### fortigate_signatures
+
+<a id="check-fortigate-signatures"></a>
+
+*Signatures*
+
+### genua_state_correlation
+
+<a id="check-genua-state-correlation"></a>
+
+*Carp Correlation*
+
+### iptables
+
+<a id="check-iptables"></a>
+
+*Iptables*
+
+### kaspersky_av_client
+
+<a id="check-kaspersky-av-client"></a>
+
+*Kaspersky AV*
+
+### kaspersky_av_kesl_updates
+
+<a id="check-kaspersky-av-kesl-updates"></a>
+
+*AV Update Status*
+
+### kaspersky_av_quarantine
+
+<a id="check-kaspersky-av-quarantine"></a>
+
+*AV Quarantine*
+
+### kaspersky_av_tasks
+
+<a id="check-kaspersky-av-tasks"></a>
+
+*AV Task %s*
+
+### kaspersky_av_updates
+
+<a id="check-kaspersky-av-updates"></a>
+
+*AV Update Status*
+
+### logins
+
+<a id="check-logins"></a>
+
+*Logins*
+
+### mcafee_av_client
+
+<a id="check-mcafee-av-client"></a>
+
+*McAfee AV*
+
+### mobileiron_compliance
+
+<a id="check-mobileiron-compliance"></a>
+
+*Mobileiron compliance*
+
+### netscaler_sslcertificates
+
+<a id="check-netscaler-sslcertificates"></a>
+
+*SSL Certificate %s*
+
+### palo_alto
+
+<a id="check-palo-alto"></a>
+
+*Palo Alto State*
+
+### safenet_hsm_events
+
+<a id="check-safenet-hsm-events"></a>
+
+*HSM Safenet Event Stats*
+
+### safenet_ntls
+
+<a id="check-safenet-ntls"></a>
+
+*NTLS Operation Status*
+
+### safenet_ntls_expiration
+
+<a id="check-safenet-ntls-expiration"></a>
+
+*NTLS Expiration Date*
+
+### security_master
+
+<a id="check-security-master"></a>
+
+*Sensor %s*
+
+### sshd_config
+
+<a id="check-sshd-config"></a>
+
+*SSH daemon configuration*
+
+### stormshield_info
+
+<a id="check-stormshield-info"></a>
+
+*Stormshield Info*
+
+### stormshield_policy
+
+<a id="check-stormshield-policy"></a>
+
+*Policy %s*
+
+### stormshield_updates
+
+<a id="check-stormshield-updates"></a>
+
+*Autoupdate %s*
+
+### symantec_av_progstate
+
+<a id="check-symantec-av-progstate"></a>
+
+*AV Program Status*
+
+### symantec_av_quarantine
+
+<a id="check-symantec-av-quarantine"></a>
+
+*AV Quarantine*
+
+### symantec_av_updates
+
+<a id="check-symantec-av-updates"></a>
+
+*AV Update Status*
+
+### win_license
+
+<a id="check-win-license"></a>
+
+*Windows License*
+
+### zorp_connections
+
+<a id="check-zorp-connections"></a>
+
+*Zorp FW - connections*
+
 ## Other
 
 <a id="check-other"></a>
@@ -9286,8 +16800,43 @@ None.
 | [checkmk_local](#check-checkmk-local) | Run a Checkmk local check script (multi-service) |
 | [checkpoint_svn_status](#check-checkpoint-svn-status) | SVN Status |
 | [cmciii_psm_plugs](#check-cmciii-psm-plugs) | %s |
+| [cmctc_config](#check-cmctc-config) | TC configuration |
 | [cmctc_lcp_status](#check-cmctc-lcp-status) | Status %s |
+| [corosync_latency](#check-corosync-latency) | Corosync Latency %s |
+| [datadog_monitors](#check-datadog-monitors) | Datadog Monitor %s |
+| [emka_modules](#check-emka-modules) | Module %s |
+| [emka_modules_alarm](#check-emka-modules-alarm) | Alarm %s |
+| [ewon](#check-ewon) | %s |
+| [form_submit](#check-form-submit) |  |
+| [heartbeat_nodes](#check-heartbeat-nodes) | Heartbeat Node %s |
+| [icom_repeater](#check-icom-repeater) | Repeater Info |
+| [job](#check-job) | Job %s |
+| [libelle_business_shadow_info](#check-libelle-business-shadow-info) | Libelle Business Shadow Info |
+| [libelle_business_shadow_status](#check-libelle-business-shadow-status) | Libelle Business Shadow Status |
+| [liebert_cooling_position](#check-liebert-cooling-position) | %s |
+| [liebert_maintenance](#check-liebert-maintenance) | Maintenance |
+| [local](#check-local) | %s |
+| [mkevents](#check-mkevents) |  |
+| [mknotifyd_connection_v2](#check-mknotifyd-connection-v2) | OMD %s |
 | [nagios_plugin](#check-nagios-plugin) | Run any Nagios-compatible plugin / Checkmk local check |
+| [notify_count](#check-notify-count) |  |
+| [poseidon_inputs](#check-poseidon-inputs) | %s |
+| [printer_alerts](#check-printer-alerts) | Alerts |
+| [printer_input](#check-printer-input) | Input %s |
+| [printer_output](#check-printer-output) | Output %s |
+| [printer_pages](#check-printer-pages) | Pages |
+| [printer_pages_ricoh](#check-printer-pages-ricoh) | Pages |
+| [printer_supply_ricoh](#check-printer-supply-ricoh) | Supply %s |
+| [sansymphony_alerts](#check-sansymphony-alerts) | sansymphony Alerts |
+| [siemens_plc_counter](#check-siemens-plc-counter) | Counter %s |
+| [siemens_plc_cpu_state](#check-siemens-plc-cpu-state) | CPU state |
+| [siemens_plc_flag](#check-siemens-plc-flag) | Flag %s |
+| [siemens_plc_info](#check-siemens-plc-info) | Info %s |
+| [storeonce4x_appliances_license](#check-storeonce4x-appliances-license) | Appliance %s License |
+| [sylo](#check-sylo) | Sylo |
+| [synology_update](#check-synology-update) | Update |
+| [uniserv](#check-uniserv) |  |
+| [zebra_model](#check-zebra-model) | Zebra Printer Model |
 
 ### ad_replication
 
@@ -9652,6 +17201,12 @@ None.
 #### Metrics
 None.
 
+### cmctc_config
+
+<a id="check-cmctc-config"></a>
+
+*TC configuration*
+
 ### cmctc_lcp_status
 
 <a id="check-cmctc-lcp-status"></a>
@@ -9679,6 +17234,98 @@ The check attempts SNMP walks for four relevant OID trees (3–6) to enumerate a
 
 #### Metrics
 None.
+
+### corosync_latency
+
+<a id="check-corosync-latency"></a>
+
+*Corosync Latency %s*
+
+### datadog_monitors
+
+<a id="check-datadog-monitors"></a>
+
+*Datadog Monitor %s*
+
+### emka_modules
+
+<a id="check-emka-modules"></a>
+
+*Module %s*
+
+### emka_modules_alarm
+
+<a id="check-emka-modules-alarm"></a>
+
+*Alarm %s*
+
+### ewon
+
+<a id="check-ewon"></a>
+
+*%s*
+
+### form_submit
+
+<a id="check-form-submit"></a>
+
+### heartbeat_nodes
+
+<a id="check-heartbeat-nodes"></a>
+
+*Heartbeat Node %s*
+
+### icom_repeater
+
+<a id="check-icom-repeater"></a>
+
+*Repeater Info*
+
+### job
+
+<a id="check-job"></a>
+
+*Job %s*
+
+### libelle_business_shadow_info
+
+<a id="check-libelle-business-shadow-info"></a>
+
+*Libelle Business Shadow Info*
+
+### libelle_business_shadow_status
+
+<a id="check-libelle-business-shadow-status"></a>
+
+*Libelle Business Shadow Status*
+
+### liebert_cooling_position
+
+<a id="check-liebert-cooling-position"></a>
+
+*%s*
+
+### liebert_maintenance
+
+<a id="check-liebert-maintenance"></a>
+
+*Maintenance*
+
+### local
+
+<a id="check-local"></a>
+
+*%s*
+
+### mkevents
+
+<a id="check-mkevents"></a>
+
+### mknotifyd_connection_v2
+
+<a id="check-mknotifyd-connection-v2"></a>
+
+*OMD %s*
 
 ### nagios_plugin
 
@@ -9709,5954 +17356,15 @@ The check runs the configured `command` (argv list) on the host. It interprets N
 #### Metrics
 - `label` (numeric value) — Extracted perfdata labels (e.g., `load1`, `usage`, `temp`) converted to numbers, with UOM and thresholds discarded.
 
-## Uncategorized
-
-<a id="check-uncategorized"></a>
-
-| Check | Summary |
-| --- | --- |
-| [adva_fsp_if](#check-adva-fsp-if) | Interface %s |
-| [akcp_sensor_temp](#check-akcp-sensor-temp) | Temperature %s |
-| [alcatel_timetra_chassis](#check-alcatel-timetra-chassis) | Device %s |
-| [allnet_ip_sensoric_tension](#check-allnet-ip-sensoric-tension) | Electric Tension %s |
-| [apc_ats_status](#check-apc-ats-status) | ATS Status |
-| [apc_mod_pdu_modules](#check-apc-mod-pdu-modules) | Module %s |
-| [apc_symmetra_input](#check-apc-symmetra-input) | Phase %s |
-| [arcserve_backup](#check-arcserve-backup) | Arcserve Backup %s |
-| [arris_cmts_mem](#check-arris-cmts-mem) | Memory Module %s |
-| [audiocodes_ipgroup](#check-audiocodes-ipgroup) | IP group %s |
-| [audiocodes_system_events](#check-audiocodes-system-events) | System events |
-| [bgp_peer](#check-bgp-peer) | This is how an Arista BGP SNMP message is constructed: |
-| [bluecoat_sensors](#check-bluecoat-sensors) | %s |
-| [bluecoat_sensors_temp](#check-bluecoat-sensors-temp) | Temperature %s |
-| [bluenet_sensor](#check-bluenet-sensor) | Temperature %s |
-| [brocade_fcport](#check-brocade-fcport) | Port %s |
-| [brocade_mlx_module_cpu](#check-brocade-mlx-module-cpu) | CPU utilization Module %s |
-| [brocade_optical](#check-brocade-optical) | Interface %s Optical |
-| [brocade_sfp](#check-brocade-sfp) | SFP %s |
-| [brocade_sfp_temp](#check-brocade-sfp-temp) | SFP Temperature %s |
-| [brocade_tm](#check-brocade-tm) | TM %s |
-| [bvip_fans](#check-bvip-fans) | Fan %s |
-| [cadvisor_cpu](#check-cadvisor-cpu) | CPU utilization |
-| [cadvisor_if](#check-cadvisor-if) | Interface %s |
-| [carel_sensors](#check-carel-sensors) | Temperature %s |
-| [casa_power](#check-casa-power) | Power %s |
-| [cephdfclass](#check-cephdfclass) | Ceph Class %s |
-| [cephstatus](#check-cephstatus) | Ceph %s |
-| [checkpoint_ha_problems](#check-checkpoint-ha-problems) | HA Problem %s |
-| [checkpoint_vsx_packets](#check-checkpoint-vsx-packets) | VS %s Packets |
-| [checkpoint_vsx_traffic](#check-checkpoint-vsx-traffic) | VS %s Traffic |
-| [chrony](#check-chrony) | NTP Time |
-| [ciena_cpu_util_5171](#check-ciena-cpu-util-5171) | CPU utilization |
-| [cifsmounts](#check-cifsmounts) | CIFS mount %s |
-| [cisco_ace_rserver](#check-cisco-ace-rserver) | ACE RServer %s |
-| [cisco_asa_conn](#check-cisco-asa-conn) | Connection %s |
-| [cisco_meraki_org_appliance_uplinks](#check-cisco-meraki-org-appliance-uplinks) | Uplink %s |
-| [cisco_meraki_org_device_status](#check-cisco-meraki-org-device-status) | Device Status |
-| [cisco_meraki_org_sensor_battery](#check-cisco-meraki-org-sensor-battery) | Cisco Meraki Battery Percentage %s |
-| [cisco_meraki_org_sensor_humidity](#check-cisco-meraki-org-sensor-humidity) | Cisco Meraki Humidity Relative Percentage %s |
-| [cisco_meraki_org_sensor_temperature](#check-cisco-meraki-org-sensor-temperature) | Cisco Meraki Temperature %s |
-| [cisco_meraki_org_switch_ports_statuses](#check-cisco-meraki-org-switch-ports-statuses) | Interface %s |
-| [cisco_power](#check-cisco-power) | Power %s |
-| [cisco_qos](#check-cisco-qos) | QoS %s |
-| [cisco_secure](#check-cisco-secure) | Port Security |
-| [cisco_sma_resource_conservation](#check-cisco-sma-resource-conservation) | Resource conservation |
-| [cisco_temperature](#check-cisco-temperature) | Temperature %s |
-| [cisco_ucs_hdd](#check-cisco-ucs-hdd) | HDD %s |
-| [cisco_ucs_mem](#check-cisco-ucs-mem) | Memory %s |
-| [cisco_vpn_tunnel](#check-cisco-vpn-tunnel) | VPN Tunnel %s |
-| [citrix_licenses](#check-citrix-licenses) | Citrix Licenses %s |
-| [citrix_serverload](#check-citrix-serverload) | Citrix Serverload |
-| [citrix_sessions](#check-citrix-sessions) | Citrix Sessions |
-| [citrix_state](#check-citrix-state) | Citrix Instance State |
-| [citrix_state_controller](#check-citrix-state-controller) | Citrix Controller |
-| [citrix_state_hosting_server](#check-citrix-state-hosting-server) | Citrix Hosting Server |
-| [climaveneta_alarm](#check-climaveneta-alarm) | Alarm Status |
-| [climaveneta_fan](#check-climaveneta-fan) | Fan %s |
-| [climaveneta_temp](#check-climaveneta-temp) | Temperature %s |
-| [cmc_temp](#check-cmc-temp) | Temperature Sensor %s |
-| [cmciii](#check-cmciii) | State %s |
-| [cmciii_access](#check-cmciii-access) | %s |
-| [cmciii_can_current](#check-cmciii-can-current) | %s |
-| [cmciii_humidity](#check-cmciii-humidity) | %s |
-| [cmciii_lcp_water](#check-cmciii-lcp-water) | Temperature Water LCP %s |
-| [cmciii_phase](#check-cmciii-phase) | Input %s |
-| [cmciii_psm_current](#check-cmciii-psm-current) | Current %s |
-| [cmctc_config](#check-cmctc-config) | TC configuration |
-| [cmctc_lcp_flow](#check-cmctc-lcp-flow) | Waterflow %s |
-| [cmctc_lcp_humidity](#check-cmctc-lcp-humidity) | Humidity %s |
-| [cmctc_temp](#check-cmctc-temp) | Temperature %s |
-| [corosync_latency](#check-corosync-latency) | Corosync Latency %s |
-| [couchbase_buckets_vbuckets_replica](#check-couchbase-buckets-vbuckets-replica) | Couchbase Bucket %s replica vBuckets |
-| [couchbase_nodes_info](#check-couchbase-nodes-info) | Couchbase %s Info |
-| [couchbase_nodes_items](#check-couchbase-nodes-items) | Couchbase %s vBucket items |
-| [couchbase_nodes_operations](#check-couchbase-nodes-operations) | Couchbase %s Operations |
-| [couchbase_nodes_operations_total](#check-couchbase-nodes-operations-total) | Couchbase Total Operations |
-| [couchbase_nodes_services](#check-couchbase-nodes-services) | Couchbase %s Services |
-| [couchbase_nodes_size_couch_views](#check-couchbase-nodes-size-couch-views) | Couchbase %s Couch Views |
-| [couchbase_nodes_size_docs](#check-couchbase-nodes-size-docs) | Couchbase %s Documents |
-| [couchbase_nodes_size_spacial_views](#check-couchbase-nodes-size-spacial-views) | Couchbase %s Spacial Views |
-| [couchbase_nodes_stats_cpu_util](#check-couchbase-nodes-stats-cpu-util) | Couchbase %s CPU utilization |
-| [couchbase_nodes_stats_mem](#check-couchbase-nodes-stats-mem) | Couchbase %s Memory |
-| [couchbase_nodes_uptime](#check-couchbase-nodes-uptime) | Couchbase %s Uptime |
-| [cpsecure_sessions](#check-cpsecure-sessions) | Number of %s sessions |
-| [cpu_loads](#check-cpu-loads) | CPU load |
-| [cpu_threads](#check-cpu-threads) | Number of threads |
-| [cpu_utilization_os](#check-cpu-utilization-os) | CPU utilization |
-| [cups_queues](#check-cups-queues) | CUPS Queue %s |
-| [datadog_events](#check-datadog-events) | The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in |
-| [datadog_logs](#check-datadog-logs) | The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in |
-| [datadog_monitors](#check-datadog-monitors) | Datadog Monitor %s |
-| [datapower_fan](#check-datapower-fan) | Fan %s |
-| [datapower_ldrive](#check-datapower-ldrive) | Logical Drive %s |
-| [datapower_pdrive](#check-datapower-pdrive) | Physical Drive %s |
-| [datapower_raid_bat](#check-datapower-raid-bat) | Raid Battery %s |
-| [datapower_temp](#check-datapower-temp) | Temperature %s |
-| [db2_backup](#check-db2-backup) | DB2 Backup %s |
-| [db2_bp_hitratios](#check-db2-bp-hitratios) | DB2 BP-Hitratios %s |
-| [db2_connections](#check-db2-connections) | DB2 Connections %s |
-| [db2_counters](#check-db2-counters) | DB2 Counters %s |
-| [db2_logsizes](#check-db2-logsizes) | DB2 Logsize %s |
-| [db2_mem](#check-db2-mem) | Memory %s |
-| [db2_sort_overflow](#check-db2-sort-overflow) | DB2 Sort Overflow %s |
-| [db2_tablespaces](#check-db2-tablespaces) | DB2 Tablespace %s |
-| [db2_version](#check-db2-version) | DB2 Instance %s |
-| [decru_cpu](#check-decru-cpu) | CPU utilization |
-| [decru_fans](#check-decru-fans) | FAN %s |
-| [decru_perf](#check-decru-perf) | COUNTER %s |
-| [decru_power](#check-decru-power) | POWER %s |
-| [decru_temps](#check-decru-temps) | Temperature %s |
-| [df](#check-df) | Filesystem %s |
-| [df_netapp](#check-df-netapp) | Filesystem %s |
-| [df_netscaler](#check-df-netscaler) | Filesystem %s |
-| [df_zos](#check-df-zos) | Filesystem %s |
-| [didactum_can_sensors_analog](#check-didactum-can-sensors-analog) | Temperature CAN %s |
-| [didactum_can_sensors_analog_humidity](#check-didactum-can-sensors-analog-humidity) | Humidity CAN %s |
-| [didactum_can_sensors_analog_voltage](#check-didactum-can-sensors-analog-voltage) | Phase CAN %s |
-| [didactum_sensors_analog](#check-didactum-sensors-analog) | Temperature %s |
-| [didactum_sensors_analog_humidity](#check-didactum-sensors-analog-humidity) | Humidity %s |
-| [didactum_sensors_analog_voltage](#check-didactum-sensors-analog-voltage) | Phase %s |
-| [didactum_sensors_discrete](#check-didactum-sensors-discrete) | Discrete sensor %s |
-| [didactum_sensors_outlet](#check-didactum-sensors-outlet) | Relay %s |
-| [disk_io_utilization](#check-disk-io-utilization) | Disk IO Utilization |
-| [disk_smb](#check-disk-smb) |  |
-| [diskstat](#check-diskstat) | Disk IO %s |
-| [diskstat_io](#check-diskstat-io) | Disk IO %s |
-| [diskstat_io_director](#check-diskstat-io-director) | Disk IO Director %s |
-| [diskstat_io_volumes](#check-diskstat-io-volumes) | Disk IO Volumes %s |
-| [dmi_sysinfo](#check-dmi-sysinfo) | DMI Sysinfo |
-| [dmraid_ldisks](#check-dmraid-ldisks) | RAID LDisk %s |
-| [dmraid_pdisks](#check-dmraid-pdisks) | RAID PDisk %s |
-| [dns](#check-dns) |  |
-| [docker_container_status](#check-docker-container-status) | Docker container status |
-| [docker_container_status_health](#check-docker-container-status-health) | Docker container health |
-| [docker_container_status_uptime](#check-docker-container-status-uptime) | Uptime |
-| [docker_node_info](#check-docker-node-info) | Docker node info |
-| [docker_node_info_containers](#check-docker-node-info-containers) | Docker containers |
-| [docsis_channels_downstream](#check-docsis-channels-downstream) | Downstream Channel %s |
-| [docsis_channels_upstream](#check-docsis-channels-upstream) | Upstream Channel %s |
-| [docsis_cm_status](#check-docsis-cm-status) | Cable Modem %s Status |
-| [domino_info](#check-domino-info) | Domino Info |
-| [domino_mailqueues](#check-domino-mailqueues) | Domino Queue %s |
-| [domino_tasks](#check-domino-tasks) | Domino Task %s |
-| [domino_transactions](#check-domino-transactions) | Domino Server Transactions |
-| [domino_users](#check-domino-users) | Domino Users |
-| [dotnet_clrmemory](#check-dotnet-clrmemory) | DotNet Memory Management %s |
-| [drbd](#check-drbd) | DRBD %s status |
-| [drbd_disk](#check-drbd-disk) | DRBD %s disk |
-| [drbd_net](#check-drbd-net) | DRBD %s net |
-| [drbd_stats](#check-drbd-stats) | DRBD %s stats |
-| [eltek_systemstatus](#check-eltek-systemstatus) | System Status |
-| [emc_datadomain_disks](#check-emc-datadomain-disks) | Hard Disk %s |
-| [emc_datadomain_fans](#check-emc-datadomain-fans) | FAN %s |
-| [emc_datadomain_fs](#check-emc-datadomain-fs) | DD-Filesystem %s |
-| [emc_datadomain_mtree](#check-emc-datadomain-mtree) | MTree %s |
-| [emc_datadomain_nvbat](#check-emc-datadomain-nvbat) | NVRAM Battery %s |
-| [emc_datadomain_power](#check-emc-datadomain-power) | Power Module %s |
-| [emc_datadomain_temps](#check-emc-datadomain-temps) | Temperature %s |
-| [emc_isilon_clusterhealth](#check-emc-isilon-clusterhealth) | Cluster Health |
-| [emc_isilon_cpu](#check-emc-isilon-cpu) | Node CPU utilization |
-| [emc_isilon_diskstatus](#check-emc-isilon-diskstatus) | Disk bay %s Status |
-| [emc_isilon_fans](#check-emc-isilon-fans) | Fan %s |
-| [emc_isilon_ifs](#check-emc-isilon-ifs) | Filesystem %s |
-| [emc_isilon_iops](#check-emc-isilon-iops) | Disk %s IO |
-| [emc_isilon_names](#check-emc-isilon-names) | Isilon Info |
-| [emc_isilon_nodehealth](#check-emc-isilon-nodehealth) | Node Health |
-| [emc_isilon_nodes](#check-emc-isilon-nodes) | Nodes |
-| [emc_isilon_power](#check-emc-isilon-power) | Voltage %s |
-| [emc_isilon_quota](#check-emc-isilon-quota) | Quota %s |
-| [emc_isilon_temp](#check-emc-isilon-temp) | Temperature %s |
-| [emc_isilon_temp_cpu](#check-emc-isilon-temp-cpu) | Temperature %s |
-| [emc_vplex_cpu](#check-emc-vplex-cpu) | CPU Utilization %s |
-| [emerson_stat](#check-emerson-stat) | Status |
-| [emerson_temp](#check-emerson-temp) | Temperature %s |
-| [emka_modules](#check-emka-modules) | Module %s |
-| [emka_modules_alarm](#check-emka-modules-alarm) | Alarm %s |
-| [emka_modules_handle](#check-emka-modules-handle) | Handle %s |
-| [emka_modules_relay](#check-emka-modules-relay) | Relay %s |
-| [emka_modules_sensor_humid](#check-emka-modules-sensor-humid) | Humidity %s |
-| [emka_modules_sensor_temp](#check-emka-modules-sensor-temp) | Temperature %s |
-| [emka_modules_sensor_volt](#check-emka-modules-sensor-volt) | Phase %s |
-| [enterasys_cpu_util](#check-enterasys-cpu-util) | CPU util %s |
-| [enterasys_fans](#check-enterasys-fans) | FAN %s |
-| [enterasys_lsnat](#check-enterasys-lsnat) | LSNAT Bindings |
-| [enterasys_powersupply](#check-enterasys-powersupply) | PSU %s |
-| [enterasys_temp](#check-enterasys-temp) | Temperature %s |
-| [entersekt](#check-entersekt) | Entersekt Server Status |
-| [entersekt_certexpiry](#check-entersekt-certexpiry) | Entersekt Certificate Expiration |
-| [entersekt_ecerterrors](#check-entersekt-ecerterrors) | Entersekt http Ecert Errors |
-| [entersekt_emrerrors](#check-entersekt-emrerrors) | Entersekt http EMR Errors |
-| [entersekt_soaperrors](#check-entersekt-soaperrors) | Entersekt Soap Service Errors |
-| [entity_sensors_fan](#check-entity-sensors-fan) | Fan %s |
-| [entity_sensors_power_presence](#check-entity-sensors-power-presence) | Power %s |
-| [entity_sensors_temp](#check-entity-sensors-temp) | Temperature %s |
-| [enviromux](#check-enviromux) | Sensor %s |
-| [enviromux_all_external](#check-enviromux-all-external) | Sensor External %s |
-| [enviromux_all_external_humidity](#check-enviromux-all-external-humidity) | Sensor External %s |
-| [enviromux_all_external_voltage](#check-enviromux-all-external-voltage) | Sensor External %s |
-| [enviromux_aux](#check-enviromux-aux) | Sensor %s |
-| [enviromux_aux_humidity](#check-enviromux-aux-humidity) | Sensor %s |
-| [enviromux_aux_voltage](#check-enviromux-aux-voltage) | Sensor %s |
-| [enviromux_digital](#check-enviromux-digital) | Digital Sensor: %s |
-| [enviromux_external](#check-enviromux-external) | Sensor External %s |
-| [enviromux_external_humidity](#check-enviromux-external-humidity) | Sensor External %s |
-| [enviromux_external_voltage](#check-enviromux-external-voltage) | Sensor External %s |
-| [enviromux_humidity](#check-enviromux-humidity) | Sensor %s |
-| [enviromux_micro_humidity](#check-enviromux-micro-humidity) | Sensor %s |
-| [enviromux_micro_humidity_external](#check-enviromux-micro-humidity-external) | Sensor External %s |
-| [enviromux_micro_temperature](#check-enviromux-micro-temperature) | Sensor %s |
-| [enviromux_micro_temperature_external](#check-enviromux-micro-temperature-external) | Sensor External %s |
-| [enviromux_remote_input](#check-enviromux-remote-input) | Remote Input %s |
-| [enviromux_sems](#check-enviromux-sems) | Sensor %s |
-| [enviromux_sems_digital](#check-enviromux-sems-digital) | Digital Sensor: %s |
-| [enviromux_sems_e2d](#check-enviromux-sems-e2d) | Sensor %s |
-| [enviromux_sems_e2d_digital](#check-enviromux-sems-e2d-digital) | Digital Sensor: %s |
-| [enviromux_sems_e2d_external](#check-enviromux-sems-e2d-external) | Sensor External %s |
-| [enviromux_sems_e2d_external_humidity](#check-enviromux-sems-e2d-external-humidity) | Sensor External %s |
-| [enviromux_sems_e2d_external_voltage](#check-enviromux-sems-e2d-external-voltage) | Sensor External %s |
-| [enviromux_sems_e2d_humidity](#check-enviromux-sems-e2d-humidity) | Sensor %s |
-| [enviromux_sems_e2d_voltage](#check-enviromux-sems-e2d-voltage) | Sensor %s |
-| [enviromux_sems_external](#check-enviromux-sems-external) | Sensor External %s |
-| [enviromux_sems_external_humidity](#check-enviromux-sems-external-humidity) | Sensor External %s |
-| [enviromux_sems_external_voltage](#check-enviromux-sems-external-voltage) | Sensor External %s |
-| [enviromux_sems_humidity](#check-enviromux-sems-humidity) | Sensor %s |
-| [enviromux_sems_voltage](#check-enviromux-sems-voltage) | Sensor %s |
-| [enviromux_voltage](#check-enviromux-voltage) | Sensor %s |
-| [epower](#check-epower) | Power phase %s |
-| [epson_beamer_lamp](#check-epson-beamer-lamp) | Beamer Lamp |
-| [etherbox2_temp](#check-etherbox2-temp) | Temperature %s |
-| [etherbox_humidity](#check-etherbox-humidity) | Sensor %s |
-| [etherbox_nosensor](#check-etherbox-nosensor) | Sensor %s |
-| [etherbox_smoke](#check-etherbox-smoke) | Sensor %s |
-| [etherbox_switch](#check-etherbox-switch) | Sensor %s |
-| [etherbox_temp](#check-etherbox-temp) | Temperature %s |
-| [etherbox_voltage](#check-etherbox-voltage) | Sensor %s |
-| [ewon](#check-ewon) | %s |
-| [extreme_vsp_switches_cpu_util](#check-extreme-vsp-switches-cpu-util) | VSP Switches CPU Utilization |
-| [extreme_vsp_switches_fan](#check-extreme-vsp-switches-fan) | VSP Switch Fan %s |
-| [extreme_vsp_switches_power_supply](#check-extreme-vsp-switches-power-supply) | VSP Switch Power Supply %s |
-| [extreme_vsp_switches_temperature](#check-extreme-vsp-switches-temperature) | VSP Switch %s Temperature |
-| [f5_bigip_cluster](#check-f5-bigip-cluster) | F5-BIGIP-Cluster Config Sync - SNMP sections and Checks |
-| [f5_bigip_cluster_status](#check-f5-bigip-cluster-status) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
-| [f5_bigip_cluster_status_v11_2](#check-f5-bigip-cluster-status-v11-2) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
-| [f5_bigip_cluster_v11](#check-f5-bigip-cluster-v11) | F5-BIGIP-Cluster Config Sync - SNMP sections and Checks |
-| [f5_bigip_pool](#check-f5-bigip-pool) | Load Balancing Pool %s |
-| [f5_bigip_vcmpfailover](#check-f5-bigip-vcmpfailover) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
-| [f5_bigip_vcmpguests](#check-f5-bigip-vcmpguests) | F5-BIGIP-Cluster-Status SNMP Sections and Checks |
-| [fast_lta_headunit_replication](#check-fast-lta-headunit-replication) | Fast LTA Replication |
-| [fast_lta_headunit_status](#check-fast-lta-headunit-status) | Fast LTA Headunit Status |
-| [fast_lta_silent_cubes_capacity](#check-fast-lta-silent-cubes-capacity) | Fast LTA SC Capacity %s |
-| [fast_lta_volumes](#check-fast-lta-volumes) | Fast LTA Volume %s |
-| [fc_port](#check-fc-port) | FC Interface %s |
-| [filehandler](#check-filehandler) | Filehandler |
-| [fileinfo](#check-fileinfo) | File %s |
-| [fileinfo_groups](#check-fileinfo-groups) | File group %s |
-| [filestats](#check-filestats) | File group %s |
-| [filestats_single](#check-filestats-single) | File %s |
-| [fireeye_bypass](#check-fireeye-bypass) | Bypass Mail Rate |
-| [fireeye_sys_status](#check-fireeye-sys-status) | System status |
-| [fjdarye_ca_ports](#check-fjdarye-ca-ports) | CA Port IO %s |
-| [fjdarye_ce_power_supply_units](#check-fjdarye-ce-power-supply-units) | CPSU %s |
-| [fjdarye_channel_adapters](#check-fjdarye-channel-adapters) | Channel Adapter %s |
-| [fjdarye_channel_modules](#check-fjdarye-channel-modules) | Controller Module %s |
-| [fjdarye_controller_enclosures](#check-fjdarye-controller-enclosures) | Controller Enclosure %s |
-| [fjdarye_controller_modules_flash](#check-fjdarye-controller-modules-flash) | Controller Module Flash %s |
-| [fjdarye_controller_modules_memory](#check-fjdarye-controller-modules-memory) | Controller Module Memory %s |
-| [fjdarye_device_enclosures](#check-fjdarye-device-enclosures) | Device Enclosure %s |
-| [fjdarye_disks](#check-fjdarye-disks) | Disk %s |
-| [fjdarye_disks_summary](#check-fjdarye-disks-summary) | Disk summary |
-| [fjdarye_expanders](#check-fjdarye-expanders) | Expander %s |
-| [fjdarye_inlet_thermal_sensors](#check-fjdarye-inlet-thermal-sensors) | Inlet Thermal %s |
-| [fjdarye_pcie_flash_modules](#check-fjdarye-pcie-flash-modules) | PCIe flash module %s |
-| [fjdarye_pools](#check-fjdarye-pools) | Thin Provisioning Pool %s |
-| [fjdarye_power_supply_units](#check-fjdarye-power-supply-units) | PSU %s |
-| [fjdarye_rluns](#check-fjdarye-rluns) | RLUN %s |
-| [fjdarye_summary_status](#check-fjdarye-summary-status) | Summary Status |
-| [fjdarye_system_capacitors](#check-fjdarye-system-capacitors) | System Capacitor Unit %s |
-| [fjdarye_thermal_sensors](#check-fjdarye-thermal-sensors) | Thermal %s |
-| [form_submit](#check-form-submit) |  |
-| [fortiauthenticator_auth_fail](#check-fortiauthenticator-auth-fail) | Authentication Failures |
-| [fortigate_antivirus](#check-fortigate-antivirus) | AntiVirus %s |
-| [fortigate_ap_connection](#check-fortigate-ap-connection) | AP %s Connection |
-| [fortigate_ips](#check-fortigate-ips) | IPS %s |
-| [fortigate_ipsecvpn](#check-fortigate-ipsecvpn) | VPN IPSec Tunnels |
-| [fortigate_node_memory](#check-fortigate-node-memory) | Memory %s |
-| [fortigate_sensors](#check-fortigate-sensors) | Sensor Summary |
-| [fortigate_signatures](#check-fortigate-signatures) | Signatures |
-| [fortigate_sync_status](#check-fortigate-sync-status) | Sync Status |
-| [fortimail_cpu_load](#check-fortimail-cpu-load) | CPU load |
-| [fortimail_disk_usage](#check-fortimail-disk-usage) | Disk usage |
-| [fortimail_queue](#check-fortimail-queue) | FortiMail %s |
-| [fortinet_controller_aps](#check-fortinet-controller-aps) | AP %s |
-| [fortisandbox_disk_usage](#check-fortisandbox-disk-usage) | Disk usage %s |
-| [fortisandbox_mem_usage](#check-fortisandbox-mem-usage) | Memory |
-| [fritz_conn](#check-fritz-conn) | Connection |
-| [fritz_link](#check-fritz-link) | Link Info |
-| [fritz_uptime](#check-fritz-uptime) | Uptime |
-| [fritz_wan_if](#check-fritz-wan-if) | Interface %s |
-| [fsc_ipmi_mem_status](#check-fsc-ipmi-mem-status) | IPMI Memory status %s |
-| [fsc_subsystems](#check-fsc-subsystems) | FSC %s |
-| [ftp](#check-ftp) |  |
-| [genua_carp](#check-genua-carp) | Carp Interface %s |
-| [genua_state_correlation](#check-genua-state-correlation) | Carp Correlation |
-| [genua_vpn](#check-genua-vpn) | VPN %s |
-| [globalprotect_utilization](#check-globalprotect-utilization) | GlobalProtect Gateway Utilization |
-| [gude_humidity](#check-gude-humidity) | Humidity %s |
-| [gude_powerbanks](#check-gude-powerbanks) | Powerbank %s |
-| [gude_relayport](#check-gude-relayport) | Relay port %s |
-| [gude_temp](#check-gude-temp) | Temperature %s |
-| [h3c_lanswitch_cpu](#check-h3c-lanswitch-cpu) | CPU Utilization %s |
-| [h3c_lanswitch_sensors](#check-h3c-lanswitch-sensors) | %s |
-| [haproxy_backend](#check-haproxy-backend) | HAProxy Backend %s |
-| [haproxy_frontend](#check-haproxy-frontend) | HAProxy Frontend %s |
-| [haproxy_server](#check-haproxy-server) | HAProxy Server %s |
-| [heartbeat_crm](#check-heartbeat-crm) | Heartbeat CRM General |
-| [heartbeat_crm_resources](#check-heartbeat-crm-resources) | Heartbeat CRM %s |
-| [heartbeat_nodes](#check-heartbeat-nodes) | Heartbeat Node %s |
-| [heartbeat_rscstatus](#check-heartbeat-rscstatus) | Heartbeat Ressource Status |
-| [hepta](#check-hepta) | HPF Info |
-| [hepta_ntpsysstratum](#check-hepta-ntpsysstratum) | %s |
-| [hepta_syncmoduletimelocal](#check-hepta-syncmoduletimelocal) | %s |
-| [hepta_syncmoduletimesyncstate](#check-hepta-syncmoduletimesyncstate) | %s |
-| [hitachi_hnas_fc_if](#check-hitachi-hnas-fc-if) | Interface FC %s |
-| [hitachi_hnas_span](#check-hitachi-hnas-span) | Span %s |
-| [hitachi_hnas_volume](#check-hitachi-hnas-volume) | Volumes %s |
-| [hitachi_hnas_volume_virtual](#check-hitachi-hnas-volume-virtual) | Volumes %s |
-| [hitachi_hus_dkc](#check-hitachi-hus-dkc) | HUS DKC Chassis %s |
-| [hitachi_hus_dku](#check-hitachi-hus-dku) | HUS DKU Chassis %s |
-| [hivemanager_devices](#check-hivemanager-devices) | Client %s |
-| [hivemanager_ng_devices](#check-hivemanager-ng-devices) | Client %s |
-| [hp_blade](#check-hp-blade) | General Status |
-| [hp_blade_blades](#check-hp-blade-blades) | Blade %s |
-| [hp_blade_fan](#check-hp-blade-fan) | FAN %s |
-| [hp_blade_manager](#check-hp-blade-manager) | Manager %s |
-| [hp_blade_psu](#check-hp-blade-psu) | PSU %s |
-| [hp_eml_sum](#check-hp-eml-sum) | Summary Status |
-| [hp_fan](#check-hp-fan) | Fan %s |
-| [hp_hh3c_ext](#check-hp-hh3c-ext) | Temperature %s |
-| [hp_hh3c_ext_cpu](#check-hp-hh3c-ext-cpu) | CPU utilization %s |
-| [hp_hh3c_ext_mem](#check-hp-hh3c-ext-mem) | Memory %s |
-| [hp_hh3c_ext_states](#check-hp-hh3c-ext-states) | Status %s |
-| [hp_hh3c_fan](#check-hp-hh3c-fan) | Fan %s |
-| [hp_hh3c_power](#check-hp-hh3c-power) | Power %s |
-| [hp_mcs_sensors](#check-hp-mcs-sensors) | Sensor %s |
-| [hp_mcs_sensors_fan](#check-hp-mcs-sensors-fan) | Sensor %s |
-| [hp_mcs_system](#check-hp-mcs-system) | %s |
-| [hp_msa_controller](#check-hp-msa-controller) | CPU Utilization %s |
-| [hp_msa_controller_io](#check-hp-msa-controller-io) | Controller IO %s |
-| [hp_msa_disk](#check-hp-msa-disk) | Disk Health %s |
-| [hp_msa_disk_io](#check-hp-msa-disk-io) | Disk IO %s |
-| [hp_msa_disk_temp](#check-hp-msa-disk-temp) | Temperature %s |
-| [hp_msa_fan](#check-hp-msa-fan) | Fan %s |
-| [hp_msa_psu](#check-hp-msa-psu) | Power Supply Health %s |
-| [hp_msa_psu_sensor](#check-hp-msa-psu-sensor) | Power Supply Voltage %s |
-| [hp_msa_psu_temp](#check-hp-msa-psu-temp) | Temperature Power Supply %s |
-| [hp_msa_system](#check-hp-msa-system) | System Health %s |
-| [hp_msa_volume](#check-hp-msa-volume) | Volume Health %s |
-| [hp_msa_volume_df](#check-hp-msa-volume-df) | Filesystem %s |
-| [hp_msa_volume_io](#check-hp-msa-volume-io) | Volume IO %s |
-| [hp_procurve_cpu](#check-hp-procurve-cpu) | CPU utilization |
-| [hp_procurve_mem](#check-hp-procurve-mem) | Memory |
-| [hp_procurve_sensors](#check-hp-procurve-sensors) | Sensor %s |
-| [hp_procurve_temp](#check-hp-procurve-temp) | Temperature %s |
-| [hp_proliant](#check-hp-proliant) | General Status |
-| [hp_proliant_cpu](#check-hp-proliant-cpu) | HW CPU %s |
-| [hp_proliant_da_cntlr](#check-hp-proliant-da-cntlr) | HW Controller %s |
-| [hp_proliant_da_phydrv](#check-hp-proliant-da-phydrv) | HW Phydrv %s |
-| [hp_proliant_fans](#check-hp-proliant-fans) | HW FAN%s |
-| [hp_proliant_mem](#check-hp-proliant-mem) | HW Mem %s |
-| [hp_proliant_power](#check-hp-proliant-power) | HW Power Meter |
-| [hp_proliant_psu](#check-hp-proliant-psu) | HW PSU %s |
-| [hp_proliant_raid](#check-hp-proliant-raid) | Logical Device %s |
-| [hp_proliant_temp](#check-hp-proliant-temp) | Temperature %s |
-| [hp_psu](#check-hp-psu) | Power Supply Status %s |
-| [hp_psu_temp](#check-hp-psu-temp) | Temperature Power Supply %s |
-| [hp_sts_drvbox](#check-hp-sts-drvbox) | Drive Box %s |
-| [hp_webmgmt_status](#check-hp-webmgmt-status) | Status %s |
-| [hpux_fchba](#check-hpux-fchba) | FC HBA %s |
-| [hpux_if](#check-hpux-if) | NIC %s |
-| [hpux_lvm](#check-hpux-lvm) | Logical Volume %s |
-| [hpux_multipath](#check-hpux-multipath) | Multipath %s |
-| [hpux_serviceguard](#check-hpux-serviceguard) | Serviceguard %s |
-| [hpux_snmp_cs_cpu](#check-hpux-snmp-cs-cpu) | CPU utilization |
-| [hpux_tunables_maxfiles_lim](#check-hpux-tunables-maxfiles-lim) | Number of open files |
-| [hpux_tunables_nkthread](#check-hpux-tunables-nkthread) | Number of threads |
-| [hpux_tunables_nproc](#check-hpux-tunables-nproc) | Number of processes |
-| [hpux_tunables_semmni](#check-hpux-tunables-semmni) | Number of IPC Semaphore IDs |
-| [hpux_tunables_semmns](#check-hpux-tunables-semmns) | Number of IPC Semaphores |
-| [hpux_tunables_shmseg](#check-hpux-tunables-shmseg) | Number of shared memory segments |
-| [hr_cpu](#check-hr-cpu) | CPU utilization |
-| [hr_fs](#check-hr-fs) | Filesystem %s |
-| [hr_ps](#check-hr-ps) | Process %s |
-| [http](#check-http) |  |
-| [httpv2](#check-httpv2) |  |
-| [huawei_osn_fan](#check-huawei-osn-fan) |  |
-| [huawei_osn_if](#check-huawei-osn-if) | Interface %s |
-| [huawei_osn_laser](#check-huawei-osn-laser) | Laser %s |
-| [huawei_osn_power](#check-huawei-osn-power) |  |
-| [huawei_osn_temp](#check-huawei-osn-temp) | Temperature %s |
-| [huawei_switch_cpu](#check-huawei-switch-cpu) | CPU utilization %s |
-| [huawei_switch_fan](#check-huawei-switch-fan) | Fan %s |
-| [huawei_switch_mem](#check-huawei-switch-mem) | Memory %s |
-| [huawei_switch_psu](#check-huawei-switch-psu) | Powersupply %s |
-| [huawei_switch_stack](#check-huawei-switch-stack) | Stack role %s |
-| [huawei_switch_temp](#check-huawei-switch-temp) | Temperature %s |
-| [huawei_wlc_aps_cpu](#check-huawei-wlc-aps-cpu) | AP %s CPU |
-| [huawei_wlc_aps_mem](#check-huawei-wlc-aps-mem) | AP %s Memory |
-| [huawei_wlc_aps_status](#check-huawei-wlc-aps-status) | AP %s Status |
-| [huawei_wlc_aps_temp](#check-huawei-wlc-aps-temp) | AP %s Temperature |
-| [huawei_wlc_devs_cpu](#check-huawei-wlc-devs-cpu) | Device %s CPU |
-| [huawei_wlc_devs_mem](#check-huawei-wlc-devs-mem) | Device %s Memory |
-| [hwg_humidity](#check-hwg-humidity) | Humidity %s |
-| [hwg_ste2](#check-hwg-ste2) | Temperature %s |
-| [hwg_ste2_humidity](#check-hwg-ste2-humidity) | Humidity %s |
-| [hwg_temp](#check-hwg-temp) | Temperature %s |
-| [hyperv_checkpoints](#check-hyperv-checkpoints) | HyperV Checkpoints |
-| [hyperv_vm_checkpoints](#check-hyperv-vm-checkpoints) | Hyper-V VM Checkpoints |
-| [hyperv_vm_general](#check-hyperv-vm-general) | Hyper-V VM summary |
-| [hyperv_vm_integration](#check-hyperv-vm-integration) | Hyper-V VM integration services |
-| [hyperv_vm_nic](#check-hyperv-vm-nic) | HyperV NIC %s |
-| [hyperv_vm_ram](#check-hyperv-vm-ram) | Hyper-V RAM |
-| [hyperv_vm_vhd_dynamic](#check-hyperv-vm-vhd-dynamic) | Hyper-V VM Disk [%s] |
-| [hyperv_vm_vhd_fixed](#check-hyperv-vm-vhd-fixed) | Hyper-V VM Disk [%s] |
-| [hyperv_vms](#check-hyperv-vms) | VM %s |
-| [hyperv_vmstatus](#check-hyperv-vmstatus) | HyperV Status |
-| [ibm_imm_fan](#check-ibm-imm-fan) | Fan %s |
-| [ibm_imm_health](#check-ibm-imm-health) | System health |
-| [ibm_imm_temp](#check-ibm-imm-temp) | Temperature %s |
-| [ibm_imm_voltage](#check-ibm-imm-voltage) | Voltage %s |
-| [ibm_mq_channels](#check-ibm-mq-channels) | IBM MQ Channel %s |
-| [ibm_mq_managers](#check-ibm-mq-managers) | IBM MQ Manager %s |
-| [ibm_mq_plugin](#check-ibm-mq-plugin) | IBM MQ Plugin |
-| [ibm_mq_queues](#check-ibm-mq-queues) | IBM MQ Queue %s |
-| [ibm_rsa_health](#check-ibm-rsa-health) | System health |
-| [ibm_storage_ts](#check-ibm-storage-ts) | Info |
-| [ibm_storage_ts_drive](#check-ibm-storage-ts-drive) | Drive %s |
-| [ibm_storage_ts_library](#check-ibm-storage-ts-library) | Library %s |
-| [ibm_storage_ts_status](#check-ibm-storage-ts-status) | Status |
-| [ibm_svc_array](#check-ibm-svc-array) | RAID Array %s |
-| [ibm_svc_disks](#check-ibm-svc-disks) | Disk Summary |
-| [ibm_svc_enclosure](#check-ibm-svc-enclosure) | Enclosure %s |
-| [ibm_svc_enclosurestats_power](#check-ibm-svc-enclosurestats-power) | Power Enclosure %s |
-| [ibm_svc_enclosurestats_temp](#check-ibm-svc-enclosurestats-temp) | Temperature Enclosure %s |
-| [ibm_svc_eventlog](#check-ibm-svc-eventlog) | Eventlog |
-| [ibm_svc_host](#check-ibm-svc-host) | Hosts |
-| [ibm_svc_license](#check-ibm-svc-license) | License %s |
-| [ibm_svc_mdisk](#check-ibm-svc-mdisk) | MDisk %s |
-| [ibm_svc_mdiskgrp](#check-ibm-svc-mdiskgrp) | Pool Capacity %s |
-| [ibm_svc_node](#check-ibm-svc-node) | IO Group %s |
-| [ibm_svc_nodestats_cache](#check-ibm-svc-nodestats-cache) | Cache %s |
-| [ibm_svc_nodestats_cpu_util](#check-ibm-svc-nodestats-cpu-util) | CPU utilization %s |
-| [ibm_svc_nodestats_disk_latency](#check-ibm-svc-nodestats-disk-latency) | Disk Latency %s |
-| [ibm_svc_nodestats_diskio](#check-ibm-svc-nodestats-diskio) | Disk IO %s |
-| [ibm_svc_nodestats_iops](#check-ibm-svc-nodestats-iops) | Disk IOPS %s |
-| [ibm_svc_portfc](#check-ibm-svc-portfc) | FC %s |
-| [ibm_svc_portsas](#check-ibm-svc-portsas) | SAS %s |
-| [ibm_svc_system](#check-ibm-svc-system) | Info |
-| [ibm_svc_systemstats_cache](#check-ibm-svc-systemstats-cache) | Cache Total |
-| [ibm_svc_systemstats_cpu_util](#check-ibm-svc-systemstats-cpu-util) | CPU utilization Total |
-| [ibm_svc_systemstats_disk_latency](#check-ibm-svc-systemstats-disk-latency) | Latency %s Total |
-| [ibm_svc_systemstats_diskio](#check-ibm-svc-systemstats-diskio) | Throughput %s Total |
-| [ibm_svc_systemstats_iops](#check-ibm-svc-systemstats-iops) | IOPS %s Total |
-| [ibm_tl_changer_devices](#check-ibm-tl-changer-devices) | Changer device %s |
-| [ibm_tl_media_access_devices](#check-ibm-tl-media-access-devices) | Media access device %s |
-| [ibm_xraid_pdisks](#check-ibm-xraid-pdisks) | RAID PDisk %s |
-| [icmp](#check-icmp) |  |
-| [icom_repeater](#check-icom-repeater) | Repeater Info |
-| [icom_repeater_pll_volt](#check-icom-repeater-pll-volt) | %s PLL Lock Voltage |
-| [icom_repeater_ps_volt](#check-icom-repeater-ps-volt) | Power Supply Voltage |
-| [icom_repeater_temp](#check-icom-repeater-temp) | Temperature %s |
-| [if64](#check-if64) | Interface %s |
-| [iis_app_pool_state](#check-iis-app-pool-state) | IIS Application Pool %s |
-| [infoblox_node_services](#check-infoblox-node-services) | Infoblox services and node services |
-| [infoblox_services](#check-infoblox-services) | Infoblox services and node services |
-| [infoblox_temp](#check-infoblox-temp) | Temperature %s |
-| [informix_dbspaces](#check-informix-dbspaces) | Relevant documentation: |
-| [informix_locks](#check-informix-locks) | Informix Locks %s |
-| [informix_logusage](#check-informix-logusage) | Informix Log Usage %s |
-| [informix_sessions](#check-informix-sessions) | Informix Sessions %s |
-| [informix_status](#check-informix-status) | Informix Instance %s |
-| [informix_tabextents](#check-informix-tabextents) | Informix Table Extents %s |
-| [inotify](#check-inotify) | INotify %s |
-| [interfaces](#check-interfaces) | Interface %s |
-| [ipr400_in_voltage](#check-ipr400-in-voltage) | IN Voltage %s |
-| [ipr400_temp](#check-ipr400-temp) | Temperature %s |
-| [iptables](#check-iptables) | Iptables |
-| [isc_dhcpd](#check-isc-dhcpd) | DHCP Pool %s |
-| [janitza_umg](#check-janitza-umg) | Input %s |
-| [janitza_umg_freq](#check-janitza-umg-freq) | Frequency %s |
-| [janitza_umg_temp](#check-janitza-umg-temp) | Temperature External %s |
-| [jar_signature](#check-jar-signature) | Jar-Signature %s |
-| [jira_custom_svc](#check-jira-custom-svc) | Jira %s |
-| [jira_workflow](#check-jira-workflow) | Jira Workflow %s |
-| [job](#check-job) | Job %s |
-| [juniper_alarm](#check-juniper-alarm) | Chassis |
-| [juniper_bgp_state](#check-juniper-bgp-state) | BGP Status Peer %s |
-| [juniper_cpu_util](#check-juniper-cpu-util) | CPU utilization %s |
-| [juniper_fru](#check-juniper-fru) | Power Supply FRU %s |
-| [juniper_fru_fan](#check-juniper-fru-fan) | Fan FRU %s |
-| [juniper_mem](#check-juniper-mem) | Memory %s |
-| [juniper_screenos_cpu](#check-juniper-screenos-cpu) | CPU utilization |
-| [juniper_screenos_fan](#check-juniper-screenos-fan) | FAN %s |
-| [juniper_screenos_mem](#check-juniper-screenos-mem) | Memory |
-| [juniper_screenos_temp](#check-juniper-screenos-temp) | Temperature %s |
-| [juniper_screenos_vpn](#check-juniper-screenos-vpn) | VPN %s |
-| [juniper_temp](#check-juniper-temp) | Temperature %s |
-| [juniper_trpz_aps](#check-juniper-trpz-aps) | Access Points |
-| [juniper_trpz_aps_sessions](#check-juniper-trpz-aps-sessions) | Access Point %s |
-| [juniper_trpz_cpu_util](#check-juniper-trpz-cpu-util) | CPU utilization |
-| [juniper_trpz_flash](#check-juniper-trpz-flash) | Flash |
-| [juniper_trpz_info](#check-juniper-trpz-info) | Info |
-| [juniper_trpz_mem](#check-juniper-trpz-mem) | Memory |
-| [juniper_trpz_power](#check-juniper-trpz-power) | PSU %s |
-| [kaspersky_av_client](#check-kaspersky-av-client) | Kaspersky AV |
-| [kaspersky_av_kesl_updates](#check-kaspersky-av-kesl-updates) | AV Update Status |
-| [kaspersky_av_quarantine](#check-kaspersky-av-quarantine) | AV Quarantine |
-| [kaspersky_av_tasks](#check-kaspersky-av-tasks) | AV Task %s |
-| [kaspersky_av_updates](#check-kaspersky-av-updates) | AV Update Status |
-| [keepalived](#check-keepalived) | VRRP Instance %s |
-| [kemp_loadmaster_realserver](#check-kemp-loadmaster-realserver) | Real Server %s |
-| [kemp_loadmaster_services](#check-kemp-loadmaster-services) | Service %s |
-| [kentix_amp_sensors](#check-kentix-amp-sensors) | Temperature %s |
-| [kentix_amp_sensors_humidity](#check-kentix-amp-sensors-humidity) | Humidity %s |
-| [kentix_amp_sensors_leakage](#check-kentix-amp-sensors-leakage) | Leakage %s |
-| [kentix_amp_sensors_smoke](#check-kentix-amp-sensors-smoke) | Smoke Detector %s |
-| [kentix_co](#check-kentix-co) | Carbon Monoxide |
-| [kentix_dewpoint](#check-kentix-dewpoint) | Dewpoint %s |
-| [kentix_humidity](#check-kentix-humidity) | Humidity |
-| [kentix_motion](#check-kentix-motion) | Motion Detector %s |
-| [kentix_temp](#check-kentix-temp) | Temperature %s |
-| [kernel_performance](#check-kernel-performance) | Kernel Performance |
-| [kernel_util](#check-kernel-util) | CPU utilization |
-| [knuerr_rms_humidity](#check-knuerr-rms-humidity) | Humidity |
-| [knuerr_rms_temp](#check-knuerr-rms-temp) | Temperature %s |
-| [knuerr_sensors](#check-knuerr-sensors) | Sensor %s |
-| [ldap](#check-ldap) |  |
-| [lgp_info](#check-lgp-info) | Liebert Info |
-| [lgp_pdu_aux](#check-lgp-pdu-aux) | Liebert PDU AUX %s |
-| [lgp_pdu_info](#check-lgp-pdu-info) | Liebert PDU Info %s |
-| [libelle_business_shadow_archive_dir](#check-libelle-business-shadow-archive-dir) | Libelle Business Shadow %s |
-| [libelle_business_shadow_info](#check-libelle-business-shadow-info) | Libelle Business Shadow Info |
-| [libelle_business_shadow_process](#check-libelle-business-shadow-process) | Libelle Business Shadow Process |
-| [libelle_business_shadow_status](#check-libelle-business-shadow-status) | Libelle Business Shadow Status |
-| [liebert_bat_temp](#check-liebert-bat-temp) | Temperature %s |
-| [liebert_chilled_water](#check-liebert-chilled-water) | %s |
-| [liebert_chiller_status](#check-liebert-chiller-status) | Chiller status |
-| [liebert_compressor](#check-liebert-compressor) | %s |
-| [liebert_cooling](#check-liebert-cooling) | %s |
-| [liebert_cooling_position](#check-liebert-cooling-position) | %s |
-| [liebert_cooling_status](#check-liebert-cooling-status) | %s |
-| [liebert_fans](#check-liebert-fans) | %s |
-| [liebert_fans_condenser](#check-liebert-fans-condenser) | %s |
-| [liebert_humidity_air](#check-liebert-humidity-air) | %s Humidity |
-| [liebert_maintenance](#check-liebert-maintenance) | Maintenance |
-| [liebert_pump](#check-liebert-pump) | %s |
-| [liebert_reheating](#check-liebert-reheating) | Reheating Utilization |
-| [liebert_system](#check-liebert-system) | Status %s |
-| [liebert_system_events](#check-liebert-system-events) | System events |
-| [liebert_temp_air](#check-liebert-temp-air) | %s Temperature |
-| [liebert_temp_fluid](#check-liebert-temp-fluid) | %s |
-| [liebert_temp_general](#check-liebert-temp-general) | %s |
-| [livestatus_status](#check-livestatus-status) | OMD %s performance |
-| [lnx_if](#check-lnx-if) | Interface %s |
-| [lnx_quota](#check-lnx-quota) | Quota: %s |
-| [lnx_thermal](#check-lnx-thermal) | Temperature %s |
-| [local](#check-local) | %s |
-| [logins](#check-logins) | Logins |
-| [lparstat_aix](#check-lparstat-aix) | lparstat |
-| [lparstat_aix_cpu_util](#check-lparstat-aix-cpu-util) | CPU utilization |
-| [lsi_array](#check-lsi-array) | RAID array %s |
-| [lsi_disk](#check-lsi-disk) | RAID disk %s |
-| [lvm_lvs](#check-lvm-lvs) | LVM LV Pool %s |
-| [lvm_vgs](#check-lvm-vgs) | LVM VG %s |
-| [mail](#check-mail) |  |
-| [mail_loop](#check-mail-loop) |  |
-| [mailboxes](#check-mailboxes) |  |
-| [mailman_lists](#check-mailman-lists) | Mailinglist %s |
-| [mbg_lantime_ng_refclock](#check-mbg-lantime-ng-refclock) | LANTIME Refclock %s |
-| [mbg_lantime_ng_refclock_gps](#check-mbg-lantime-ng-refclock-gps) | LANTIME Refclock %s |
-| [mcafee_av_client](#check-mcafee-av-client) | McAfee AV |
-| [mcafee_webgateway](#check-mcafee-webgateway) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_http_client_requests](#check-mcafee-webgateway-http-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_https_client_requests](#check-mcafee-webgateway-https-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_httpv2_client_requests](#check-mcafee-webgateway-httpv2-client-requests) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_info](#check-mcafee-webgateway-info) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_misc](#check-mcafee-webgateway-misc) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_time_consumed_by_rule_engine](#check-mcafee-webgateway-time-consumed-by-rule-engine) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcafee_webgateway_time_to_resolve_dns](#check-mcafee-webgateway-time-to-resolve-dns) | The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2. |
-| [mcdata_fcport](#check-mcdata-fcport) | Port %s |
-| [md](#check-md) | MD Softraid %s |
-| [megaraid_bbu](#check-megaraid-bbu) | RAID BBU %s |
-| [megaraid_ldisks](#check-megaraid-ldisks) | RAID logical disk %s |
-| [megaraid_pdisks](#check-megaraid-pdisks) | RAID pysical disk %s |
-| [mem_linux](#check-mem-linux) | Memory |
-| [mem_used](#check-mem-used) | Memory |
-| [mem_vmalloc](#check-mem-vmalloc) | Vmalloc address space |
-| [mem_win](#check-mem-win) | Memory |
-| [memory_utilization](#check-memory-utilization) | Memory |
-| [mikrotik_signal](#check-mikrotik-signal) | Signal %s |
-| [mkbackup](#check-mkbackup) | Backup %s |
-| [mkbackup_site](#check-mkbackup-site) | OMD %s |
-| [mkeventd_status](#check-mkeventd-status) | OMD %s Event Console |
-| [mkevents](#check-mkevents) |  |
-| [mknotifyd](#check-mknotifyd) | OMD %s Notification Spooler |
-| [mknotifyd_connection](#check-mknotifyd-connection) | OMD %s Notify Connection |
-| [mknotifyd_connection_v2](#check-mknotifyd-connection-v2) | OMD %s |
-| [mobileiron_compliance](#check-mobileiron-compliance) | Mobileiron compliance |
-| [mobileiron_statistics](#check-mobileiron-statistics) | Provides summarized insights into the fetched partitions. |
-| [mobileiron_versions](#check-mobileiron-versions) | Mobileiron versions |
-| [mongodb_asserts](#check-mongodb-asserts) | MongoDB Asserts |
-| [mongodb_cluster](#check-mongodb-cluster) | MongoDB Database: %s |
-| [mongodb_cluster_balancer](#check-mongodb-cluster-balancer) | MongoDB Balancer |
-| [mongodb_cluster_collections](#check-mongodb-cluster-collections) | MongoDB Cluster: %s |
-| [mongodb_collections](#check-mongodb-collections) | MongoDB Collection: %s |
-| [mongodb_connections](#check-mongodb-connections) | MongoDB %s |
-| [mongodb_counters](#check-mongodb-counters) | MongoDB Counters %s |
-| [mongodb_flushing](#check-mongodb-flushing) | MongoDB Flushing |
-| [mongodb_instance](#check-mongodb-instance) | MongoDB Instance |
-| [mongodb_locks](#check-mongodb-locks) | MongoDB Locks |
-| [mongodb_mem](#check-mongodb-mem) | Memory used MongoDB |
-| [mongodb_replica](#check-mongodb-replica) | MongoDB Replica Set Status |
-| [mongodb_replica_set](#check-mongodb-replica-set) | MongoDB Replication Lag |
-| [mongodb_replica_set_election](#check-mongodb-replica-set-election) | MongoDB Replica Set Primary Election |
-| [mongodb_replication_info](#check-mongodb-replication-info) | MongoDB Replication Info |
-| [mounts](#check-mounts) | Mount options of %s |
-| [moxa_iologik_register](#check-moxa-iologik-register) | Moxa Register %s |
-| [mq_queues](#check-mq-queues) | Queue %s |
-| [mqtt_broker](#check-mqtt-broker) | MQTT %s Broker |
-| [mqtt_clients](#check-mqtt-clients) | MQTT %s Clients |
-| [mqtt_messages](#check-mqtt-messages) | MQTT %s Messages |
-| [mqtt_uptime](#check-mqtt-uptime) | MQTT %s Uptime |
-| [mrpe](#check-mrpe) | %s |
-| [msexch_activesync](#check-msexch-activesync) | Exchange ActiveSync |
-| [msexch_autodiscovery](#check-msexch-autodiscovery) | Exchange Autodiscovery |
-| [msexch_availability](#check-msexch-availability) | Exchange Availability Service |
-| [msexch_dag_contentindex](#check-msexch-dag-contentindex) | Exchange DAG ContentIndex of %s |
-| [msexch_dag_copyqueue](#check-msexch-dag-copyqueue) | Exchange DAG CopyQueue of %s |
-| [msexch_dag_dbcopy](#check-msexch-dag-dbcopy) | Exchange DAG DBCopy for %s |
-| [msexch_database](#check-msexch-database) | Exchange Database %s |
-| [msexch_isclienttype](#check-msexch-isclienttype) | Exchange IS Client Type %s |
-| [msexch_isstore](#check-msexch-isstore) | Exchange IS Store %s |
-| [msexch_owa](#check-msexch-owa) | Exchange OWA |
-| [msexch_replhealth](#check-msexch-replhealth) | Exchange Replication Health %s |
-| [msexch_rpcclientaccess](#check-msexch-rpcclientaccess) | Exchange RPC Client Access |
-| [msoffice_licenses](#check-msoffice-licenses) | MS Office Licenses %s |
-| [msoffice_serviceplans](#check-msoffice-serviceplans) | MS Office Serviceplans %s |
-| [mssql_availability_groups](#check-mssql-availability-groups) | MSSQL Availability Group %s |
-| [mssql_backup](#check-mssql-backup) | MSSQL %s Backup |
-| [mssql_backup_per_type](#check-mssql-backup-per-type) | MSSQL %s Backup |
-| [mssql_blocked_sessions](#check-mssql-blocked-sessions) | MSSQL %s Blocked Sessions |
-| [mssql_connections](#check-mssql-connections) | MSSQL Connections %s |
-| [mssql_counters_cache_hits](#check-mssql-counters-cache-hits) | MSSQL %s |
-| [mssql_counters_file_sizes](#check-mssql-counters-file-sizes) | MSSQL %s File Sizes |
-| [mssql_counters_locks](#check-mssql-counters-locks) | MSSQL %s Locks |
-| [mssql_counters_locks_per_batch](#check-mssql-counters-locks-per-batch) | MSSQL %s Locks per Batch |
-| [mssql_counters_page_life_expectancy](#check-mssql-counters-page-life-expectancy) | MSSQL %s |
-| [mssql_counters_pageactivity](#check-mssql-counters-pageactivity) | MSSQL %s Page Activity |
-| [mssql_counters_sqlstats](#check-mssql-counters-sqlstats) | MSSQL %s |
-| [mssql_counters_transactions](#check-mssql-counters-transactions) | MSSQL %s Transactions |
-| [mssql_databases](#check-mssql-databases) | MSSQL %s Database |
-| [mssql_datafiles](#check-mssql-datafiles) | MSSQL Datafile %s |
-| [mssql_instance](#check-mssql-instance) | MSSQL %s Instance |
-| [mssql_jobs](#check-mssql-jobs) | MSSQL job %s |
-| [mssql_mirroring](#check-mssql-mirroring) | MSSQL Mirroring Status: %s |
-| [mssql_tablespaces](#check-mssql-tablespaces) | MSSQL %s Sizes |
-| [mssql_transactionlogs](#check-mssql-transactionlogs) | MSSQL Transactionlog %s |
-| [mtr](#check-mtr) | Mtr to %s |
-| [multipath](#check-multipath) | Multipath %s |
-| [mysql](#check-mysql) | MySQL Version %s |
-| [mysql_capacity](#check-mysql-capacity) | MySQL DB Size %s |
-| [mysql_connections](#check-mysql-connections) | MySQL Connections %s |
-| [mysql_galeradonor](#check-mysql-galeradonor) | MySQL Galera Donor %s |
-| [mysql_galerasize](#check-mysql-galerasize) | MySQL Galera Size %s |
-| [mysql_galerastartup](#check-mysql-galerastartup) | MySQL Galera Startup %s |
-| [mysql_galerastatus](#check-mysql-galerastatus) | MySQL Galera Status %s |
-| [mysql_galerasync](#check-mysql-galerasync) | MySQL Galera Sync %s |
-| [mysql_innodb_io](#check-mysql-innodb-io) | MySQL InnoDB IO %s |
-| [mysql_ping](#check-mysql-ping) | MySQL Instance %s |
-| [mysql_replica_slave](#check-mysql-replica-slave) | MySQL DB Slave %s |
-| [mysql_sessions](#check-mysql-sessions) | MySQL Sessions %s |
-| [netctr_combined](#check-netctr-combined) | NIC %s counters |
-| [netscaler_ha](#check-netscaler-ha) | HA Node Status |
-| [netscaler_sslcertificates](#check-netscaler-sslcertificates) | SSL Certificate %s |
-| [netscaler_tcp_conns](#check-netscaler-tcp-conns) | TCP Connections |
-| [netscaler_vserver](#check-netscaler-vserver) | VServer %s |
-| [netstat](#check-netstat) | TCP Connection %s |
-| [nfsexports](#check-nfsexports) | NFS export %s |
-| [nfsiostat](#check-nfsiostat) | NFS IO stats %s |
-| [nfsmounts](#check-nfsmounts) | NFS mount %s |
-| [nginx_status](#check-nginx-status) | Nginx %s Status |
-| [nimble_latency](#check-nimble-latency) | Volume %s Read IO |
-| [nimble_latency_write](#check-nimble-latency-write) | Volume %s Write IO |
-| [nimble_volumes](#check-nimble-volumes) | Volume %s |
-| [notify_count](#check-notify-count) |  |
-| [ntp](#check-ntp) | NTP Peer %s |
-| [ntp_time](#check-ntp-time) | NTP Time |
-| [nullmailer_mailq](#check-nullmailer-mailq) | Nullmailer Queue |
-| [nvidia_errors](#check-nvidia-errors) | NVIDIA GPU Errors |
-| [nvidia_smi_en_de_coder_util](#check-nvidia-smi-en-de-coder-util) | Nvidia GPU En-/Decoder utilization %s |
-| [nvidia_smi_gpu_util](#check-nvidia-smi-gpu-util) | Nvidia GPU utilization %s |
-| [nvidia_smi_memory_util](#check-nvidia-smi-memory-util) | Nvidia GPU Memory utilization %s |
-| [nvidia_smi_power](#check-nvidia-smi-power) | Nvidia GPU Power %s |
-| [nvidia_smi_temperature](#check-nvidia-smi-temperature) | Nvidia GPU Temperature %s |
-| [nvidia_temp](#check-nvidia-temp) | Temperature %s |
-| [nvidia_temp_core](#check-nvidia-temp-core) | Temperature %s |
-| [omd_apache](#check-omd-apache) | OMD %s apache |
-| [omd_broker_queues](#check-omd-broker-queues) | OMD %s |
-| [omd_broker_status](#check-omd-broker-status) | OMD %s message broker |
-| [omd_diskusage](#check-omd-diskusage) | OMD %s disk usage |
-| [omd_status](#check-omd-status) | <<<omd_status>>> |
-| [openbsd_sensors](#check-openbsd-sensors) | Temperature %s |
-| [openbsd_sensors_drive](#check-openbsd-sensors-drive) | Drive %s |
-| [openbsd_sensors_fan](#check-openbsd-sensors-fan) | Fan %s |
-| [openbsd_sensors_indicator](#check-openbsd-sensors-indicator) | Indicator %s |
-| [openbsd_sensors_powersupply](#check-openbsd-sensors-powersupply) | Powersupply %s |
-| [openbsd_sensors_voltage](#check-openbsd-sensors-voltage) | Voltage Type %s |
-| [openhardwaremonitor](#check-openhardwaremonitor) | Clock %s |
-| [openhardwaremonitor_fan](#check-openhardwaremonitor-fan) | Fan %s |
-| [openhardwaremonitor_power](#check-openhardwaremonitor-power) | Power %s |
-| [openhardwaremonitor_smart](#check-openhardwaremonitor-smart) | SMART %s Stats |
-| [openhardwaremonitor_temperature](#check-openhardwaremonitor-temperature) | Temperature %s |
-| [openvpn_clients](#check-openvpn-clients) | OpenVPN Client %s |
-| [oracle_asm_diskgroup](#check-oracle-asm-diskgroup) | ASM Diskgroup %s |
-| [oracle_crs_res](#check-oracle-crs-res) | ORA-GI %s Resource |
-| [oracle_crs_version](#check-oracle-crs-version) | ORA-GI Version |
-| [oracle_crs_voting](#check-oracle-crs-voting) | ORA-GI Voting |
-| [oracle_dataguard_stats](#check-oracle-dataguard-stats) | ORA %s Dataguard-Stats |
-| [oracle_diva_csm](#check-oracle-diva-csm) | DIVA Status %s |
-| [oracle_diva_csm_actor](#check-oracle-diva-csm-actor) | DIVA Status %s |
-| [oracle_diva_csm_archive](#check-oracle-diva-csm-archive) | DIVA Status %s |
-| [oracle_diva_csm_drive](#check-oracle-diva-csm-drive) | DIVA Status %s |
-| [oracle_diva_csm_objects](#check-oracle-diva-csm-objects) | DIVA Managed Objects |
-| [oracle_diva_csm_tapes](#check-oracle-diva-csm-tapes) | DIVA Blank Tapes |
-| [oracle_instance](#check-oracle-instance) | ORA %s Instance |
-| [oracle_instance_uptime](#check-oracle-instance-uptime) | ORA %s Uptime |
-| [oracle_jobs](#check-oracle-jobs) | ORA %s Job |
-| [oracle_locks](#check-oracle-locks) | ORA %s Locks |
-| [oracle_logswitches](#check-oracle-logswitches) | ORA %s Logswitches |
-| [oracle_longactivesessions](#check-oracle-longactivesessions) | ORA %s Long Active Sessions |
-| [oracle_performance](#check-oracle-performance) | ORA %s Performance |
-| [oracle_performance_dbtime](#check-oracle-performance-dbtime) | ORA %s Performance DB-Time |
-| [oracle_performance_iostat_bytes](#check-oracle-performance-iostat-bytes) | ORA %s Performance IO Stats Bytes |
-| [oracle_performance_iostat_ios](#check-oracle-performance-iostat-ios) | ORA %s Performance IO Stats Requests |
-| [oracle_performance_memory](#check-oracle-performance-memory) | ORA %s Performance Memory |
-| [oracle_performance_waitclasses](#check-oracle-performance-waitclasses) | ORA %s Performance System Wait |
-| [oracle_processes](#check-oracle-processes) | ORA %s Processes |
-| [oracle_recovery_area](#check-oracle-recovery-area) | ORA %s Recovery Area |
-| [oracle_recovery_status](#check-oracle-recovery-status) | ORA %s Recovery Status |
-| [oracle_rman](#check-oracle-rman) | ORA %s RMAN Backup |
-| [oracle_sessions](#check-oracle-sessions) | ORA %s Sessions |
-| [oracle_sql](#check-oracle-sql) | ORA %s |
-| [oracle_tablespaces](#check-oracle-tablespaces) | ORA %s Tablespace |
-| [oracle_undostat](#check-oracle-undostat) | ORA %s Undo Retention |
-| [oracle_version](#check-oracle-version) | ORA Version %s |
-| [orion_backup](#check-orion-backup) | Backup |
-| [orion_batterytest](#check-orion-batterytest) | Battery Test |
-| [orion_system](#check-orion-system) | Temperature %s |
-| [orion_system_charging](#check-orion-system-charging) | Charge %s |
-| [orion_system_dc](#check-orion-system-dc) | Direct Current %s |
-| [ovs_bonding](#check-ovs-bonding) | OVS Bonding interface %s |
-| [packeteer_fan_status](#check-packeteer-fan-status) | Fan Status %s |
-| [packeteer_ps_status](#check-packeteer-ps-status) | Power Supply Status |
-| [palo_alto](#check-palo-alto) | Palo Alto State |
-| [palo_alto_users](#check-palo-alto-users) | Palo Alto Users |
-| [pandacom_10gm_temp](#check-pandacom-10gm-temp) | Temperature 10GM Module %s |
-| [pandacom_fan](#check-pandacom-fan) | Fan %s |
-| [pandacom_fc_temp](#check-pandacom-fc-temp) | Temperature FC Module %s |
-| [pandacom_psu](#check-pandacom-psu) | Power Supply %s |
-| [pandacom_sys_temp](#check-pandacom-sys-temp) | Temperature %s |
-| [papouch_th2e_sensors](#check-papouch-th2e-sensors) | Temperature %s |
-| [papouch_th2e_sensors_dewpoint](#check-papouch-th2e-sensors-dewpoint) | Dew point %s |
-| [papouch_th2e_sensors_humidity](#check-papouch-th2e-sensors-humidity) | Humidity %s |
-| [pdu_gude](#check-pdu-gude) | Phase %s |
-| [pfsense_counter](#check-pfsense-counter) | pfSense Firewall Packet Rates |
-| [pfsense_if](#check-pfsense-if) | Firewall Interface %s |
-| [pfsense_status](#check-pfsense-status) | pfSense Status |
-| [plesk_backups](#check-plesk-backups) | Plesk Backup %s |
-| [plesk_domains](#check-plesk-domains) | Plesk Domains |
-| [podman_container_cpu_utilization](#check-podman-container-cpu-utilization) | CPU utilization |
-| [podman_container_diskstat](#check-podman-container-diskstat) | Container IO %s |
-| [podman_container_health](#check-podman-container-health) | Health |
-| [podman_container_memory](#check-podman-container-memory) | Memory |
-| [podman_container_restarts](#check-podman-container-restarts) | Restarts |
-| [podman_container_status](#check-podman-container-status) | Status |
-| [podman_container_uptime](#check-podman-container-uptime) | Uptime |
-| [podman_containers](#check-podman-containers) | Podman containers |
-| [podman_disk_usage](#check-podman-disk-usage) | Podman disk usage: %s |
-| [podman_pods](#check-podman-pods) | Podman pods |
-| [podman_status](#check-podman-status) | Podman status |
-| [poseidon_inputs](#check-poseidon-inputs) | %s |
-| [poseidon_temp](#check-poseidon-temp) | Temperatur: %s |
-| [postfix_mailq](#check-postfix-mailq) | Postfix Queue %s |
-| [postfix_mailq_status](#check-postfix-mailq-status) | Postfix status %s |
-| [postgres_bloat](#check-postgres-bloat) | PostgreSQL Bloat %s |
-| [postgres_conn_time](#check-postgres-conn-time) | PostgreSQL Connection Time %s |
-| [postgres_connections](#check-postgres-connections) | PostgreSQL Connections %s |
-| [postgres_instances](#check-postgres-instances) | PostgreSQL Instance %s |
-| [postgres_locks](#check-postgres-locks) | PostgreSQL Locks %s |
-| [postgres_processes](#check-postgres-processes) | PostgreSQL Process Count |
-| [postgres_query_duration](#check-postgres-query-duration) | PostgreSQL Query Duration %s |
-| [postgres_sessions](#check-postgres-sessions) | PostgreSQL Daemon Sessions %s |
-| [postgres_stat_database](#check-postgres-stat-database) | PostgreSQL DB %s Statistics |
-| [postgres_stat_database_size](#check-postgres-stat-database-size) | PostgreSQL DB %s Size |
-| [postgres_stats](#check-postgres-stats) | PostgreSQL %s |
-| [primekey_cpu_temperature](#check-primekey-cpu-temperature) | Temperature PrimeKey %s |
-| [primekey_data](#check-primekey-data) | PrimeKey %s Status |
-| [primekey_db_usage](#check-primekey-db-usage) | PrimeKey DB Usage |
-| [primekey_fan](#check-primekey-fan) | PrimeKey Fan %s |
-| [primekey_hsm_battery_voltage](#check-primekey-hsm-battery-voltage) | PrimeKey HSM Battery %s |
-| [printer_alerts](#check-printer-alerts) | Alerts |
-| [printer_input](#check-printer-input) | Input %s |
-| [printer_output](#check-printer-output) | Output %s |
-| [printer_pages](#check-printer-pages) | Pages |
-| [printer_pages_ricoh](#check-printer-pages-ricoh) | Pages |
-| [printer_supply_ricoh](#check-printer-supply-ricoh) | Supply %s |
-| [prometheus_build](#check-prometheus-build) | Prometheus Build Check |
-| [ps](#check-ps) | Process %s |
-| [pse_poe](#check-pse-poe) | POE%s consumption |
-| [pulse_secure_cpu_util](#check-pulse-secure-cpu-util) | Pulse Secure IVE CPU utilization |
-| [pulse_secure_disk_util](#check-pulse-secure-disk-util) | Pulse Secure disk utilization |
-| [pulse_secure_log_util](#check-pulse-secure-log-util) | Pulse Secure log file utilization |
-| [pulse_secure_mem_util](#check-pulse-secure-mem-util) | Pulse Secure IVE memory utilization |
-| [pulse_secure_temp](#check-pulse-secure-temp) | Pulse Secure %s Temperature |
-| [pulse_secure_users](#check-pulse-secure-users) | Pulse Secure users |
-| [pvecm_nodes](#check-pvecm-nodes) | PVE Node %s |
-| [pvecm_status](#check-pvecm-status) | PVE Cluster State |
-| [qlogic_fcport](#check-qlogic-fcport) | FC Port %s |
-| [qlogic_sanbox_fabric_element](#check-qlogic-sanbox-fabric-element) | Fabric Element %s |
-| [qlogic_sanbox_psu](#check-qlogic-sanbox-psu) | PSU %s |
-| [qlogic_sanbox_temp](#check-qlogic-sanbox-temp) | Temperature Sensor %s |
-| [qmail_stats](#check-qmail-stats) | Qmail Queue |
-| [quanta_fan](#check-quanta-fan) | Fan %s |
-| [quanta_temperature](#check-quanta-temperature) | Temperature %s |
-| [quanta_voltage](#check-quanta-voltage) | Voltage %s |
-| [quantum_libsmall_door](#check-quantum-libsmall-door) | Tape library door |
-| [quantum_libsmall_status](#check-quantum-libsmall-status) | Tape library status |
-| [quantum_storage_status](#check-quantum-storage-status) | Device status |
-| [ra32e_sensors](#check-ra32e-sensors) | Temperature %s |
-| [ra32e_sensors_humidity](#check-ra32e-sensors-humidity) | Humidity %s |
-| [ra32e_sensors_power](#check-ra32e-sensors-power) | Power State %s |
-| [ra32e_sensors_voltage](#check-ra32e-sensors-voltage) | Voltage %s |
-| [ra3s_internal_temperature](#check-ra3s-internal-temperature) | Temperature %s |
-| [ra3s_sensors_humidity](#check-ra3s-sensors-humidity) | Humidity %s |
-| [ra3s_sensors_power](#check-ra3s-sensors-power) | Power State %s |
-| [ra3s_sensors_voltage](#check-ra3s-sensors-voltage) | Voltage %s |
-| [raritan_px2_residual_current](#check-raritan-px2-residual-current) | Residual Current %s |
-| [rds_licenses](#check-rds-licenses) | RDS Licenses %s |
-| [redis_info](#check-redis-info) | Redis %s Server Info |
-| [redis_info_clients](#check-redis-info-clients) | Redis %s Clients |
-| [redis_info_persistence](#check-redis-info-persistence) | Redis %s Persistence |
-| [rmon_stats](#check-rmon-stats) | RMON Stats IF %s |
-| [rms200_temp](#check-rms200-temp) | Temperature %s |
-| [rstcli](#check-rstcli) | RAID Volume %s |
-| [rstcli_pdisks](#check-rstcli-pdisks) | RAID Disk %s |
-| [ruckus_spot_ap](#check-ruckus-spot-ap) | Ruckus Spot Access Points %s |
-| [safenet_hsm](#check-safenet-hsm) | HSM Operation Stats |
-| [safenet_hsm_events](#check-safenet-hsm-events) | HSM Safenet Event Stats |
-| [safenet_ntls](#check-safenet-ntls) | NTLS Operation Status |
-| [safenet_ntls_clients](#check-safenet-ntls-clients) | NTLS Clients |
-| [safenet_ntls_connrate](#check-safenet-ntls-connrate) | NTLS Connection Rate: %s |
-| [safenet_ntls_expiration](#check-safenet-ntls-expiration) | NTLS Expiration Date |
-| [safenet_ntls_links](#check-safenet-ntls-links) | NTLS Links |
-| [salesforce_instances](#check-salesforce-instances) | Salesforce Instance %s |
-| [sansymphony_alerts](#check-sansymphony-alerts) | sansymphony Alerts |
-| [sansymphony_pool](#check-sansymphony-pool) | Sansymphony Pool %s |
-| [sansymphony_ports](#check-sansymphony-ports) | sansymphony Port %s |
-| [sansymphony_serverstatus](#check-sansymphony-serverstatus) | sansymphony Serverstatus |
-| [sansymphony_virtualdiskstatus](#check-sansymphony-virtualdiskstatus) | sansymphony Virtual Disk %s |
-| [sap_dialog](#check-sap-dialog) | %s Dialog |
-| [sap_hana_backup](#check-sap-hana-backup) | SAP HANA Backup %s |
-| [sap_hana_connect](#check-sap-hana-connect) | SAP HANA CONNECT %s |
-| [sap_hana_data_volume](#check-sap-hana-data-volume) | SAP HANA Volume %s |
-| [sap_hana_db_status](#check-sap-hana-db-status) | SAP HANA Database Status %s |
-| [sap_hana_diskusage](#check-sap-hana-diskusage) | SAP HANA Disk %s |
-| [sap_hana_ess](#check-sap-hana-ess) | SAP HANA ESS %s |
-| [sap_hana_ess_migration](#check-sap-hana-ess-migration) | SAP HANA ESS Migration %s |
-| [sap_hana_events](#check-sap-hana-events) | SAP HANA Events %s |
-| [sap_hana_fileinfo](#check-sap-hana-fileinfo) | File %s |
-| [sap_hana_fileinfo_groups](#check-sap-hana-fileinfo-groups) | File group %s |
-| [sap_hana_instance_status](#check-sap-hana-instance-status) | SAP HANA Instance Status %s |
-| [sap_hana_license](#check-sap-hana-license) | SAP HANA License %s |
-| [sap_hana_memrate](#check-sap-hana-memrate) | SAP HANA Memory %s |
-| [sap_hana_proc](#check-sap-hana-proc) | SAP HANA Process %s |
-| [sap_hana_replication_status](#check-sap-hana-replication-status) | SAP HANA Replication Status %s |
-| [sap_hana_status](#check-sap-hana-status) | SAP HANA %s |
-| [sap_value](#check-sap-value) | %s |
-| [sap_value_groups](#check-sap-value-groups) | %s |
-| [scaleio_devices](#check-scaleio-devices) | ScaleIO Data Server %s Devices |
-| [scaleio_mdm](#check-scaleio-mdm) | ScaleIO cluster status |
-| [scaleio_pd](#check-scaleio-pd) | ScaleIO PD capacity %s |
-| [scaleio_pd_status](#check-scaleio-pd-status) | ScaleIO PD status %s |
-| [scaleio_sds](#check-scaleio-sds) | ScaleIO SDS capacity %s |
-| [scaleio_sds_status](#check-scaleio-sds-status) | ScaleIO SDS status %s |
-| [scaleio_storage_pool](#check-scaleio-storage-pool) | ScaleIO SP capacity %s |
-| [scaleio_storage_pool_rebalancerw](#check-scaleio-storage-pool-rebalancerw) | ScaleIO SP rebalance IO %s |
-| [scaleio_storage_pool_totalrw](#check-scaleio-storage-pool-totalrw) | ScaleIO SP total IO %s |
-| [scaleio_system](#check-scaleio-system) | ScaleIO System %s |
-| [scaleio_volume](#check-scaleio-volume) | ScaleIO Volume %s |
-| [security_master](#check-security-master) | Sensor %s |
-| [security_master_humidity](#check-security-master-humidity) | Sensor %s |
-| [security_master_temp](#check-security-master-temp) | Sensor %s |
-| [seh_ports](#check-seh-ports) | Port %s |
-| [sensatronics_temp](#check-sensatronics-temp) | Temperature %s |
-| [sentry_pdu](#check-sentry-pdu) | Plug %s |
-| [sentry_pdu_outlets](#check-sentry-pdu-outlets) | Outlet %s |
-| [sentry_pdu_outlets_v4](#check-sentry-pdu-outlets-v4) | Outlet %s |
-| [sentry_pdu_v4](#check-sentry-pdu-v4) | Plug %s |
-| [services](#check-services) | Service %s |
-| [services_summary](#check-services-summary) | Service Summary |
-| [sftp](#check-sftp) |  |
-| [siemens_plc_counter](#check-siemens-plc-counter) | Counter %s |
-| [siemens_plc_cpu_state](#check-siemens-plc-cpu-state) | CPU state |
-| [siemens_plc_duration](#check-siemens-plc-duration) | Duration %s |
-| [siemens_plc_flag](#check-siemens-plc-flag) | Flag %s |
-| [siemens_plc_info](#check-siemens-plc-info) | Info %s |
-| [siemens_plc_temp](#check-siemens-plc-temp) | Temperature %s |
-| [silverpeak_VX6000](#check-silverpeak-vx6000) | Alarms |
-| [site_object_counts](#check-site-object-counts) | OMD objects |
-| [skype](#check-skype) | Skype Web Components |
-| [skype_conferencing](#check-skype-conferencing) | Skype Conferencing |
-| [skype_data_proxy](#check-skype-data-proxy) | Skype Data Proxy %s |
-| [skype_edge](#check-skype-edge) | Skype AV Edge %s |
-| [skype_edge_auth](#check-skype-edge-auth) | Skype Edge Authentification |
-| [skype_mcu](#check-skype-mcu) | Skype MCU Health |
-| [skype_mediation_server](#check-skype-mediation-server) | Skype Mediation Server |
-| [skype_mobile](#check-skype-mobile) | Skype Mobile Sessions |
-| [skype_sip_stack](#check-skype-sip-stack) | Skype SIP Stack |
-| [skype_xmpp_proxy](#check-skype-xmpp-proxy) | Skype XMPP Proxy |
-| [smart_ata_stats](#check-smart-ata-stats) | SMART %s Stats |
-| [smart_ata_temp](#check-smart-ata-temp) | Temperature SMART %s |
-| [smart_nvme_stats](#check-smart-nvme-stats) | SMART %s Stats |
-| [smart_nvme_temp](#check-smart-nvme-temp) | Temperature SMART %s |
-| [smart_scsi_temp](#check-smart-scsi-temp) | Temperature SMART %s |
-| [smtp](#check-smtp) |  |
-| [sni_octopuse_cpu](#check-sni-octopuse-cpu) | CPU utilization |
-| [sni_octopuse_status](#check-sni-octopuse-status) | Global status |
-| [sni_octopuse_trunks](#check-sni-octopuse-trunks) | Trunk Port %s |
-| [snmp_info](#check-snmp-info) | SNMP Info |
-| [solaris_fmadm](#check-solaris-fmadm) | FMD Status |
-| [solaris_multipath](#check-solaris-multipath) | Multipath %s |
-| [solaris_prtdiag_status](#check-solaris-prtdiag-status) | Hardware Overall State |
-| [solaris_services](#check-solaris-services) | SMF Service %s |
-| [solaris_services_summary](#check-solaris-services-summary) | SMF Services Summary |
-| [sql](#check-sql) |  |
-| [ssh](#check-ssh) |  |
-| [sshd_config](#check-sshd-config) | SSH daemon configuration |
-| [statgrab_cpu](#check-statgrab-cpu) | CPU utilization |
-| [storcli_cache_vault](#check-storcli-cache-vault) | RAID cache vault %s |
-| [storcli_pdisks](#check-storcli-pdisks) | RAID PDisk EID:Slot-Device %s |
-| [storcli_vdrives](#check-storcli-vdrives) | RAID Virtual Drive %s |
-| [storeonce4x_appliances](#check-storeonce4x-appliances) | Appliance %s Status |
-| [storeonce4x_appliances_license](#check-storeonce4x-appliances-license) | Appliance %s License |
-| [storeonce4x_appliances_storage](#check-storeonce4x-appliances-storage) | Appliance %s Storage |
-| [storeonce4x_appliances_summaries](#check-storeonce4x-appliances-summaries) | Appliance %s Summaries |
-| [storeonce4x_cat_stores](#check-storeonce4x-cat-stores) | Catalyst Stores %s |
-| [storeonce_clusterinfo](#check-storeonce-clusterinfo) | %s |
-| [storeonce_clusterinfo_cluster](#check-storeonce-clusterinfo-cluster) | Appliance Status |
-| [storeonce_clusterinfo_space](#check-storeonce-clusterinfo-space) | %s |
-| [storeonce_clusterinfo_uptime](#check-storeonce-clusterinfo-uptime) | Uptime |
-| [storeonce_servicesets](#check-storeonce-servicesets) | ServiceSet %s Status |
-| [storeonce_servicesets_capacity](#check-storeonce-servicesets-capacity) | ServiceSet %s Capacity |
-| [storeonce_stores](#check-storeonce-stores) | %s |
-| [stormshield_cluster](#check-stormshield-cluster) | HA Status |
-| [stormshield_cluster_node](#check-stormshield-cluster-node) | HA Member %s |
-| [stormshield_cpu_temp](#check-stormshield-cpu-temp) | CPU Temp %s |
-| [stormshield_disk](#check-stormshield-disk) | Disk %s |
-| [stormshield_info](#check-stormshield-info) | Stormshield Info |
-| [stormshield_packets](#check-stormshield-packets) | Packet Stats %s |
-| [stormshield_policy](#check-stormshield-policy) | Policy %s |
-| [stormshield_route](#check-stormshield-route) | Gateway %s |
-| [stormshield_services](#check-stormshield-services) | Service %s |
-| [stormshield_updates](#check-stormshield-updates) | Autoupdate %s |
-| [strem1_sensors](#check-strem1-sensors) | Sensor - %s |
-| [supermicro](#check-supermicro) | Overall Hardware Health |
-| [supermicro_sensors](#check-supermicro-sensors) | Sensor %s |
-| [supermicro_smart](#check-supermicro-smart) | SMART Health %s |
-| [superstack3_sensors](#check-superstack3-sensors) | %s |
-| [suseconnect](#check-suseconnect) | SLES license |
-| [sylo](#check-sylo) | Sylo |
-| [sym_brightmail_queues](#check-sym-brightmail-queues) | Queue %s |
-| [symantec_av_progstate](#check-symantec-av-progstate) | AV Program Status |
-| [symantec_av_quarantine](#check-symantec-av-quarantine) | AV Quarantine |
-| [symantec_av_updates](#check-symantec-av-updates) | AV Update Status |
-| [synology_disks](#check-synology-disks) | Disks %s |
-| [synology_fans](#check-synology-fans) | Fan %s |
-| [synology_info](#check-synology-info) | Info |
-| [synology_raid](#check-synology-raid) | Raid %s |
-| [synology_status](#check-synology-status) | Status |
-| [synology_update](#check-synology-update) | Update |
-| [systemd_units_services](#check-systemd-units-services) | Systemd Service %s |
-| [systemd_units_services_summary](#check-systemd-units-services-summary) | Systemd Service Summary |
-| [systemd_units_sockets](#check-systemd-units-sockets) | Systemd Socket %s |
-| [systemd_units_sockets_summary](#check-systemd-units-sockets-summary) | Systemd Socket Summary |
-| [systemtime](#check-systemtime) | System Time |
-| [tcp](#check-tcp) |  |
-| [tcp_conn_stats](#check-tcp-conn-stats) | TCP Connections |
-| [teracom_tcw241_analog](#check-teracom-tcw241-analog) | Analog Sensor %s |
-| [teracom_tcw241_digital](#check-teracom-tcw241-digital) | Digital Sensor %s |
-| [timemachine](#check-timemachine) |  |
-| [timesyncd](#check-timesyncd) | Systemd Timesyncd Time |
-| [traceroute](#check-traceroute) |  |
-| [tsm_drives](#check-tsm-drives) | TSM Drive %s |
-| [tsm_paths](#check-tsm-paths) | TSM Paths |
-| [tsm_scratch](#check-tsm-scratch) | Scratch Pool %s |
-| [tsm_sessions](#check-tsm-sessions) | tsm_sessions |
-| [tsm_stagingpools](#check-tsm-stagingpools) | TSM Stagingpool %s |
-| [tsm_storagepools](#check-tsm-storagepools) | TSM Storagepool %s |
-| [ucd_cpu_util](#check-ucd-cpu-util) | CPU utilization |
-| [ucd_disk](#check-ucd-disk) | Filesystem %s |
-| [ucd_diskio](#check-ucd-diskio) | Disk IO %s |
-| [ucd_processes](#check-ucd-processes) | Processes %s |
-| [uniserv](#check-uniserv) |  |
-| [unitrends_backup](#check-unitrends-backup) | Schedule %s |
-| [unitrends_replication](#check-unitrends-replication) | Replicaion %s |
-| [ups_bat_temp](#check-ups-bat-temp) | Temperature %s |
-| [ups_battery_state](#check-ups-battery-state) | Battery state |
-| [ups_capacity](#check-ups-capacity) | Battery capacity |
-| [ups_cps_battery](#check-ups-cps-battery) | UPS Battery |
-| [ups_cps_battery_temp](#check-ups-cps-battery-temp) | Temperature %s |
-| [ups_cps_inphase](#check-ups-cps-inphase) | UPS Input Phase %s |
-| [ups_cps_outphase](#check-ups-cps-outphase) | UPS Output Phase %s |
-| [ups_eaton_enviroment](#check-ups-eaton-enviroment) | Enviroment |
-| [ups_in_freq](#check-ups-in-freq) | IN frequency phase %s |
-| [ups_in_voltage](#check-ups-in-voltage) | IN voltage phase %s |
-| [ups_modulys_alarms](#check-ups-modulys-alarms) | UPS Alarms |
-| [ups_modulys_battery](#check-ups-modulys-battery) | Battery Charge |
-| [ups_modulys_battery_temp](#check-ups-modulys-battery-temp) | Temperature %s |
-| [ups_modulys_inphase](#check-ups-modulys-inphase) | Input %s |
-| [ups_modulys_outphase](#check-ups-modulys-outphase) | Output %s |
-| [ups_out_load](#check-ups-out-load) | OUT load phase %s |
-| [ups_out_voltage](#check-ups-out-voltage) | OUT voltage phase %s |
-| [ups_socomec_capacity](#check-ups-socomec-capacity) | Battery capacity |
-| [ups_socomec_in_voltage](#check-ups-socomec-in-voltage) | IN voltage phase %s |
-| [ups_socomec_out_source](#check-ups-socomec-out-source) | Output Source |
-| [ups_socomec_out_voltage](#check-ups-socomec-out-voltage) | OUT voltage phase %s |
-| [ups_socomec_outphase](#check-ups-socomec-outphase) | Output %s |
-| [ups_test](#check-ups-test) | Self Test |
-| [varnish](#check-varnish) | Varnish Uptime |
-| [varnish_backend](#check-varnish-backend) | Varnish Backend |
-| [varnish_cache](#check-varnish-cache) | Varnish Cache |
-| [varnish_cache_hit_ratio](#check-varnish-cache-hit-ratio) | Varnish Cache Hit Ratio |
-| [varnish_client](#check-varnish-client) | Varnish Client |
-| [varnish_esi](#check-varnish-esi) | Varnish ESI |
-| [varnish_fetch](#check-varnish-fetch) | Varnish Fetch |
-| [varnish_objects](#check-varnish-objects) | Varnish Objects |
-| [varnish_worker](#check-varnish-worker) | Varnish Worker |
-| [varnish_worker_thread_ratio](#check-varnish-worker-thread-ratio) | Varnish Worker Thread Ratio |
-| [vbox_guest](#check-vbox-guest) | VBox Guest Additions |
-| [veeam_cdp_jobs](#check-veeam-cdp-jobs) | VEEAM CDP Job %s |
-| [veeam_jobs](#check-veeam-jobs) | VEEAM Job %s |
-| [veeam_tapejobs](#check-veeam-tapejobs) | VEEAM Tape Job %s |
-| [veritas_vcs](#check-veritas-vcs) | VCS Cluster %s |
-| [veritas_vcs_resource](#check-veritas-vcs-resource) | VCS Resource %s |
-| [veritas_vcs_servicegroup](#check-veritas-vcs-servicegroup) | VCS Service Group %s |
-| [veritas_vcs_system](#check-veritas-vcs-system) | VCS System %s |
-| [viprinet_firmware](#check-viprinet-firmware) | Firmware Version |
-| [viprinet_mem](#check-viprinet-mem) | Memory |
-| [vms_cpu](#check-vms-cpu) | CPU utilization |
-| [vms_diskstat_df](#check-vms-diskstat-df) | Filesystem %s |
-| [vms_system_ios](#check-vms-system-ios) | IOs |
-| [vms_system_procs](#check-vms-system-procs) | Number of processes |
-| [vms_users](#check-vms-users) | VMS Users |
-| [vnx_quotas](#check-vnx-quotas) | VNX Quota %s |
-| [vutlan_ems_smoke](#check-vutlan-ems-smoke) | Smoke Detector %s |
-| [vxvm_enclosures](#check-vxvm-enclosures) | Enclosure %s |
-| [vxvm_multipath](#check-vxvm-multipath) | Multipath %s |
-| [vxvm_objstatus](#check-vxvm-objstatus) | VXVM objstatus %s |
-| [w32time_status](#check-w32time-status) | Windows time service |
-| [wagner_titanus_topsense_airflow_deviation](#check-wagner-titanus-topsense-airflow-deviation) | Airflow Deviation Detector %s |
-| [wagner_titanus_topsense_alarm](#check-wagner-titanus-topsense-alarm) | Alarm Detector %s |
-| [wagner_titanus_topsense_chamber_deviation](#check-wagner-titanus-topsense-chamber-deviation) | Chamber Deviation Detector %s |
-| [wagner_titanus_topsense_info](#check-wagner-titanus-topsense-info) | Topsense Info |
-| [wagner_titanus_topsense_overall_status](#check-wagner-titanus-topsense-overall-status) | Overall Status |
-| [wagner_titanus_topsense_smoke](#check-wagner-titanus-topsense-smoke) | Smoke Detector %s |
-| [wagner_titanus_topsense_temp](#check-wagner-titanus-topsense-temp) | Temperature %s |
-| [watchdog_sensors](#check-watchdog-sensors) | %s |
-| [watchdog_sensors_dew](#check-watchdog-sensors-dew) | %s |
-| [watchdog_sensors_humidity](#check-watchdog-sensors-humidity) | %s |
-| [watchdog_sensors_temp](#check-watchdog-sensors-temp) | %s |
-| [win_dhcp_pools](#check-win-dhcp-pools) | DHCP Pool %s |
-| [win_dhcp_pools_stats](#check-win-dhcp-pools-stats) | DHCP Stats |
-| [win_license](#check-win-license) | Windows License |
-| [win_netstat](#check-win-netstat) | TCP Connection %s |
-| [win_printers](#check-win-printers) | Printer %s |
-| [windows_broadcom_bonding](#check-windows-broadcom-bonding) | Bonding Interface %s |
-| [windows_intel_bonding](#check-windows-intel-bonding) | Bonding interface %s |
-| [windows_multipath](#check-windows-multipath) | Multipath |
-| [windows_tasks](#check-windows-tasks) | Task %s |
-| [windows_updates](#check-windows-updates) | System Updates |
-| [winperf_if](#check-winperf-if) | Interface %s |
-| [winperf_mem](#check-winperf-mem) | Memory Pages |
-| [winperf_msx_queues](#check-winperf-msx-queues) | Queue %s |
-| [winperf_phydisk](#check-winperf-phydisk) | Disk IO %s |
-| [winperf_ts_sessions](#check-winperf-ts-sessions) | Sessions |
-| [wmi_webservices](#check-wmi-webservices) | Web Service %s |
-| [wmic_process](#check-wmic-process) | Process %s |
-| [wut_webio](#check-wut-webio) | Check plug-in for W&T WebIO device |
-| [wut_webtherm](#check-wut-webtherm) | Temperature %s |
-| [wut_webtherm_pressure](#check-wut-webtherm-pressure) | Pressure %s |
-| [zebra_model](#check-zebra-model) | Zebra Printer Model |
-| [zebra_printer_status](#check-zebra-printer-status) | Zebra Printer Status |
-| [zertificon_mail_queues](#check-zertificon-mail-queues) | Zertificon Mail Queues |
-| [zerto_agent](#check-zerto-agent) | Zerto Agent Status |
-| [zerto_vpg_rpo](#check-zerto-vpg-rpo) | Zerto VPG RPO %s |
-| [zfs_arc_cache](#check-zfs-arc-cache) | ZFS arc cache |
-| [zfs_arc_cache_l2](#check-zfs-arc-cache-l2) | ZFS arc cache L2 |
-| [zfsget](#check-zfsget) | Filesystem %s |
-| [zorp_connections](#check-zorp-connections) | Zorp FW - connections |
-| [zpool](#check-zpool) | Storage Pool %s |
-| [zpool_status](#check-zpool-status) | zpool status |
-| [zypper](#check-zypper) | Zypper Updates |
-
-### adva_fsp_if
-
-<a id="check-adva-fsp-if"></a>
-
-*Interface %s*
-
-### akcp_sensor_temp
-
-<a id="check-akcp-sensor-temp"></a>
-
-*Temperature %s*
-
-### alcatel_timetra_chassis
-
-<a id="check-alcatel-timetra-chassis"></a>
-
-*Device %s*
-
-### allnet_ip_sensoric_tension
-
-<a id="check-allnet-ip-sensoric-tension"></a>
-
-*Electric Tension %s*
-
-### apc_ats_status
-
-<a id="check-apc-ats-status"></a>
-
-*ATS Status*
-
-### apc_mod_pdu_modules
-
-<a id="check-apc-mod-pdu-modules"></a>
-
-*Module %s*
-
-### apc_symmetra_input
-
-<a id="check-apc-symmetra-input"></a>
-
-*Phase %s*
-
-### arcserve_backup
-
-<a id="check-arcserve-backup"></a>
-
-*Arcserve Backup %s*
-
-### arris_cmts_mem
-
-<a id="check-arris-cmts-mem"></a>
-
-*Memory Module %s*
-
-### audiocodes_ipgroup
-
-<a id="check-audiocodes-ipgroup"></a>
-
-*IP group %s*
-
-### audiocodes_system_events
-
-<a id="check-audiocodes-system-events"></a>
-
-*System events*
-
-### bgp_peer
-
-<a id="check-bgp-peer"></a>
-
-*This is how an Arista BGP SNMP message is constructed:*
-
-### bluecoat_sensors
-
-<a id="check-bluecoat-sensors"></a>
-
-*%s*
-
-### bluecoat_sensors_temp
-
-<a id="check-bluecoat-sensors-temp"></a>
-
-*Temperature %s*
-
-### bluenet_sensor
-
-<a id="check-bluenet-sensor"></a>
-
-*Temperature %s*
-
-### brocade_fcport
-
-<a id="check-brocade-fcport"></a>
-
-*Port %s*
-
-### brocade_mlx_module_cpu
-
-<a id="check-brocade-mlx-module-cpu"></a>
-
-*CPU utilization Module %s*
-
-### brocade_optical
-
-<a id="check-brocade-optical"></a>
-
-*Interface %s Optical*
-
-### brocade_sfp
-
-<a id="check-brocade-sfp"></a>
-
-*SFP %s*
-
-### brocade_sfp_temp
-
-<a id="check-brocade-sfp-temp"></a>
-
-*SFP Temperature %s*
-
-### brocade_tm
-
-<a id="check-brocade-tm"></a>
-
-*TM %s*
-
-### bvip_fans
-
-<a id="check-bvip-fans"></a>
-
-*Fan %s*
-
-### cadvisor_cpu
-
-<a id="check-cadvisor-cpu"></a>
-
-*CPU utilization*
-
-### cadvisor_if
-
-<a id="check-cadvisor-if"></a>
-
-*Interface %s*
-
-### carel_sensors
-
-<a id="check-carel-sensors"></a>
-
-*Temperature %s*
-
-### casa_power
-
-<a id="check-casa-power"></a>
-
-*Power %s*
-
-### cephdfclass
-
-<a id="check-cephdfclass"></a>
-
-*Ceph Class %s*
-
-### cephstatus
-
-<a id="check-cephstatus"></a>
-
-*Ceph %s*
-
-### checkpoint_ha_problems
-
-<a id="check-checkpoint-ha-problems"></a>
-
-*HA Problem %s*
-
-### checkpoint_vsx_packets
-
-<a id="check-checkpoint-vsx-packets"></a>
-
-*VS %s Packets*
-
-### checkpoint_vsx_traffic
-
-<a id="check-checkpoint-vsx-traffic"></a>
-
-*VS %s Traffic*
-
-### chrony
-
-<a id="check-chrony"></a>
-
-*NTP Time*
-
-### ciena_cpu_util_5171
-
-<a id="check-ciena-cpu-util-5171"></a>
-
-*CPU utilization*
-
-### cifsmounts
-
-<a id="check-cifsmounts"></a>
-
-*CIFS mount %s*
-
-### cisco_ace_rserver
-
-<a id="check-cisco-ace-rserver"></a>
-
-*ACE RServer %s*
-
-### cisco_asa_conn
-
-<a id="check-cisco-asa-conn"></a>
-
-*Connection %s*
-
-### cisco_meraki_org_appliance_uplinks
-
-<a id="check-cisco-meraki-org-appliance-uplinks"></a>
-
-*Uplink %s*
-
-### cisco_meraki_org_device_status
-
-<a id="check-cisco-meraki-org-device-status"></a>
-
-*Device Status*
-
-### cisco_meraki_org_sensor_battery
-
-<a id="check-cisco-meraki-org-sensor-battery"></a>
-
-*Cisco Meraki Battery Percentage %s*
-
-### cisco_meraki_org_sensor_humidity
-
-<a id="check-cisco-meraki-org-sensor-humidity"></a>
-
-*Cisco Meraki Humidity Relative Percentage %s*
-
-### cisco_meraki_org_sensor_temperature
-
-<a id="check-cisco-meraki-org-sensor-temperature"></a>
-
-*Cisco Meraki Temperature %s*
-
-### cisco_meraki_org_switch_ports_statuses
-
-<a id="check-cisco-meraki-org-switch-ports-statuses"></a>
-
-*Interface %s*
-
-### cisco_power
-
-<a id="check-cisco-power"></a>
-
-*Power %s*
-
-### cisco_qos
-
-<a id="check-cisco-qos"></a>
-
-*QoS %s*
-
-### cisco_secure
-
-<a id="check-cisco-secure"></a>
-
-*Port Security*
-
-### cisco_sma_resource_conservation
-
-<a id="check-cisco-sma-resource-conservation"></a>
-
-*Resource conservation*
-
-### cisco_temperature
-
-<a id="check-cisco-temperature"></a>
-
-*Temperature %s*
-
-### cisco_ucs_hdd
-
-<a id="check-cisco-ucs-hdd"></a>
-
-*HDD %s*
-
-### cisco_ucs_mem
-
-<a id="check-cisco-ucs-mem"></a>
-
-*Memory %s*
-
-### cisco_vpn_tunnel
-
-<a id="check-cisco-vpn-tunnel"></a>
-
-*VPN Tunnel %s*
-
-### citrix_licenses
-
-<a id="check-citrix-licenses"></a>
-
-*Citrix Licenses %s*
-
-### citrix_serverload
-
-<a id="check-citrix-serverload"></a>
-
-*Citrix Serverload*
-
-### citrix_sessions
-
-<a id="check-citrix-sessions"></a>
-
-*Citrix Sessions*
-
-### citrix_state
-
-<a id="check-citrix-state"></a>
-
-*Citrix Instance State*
-
-### citrix_state_controller
-
-<a id="check-citrix-state-controller"></a>
-
-*Citrix Controller*
-
-### citrix_state_hosting_server
-
-<a id="check-citrix-state-hosting-server"></a>
-
-*Citrix Hosting Server*
-
-### climaveneta_alarm
-
-<a id="check-climaveneta-alarm"></a>
-
-*Alarm Status*
-
-### climaveneta_fan
-
-<a id="check-climaveneta-fan"></a>
-
-*Fan %s*
-
-### climaveneta_temp
-
-<a id="check-climaveneta-temp"></a>
-
-*Temperature %s*
-
-### cmc_temp
-
-<a id="check-cmc-temp"></a>
-
-*Temperature Sensor %s*
-
-### cmciii
-
-<a id="check-cmciii"></a>
-
-*State %s*
-
-### cmciii_access
-
-<a id="check-cmciii-access"></a>
-
-*%s*
-
-### cmciii_can_current
-
-<a id="check-cmciii-can-current"></a>
-
-*%s*
-
-### cmciii_humidity
-
-<a id="check-cmciii-humidity"></a>
-
-*%s*
-
-### cmciii_lcp_water
-
-<a id="check-cmciii-lcp-water"></a>
-
-*Temperature Water LCP %s*
-
-### cmciii_phase
-
-<a id="check-cmciii-phase"></a>
-
-*Input %s*
-
-### cmciii_psm_current
-
-<a id="check-cmciii-psm-current"></a>
-
-*Current %s*
-
-### cmctc_config
-
-<a id="check-cmctc-config"></a>
-
-*TC configuration*
-
-### cmctc_lcp_flow
-
-<a id="check-cmctc-lcp-flow"></a>
-
-*Waterflow %s*
-
-### cmctc_lcp_humidity
-
-<a id="check-cmctc-lcp-humidity"></a>
-
-*Humidity %s*
-
-### cmctc_temp
-
-<a id="check-cmctc-temp"></a>
-
-*Temperature %s*
-
-### corosync_latency
-
-<a id="check-corosync-latency"></a>
-
-*Corosync Latency %s*
-
-### couchbase_buckets_vbuckets_replica
-
-<a id="check-couchbase-buckets-vbuckets-replica"></a>
-
-*Couchbase Bucket %s replica vBuckets*
-
-### couchbase_nodes_info
-
-<a id="check-couchbase-nodes-info"></a>
-
-*Couchbase %s Info*
-
-### couchbase_nodes_items
-
-<a id="check-couchbase-nodes-items"></a>
-
-*Couchbase %s vBucket items*
-
-### couchbase_nodes_operations
-
-<a id="check-couchbase-nodes-operations"></a>
-
-*Couchbase %s Operations*
-
-### couchbase_nodes_operations_total
-
-<a id="check-couchbase-nodes-operations-total"></a>
-
-*Couchbase Total Operations*
-
-### couchbase_nodes_services
-
-<a id="check-couchbase-nodes-services"></a>
-
-*Couchbase %s Services*
-
-### couchbase_nodes_size_couch_views
-
-<a id="check-couchbase-nodes-size-couch-views"></a>
-
-*Couchbase %s Couch Views*
-
-### couchbase_nodes_size_docs
-
-<a id="check-couchbase-nodes-size-docs"></a>
-
-*Couchbase %s Documents*
-
-### couchbase_nodes_size_spacial_views
-
-<a id="check-couchbase-nodes-size-spacial-views"></a>
-
-*Couchbase %s Spacial Views*
-
-### couchbase_nodes_stats_cpu_util
-
-<a id="check-couchbase-nodes-stats-cpu-util"></a>
-
-*Couchbase %s CPU utilization*
-
-### couchbase_nodes_stats_mem
-
-<a id="check-couchbase-nodes-stats-mem"></a>
-
-*Couchbase %s Memory*
-
-### couchbase_nodes_uptime
-
-<a id="check-couchbase-nodes-uptime"></a>
-
-*Couchbase %s Uptime*
-
-### cpsecure_sessions
-
-<a id="check-cpsecure-sessions"></a>
-
-*Number of %s sessions*
-
-### cpu_loads
-
-<a id="check-cpu-loads"></a>
-
-*CPU load*
-
-### cpu_threads
-
-<a id="check-cpu-threads"></a>
-
-*Number of threads*
-
-### cpu_utilization_os
-
-<a id="check-cpu-utilization-os"></a>
-
-*CPU utilization*
-
-### cups_queues
-
-<a id="check-cups-queues"></a>
-
-*CUPS Queue %s*
-
-### datadog_events
-
-<a id="check-datadog-events"></a>
-
-*The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in*
-
-### datadog_logs
-
-<a id="check-datadog-logs"></a>
-
-*The main purpose of this plug-in is to ensure the regular execution of the Datadog special agent in*
-
-### datadog_monitors
-
-<a id="check-datadog-monitors"></a>
-
-*Datadog Monitor %s*
-
-### datapower_fan
-
-<a id="check-datapower-fan"></a>
-
-*Fan %s*
-
-### datapower_ldrive
-
-<a id="check-datapower-ldrive"></a>
-
-*Logical Drive %s*
-
-### datapower_pdrive
-
-<a id="check-datapower-pdrive"></a>
-
-*Physical Drive %s*
-
-### datapower_raid_bat
-
-<a id="check-datapower-raid-bat"></a>
-
-*Raid Battery %s*
-
-### datapower_temp
-
-<a id="check-datapower-temp"></a>
-
-*Temperature %s*
-
-### db2_backup
-
-<a id="check-db2-backup"></a>
-
-*DB2 Backup %s*
-
-### db2_bp_hitratios
-
-<a id="check-db2-bp-hitratios"></a>
-
-*DB2 BP-Hitratios %s*
-
-### db2_connections
-
-<a id="check-db2-connections"></a>
-
-*DB2 Connections %s*
-
-### db2_counters
-
-<a id="check-db2-counters"></a>
-
-*DB2 Counters %s*
-
-### db2_logsizes
-
-<a id="check-db2-logsizes"></a>
-
-*DB2 Logsize %s*
-
-### db2_mem
-
-<a id="check-db2-mem"></a>
-
-*Memory %s*
-
-### db2_sort_overflow
-
-<a id="check-db2-sort-overflow"></a>
-
-*DB2 Sort Overflow %s*
-
-### db2_tablespaces
-
-<a id="check-db2-tablespaces"></a>
-
-*DB2 Tablespace %s*
-
-### db2_version
-
-<a id="check-db2-version"></a>
-
-*DB2 Instance %s*
-
-### decru_cpu
-
-<a id="check-decru-cpu"></a>
-
-*CPU utilization*
-
-### decru_fans
-
-<a id="check-decru-fans"></a>
-
-*FAN %s*
-
-### decru_perf
-
-<a id="check-decru-perf"></a>
-
-*COUNTER %s*
-
-### decru_power
-
-<a id="check-decru-power"></a>
-
-*POWER %s*
-
-### decru_temps
-
-<a id="check-decru-temps"></a>
-
-*Temperature %s*
-
-### df
-
-<a id="check-df"></a>
-
-*Filesystem %s*
-
-### df_netapp
-
-<a id="check-df-netapp"></a>
-
-*Filesystem %s*
-
-### df_netscaler
-
-<a id="check-df-netscaler"></a>
-
-*Filesystem %s*
-
-### df_zos
-
-<a id="check-df-zos"></a>
-
-*Filesystem %s*
-
-### didactum_can_sensors_analog
-
-<a id="check-didactum-can-sensors-analog"></a>
-
-*Temperature CAN %s*
-
-### didactum_can_sensors_analog_humidity
-
-<a id="check-didactum-can-sensors-analog-humidity"></a>
-
-*Humidity CAN %s*
-
-### didactum_can_sensors_analog_voltage
-
-<a id="check-didactum-can-sensors-analog-voltage"></a>
-
-*Phase CAN %s*
-
-### didactum_sensors_analog
-
-<a id="check-didactum-sensors-analog"></a>
-
-*Temperature %s*
-
-### didactum_sensors_analog_humidity
-
-<a id="check-didactum-sensors-analog-humidity"></a>
-
-*Humidity %s*
-
-### didactum_sensors_analog_voltage
-
-<a id="check-didactum-sensors-analog-voltage"></a>
-
-*Phase %s*
-
-### didactum_sensors_discrete
-
-<a id="check-didactum-sensors-discrete"></a>
-
-*Discrete sensor %s*
-
-### didactum_sensors_outlet
-
-<a id="check-didactum-sensors-outlet"></a>
-
-*Relay %s*
-
-### disk_io_utilization
-
-<a id="check-disk-io-utilization"></a>
-
-*Disk IO Utilization*
-
-### disk_smb
-
-<a id="check-disk-smb"></a>
-
-### diskstat
-
-<a id="check-diskstat"></a>
-
-*Disk IO %s*
-
-### diskstat_io
-
-<a id="check-diskstat-io"></a>
-
-*Disk IO %s*
-
-### diskstat_io_director
-
-<a id="check-diskstat-io-director"></a>
-
-*Disk IO Director %s*
-
-### diskstat_io_volumes
-
-<a id="check-diskstat-io-volumes"></a>
-
-*Disk IO Volumes %s*
-
-### dmi_sysinfo
-
-<a id="check-dmi-sysinfo"></a>
-
-*DMI Sysinfo*
-
-### dmraid_ldisks
-
-<a id="check-dmraid-ldisks"></a>
-
-*RAID LDisk %s*
-
-### dmraid_pdisks
-
-<a id="check-dmraid-pdisks"></a>
-
-*RAID PDisk %s*
-
-### dns
-
-<a id="check-dns"></a>
-
-### docker_container_status
-
-<a id="check-docker-container-status"></a>
-
-*Docker container status*
-
-### docker_container_status_health
-
-<a id="check-docker-container-status-health"></a>
-
-*Docker container health*
-
-### docker_container_status_uptime
-
-<a id="check-docker-container-status-uptime"></a>
-
-*Uptime*
-
-### docker_node_info
-
-<a id="check-docker-node-info"></a>
-
-*Docker node info*
-
-### docker_node_info_containers
-
-<a id="check-docker-node-info-containers"></a>
-
-*Docker containers*
-
-### docsis_channels_downstream
-
-<a id="check-docsis-channels-downstream"></a>
-
-*Downstream Channel %s*
-
-### docsis_channels_upstream
-
-<a id="check-docsis-channels-upstream"></a>
-
-*Upstream Channel %s*
-
-### docsis_cm_status
-
-<a id="check-docsis-cm-status"></a>
-
-*Cable Modem %s Status*
-
-### domino_info
-
-<a id="check-domino-info"></a>
-
-*Domino Info*
-
-### domino_mailqueues
-
-<a id="check-domino-mailqueues"></a>
-
-*Domino Queue %s*
-
-### domino_tasks
-
-<a id="check-domino-tasks"></a>
-
-*Domino Task %s*
-
-### domino_transactions
-
-<a id="check-domino-transactions"></a>
-
-*Domino Server Transactions*
-
-### domino_users
-
-<a id="check-domino-users"></a>
-
-*Domino Users*
-
-### dotnet_clrmemory
-
-<a id="check-dotnet-clrmemory"></a>
-
-*DotNet Memory Management %s*
-
-### drbd
-
-<a id="check-drbd"></a>
-
-*DRBD %s status*
-
-### drbd_disk
-
-<a id="check-drbd-disk"></a>
-
-*DRBD %s disk*
-
-### drbd_net
-
-<a id="check-drbd-net"></a>
-
-*DRBD %s net*
-
-### drbd_stats
-
-<a id="check-drbd-stats"></a>
-
-*DRBD %s stats*
-
-### eltek_systemstatus
-
-<a id="check-eltek-systemstatus"></a>
-
-*System Status*
-
-### emc_datadomain_disks
-
-<a id="check-emc-datadomain-disks"></a>
-
-*Hard Disk %s*
-
-### emc_datadomain_fans
-
-<a id="check-emc-datadomain-fans"></a>
-
-*FAN %s*
-
-### emc_datadomain_fs
-
-<a id="check-emc-datadomain-fs"></a>
-
-*DD-Filesystem %s*
-
-### emc_datadomain_mtree
-
-<a id="check-emc-datadomain-mtree"></a>
-
-*MTree %s*
-
-### emc_datadomain_nvbat
-
-<a id="check-emc-datadomain-nvbat"></a>
-
-*NVRAM Battery %s*
-
-### emc_datadomain_power
-
-<a id="check-emc-datadomain-power"></a>
-
-*Power Module %s*
-
-### emc_datadomain_temps
-
-<a id="check-emc-datadomain-temps"></a>
-
-*Temperature %s*
-
-### emc_isilon_clusterhealth
-
-<a id="check-emc-isilon-clusterhealth"></a>
-
-*Cluster Health*
-
-### emc_isilon_cpu
-
-<a id="check-emc-isilon-cpu"></a>
-
-*Node CPU utilization*
-
-### emc_isilon_diskstatus
-
-<a id="check-emc-isilon-diskstatus"></a>
-
-*Disk bay %s Status*
-
-### emc_isilon_fans
-
-<a id="check-emc-isilon-fans"></a>
-
-*Fan %s*
-
-### emc_isilon_ifs
-
-<a id="check-emc-isilon-ifs"></a>
-
-*Filesystem %s*
-
-### emc_isilon_iops
-
-<a id="check-emc-isilon-iops"></a>
-
-*Disk %s IO*
-
-### emc_isilon_names
-
-<a id="check-emc-isilon-names"></a>
-
-*Isilon Info*
-
-### emc_isilon_nodehealth
-
-<a id="check-emc-isilon-nodehealth"></a>
-
-*Node Health*
-
-### emc_isilon_nodes
-
-<a id="check-emc-isilon-nodes"></a>
-
-*Nodes*
-
-### emc_isilon_power
-
-<a id="check-emc-isilon-power"></a>
-
-*Voltage %s*
-
-### emc_isilon_quota
-
-<a id="check-emc-isilon-quota"></a>
-
-*Quota %s*
-
-### emc_isilon_temp
-
-<a id="check-emc-isilon-temp"></a>
-
-*Temperature %s*
-
-### emc_isilon_temp_cpu
-
-<a id="check-emc-isilon-temp-cpu"></a>
-
-*Temperature %s*
-
-### emc_vplex_cpu
-
-<a id="check-emc-vplex-cpu"></a>
-
-*CPU Utilization %s*
-
-### emerson_stat
-
-<a id="check-emerson-stat"></a>
-
-*Status*
-
-### emerson_temp
-
-<a id="check-emerson-temp"></a>
-
-*Temperature %s*
-
-### emka_modules
-
-<a id="check-emka-modules"></a>
-
-*Module %s*
-
-### emka_modules_alarm
-
-<a id="check-emka-modules-alarm"></a>
-
-*Alarm %s*
-
-### emka_modules_handle
-
-<a id="check-emka-modules-handle"></a>
-
-*Handle %s*
-
-### emka_modules_relay
-
-<a id="check-emka-modules-relay"></a>
-
-*Relay %s*
-
-### emka_modules_sensor_humid
-
-<a id="check-emka-modules-sensor-humid"></a>
-
-*Humidity %s*
-
-### emka_modules_sensor_temp
-
-<a id="check-emka-modules-sensor-temp"></a>
-
-*Temperature %s*
-
-### emka_modules_sensor_volt
-
-<a id="check-emka-modules-sensor-volt"></a>
-
-*Phase %s*
-
-### enterasys_cpu_util
-
-<a id="check-enterasys-cpu-util"></a>
-
-*CPU util %s*
-
-### enterasys_fans
-
-<a id="check-enterasys-fans"></a>
-
-*FAN %s*
-
-### enterasys_lsnat
-
-<a id="check-enterasys-lsnat"></a>
-
-*LSNAT Bindings*
-
-### enterasys_powersupply
-
-<a id="check-enterasys-powersupply"></a>
-
-*PSU %s*
-
-### enterasys_temp
-
-<a id="check-enterasys-temp"></a>
-
-*Temperature %s*
-
-### entersekt
-
-<a id="check-entersekt"></a>
-
-*Entersekt Server Status*
-
-### entersekt_certexpiry
-
-<a id="check-entersekt-certexpiry"></a>
-
-*Entersekt Certificate Expiration*
-
-### entersekt_ecerterrors
-
-<a id="check-entersekt-ecerterrors"></a>
-
-*Entersekt http Ecert Errors*
-
-### entersekt_emrerrors
-
-<a id="check-entersekt-emrerrors"></a>
-
-*Entersekt http EMR Errors*
-
-### entersekt_soaperrors
-
-<a id="check-entersekt-soaperrors"></a>
-
-*Entersekt Soap Service Errors*
-
-### entity_sensors_fan
-
-<a id="check-entity-sensors-fan"></a>
-
-*Fan %s*
-
-### entity_sensors_power_presence
-
-<a id="check-entity-sensors-power-presence"></a>
-
-*Power %s*
-
-### entity_sensors_temp
-
-<a id="check-entity-sensors-temp"></a>
-
-*Temperature %s*
-
-### enviromux
-
-<a id="check-enviromux"></a>
-
-*Sensor %s*
-
-### enviromux_all_external
-
-<a id="check-enviromux-all-external"></a>
-
-*Sensor External %s*
-
-### enviromux_all_external_humidity
-
-<a id="check-enviromux-all-external-humidity"></a>
-
-*Sensor External %s*
-
-### enviromux_all_external_voltage
-
-<a id="check-enviromux-all-external-voltage"></a>
-
-*Sensor External %s*
-
-### enviromux_aux
-
-<a id="check-enviromux-aux"></a>
-
-*Sensor %s*
-
-### enviromux_aux_humidity
-
-<a id="check-enviromux-aux-humidity"></a>
-
-*Sensor %s*
-
-### enviromux_aux_voltage
-
-<a id="check-enviromux-aux-voltage"></a>
-
-*Sensor %s*
-
-### enviromux_digital
-
-<a id="check-enviromux-digital"></a>
-
-*Digital Sensor: %s*
-
-### enviromux_external
-
-<a id="check-enviromux-external"></a>
-
-*Sensor External %s*
-
-### enviromux_external_humidity
-
-<a id="check-enviromux-external-humidity"></a>
-
-*Sensor External %s*
-
-### enviromux_external_voltage
-
-<a id="check-enviromux-external-voltage"></a>
-
-*Sensor External %s*
-
-### enviromux_humidity
-
-<a id="check-enviromux-humidity"></a>
-
-*Sensor %s*
-
-### enviromux_micro_humidity
-
-<a id="check-enviromux-micro-humidity"></a>
-
-*Sensor %s*
-
-### enviromux_micro_humidity_external
-
-<a id="check-enviromux-micro-humidity-external"></a>
-
-*Sensor External %s*
-
-### enviromux_micro_temperature
-
-<a id="check-enviromux-micro-temperature"></a>
-
-*Sensor %s*
-
-### enviromux_micro_temperature_external
-
-<a id="check-enviromux-micro-temperature-external"></a>
-
-*Sensor External %s*
-
-### enviromux_remote_input
-
-<a id="check-enviromux-remote-input"></a>
-
-*Remote Input %s*
-
-### enviromux_sems
-
-<a id="check-enviromux-sems"></a>
-
-*Sensor %s*
-
-### enviromux_sems_digital
-
-<a id="check-enviromux-sems-digital"></a>
-
-*Digital Sensor: %s*
-
-### enviromux_sems_e2d
-
-<a id="check-enviromux-sems-e2d"></a>
-
-*Sensor %s*
-
-### enviromux_sems_e2d_digital
-
-<a id="check-enviromux-sems-e2d-digital"></a>
-
-*Digital Sensor: %s*
-
-### enviromux_sems_e2d_external
-
-<a id="check-enviromux-sems-e2d-external"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_e2d_external_humidity
-
-<a id="check-enviromux-sems-e2d-external-humidity"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_e2d_external_voltage
-
-<a id="check-enviromux-sems-e2d-external-voltage"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_e2d_humidity
-
-<a id="check-enviromux-sems-e2d-humidity"></a>
-
-*Sensor %s*
-
-### enviromux_sems_e2d_voltage
-
-<a id="check-enviromux-sems-e2d-voltage"></a>
-
-*Sensor %s*
-
-### enviromux_sems_external
-
-<a id="check-enviromux-sems-external"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_external_humidity
-
-<a id="check-enviromux-sems-external-humidity"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_external_voltage
-
-<a id="check-enviromux-sems-external-voltage"></a>
-
-*Sensor External %s*
-
-### enviromux_sems_humidity
-
-<a id="check-enviromux-sems-humidity"></a>
-
-*Sensor %s*
-
-### enviromux_sems_voltage
-
-<a id="check-enviromux-sems-voltage"></a>
-
-*Sensor %s*
-
-### enviromux_voltage
-
-<a id="check-enviromux-voltage"></a>
-
-*Sensor %s*
-
-### epower
-
-<a id="check-epower"></a>
-
-*Power phase %s*
-
-### epson_beamer_lamp
-
-<a id="check-epson-beamer-lamp"></a>
-
-*Beamer Lamp*
-
-### etherbox2_temp
-
-<a id="check-etherbox2-temp"></a>
-
-*Temperature %s*
-
-### etherbox_humidity
-
-<a id="check-etherbox-humidity"></a>
-
-*Sensor %s*
-
-### etherbox_nosensor
-
-<a id="check-etherbox-nosensor"></a>
-
-*Sensor %s*
-
-### etherbox_smoke
-
-<a id="check-etherbox-smoke"></a>
-
-*Sensor %s*
-
-### etherbox_switch
-
-<a id="check-etherbox-switch"></a>
-
-*Sensor %s*
-
-### etherbox_temp
-
-<a id="check-etherbox-temp"></a>
-
-*Temperature %s*
-
-### etherbox_voltage
-
-<a id="check-etherbox-voltage"></a>
-
-*Sensor %s*
-
-### ewon
-
-<a id="check-ewon"></a>
-
-*%s*
-
-### extreme_vsp_switches_cpu_util
-
-<a id="check-extreme-vsp-switches-cpu-util"></a>
-
-*VSP Switches CPU Utilization*
-
-### extreme_vsp_switches_fan
-
-<a id="check-extreme-vsp-switches-fan"></a>
-
-*VSP Switch Fan %s*
-
-### extreme_vsp_switches_power_supply
-
-<a id="check-extreme-vsp-switches-power-supply"></a>
-
-*VSP Switch Power Supply %s*
-
-### extreme_vsp_switches_temperature
-
-<a id="check-extreme-vsp-switches-temperature"></a>
-
-*VSP Switch %s Temperature*
-
-### f5_bigip_cluster
-
-<a id="check-f5-bigip-cluster"></a>
-
-*F5-BIGIP-Cluster Config Sync - SNMP sections and Checks*
-
-### f5_bigip_cluster_status
-
-<a id="check-f5-bigip-cluster-status"></a>
-
-*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
-
-### f5_bigip_cluster_status_v11_2
-
-<a id="check-f5-bigip-cluster-status-v11-2"></a>
-
-*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
-
-### f5_bigip_cluster_v11
-
-<a id="check-f5-bigip-cluster-v11"></a>
-
-*F5-BIGIP-Cluster Config Sync - SNMP sections and Checks*
-
-### f5_bigip_pool
-
-<a id="check-f5-bigip-pool"></a>
-
-*Load Balancing Pool %s*
-
-### f5_bigip_vcmpfailover
-
-<a id="check-f5-bigip-vcmpfailover"></a>
-
-*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
-
-### f5_bigip_vcmpguests
-
-<a id="check-f5-bigip-vcmpguests"></a>
-
-*F5-BIGIP-Cluster-Status SNMP Sections and Checks*
-
-### fast_lta_headunit_replication
-
-<a id="check-fast-lta-headunit-replication"></a>
-
-*Fast LTA Replication*
-
-### fast_lta_headunit_status
-
-<a id="check-fast-lta-headunit-status"></a>
-
-*Fast LTA Headunit Status*
-
-### fast_lta_silent_cubes_capacity
-
-<a id="check-fast-lta-silent-cubes-capacity"></a>
-
-*Fast LTA SC Capacity %s*
-
-### fast_lta_volumes
-
-<a id="check-fast-lta-volumes"></a>
-
-*Fast LTA Volume %s*
-
-### fc_port
-
-<a id="check-fc-port"></a>
-
-*FC Interface %s*
-
-### filehandler
-
-<a id="check-filehandler"></a>
-
-*Filehandler*
-
-### fileinfo
-
-<a id="check-fileinfo"></a>
-
-*File %s*
-
-### fileinfo_groups
-
-<a id="check-fileinfo-groups"></a>
-
-*File group %s*
-
-### filestats
-
-<a id="check-filestats"></a>
-
-*File group %s*
-
-### filestats_single
-
-<a id="check-filestats-single"></a>
-
-*File %s*
-
-### fireeye_bypass
-
-<a id="check-fireeye-bypass"></a>
-
-*Bypass Mail Rate*
-
-### fireeye_sys_status
-
-<a id="check-fireeye-sys-status"></a>
-
-*System status*
-
-### fjdarye_ca_ports
-
-<a id="check-fjdarye-ca-ports"></a>
-
-*CA Port IO %s*
-
-### fjdarye_ce_power_supply_units
-
-<a id="check-fjdarye-ce-power-supply-units"></a>
-
-*CPSU %s*
-
-### fjdarye_channel_adapters
-
-<a id="check-fjdarye-channel-adapters"></a>
-
-*Channel Adapter %s*
-
-### fjdarye_channel_modules
-
-<a id="check-fjdarye-channel-modules"></a>
-
-*Controller Module %s*
-
-### fjdarye_controller_enclosures
-
-<a id="check-fjdarye-controller-enclosures"></a>
-
-*Controller Enclosure %s*
-
-### fjdarye_controller_modules_flash
-
-<a id="check-fjdarye-controller-modules-flash"></a>
-
-*Controller Module Flash %s*
-
-### fjdarye_controller_modules_memory
-
-<a id="check-fjdarye-controller-modules-memory"></a>
-
-*Controller Module Memory %s*
-
-### fjdarye_device_enclosures
-
-<a id="check-fjdarye-device-enclosures"></a>
-
-*Device Enclosure %s*
-
-### fjdarye_disks
-
-<a id="check-fjdarye-disks"></a>
-
-*Disk %s*
-
-### fjdarye_disks_summary
-
-<a id="check-fjdarye-disks-summary"></a>
-
-*Disk summary*
-
-### fjdarye_expanders
-
-<a id="check-fjdarye-expanders"></a>
-
-*Expander %s*
-
-### fjdarye_inlet_thermal_sensors
-
-<a id="check-fjdarye-inlet-thermal-sensors"></a>
-
-*Inlet Thermal %s*
-
-### fjdarye_pcie_flash_modules
-
-<a id="check-fjdarye-pcie-flash-modules"></a>
-
-*PCIe flash module %s*
-
-### fjdarye_pools
-
-<a id="check-fjdarye-pools"></a>
-
-*Thin Provisioning Pool %s*
-
-### fjdarye_power_supply_units
-
-<a id="check-fjdarye-power-supply-units"></a>
-
-*PSU %s*
-
-### fjdarye_rluns
-
-<a id="check-fjdarye-rluns"></a>
-
-*RLUN %s*
-
-### fjdarye_summary_status
-
-<a id="check-fjdarye-summary-status"></a>
-
-*Summary Status*
-
-### fjdarye_system_capacitors
-
-<a id="check-fjdarye-system-capacitors"></a>
-
-*System Capacitor Unit %s*
-
-### fjdarye_thermal_sensors
-
-<a id="check-fjdarye-thermal-sensors"></a>
-
-*Thermal %s*
-
-### form_submit
-
-<a id="check-form-submit"></a>
-
-### fortiauthenticator_auth_fail
-
-<a id="check-fortiauthenticator-auth-fail"></a>
-
-*Authentication Failures*
-
-### fortigate_antivirus
-
-<a id="check-fortigate-antivirus"></a>
-
-*AntiVirus %s*
-
-### fortigate_ap_connection
-
-<a id="check-fortigate-ap-connection"></a>
-
-*AP %s Connection*
-
-### fortigate_ips
-
-<a id="check-fortigate-ips"></a>
-
-*IPS %s*
-
-### fortigate_ipsecvpn
-
-<a id="check-fortigate-ipsecvpn"></a>
-
-*VPN IPSec Tunnels*
-
-### fortigate_node_memory
-
-<a id="check-fortigate-node-memory"></a>
-
-*Memory %s*
-
-### fortigate_sensors
-
-<a id="check-fortigate-sensors"></a>
-
-*Sensor Summary*
-
-### fortigate_signatures
-
-<a id="check-fortigate-signatures"></a>
-
-*Signatures*
-
-### fortigate_sync_status
-
-<a id="check-fortigate-sync-status"></a>
-
-*Sync Status*
-
-### fortimail_cpu_load
-
-<a id="check-fortimail-cpu-load"></a>
-
-*CPU load*
-
-### fortimail_disk_usage
-
-<a id="check-fortimail-disk-usage"></a>
-
-*Disk usage*
-
-### fortimail_queue
-
-<a id="check-fortimail-queue"></a>
-
-*FortiMail %s*
-
-### fortinet_controller_aps
-
-<a id="check-fortinet-controller-aps"></a>
-
-*AP %s*
-
-### fortisandbox_disk_usage
-
-<a id="check-fortisandbox-disk-usage"></a>
-
-*Disk usage %s*
-
-### fortisandbox_mem_usage
-
-<a id="check-fortisandbox-mem-usage"></a>
-
-*Memory*
-
-### fritz_conn
-
-<a id="check-fritz-conn"></a>
-
-*Connection*
-
-### fritz_link
-
-<a id="check-fritz-link"></a>
-
-*Link Info*
-
-### fritz_uptime
-
-<a id="check-fritz-uptime"></a>
-
-*Uptime*
-
-### fritz_wan_if
-
-<a id="check-fritz-wan-if"></a>
-
-*Interface %s*
-
-### fsc_ipmi_mem_status
-
-<a id="check-fsc-ipmi-mem-status"></a>
-
-*IPMI Memory status %s*
-
-### fsc_subsystems
-
-<a id="check-fsc-subsystems"></a>
-
-*FSC %s*
-
-### ftp
-
-<a id="check-ftp"></a>
-
-### genua_carp
-
-<a id="check-genua-carp"></a>
-
-*Carp Interface %s*
-
-### genua_state_correlation
-
-<a id="check-genua-state-correlation"></a>
-
-*Carp Correlation*
-
-### genua_vpn
-
-<a id="check-genua-vpn"></a>
-
-*VPN %s*
-
-### globalprotect_utilization
-
-<a id="check-globalprotect-utilization"></a>
-
-*GlobalProtect Gateway Utilization*
-
-### gude_humidity
-
-<a id="check-gude-humidity"></a>
-
-*Humidity %s*
-
-### gude_powerbanks
-
-<a id="check-gude-powerbanks"></a>
-
-*Powerbank %s*
-
-### gude_relayport
-
-<a id="check-gude-relayport"></a>
-
-*Relay port %s*
-
-### gude_temp
-
-<a id="check-gude-temp"></a>
-
-*Temperature %s*
-
-### h3c_lanswitch_cpu
-
-<a id="check-h3c-lanswitch-cpu"></a>
-
-*CPU Utilization %s*
-
-### h3c_lanswitch_sensors
-
-<a id="check-h3c-lanswitch-sensors"></a>
-
-*%s*
-
-### haproxy_backend
-
-<a id="check-haproxy-backend"></a>
-
-*HAProxy Backend %s*
-
-### haproxy_frontend
-
-<a id="check-haproxy-frontend"></a>
-
-*HAProxy Frontend %s*
-
-### haproxy_server
-
-<a id="check-haproxy-server"></a>
-
-*HAProxy Server %s*
-
-### heartbeat_crm
-
-<a id="check-heartbeat-crm"></a>
-
-*Heartbeat CRM General*
-
-### heartbeat_crm_resources
-
-<a id="check-heartbeat-crm-resources"></a>
-
-*Heartbeat CRM %s*
-
-### heartbeat_nodes
-
-<a id="check-heartbeat-nodes"></a>
-
-*Heartbeat Node %s*
-
-### heartbeat_rscstatus
-
-<a id="check-heartbeat-rscstatus"></a>
-
-*Heartbeat Ressource Status*
-
-### hepta
-
-<a id="check-hepta"></a>
-
-*HPF Info*
-
-### hepta_ntpsysstratum
-
-<a id="check-hepta-ntpsysstratum"></a>
-
-*%s*
-
-### hepta_syncmoduletimelocal
-
-<a id="check-hepta-syncmoduletimelocal"></a>
-
-*%s*
-
-### hepta_syncmoduletimesyncstate
-
-<a id="check-hepta-syncmoduletimesyncstate"></a>
-
-*%s*
-
-### hitachi_hnas_fc_if
-
-<a id="check-hitachi-hnas-fc-if"></a>
-
-*Interface FC %s*
-
-### hitachi_hnas_span
-
-<a id="check-hitachi-hnas-span"></a>
-
-*Span %s*
-
-### hitachi_hnas_volume
-
-<a id="check-hitachi-hnas-volume"></a>
-
-*Volumes %s*
-
-### hitachi_hnas_volume_virtual
-
-<a id="check-hitachi-hnas-volume-virtual"></a>
-
-*Volumes %s*
-
-### hitachi_hus_dkc
-
-<a id="check-hitachi-hus-dkc"></a>
-
-*HUS DKC Chassis %s*
-
-### hitachi_hus_dku
-
-<a id="check-hitachi-hus-dku"></a>
-
-*HUS DKU Chassis %s*
-
-### hivemanager_devices
-
-<a id="check-hivemanager-devices"></a>
-
-*Client %s*
-
-### hivemanager_ng_devices
-
-<a id="check-hivemanager-ng-devices"></a>
-
-*Client %s*
-
-### hp_blade
-
-<a id="check-hp-blade"></a>
-
-*General Status*
-
-### hp_blade_blades
-
-<a id="check-hp-blade-blades"></a>
-
-*Blade %s*
-
-### hp_blade_fan
-
-<a id="check-hp-blade-fan"></a>
-
-*FAN %s*
-
-### hp_blade_manager
-
-<a id="check-hp-blade-manager"></a>
-
-*Manager %s*
-
-### hp_blade_psu
-
-<a id="check-hp-blade-psu"></a>
-
-*PSU %s*
-
-### hp_eml_sum
-
-<a id="check-hp-eml-sum"></a>
-
-*Summary Status*
-
-### hp_fan
-
-<a id="check-hp-fan"></a>
-
-*Fan %s*
-
-### hp_hh3c_ext
-
-<a id="check-hp-hh3c-ext"></a>
-
-*Temperature %s*
-
-### hp_hh3c_ext_cpu
-
-<a id="check-hp-hh3c-ext-cpu"></a>
-
-*CPU utilization %s*
-
-### hp_hh3c_ext_mem
-
-<a id="check-hp-hh3c-ext-mem"></a>
-
-*Memory %s*
-
-### hp_hh3c_ext_states
-
-<a id="check-hp-hh3c-ext-states"></a>
-
-*Status %s*
-
-### hp_hh3c_fan
-
-<a id="check-hp-hh3c-fan"></a>
-
-*Fan %s*
-
-### hp_hh3c_power
-
-<a id="check-hp-hh3c-power"></a>
-
-*Power %s*
-
-### hp_mcs_sensors
-
-<a id="check-hp-mcs-sensors"></a>
-
-*Sensor %s*
-
-### hp_mcs_sensors_fan
-
-<a id="check-hp-mcs-sensors-fan"></a>
-
-*Sensor %s*
-
-### hp_mcs_system
-
-<a id="check-hp-mcs-system"></a>
-
-*%s*
-
-### hp_msa_controller
-
-<a id="check-hp-msa-controller"></a>
-
-*CPU Utilization %s*
-
-### hp_msa_controller_io
-
-<a id="check-hp-msa-controller-io"></a>
-
-*Controller IO %s*
-
-### hp_msa_disk
-
-<a id="check-hp-msa-disk"></a>
-
-*Disk Health %s*
-
-### hp_msa_disk_io
-
-<a id="check-hp-msa-disk-io"></a>
-
-*Disk IO %s*
-
-### hp_msa_disk_temp
-
-<a id="check-hp-msa-disk-temp"></a>
-
-*Temperature %s*
-
-### hp_msa_fan
-
-<a id="check-hp-msa-fan"></a>
-
-*Fan %s*
-
-### hp_msa_psu
-
-<a id="check-hp-msa-psu"></a>
-
-*Power Supply Health %s*
-
-### hp_msa_psu_sensor
-
-<a id="check-hp-msa-psu-sensor"></a>
-
-*Power Supply Voltage %s*
-
-### hp_msa_psu_temp
-
-<a id="check-hp-msa-psu-temp"></a>
-
-*Temperature Power Supply %s*
-
-### hp_msa_system
-
-<a id="check-hp-msa-system"></a>
-
-*System Health %s*
-
-### hp_msa_volume
-
-<a id="check-hp-msa-volume"></a>
-
-*Volume Health %s*
-
-### hp_msa_volume_df
-
-<a id="check-hp-msa-volume-df"></a>
-
-*Filesystem %s*
-
-### hp_msa_volume_io
-
-<a id="check-hp-msa-volume-io"></a>
-
-*Volume IO %s*
-
-### hp_procurve_cpu
-
-<a id="check-hp-procurve-cpu"></a>
-
-*CPU utilization*
-
-### hp_procurve_mem
-
-<a id="check-hp-procurve-mem"></a>
-
-*Memory*
-
-### hp_procurve_sensors
-
-<a id="check-hp-procurve-sensors"></a>
-
-*Sensor %s*
-
-### hp_procurve_temp
-
-<a id="check-hp-procurve-temp"></a>
-
-*Temperature %s*
-
-### hp_proliant
-
-<a id="check-hp-proliant"></a>
-
-*General Status*
-
-### hp_proliant_cpu
-
-<a id="check-hp-proliant-cpu"></a>
-
-*HW CPU %s*
-
-### hp_proliant_da_cntlr
-
-<a id="check-hp-proliant-da-cntlr"></a>
-
-*HW Controller %s*
-
-### hp_proliant_da_phydrv
-
-<a id="check-hp-proliant-da-phydrv"></a>
-
-*HW Phydrv %s*
-
-### hp_proliant_fans
-
-<a id="check-hp-proliant-fans"></a>
-
-*HW FAN%s*
-
-### hp_proliant_mem
-
-<a id="check-hp-proliant-mem"></a>
-
-*HW Mem %s*
-
-### hp_proliant_power
-
-<a id="check-hp-proliant-power"></a>
-
-*HW Power Meter*
-
-### hp_proliant_psu
-
-<a id="check-hp-proliant-psu"></a>
-
-*HW PSU %s*
-
-### hp_proliant_raid
-
-<a id="check-hp-proliant-raid"></a>
-
-*Logical Device %s*
-
-### hp_proliant_temp
-
-<a id="check-hp-proliant-temp"></a>
-
-*Temperature %s*
-
-### hp_psu
-
-<a id="check-hp-psu"></a>
-
-*Power Supply Status %s*
-
-### hp_psu_temp
-
-<a id="check-hp-psu-temp"></a>
-
-*Temperature Power Supply %s*
-
-### hp_sts_drvbox
-
-<a id="check-hp-sts-drvbox"></a>
-
-*Drive Box %s*
-
-### hp_webmgmt_status
-
-<a id="check-hp-webmgmt-status"></a>
-
-*Status %s*
-
-### hpux_fchba
-
-<a id="check-hpux-fchba"></a>
-
-*FC HBA %s*
-
-### hpux_if
-
-<a id="check-hpux-if"></a>
-
-*NIC %s*
-
-### hpux_lvm
-
-<a id="check-hpux-lvm"></a>
-
-*Logical Volume %s*
-
-### hpux_multipath
-
-<a id="check-hpux-multipath"></a>
-
-*Multipath %s*
-
-### hpux_serviceguard
-
-<a id="check-hpux-serviceguard"></a>
-
-*Serviceguard %s*
-
-### hpux_snmp_cs_cpu
-
-<a id="check-hpux-snmp-cs-cpu"></a>
-
-*CPU utilization*
-
-### hpux_tunables_maxfiles_lim
-
-<a id="check-hpux-tunables-maxfiles-lim"></a>
-
-*Number of open files*
-
-### hpux_tunables_nkthread
-
-<a id="check-hpux-tunables-nkthread"></a>
-
-*Number of threads*
-
-### hpux_tunables_nproc
-
-<a id="check-hpux-tunables-nproc"></a>
-
-*Number of processes*
-
-### hpux_tunables_semmni
-
-<a id="check-hpux-tunables-semmni"></a>
-
-*Number of IPC Semaphore IDs*
-
-### hpux_tunables_semmns
-
-<a id="check-hpux-tunables-semmns"></a>
-
-*Number of IPC Semaphores*
-
-### hpux_tunables_shmseg
-
-<a id="check-hpux-tunables-shmseg"></a>
-
-*Number of shared memory segments*
-
-### hr_cpu
-
-<a id="check-hr-cpu"></a>
-
-*CPU utilization*
-
-### hr_fs
-
-<a id="check-hr-fs"></a>
-
-*Filesystem %s*
-
-### hr_ps
-
-<a id="check-hr-ps"></a>
-
-*Process %s*
-
-### http
-
-<a id="check-http"></a>
-
-### httpv2
-
-<a id="check-httpv2"></a>
-
-### huawei_osn_fan
-
-<a id="check-huawei-osn-fan"></a>
-
-### huawei_osn_if
-
-<a id="check-huawei-osn-if"></a>
-
-*Interface %s*
-
-### huawei_osn_laser
-
-<a id="check-huawei-osn-laser"></a>
-
-*Laser %s*
-
-### huawei_osn_power
-
-<a id="check-huawei-osn-power"></a>
-
-### huawei_osn_temp
-
-<a id="check-huawei-osn-temp"></a>
-
-*Temperature %s*
-
-### huawei_switch_cpu
-
-<a id="check-huawei-switch-cpu"></a>
-
-*CPU utilization %s*
-
-### huawei_switch_fan
-
-<a id="check-huawei-switch-fan"></a>
-
-*Fan %s*
-
-### huawei_switch_mem
-
-<a id="check-huawei-switch-mem"></a>
-
-*Memory %s*
-
-### huawei_switch_psu
-
-<a id="check-huawei-switch-psu"></a>
-
-*Powersupply %s*
-
-### huawei_switch_stack
-
-<a id="check-huawei-switch-stack"></a>
-
-*Stack role %s*
-
-### huawei_switch_temp
-
-<a id="check-huawei-switch-temp"></a>
-
-*Temperature %s*
-
-### huawei_wlc_aps_cpu
-
-<a id="check-huawei-wlc-aps-cpu"></a>
-
-*AP %s CPU*
-
-### huawei_wlc_aps_mem
-
-<a id="check-huawei-wlc-aps-mem"></a>
-
-*AP %s Memory*
-
-### huawei_wlc_aps_status
-
-<a id="check-huawei-wlc-aps-status"></a>
-
-*AP %s Status*
-
-### huawei_wlc_aps_temp
-
-<a id="check-huawei-wlc-aps-temp"></a>
-
-*AP %s Temperature*
-
-### huawei_wlc_devs_cpu
-
-<a id="check-huawei-wlc-devs-cpu"></a>
-
-*Device %s CPU*
-
-### huawei_wlc_devs_mem
-
-<a id="check-huawei-wlc-devs-mem"></a>
-
-*Device %s Memory*
-
-### hwg_humidity
-
-<a id="check-hwg-humidity"></a>
-
-*Humidity %s*
-
-### hwg_ste2
-
-<a id="check-hwg-ste2"></a>
-
-*Temperature %s*
-
-### hwg_ste2_humidity
-
-<a id="check-hwg-ste2-humidity"></a>
-
-*Humidity %s*
-
-### hwg_temp
-
-<a id="check-hwg-temp"></a>
-
-*Temperature %s*
-
-### hyperv_checkpoints
-
-<a id="check-hyperv-checkpoints"></a>
-
-*HyperV Checkpoints*
-
-### hyperv_vm_checkpoints
-
-<a id="check-hyperv-vm-checkpoints"></a>
-
-*Hyper-V VM Checkpoints*
-
-### hyperv_vm_general
-
-<a id="check-hyperv-vm-general"></a>
-
-*Hyper-V VM summary*
-
-### hyperv_vm_integration
-
-<a id="check-hyperv-vm-integration"></a>
-
-*Hyper-V VM integration services*
-
-### hyperv_vm_nic
-
-<a id="check-hyperv-vm-nic"></a>
-
-*HyperV NIC %s*
-
-### hyperv_vm_ram
-
-<a id="check-hyperv-vm-ram"></a>
-
-*Hyper-V RAM*
-
-### hyperv_vm_vhd_dynamic
-
-<a id="check-hyperv-vm-vhd-dynamic"></a>
-
-*Hyper-V VM Disk [%s]*
-
-### hyperv_vm_vhd_fixed
-
-<a id="check-hyperv-vm-vhd-fixed"></a>
-
-*Hyper-V VM Disk [%s]*
-
-### hyperv_vms
-
-<a id="check-hyperv-vms"></a>
-
-*VM %s*
-
-### hyperv_vmstatus
-
-<a id="check-hyperv-vmstatus"></a>
-
-*HyperV Status*
-
-### ibm_imm_fan
-
-<a id="check-ibm-imm-fan"></a>
-
-*Fan %s*
-
-### ibm_imm_health
-
-<a id="check-ibm-imm-health"></a>
-
-*System health*
-
-### ibm_imm_temp
-
-<a id="check-ibm-imm-temp"></a>
-
-*Temperature %s*
-
-### ibm_imm_voltage
-
-<a id="check-ibm-imm-voltage"></a>
-
-*Voltage %s*
-
-### ibm_mq_channels
-
-<a id="check-ibm-mq-channels"></a>
-
-*IBM MQ Channel %s*
-
-### ibm_mq_managers
-
-<a id="check-ibm-mq-managers"></a>
-
-*IBM MQ Manager %s*
-
-### ibm_mq_plugin
-
-<a id="check-ibm-mq-plugin"></a>
-
-*IBM MQ Plugin*
-
-### ibm_mq_queues
-
-<a id="check-ibm-mq-queues"></a>
-
-*IBM MQ Queue %s*
-
-### ibm_rsa_health
-
-<a id="check-ibm-rsa-health"></a>
-
-*System health*
-
-### ibm_storage_ts
-
-<a id="check-ibm-storage-ts"></a>
-
-*Info*
-
-### ibm_storage_ts_drive
-
-<a id="check-ibm-storage-ts-drive"></a>
-
-*Drive %s*
-
-### ibm_storage_ts_library
-
-<a id="check-ibm-storage-ts-library"></a>
-
-*Library %s*
-
-### ibm_storage_ts_status
-
-<a id="check-ibm-storage-ts-status"></a>
-
-*Status*
-
-### ibm_svc_array
-
-<a id="check-ibm-svc-array"></a>
-
-*RAID Array %s*
-
-### ibm_svc_disks
-
-<a id="check-ibm-svc-disks"></a>
-
-*Disk Summary*
-
-### ibm_svc_enclosure
-
-<a id="check-ibm-svc-enclosure"></a>
-
-*Enclosure %s*
-
-### ibm_svc_enclosurestats_power
-
-<a id="check-ibm-svc-enclosurestats-power"></a>
-
-*Power Enclosure %s*
-
-### ibm_svc_enclosurestats_temp
-
-<a id="check-ibm-svc-enclosurestats-temp"></a>
-
-*Temperature Enclosure %s*
-
-### ibm_svc_eventlog
-
-<a id="check-ibm-svc-eventlog"></a>
-
-*Eventlog*
-
-### ibm_svc_host
-
-<a id="check-ibm-svc-host"></a>
-
-*Hosts*
-
-### ibm_svc_license
-
-<a id="check-ibm-svc-license"></a>
-
-*License %s*
-
-### ibm_svc_mdisk
-
-<a id="check-ibm-svc-mdisk"></a>
-
-*MDisk %s*
-
-### ibm_svc_mdiskgrp
-
-<a id="check-ibm-svc-mdiskgrp"></a>
-
-*Pool Capacity %s*
-
-### ibm_svc_node
-
-<a id="check-ibm-svc-node"></a>
-
-*IO Group %s*
-
-### ibm_svc_nodestats_cache
-
-<a id="check-ibm-svc-nodestats-cache"></a>
-
-*Cache %s*
-
-### ibm_svc_nodestats_cpu_util
-
-<a id="check-ibm-svc-nodestats-cpu-util"></a>
-
-*CPU utilization %s*
-
-### ibm_svc_nodestats_disk_latency
-
-<a id="check-ibm-svc-nodestats-disk-latency"></a>
-
-*Disk Latency %s*
-
-### ibm_svc_nodestats_diskio
-
-<a id="check-ibm-svc-nodestats-diskio"></a>
-
-*Disk IO %s*
-
-### ibm_svc_nodestats_iops
-
-<a id="check-ibm-svc-nodestats-iops"></a>
-
-*Disk IOPS %s*
-
-### ibm_svc_portfc
-
-<a id="check-ibm-svc-portfc"></a>
-
-*FC %s*
-
-### ibm_svc_portsas
-
-<a id="check-ibm-svc-portsas"></a>
-
-*SAS %s*
-
-### ibm_svc_system
-
-<a id="check-ibm-svc-system"></a>
-
-*Info*
-
-### ibm_svc_systemstats_cache
-
-<a id="check-ibm-svc-systemstats-cache"></a>
-
-*Cache Total*
-
-### ibm_svc_systemstats_cpu_util
-
-<a id="check-ibm-svc-systemstats-cpu-util"></a>
-
-*CPU utilization Total*
-
-### ibm_svc_systemstats_disk_latency
-
-<a id="check-ibm-svc-systemstats-disk-latency"></a>
-
-*Latency %s Total*
-
-### ibm_svc_systemstats_diskio
-
-<a id="check-ibm-svc-systemstats-diskio"></a>
-
-*Throughput %s Total*
-
-### ibm_svc_systemstats_iops
-
-<a id="check-ibm-svc-systemstats-iops"></a>
-
-*IOPS %s Total*
-
-### ibm_tl_changer_devices
-
-<a id="check-ibm-tl-changer-devices"></a>
-
-*Changer device %s*
-
-### ibm_tl_media_access_devices
-
-<a id="check-ibm-tl-media-access-devices"></a>
-
-*Media access device %s*
-
-### ibm_xraid_pdisks
-
-<a id="check-ibm-xraid-pdisks"></a>
-
-*RAID PDisk %s*
-
-### icmp
-
-<a id="check-icmp"></a>
-
-### icom_repeater
-
-<a id="check-icom-repeater"></a>
-
-*Repeater Info*
-
-### icom_repeater_pll_volt
-
-<a id="check-icom-repeater-pll-volt"></a>
-
-*%s PLL Lock Voltage*
-
-### icom_repeater_ps_volt
-
-<a id="check-icom-repeater-ps-volt"></a>
-
-*Power Supply Voltage*
-
-### icom_repeater_temp
-
-<a id="check-icom-repeater-temp"></a>
-
-*Temperature %s*
-
-### if64
-
-<a id="check-if64"></a>
-
-*Interface %s*
-
-### iis_app_pool_state
-
-<a id="check-iis-app-pool-state"></a>
-
-*IIS Application Pool %s*
-
-### infoblox_node_services
-
-<a id="check-infoblox-node-services"></a>
-
-*Infoblox services and node services*
-
-### infoblox_services
-
-<a id="check-infoblox-services"></a>
-
-*Infoblox services and node services*
-
-### infoblox_temp
-
-<a id="check-infoblox-temp"></a>
-
-*Temperature %s*
-
-### informix_dbspaces
-
-<a id="check-informix-dbspaces"></a>
-
-*Relevant documentation:*
-
-### informix_locks
-
-<a id="check-informix-locks"></a>
-
-*Informix Locks %s*
-
-### informix_logusage
-
-<a id="check-informix-logusage"></a>
-
-*Informix Log Usage %s*
-
-### informix_sessions
-
-<a id="check-informix-sessions"></a>
-
-*Informix Sessions %s*
-
-### informix_status
-
-<a id="check-informix-status"></a>
-
-*Informix Instance %s*
-
-### informix_tabextents
-
-<a id="check-informix-tabextents"></a>
-
-*Informix Table Extents %s*
-
-### inotify
-
-<a id="check-inotify"></a>
-
-*INotify %s*
-
-### interfaces
-
-<a id="check-interfaces"></a>
-
-*Interface %s*
-
-### ipr400_in_voltage
-
-<a id="check-ipr400-in-voltage"></a>
-
-*IN Voltage %s*
-
-### ipr400_temp
-
-<a id="check-ipr400-temp"></a>
-
-*Temperature %s*
-
-### iptables
-
-<a id="check-iptables"></a>
-
-*Iptables*
-
-### isc_dhcpd
-
-<a id="check-isc-dhcpd"></a>
-
-*DHCP Pool %s*
-
-### janitza_umg
-
-<a id="check-janitza-umg"></a>
-
-*Input %s*
-
-### janitza_umg_freq
-
-<a id="check-janitza-umg-freq"></a>
-
-*Frequency %s*
-
-### janitza_umg_temp
-
-<a id="check-janitza-umg-temp"></a>
-
-*Temperature External %s*
-
-### jar_signature
-
-<a id="check-jar-signature"></a>
-
-*Jar-Signature %s*
-
-### jira_custom_svc
-
-<a id="check-jira-custom-svc"></a>
-
-*Jira %s*
-
-### jira_workflow
-
-<a id="check-jira-workflow"></a>
-
-*Jira Workflow %s*
-
-### job
-
-<a id="check-job"></a>
-
-*Job %s*
-
-### juniper_alarm
-
-<a id="check-juniper-alarm"></a>
-
-*Chassis*
-
-### juniper_bgp_state
-
-<a id="check-juniper-bgp-state"></a>
-
-*BGP Status Peer %s*
-
-### juniper_cpu_util
-
-<a id="check-juniper-cpu-util"></a>
-
-*CPU utilization %s*
-
-### juniper_fru
-
-<a id="check-juniper-fru"></a>
-
-*Power Supply FRU %s*
-
-### juniper_fru_fan
-
-<a id="check-juniper-fru-fan"></a>
-
-*Fan FRU %s*
-
-### juniper_mem
-
-<a id="check-juniper-mem"></a>
-
-*Memory %s*
-
-### juniper_screenos_cpu
-
-<a id="check-juniper-screenos-cpu"></a>
-
-*CPU utilization*
-
-### juniper_screenos_fan
-
-<a id="check-juniper-screenos-fan"></a>
-
-*FAN %s*
-
-### juniper_screenos_mem
-
-<a id="check-juniper-screenos-mem"></a>
-
-*Memory*
-
-### juniper_screenos_temp
-
-<a id="check-juniper-screenos-temp"></a>
-
-*Temperature %s*
-
-### juniper_screenos_vpn
-
-<a id="check-juniper-screenos-vpn"></a>
-
-*VPN %s*
-
-### juniper_temp
-
-<a id="check-juniper-temp"></a>
-
-*Temperature %s*
-
-### juniper_trpz_aps
-
-<a id="check-juniper-trpz-aps"></a>
-
-*Access Points*
-
-### juniper_trpz_aps_sessions
-
-<a id="check-juniper-trpz-aps-sessions"></a>
-
-*Access Point %s*
-
-### juniper_trpz_cpu_util
-
-<a id="check-juniper-trpz-cpu-util"></a>
-
-*CPU utilization*
-
-### juniper_trpz_flash
-
-<a id="check-juniper-trpz-flash"></a>
-
-*Flash*
-
-### juniper_trpz_info
-
-<a id="check-juniper-trpz-info"></a>
-
-*Info*
-
-### juniper_trpz_mem
-
-<a id="check-juniper-trpz-mem"></a>
-
-*Memory*
-
-### juniper_trpz_power
-
-<a id="check-juniper-trpz-power"></a>
-
-*PSU %s*
-
-### kaspersky_av_client
-
-<a id="check-kaspersky-av-client"></a>
-
-*Kaspersky AV*
-
-### kaspersky_av_kesl_updates
-
-<a id="check-kaspersky-av-kesl-updates"></a>
-
-*AV Update Status*
-
-### kaspersky_av_quarantine
-
-<a id="check-kaspersky-av-quarantine"></a>
-
-*AV Quarantine*
-
-### kaspersky_av_tasks
-
-<a id="check-kaspersky-av-tasks"></a>
-
-*AV Task %s*
-
-### kaspersky_av_updates
-
-<a id="check-kaspersky-av-updates"></a>
-
-*AV Update Status*
-
-### keepalived
-
-<a id="check-keepalived"></a>
-
-*VRRP Instance %s*
-
-### kemp_loadmaster_realserver
-
-<a id="check-kemp-loadmaster-realserver"></a>
-
-*Real Server %s*
-
-### kemp_loadmaster_services
-
-<a id="check-kemp-loadmaster-services"></a>
-
-*Service %s*
-
-### kentix_amp_sensors
-
-<a id="check-kentix-amp-sensors"></a>
-
-*Temperature %s*
-
-### kentix_amp_sensors_humidity
-
-<a id="check-kentix-amp-sensors-humidity"></a>
-
-*Humidity %s*
-
-### kentix_amp_sensors_leakage
-
-<a id="check-kentix-amp-sensors-leakage"></a>
-
-*Leakage %s*
-
-### kentix_amp_sensors_smoke
-
-<a id="check-kentix-amp-sensors-smoke"></a>
-
-*Smoke Detector %s*
-
-### kentix_co
-
-<a id="check-kentix-co"></a>
-
-*Carbon Monoxide*
-
-### kentix_dewpoint
-
-<a id="check-kentix-dewpoint"></a>
-
-*Dewpoint %s*
-
-### kentix_humidity
-
-<a id="check-kentix-humidity"></a>
-
-*Humidity*
-
-### kentix_motion
-
-<a id="check-kentix-motion"></a>
-
-*Motion Detector %s*
-
-### kentix_temp
-
-<a id="check-kentix-temp"></a>
-
-*Temperature %s*
-
-### kernel_performance
-
-<a id="check-kernel-performance"></a>
-
-*Kernel Performance*
-
-### kernel_util
-
-<a id="check-kernel-util"></a>
-
-*CPU utilization*
-
-### knuerr_rms_humidity
-
-<a id="check-knuerr-rms-humidity"></a>
-
-*Humidity*
-
-### knuerr_rms_temp
-
-<a id="check-knuerr-rms-temp"></a>
-
-*Temperature %s*
-
-### knuerr_sensors
-
-<a id="check-knuerr-sensors"></a>
-
-*Sensor %s*
-
-### ldap
-
-<a id="check-ldap"></a>
-
-### lgp_info
-
-<a id="check-lgp-info"></a>
-
-*Liebert Info*
-
-### lgp_pdu_aux
-
-<a id="check-lgp-pdu-aux"></a>
-
-*Liebert PDU AUX %s*
-
-### lgp_pdu_info
-
-<a id="check-lgp-pdu-info"></a>
-
-*Liebert PDU Info %s*
-
-### libelle_business_shadow_archive_dir
-
-<a id="check-libelle-business-shadow-archive-dir"></a>
-
-*Libelle Business Shadow %s*
-
-### libelle_business_shadow_info
-
-<a id="check-libelle-business-shadow-info"></a>
-
-*Libelle Business Shadow Info*
-
-### libelle_business_shadow_process
-
-<a id="check-libelle-business-shadow-process"></a>
-
-*Libelle Business Shadow Process*
-
-### libelle_business_shadow_status
-
-<a id="check-libelle-business-shadow-status"></a>
-
-*Libelle Business Shadow Status*
-
-### liebert_bat_temp
-
-<a id="check-liebert-bat-temp"></a>
-
-*Temperature %s*
-
-### liebert_chilled_water
-
-<a id="check-liebert-chilled-water"></a>
-
-*%s*
-
-### liebert_chiller_status
-
-<a id="check-liebert-chiller-status"></a>
-
-*Chiller status*
-
-### liebert_compressor
-
-<a id="check-liebert-compressor"></a>
-
-*%s*
-
-### liebert_cooling
-
-<a id="check-liebert-cooling"></a>
-
-*%s*
-
-### liebert_cooling_position
-
-<a id="check-liebert-cooling-position"></a>
-
-*%s*
-
-### liebert_cooling_status
-
-<a id="check-liebert-cooling-status"></a>
-
-*%s*
-
-### liebert_fans
-
-<a id="check-liebert-fans"></a>
-
-*%s*
-
-### liebert_fans_condenser
-
-<a id="check-liebert-fans-condenser"></a>
-
-*%s*
-
-### liebert_humidity_air
-
-<a id="check-liebert-humidity-air"></a>
-
-*%s Humidity*
-
-### liebert_maintenance
-
-<a id="check-liebert-maintenance"></a>
-
-*Maintenance*
-
-### liebert_pump
-
-<a id="check-liebert-pump"></a>
-
-*%s*
-
-### liebert_reheating
-
-<a id="check-liebert-reheating"></a>
-
-*Reheating Utilization*
-
-### liebert_system
-
-<a id="check-liebert-system"></a>
-
-*Status %s*
-
-### liebert_system_events
-
-<a id="check-liebert-system-events"></a>
-
-*System events*
-
-### liebert_temp_air
-
-<a id="check-liebert-temp-air"></a>
-
-*%s Temperature*
-
-### liebert_temp_fluid
-
-<a id="check-liebert-temp-fluid"></a>
-
-*%s*
-
-### liebert_temp_general
-
-<a id="check-liebert-temp-general"></a>
-
-*%s*
-
-### livestatus_status
-
-<a id="check-livestatus-status"></a>
-
-*OMD %s performance*
-
-### lnx_if
-
-<a id="check-lnx-if"></a>
-
-*Interface %s*
-
-### lnx_quota
-
-<a id="check-lnx-quota"></a>
-
-*Quota: %s*
-
-### lnx_thermal
-
-<a id="check-lnx-thermal"></a>
-
-*Temperature %s*
-
-### local
-
-<a id="check-local"></a>
-
-*%s*
-
-### logins
-
-<a id="check-logins"></a>
-
-*Logins*
-
-### lparstat_aix
-
-<a id="check-lparstat-aix"></a>
-
-*lparstat*
-
-### lparstat_aix_cpu_util
-
-<a id="check-lparstat-aix-cpu-util"></a>
-
-*CPU utilization*
-
-### lsi_array
-
-<a id="check-lsi-array"></a>
-
-*RAID array %s*
-
-### lsi_disk
-
-<a id="check-lsi-disk"></a>
-
-*RAID disk %s*
-
-### lvm_lvs
-
-<a id="check-lvm-lvs"></a>
-
-*LVM LV Pool %s*
-
-### lvm_vgs
-
-<a id="check-lvm-vgs"></a>
-
-*LVM VG %s*
-
-### mail
-
-<a id="check-mail"></a>
-
-### mail_loop
-
-<a id="check-mail-loop"></a>
-
-### mailboxes
-
-<a id="check-mailboxes"></a>
-
-### mailman_lists
-
-<a id="check-mailman-lists"></a>
-
-*Mailinglist %s*
-
-### mbg_lantime_ng_refclock
-
-<a id="check-mbg-lantime-ng-refclock"></a>
-
-*LANTIME Refclock %s*
-
-### mbg_lantime_ng_refclock_gps
-
-<a id="check-mbg-lantime-ng-refclock-gps"></a>
-
-*LANTIME Refclock %s*
-
-### mcafee_av_client
-
-<a id="check-mcafee-av-client"></a>
-
-*McAfee AV*
-
-### mcafee_webgateway
-
-<a id="check-mcafee-webgateway"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_http_client_requests
-
-<a id="check-mcafee-webgateway-http-client-requests"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_https_client_requests
-
-<a id="check-mcafee-webgateway-https-client-requests"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_httpv2_client_requests
-
-<a id="check-mcafee-webgateway-httpv2-client-requests"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_info
-
-<a id="check-mcafee-webgateway-info"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_misc
-
-<a id="check-mcafee-webgateway-misc"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_time_consumed_by_rule_engine
-
-<a id="check-mcafee-webgateway-time-consumed-by-rule-engine"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcafee_webgateway_time_to_resolve_dns
-
-<a id="check-mcafee-webgateway-time-to-resolve-dns"></a>
-
-*The McAfee Web Gateway has been rebranded to Skyhigh Secure Web Gateway with its release 12.2.2.*
-
-### mcdata_fcport
-
-<a id="check-mcdata-fcport"></a>
-
-*Port %s*
-
-### md
-
-<a id="check-md"></a>
-
-*MD Softraid %s*
-
-### megaraid_bbu
-
-<a id="check-megaraid-bbu"></a>
-
-*RAID BBU %s*
-
-### megaraid_ldisks
-
-<a id="check-megaraid-ldisks"></a>
-
-*RAID logical disk %s*
-
-### megaraid_pdisks
-
-<a id="check-megaraid-pdisks"></a>
-
-*RAID pysical disk %s*
-
-### mem_linux
-
-<a id="check-mem-linux"></a>
-
-*Memory*
-
-### mem_used
-
-<a id="check-mem-used"></a>
-
-*Memory*
-
-### mem_vmalloc
-
-<a id="check-mem-vmalloc"></a>
-
-*Vmalloc address space*
-
-### mem_win
-
-<a id="check-mem-win"></a>
-
-*Memory*
-
-### memory_utilization
-
-<a id="check-memory-utilization"></a>
-
-*Memory*
-
-### mikrotik_signal
-
-<a id="check-mikrotik-signal"></a>
-
-*Signal %s*
-
-### mkbackup
-
-<a id="check-mkbackup"></a>
-
-*Backup %s*
-
-### mkbackup_site
-
-<a id="check-mkbackup-site"></a>
-
-*OMD %s*
-
-### mkeventd_status
-
-<a id="check-mkeventd-status"></a>
-
-*OMD %s Event Console*
-
-### mkevents
-
-<a id="check-mkevents"></a>
-
-### mknotifyd
-
-<a id="check-mknotifyd"></a>
-
-*OMD %s Notification Spooler*
-
-### mknotifyd_connection
-
-<a id="check-mknotifyd-connection"></a>
-
-*OMD %s Notify Connection*
-
-### mknotifyd_connection_v2
-
-<a id="check-mknotifyd-connection-v2"></a>
-
-*OMD %s*
-
-### mobileiron_compliance
-
-<a id="check-mobileiron-compliance"></a>
-
-*Mobileiron compliance*
-
-### mobileiron_statistics
-
-<a id="check-mobileiron-statistics"></a>
-
-*Provides summarized insights into the fetched partitions.*
-
-### mobileiron_versions
-
-<a id="check-mobileiron-versions"></a>
-
-*Mobileiron versions*
-
-### mongodb_asserts
-
-<a id="check-mongodb-asserts"></a>
-
-*MongoDB Asserts*
-
-### mongodb_cluster
-
-<a id="check-mongodb-cluster"></a>
-
-*MongoDB Database: %s*
-
-### mongodb_cluster_balancer
-
-<a id="check-mongodb-cluster-balancer"></a>
-
-*MongoDB Balancer*
-
-### mongodb_cluster_collections
-
-<a id="check-mongodb-cluster-collections"></a>
-
-*MongoDB Cluster: %s*
-
-### mongodb_collections
-
-<a id="check-mongodb-collections"></a>
-
-*MongoDB Collection: %s*
-
-### mongodb_connections
-
-<a id="check-mongodb-connections"></a>
-
-*MongoDB %s*
-
-### mongodb_counters
-
-<a id="check-mongodb-counters"></a>
-
-*MongoDB Counters %s*
-
-### mongodb_flushing
-
-<a id="check-mongodb-flushing"></a>
-
-*MongoDB Flushing*
-
-### mongodb_instance
-
-<a id="check-mongodb-instance"></a>
-
-*MongoDB Instance*
-
-### mongodb_locks
-
-<a id="check-mongodb-locks"></a>
-
-*MongoDB Locks*
-
-### mongodb_mem
-
-<a id="check-mongodb-mem"></a>
-
-*Memory used MongoDB*
-
-### mongodb_replica
-
-<a id="check-mongodb-replica"></a>
-
-*MongoDB Replica Set Status*
-
-### mongodb_replica_set
-
-<a id="check-mongodb-replica-set"></a>
-
-*MongoDB Replication Lag*
-
-### mongodb_replica_set_election
-
-<a id="check-mongodb-replica-set-election"></a>
-
-*MongoDB Replica Set Primary Election*
-
-### mongodb_replication_info
-
-<a id="check-mongodb-replication-info"></a>
-
-*MongoDB Replication Info*
-
-### mounts
-
-<a id="check-mounts"></a>
-
-*Mount options of %s*
-
-### moxa_iologik_register
-
-<a id="check-moxa-iologik-register"></a>
-
-*Moxa Register %s*
-
-### mq_queues
-
-<a id="check-mq-queues"></a>
-
-*Queue %s*
-
-### mqtt_broker
-
-<a id="check-mqtt-broker"></a>
-
-*MQTT %s Broker*
-
-### mqtt_clients
-
-<a id="check-mqtt-clients"></a>
-
-*MQTT %s Clients*
-
-### mqtt_messages
-
-<a id="check-mqtt-messages"></a>
-
-*MQTT %s Messages*
-
-### mqtt_uptime
-
-<a id="check-mqtt-uptime"></a>
-
-*MQTT %s Uptime*
-
-### mrpe
-
-<a id="check-mrpe"></a>
-
-*%s*
-
-### msexch_activesync
-
-<a id="check-msexch-activesync"></a>
-
-*Exchange ActiveSync*
-
-### msexch_autodiscovery
-
-<a id="check-msexch-autodiscovery"></a>
-
-*Exchange Autodiscovery*
-
-### msexch_availability
-
-<a id="check-msexch-availability"></a>
-
-*Exchange Availability Service*
-
-### msexch_dag_contentindex
-
-<a id="check-msexch-dag-contentindex"></a>
-
-*Exchange DAG ContentIndex of %s*
-
-### msexch_dag_copyqueue
-
-<a id="check-msexch-dag-copyqueue"></a>
-
-*Exchange DAG CopyQueue of %s*
-
-### msexch_dag_dbcopy
-
-<a id="check-msexch-dag-dbcopy"></a>
-
-*Exchange DAG DBCopy for %s*
-
-### msexch_database
-
-<a id="check-msexch-database"></a>
-
-*Exchange Database %s*
-
-### msexch_isclienttype
-
-<a id="check-msexch-isclienttype"></a>
-
-*Exchange IS Client Type %s*
-
-### msexch_isstore
-
-<a id="check-msexch-isstore"></a>
-
-*Exchange IS Store %s*
-
-### msexch_owa
-
-<a id="check-msexch-owa"></a>
-
-*Exchange OWA*
-
-### msexch_replhealth
-
-<a id="check-msexch-replhealth"></a>
-
-*Exchange Replication Health %s*
-
-### msexch_rpcclientaccess
-
-<a id="check-msexch-rpcclientaccess"></a>
-
-*Exchange RPC Client Access*
-
-### msoffice_licenses
-
-<a id="check-msoffice-licenses"></a>
-
-*MS Office Licenses %s*
-
-### msoffice_serviceplans
-
-<a id="check-msoffice-serviceplans"></a>
-
-*MS Office Serviceplans %s*
-
-### mssql_availability_groups
-
-<a id="check-mssql-availability-groups"></a>
-
-*MSSQL Availability Group %s*
-
-### mssql_backup
-
-<a id="check-mssql-backup"></a>
-
-*MSSQL %s Backup*
-
-### mssql_backup_per_type
-
-<a id="check-mssql-backup-per-type"></a>
-
-*MSSQL %s Backup*
-
-### mssql_blocked_sessions
-
-<a id="check-mssql-blocked-sessions"></a>
-
-*MSSQL %s Blocked Sessions*
-
-### mssql_connections
-
-<a id="check-mssql-connections"></a>
-
-*MSSQL Connections %s*
-
-### mssql_counters_cache_hits
-
-<a id="check-mssql-counters-cache-hits"></a>
-
-*MSSQL %s*
-
-### mssql_counters_file_sizes
-
-<a id="check-mssql-counters-file-sizes"></a>
-
-*MSSQL %s File Sizes*
-
-### mssql_counters_locks
-
-<a id="check-mssql-counters-locks"></a>
-
-*MSSQL %s Locks*
-
-### mssql_counters_locks_per_batch
-
-<a id="check-mssql-counters-locks-per-batch"></a>
-
-*MSSQL %s Locks per Batch*
-
-### mssql_counters_page_life_expectancy
-
-<a id="check-mssql-counters-page-life-expectancy"></a>
-
-*MSSQL %s*
-
-### mssql_counters_pageactivity
-
-<a id="check-mssql-counters-pageactivity"></a>
-
-*MSSQL %s Page Activity*
-
-### mssql_counters_sqlstats
-
-<a id="check-mssql-counters-sqlstats"></a>
-
-*MSSQL %s*
-
-### mssql_counters_transactions
-
-<a id="check-mssql-counters-transactions"></a>
-
-*MSSQL %s Transactions*
-
-### mssql_databases
-
-<a id="check-mssql-databases"></a>
-
-*MSSQL %s Database*
-
-### mssql_datafiles
-
-<a id="check-mssql-datafiles"></a>
-
-*MSSQL Datafile %s*
-
-### mssql_instance
-
-<a id="check-mssql-instance"></a>
-
-*MSSQL %s Instance*
-
-### mssql_jobs
-
-<a id="check-mssql-jobs"></a>
-
-*MSSQL job %s*
-
-### mssql_mirroring
-
-<a id="check-mssql-mirroring"></a>
-
-*MSSQL Mirroring Status: %s*
-
-### mssql_tablespaces
-
-<a id="check-mssql-tablespaces"></a>
-
-*MSSQL %s Sizes*
-
-### mssql_transactionlogs
-
-<a id="check-mssql-transactionlogs"></a>
-
-*MSSQL Transactionlog %s*
-
-### mtr
-
-<a id="check-mtr"></a>
-
-*Mtr to %s*
-
-### multipath
-
-<a id="check-multipath"></a>
-
-*Multipath %s*
-
-### mysql
-
-<a id="check-mysql"></a>
-
-*MySQL Version %s*
-
-### mysql_capacity
-
-<a id="check-mysql-capacity"></a>
-
-*MySQL DB Size %s*
-
-### mysql_connections
-
-<a id="check-mysql-connections"></a>
-
-*MySQL Connections %s*
-
-### mysql_galeradonor
-
-<a id="check-mysql-galeradonor"></a>
-
-*MySQL Galera Donor %s*
-
-### mysql_galerasize
-
-<a id="check-mysql-galerasize"></a>
-
-*MySQL Galera Size %s*
-
-### mysql_galerastartup
-
-<a id="check-mysql-galerastartup"></a>
-
-*MySQL Galera Startup %s*
-
-### mysql_galerastatus
-
-<a id="check-mysql-galerastatus"></a>
-
-*MySQL Galera Status %s*
-
-### mysql_galerasync
-
-<a id="check-mysql-galerasync"></a>
-
-*MySQL Galera Sync %s*
-
-### mysql_innodb_io
-
-<a id="check-mysql-innodb-io"></a>
-
-*MySQL InnoDB IO %s*
-
-### mysql_ping
-
-<a id="check-mysql-ping"></a>
-
-*MySQL Instance %s*
-
-### mysql_replica_slave
-
-<a id="check-mysql-replica-slave"></a>
-
-*MySQL DB Slave %s*
-
-### mysql_sessions
-
-<a id="check-mysql-sessions"></a>
-
-*MySQL Sessions %s*
-
-### netctr_combined
-
-<a id="check-netctr-combined"></a>
-
-*NIC %s counters*
-
-### netscaler_ha
-
-<a id="check-netscaler-ha"></a>
-
-*HA Node Status*
-
-### netscaler_sslcertificates
-
-<a id="check-netscaler-sslcertificates"></a>
-
-*SSL Certificate %s*
-
-### netscaler_tcp_conns
-
-<a id="check-netscaler-tcp-conns"></a>
-
-*TCP Connections*
-
-### netscaler_vserver
-
-<a id="check-netscaler-vserver"></a>
-
-*VServer %s*
-
-### netstat
-
-<a id="check-netstat"></a>
-
-*TCP Connection %s*
-
-### nfsexports
-
-<a id="check-nfsexports"></a>
-
-*NFS export %s*
-
-### nfsiostat
-
-<a id="check-nfsiostat"></a>
-
-*NFS IO stats %s*
-
-### nfsmounts
-
-<a id="check-nfsmounts"></a>
-
-*NFS mount %s*
-
-### nginx_status
-
-<a id="check-nginx-status"></a>
-
-*Nginx %s Status*
-
-### nimble_latency
-
-<a id="check-nimble-latency"></a>
-
-*Volume %s Read IO*
-
-### nimble_latency_write
-
-<a id="check-nimble-latency-write"></a>
-
-*Volume %s Write IO*
-
-### nimble_volumes
-
-<a id="check-nimble-volumes"></a>
-
-*Volume %s*
-
 ### notify_count
 
 <a id="check-notify-count"></a>
-
-### ntp
-
-<a id="check-ntp"></a>
-
-*NTP Peer %s*
-
-### ntp_time
-
-<a id="check-ntp-time"></a>
-
-*NTP Time*
-
-### nullmailer_mailq
-
-<a id="check-nullmailer-mailq"></a>
-
-*Nullmailer Queue*
-
-### nvidia_errors
-
-<a id="check-nvidia-errors"></a>
-
-*NVIDIA GPU Errors*
-
-### nvidia_smi_en_de_coder_util
-
-<a id="check-nvidia-smi-en-de-coder-util"></a>
-
-*Nvidia GPU En-/Decoder utilization %s*
-
-### nvidia_smi_gpu_util
-
-<a id="check-nvidia-smi-gpu-util"></a>
-
-*Nvidia GPU utilization %s*
-
-### nvidia_smi_memory_util
-
-<a id="check-nvidia-smi-memory-util"></a>
-
-*Nvidia GPU Memory utilization %s*
-
-### nvidia_smi_power
-
-<a id="check-nvidia-smi-power"></a>
-
-*Nvidia GPU Power %s*
-
-### nvidia_smi_temperature
-
-<a id="check-nvidia-smi-temperature"></a>
-
-*Nvidia GPU Temperature %s*
-
-### nvidia_temp
-
-<a id="check-nvidia-temp"></a>
-
-*Temperature %s*
-
-### nvidia_temp_core
-
-<a id="check-nvidia-temp-core"></a>
-
-*Temperature %s*
-
-### omd_apache
-
-<a id="check-omd-apache"></a>
-
-*OMD %s apache*
-
-### omd_broker_queues
-
-<a id="check-omd-broker-queues"></a>
-
-*OMD %s*
-
-### omd_broker_status
-
-<a id="check-omd-broker-status"></a>
-
-*OMD %s message broker*
-
-### omd_diskusage
-
-<a id="check-omd-diskusage"></a>
-
-*OMD %s disk usage*
-
-### omd_status
-
-<a id="check-omd-status"></a>
-
-*<<<omd_status>>>*
-
-### openbsd_sensors
-
-<a id="check-openbsd-sensors"></a>
-
-*Temperature %s*
-
-### openbsd_sensors_drive
-
-<a id="check-openbsd-sensors-drive"></a>
-
-*Drive %s*
-
-### openbsd_sensors_fan
-
-<a id="check-openbsd-sensors-fan"></a>
-
-*Fan %s*
-
-### openbsd_sensors_indicator
-
-<a id="check-openbsd-sensors-indicator"></a>
-
-*Indicator %s*
-
-### openbsd_sensors_powersupply
-
-<a id="check-openbsd-sensors-powersupply"></a>
-
-*Powersupply %s*
-
-### openbsd_sensors_voltage
-
-<a id="check-openbsd-sensors-voltage"></a>
-
-*Voltage Type %s*
-
-### openhardwaremonitor
-
-<a id="check-openhardwaremonitor"></a>
-
-*Clock %s*
-
-### openhardwaremonitor_fan
-
-<a id="check-openhardwaremonitor-fan"></a>
-
-*Fan %s*
-
-### openhardwaremonitor_power
-
-<a id="check-openhardwaremonitor-power"></a>
-
-*Power %s*
-
-### openhardwaremonitor_smart
-
-<a id="check-openhardwaremonitor-smart"></a>
-
-*SMART %s Stats*
-
-### openhardwaremonitor_temperature
-
-<a id="check-openhardwaremonitor-temperature"></a>
-
-*Temperature %s*
-
-### openvpn_clients
-
-<a id="check-openvpn-clients"></a>
-
-*OpenVPN Client %s*
-
-### oracle_asm_diskgroup
-
-<a id="check-oracle-asm-diskgroup"></a>
-
-*ASM Diskgroup %s*
-
-### oracle_crs_res
-
-<a id="check-oracle-crs-res"></a>
-
-*ORA-GI %s Resource*
-
-### oracle_crs_version
-
-<a id="check-oracle-crs-version"></a>
-
-*ORA-GI Version*
-
-### oracle_crs_voting
-
-<a id="check-oracle-crs-voting"></a>
-
-*ORA-GI Voting*
-
-### oracle_dataguard_stats
-
-<a id="check-oracle-dataguard-stats"></a>
-
-*ORA %s Dataguard-Stats*
-
-### oracle_diva_csm
-
-<a id="check-oracle-diva-csm"></a>
-
-*DIVA Status %s*
-
-### oracle_diva_csm_actor
-
-<a id="check-oracle-diva-csm-actor"></a>
-
-*DIVA Status %s*
-
-### oracle_diva_csm_archive
-
-<a id="check-oracle-diva-csm-archive"></a>
-
-*DIVA Status %s*
-
-### oracle_diva_csm_drive
-
-<a id="check-oracle-diva-csm-drive"></a>
-
-*DIVA Status %s*
-
-### oracle_diva_csm_objects
-
-<a id="check-oracle-diva-csm-objects"></a>
-
-*DIVA Managed Objects*
-
-### oracle_diva_csm_tapes
-
-<a id="check-oracle-diva-csm-tapes"></a>
-
-*DIVA Blank Tapes*
-
-### oracle_instance
-
-<a id="check-oracle-instance"></a>
-
-*ORA %s Instance*
-
-### oracle_instance_uptime
-
-<a id="check-oracle-instance-uptime"></a>
-
-*ORA %s Uptime*
-
-### oracle_jobs
-
-<a id="check-oracle-jobs"></a>
-
-*ORA %s Job*
-
-### oracle_locks
-
-<a id="check-oracle-locks"></a>
-
-*ORA %s Locks*
-
-### oracle_logswitches
-
-<a id="check-oracle-logswitches"></a>
-
-*ORA %s Logswitches*
-
-### oracle_longactivesessions
-
-<a id="check-oracle-longactivesessions"></a>
-
-*ORA %s Long Active Sessions*
-
-### oracle_performance
-
-<a id="check-oracle-performance"></a>
-
-*ORA %s Performance*
-
-### oracle_performance_dbtime
-
-<a id="check-oracle-performance-dbtime"></a>
-
-*ORA %s Performance DB-Time*
-
-### oracle_performance_iostat_bytes
-
-<a id="check-oracle-performance-iostat-bytes"></a>
-
-*ORA %s Performance IO Stats Bytes*
-
-### oracle_performance_iostat_ios
-
-<a id="check-oracle-performance-iostat-ios"></a>
-
-*ORA %s Performance IO Stats Requests*
-
-### oracle_performance_memory
-
-<a id="check-oracle-performance-memory"></a>
-
-*ORA %s Performance Memory*
-
-### oracle_performance_waitclasses
-
-<a id="check-oracle-performance-waitclasses"></a>
-
-*ORA %s Performance System Wait*
-
-### oracle_processes
-
-<a id="check-oracle-processes"></a>
-
-*ORA %s Processes*
-
-### oracle_recovery_area
-
-<a id="check-oracle-recovery-area"></a>
-
-*ORA %s Recovery Area*
-
-### oracle_recovery_status
-
-<a id="check-oracle-recovery-status"></a>
-
-*ORA %s Recovery Status*
-
-### oracle_rman
-
-<a id="check-oracle-rman"></a>
-
-*ORA %s RMAN Backup*
-
-### oracle_sessions
-
-<a id="check-oracle-sessions"></a>
-
-*ORA %s Sessions*
-
-### oracle_sql
-
-<a id="check-oracle-sql"></a>
-
-*ORA %s*
-
-### oracle_tablespaces
-
-<a id="check-oracle-tablespaces"></a>
-
-*ORA %s Tablespace*
-
-### oracle_undostat
-
-<a id="check-oracle-undostat"></a>
-
-*ORA %s Undo Retention*
-
-### oracle_version
-
-<a id="check-oracle-version"></a>
-
-*ORA Version %s*
-
-### orion_backup
-
-<a id="check-orion-backup"></a>
-
-*Backup*
-
-### orion_batterytest
-
-<a id="check-orion-batterytest"></a>
-
-*Battery Test*
-
-### orion_system
-
-<a id="check-orion-system"></a>
-
-*Temperature %s*
-
-### orion_system_charging
-
-<a id="check-orion-system-charging"></a>
-
-*Charge %s*
-
-### orion_system_dc
-
-<a id="check-orion-system-dc"></a>
-
-*Direct Current %s*
-
-### ovs_bonding
-
-<a id="check-ovs-bonding"></a>
-
-*OVS Bonding interface %s*
-
-### packeteer_fan_status
-
-<a id="check-packeteer-fan-status"></a>
-
-*Fan Status %s*
-
-### packeteer_ps_status
-
-<a id="check-packeteer-ps-status"></a>
-
-*Power Supply Status*
-
-### palo_alto
-
-<a id="check-palo-alto"></a>
-
-*Palo Alto State*
-
-### palo_alto_users
-
-<a id="check-palo-alto-users"></a>
-
-*Palo Alto Users*
-
-### pandacom_10gm_temp
-
-<a id="check-pandacom-10gm-temp"></a>
-
-*Temperature 10GM Module %s*
-
-### pandacom_fan
-
-<a id="check-pandacom-fan"></a>
-
-*Fan %s*
-
-### pandacom_fc_temp
-
-<a id="check-pandacom-fc-temp"></a>
-
-*Temperature FC Module %s*
-
-### pandacom_psu
-
-<a id="check-pandacom-psu"></a>
-
-*Power Supply %s*
-
-### pandacom_sys_temp
-
-<a id="check-pandacom-sys-temp"></a>
-
-*Temperature %s*
-
-### papouch_th2e_sensors
-
-<a id="check-papouch-th2e-sensors"></a>
-
-*Temperature %s*
-
-### papouch_th2e_sensors_dewpoint
-
-<a id="check-papouch-th2e-sensors-dewpoint"></a>
-
-*Dew point %s*
-
-### papouch_th2e_sensors_humidity
-
-<a id="check-papouch-th2e-sensors-humidity"></a>
-
-*Humidity %s*
-
-### pdu_gude
-
-<a id="check-pdu-gude"></a>
-
-*Phase %s*
-
-### pfsense_counter
-
-<a id="check-pfsense-counter"></a>
-
-*pfSense Firewall Packet Rates*
-
-### pfsense_if
-
-<a id="check-pfsense-if"></a>
-
-*Firewall Interface %s*
-
-### pfsense_status
-
-<a id="check-pfsense-status"></a>
-
-*pfSense Status*
-
-### plesk_backups
-
-<a id="check-plesk-backups"></a>
-
-*Plesk Backup %s*
-
-### plesk_domains
-
-<a id="check-plesk-domains"></a>
-
-*Plesk Domains*
-
-### podman_container_cpu_utilization
-
-<a id="check-podman-container-cpu-utilization"></a>
-
-*CPU utilization*
-
-### podman_container_diskstat
-
-<a id="check-podman-container-diskstat"></a>
-
-*Container IO %s*
-
-### podman_container_health
-
-<a id="check-podman-container-health"></a>
-
-*Health*
-
-### podman_container_memory
-
-<a id="check-podman-container-memory"></a>
-
-*Memory*
-
-### podman_container_restarts
-
-<a id="check-podman-container-restarts"></a>
-
-*Restarts*
-
-### podman_container_status
-
-<a id="check-podman-container-status"></a>
-
-*Status*
-
-### podman_container_uptime
-
-<a id="check-podman-container-uptime"></a>
-
-*Uptime*
-
-### podman_containers
-
-<a id="check-podman-containers"></a>
-
-*Podman containers*
-
-### podman_disk_usage
-
-<a id="check-podman-disk-usage"></a>
-
-*Podman disk usage: %s*
-
-### podman_pods
-
-<a id="check-podman-pods"></a>
-
-*Podman pods*
-
-### podman_status
-
-<a id="check-podman-status"></a>
-
-*Podman status*
 
 ### poseidon_inputs
 
 <a id="check-poseidon-inputs"></a>
 
 *%s*
-
-### poseidon_temp
-
-<a id="check-poseidon-temp"></a>
-
-*Temperatur: %s*
-
-### postfix_mailq
-
-<a id="check-postfix-mailq"></a>
-
-*Postfix Queue %s*
-
-### postfix_mailq_status
-
-<a id="check-postfix-mailq-status"></a>
-
-*Postfix status %s*
-
-### postgres_bloat
-
-<a id="check-postgres-bloat"></a>
-
-*PostgreSQL Bloat %s*
-
-### postgres_conn_time
-
-<a id="check-postgres-conn-time"></a>
-
-*PostgreSQL Connection Time %s*
-
-### postgres_connections
-
-<a id="check-postgres-connections"></a>
-
-*PostgreSQL Connections %s*
-
-### postgres_instances
-
-<a id="check-postgres-instances"></a>
-
-*PostgreSQL Instance %s*
-
-### postgres_locks
-
-<a id="check-postgres-locks"></a>
-
-*PostgreSQL Locks %s*
-
-### postgres_processes
-
-<a id="check-postgres-processes"></a>
-
-*PostgreSQL Process Count*
-
-### postgres_query_duration
-
-<a id="check-postgres-query-duration"></a>
-
-*PostgreSQL Query Duration %s*
-
-### postgres_sessions
-
-<a id="check-postgres-sessions"></a>
-
-*PostgreSQL Daemon Sessions %s*
-
-### postgres_stat_database
-
-<a id="check-postgres-stat-database"></a>
-
-*PostgreSQL DB %s Statistics*
-
-### postgres_stat_database_size
-
-<a id="check-postgres-stat-database-size"></a>
-
-*PostgreSQL DB %s Size*
-
-### postgres_stats
-
-<a id="check-postgres-stats"></a>
-
-*PostgreSQL %s*
-
-### primekey_cpu_temperature
-
-<a id="check-primekey-cpu-temperature"></a>
-
-*Temperature PrimeKey %s*
-
-### primekey_data
-
-<a id="check-primekey-data"></a>
-
-*PrimeKey %s Status*
-
-### primekey_db_usage
-
-<a id="check-primekey-db-usage"></a>
-
-*PrimeKey DB Usage*
-
-### primekey_fan
-
-<a id="check-primekey-fan"></a>
-
-*PrimeKey Fan %s*
-
-### primekey_hsm_battery_voltage
-
-<a id="check-primekey-hsm-battery-voltage"></a>
-
-*PrimeKey HSM Battery %s*
 
 ### printer_alerts
 
@@ -15694,573 +17402,11 @@ The check runs the configured `command` (argv list) on the host. It interprets N
 
 *Supply %s*
 
-### prometheus_build
-
-<a id="check-prometheus-build"></a>
-
-*Prometheus Build Check*
-
-### ps
-
-<a id="check-ps"></a>
-
-*Process %s*
-
-### pse_poe
-
-<a id="check-pse-poe"></a>
-
-*POE%s consumption*
-
-### pulse_secure_cpu_util
-
-<a id="check-pulse-secure-cpu-util"></a>
-
-*Pulse Secure IVE CPU utilization*
-
-### pulse_secure_disk_util
-
-<a id="check-pulse-secure-disk-util"></a>
-
-*Pulse Secure disk utilization*
-
-### pulse_secure_log_util
-
-<a id="check-pulse-secure-log-util"></a>
-
-*Pulse Secure log file utilization*
-
-### pulse_secure_mem_util
-
-<a id="check-pulse-secure-mem-util"></a>
-
-*Pulse Secure IVE memory utilization*
-
-### pulse_secure_temp
-
-<a id="check-pulse-secure-temp"></a>
-
-*Pulse Secure %s Temperature*
-
-### pulse_secure_users
-
-<a id="check-pulse-secure-users"></a>
-
-*Pulse Secure users*
-
-### pvecm_nodes
-
-<a id="check-pvecm-nodes"></a>
-
-*PVE Node %s*
-
-### pvecm_status
-
-<a id="check-pvecm-status"></a>
-
-*PVE Cluster State*
-
-### qlogic_fcport
-
-<a id="check-qlogic-fcport"></a>
-
-*FC Port %s*
-
-### qlogic_sanbox_fabric_element
-
-<a id="check-qlogic-sanbox-fabric-element"></a>
-
-*Fabric Element %s*
-
-### qlogic_sanbox_psu
-
-<a id="check-qlogic-sanbox-psu"></a>
-
-*PSU %s*
-
-### qlogic_sanbox_temp
-
-<a id="check-qlogic-sanbox-temp"></a>
-
-*Temperature Sensor %s*
-
-### qmail_stats
-
-<a id="check-qmail-stats"></a>
-
-*Qmail Queue*
-
-### quanta_fan
-
-<a id="check-quanta-fan"></a>
-
-*Fan %s*
-
-### quanta_temperature
-
-<a id="check-quanta-temperature"></a>
-
-*Temperature %s*
-
-### quanta_voltage
-
-<a id="check-quanta-voltage"></a>
-
-*Voltage %s*
-
-### quantum_libsmall_door
-
-<a id="check-quantum-libsmall-door"></a>
-
-*Tape library door*
-
-### quantum_libsmall_status
-
-<a id="check-quantum-libsmall-status"></a>
-
-*Tape library status*
-
-### quantum_storage_status
-
-<a id="check-quantum-storage-status"></a>
-
-*Device status*
-
-### ra32e_sensors
-
-<a id="check-ra32e-sensors"></a>
-
-*Temperature %s*
-
-### ra32e_sensors_humidity
-
-<a id="check-ra32e-sensors-humidity"></a>
-
-*Humidity %s*
-
-### ra32e_sensors_power
-
-<a id="check-ra32e-sensors-power"></a>
-
-*Power State %s*
-
-### ra32e_sensors_voltage
-
-<a id="check-ra32e-sensors-voltage"></a>
-
-*Voltage %s*
-
-### ra3s_internal_temperature
-
-<a id="check-ra3s-internal-temperature"></a>
-
-*Temperature %s*
-
-### ra3s_sensors_humidity
-
-<a id="check-ra3s-sensors-humidity"></a>
-
-*Humidity %s*
-
-### ra3s_sensors_power
-
-<a id="check-ra3s-sensors-power"></a>
-
-*Power State %s*
-
-### ra3s_sensors_voltage
-
-<a id="check-ra3s-sensors-voltage"></a>
-
-*Voltage %s*
-
-### raritan_px2_residual_current
-
-<a id="check-raritan-px2-residual-current"></a>
-
-*Residual Current %s*
-
-### rds_licenses
-
-<a id="check-rds-licenses"></a>
-
-*RDS Licenses %s*
-
-### redis_info
-
-<a id="check-redis-info"></a>
-
-*Redis %s Server Info*
-
-### redis_info_clients
-
-<a id="check-redis-info-clients"></a>
-
-*Redis %s Clients*
-
-### redis_info_persistence
-
-<a id="check-redis-info-persistence"></a>
-
-*Redis %s Persistence*
-
-### rmon_stats
-
-<a id="check-rmon-stats"></a>
-
-*RMON Stats IF %s*
-
-### rms200_temp
-
-<a id="check-rms200-temp"></a>
-
-*Temperature %s*
-
-### rstcli
-
-<a id="check-rstcli"></a>
-
-*RAID Volume %s*
-
-### rstcli_pdisks
-
-<a id="check-rstcli-pdisks"></a>
-
-*RAID Disk %s*
-
-### ruckus_spot_ap
-
-<a id="check-ruckus-spot-ap"></a>
-
-*Ruckus Spot Access Points %s*
-
-### safenet_hsm
-
-<a id="check-safenet-hsm"></a>
-
-*HSM Operation Stats*
-
-### safenet_hsm_events
-
-<a id="check-safenet-hsm-events"></a>
-
-*HSM Safenet Event Stats*
-
-### safenet_ntls
-
-<a id="check-safenet-ntls"></a>
-
-*NTLS Operation Status*
-
-### safenet_ntls_clients
-
-<a id="check-safenet-ntls-clients"></a>
-
-*NTLS Clients*
-
-### safenet_ntls_connrate
-
-<a id="check-safenet-ntls-connrate"></a>
-
-*NTLS Connection Rate: %s*
-
-### safenet_ntls_expiration
-
-<a id="check-safenet-ntls-expiration"></a>
-
-*NTLS Expiration Date*
-
-### safenet_ntls_links
-
-<a id="check-safenet-ntls-links"></a>
-
-*NTLS Links*
-
-### salesforce_instances
-
-<a id="check-salesforce-instances"></a>
-
-*Salesforce Instance %s*
-
 ### sansymphony_alerts
 
 <a id="check-sansymphony-alerts"></a>
 
 *sansymphony Alerts*
-
-### sansymphony_pool
-
-<a id="check-sansymphony-pool"></a>
-
-*Sansymphony Pool %s*
-
-### sansymphony_ports
-
-<a id="check-sansymphony-ports"></a>
-
-*sansymphony Port %s*
-
-### sansymphony_serverstatus
-
-<a id="check-sansymphony-serverstatus"></a>
-
-*sansymphony Serverstatus*
-
-### sansymphony_virtualdiskstatus
-
-<a id="check-sansymphony-virtualdiskstatus"></a>
-
-*sansymphony Virtual Disk %s*
-
-### sap_dialog
-
-<a id="check-sap-dialog"></a>
-
-*%s Dialog*
-
-### sap_hana_backup
-
-<a id="check-sap-hana-backup"></a>
-
-*SAP HANA Backup %s*
-
-### sap_hana_connect
-
-<a id="check-sap-hana-connect"></a>
-
-*SAP HANA CONNECT %s*
-
-### sap_hana_data_volume
-
-<a id="check-sap-hana-data-volume"></a>
-
-*SAP HANA Volume %s*
-
-### sap_hana_db_status
-
-<a id="check-sap-hana-db-status"></a>
-
-*SAP HANA Database Status %s*
-
-### sap_hana_diskusage
-
-<a id="check-sap-hana-diskusage"></a>
-
-*SAP HANA Disk %s*
-
-### sap_hana_ess
-
-<a id="check-sap-hana-ess"></a>
-
-*SAP HANA ESS %s*
-
-### sap_hana_ess_migration
-
-<a id="check-sap-hana-ess-migration"></a>
-
-*SAP HANA ESS Migration %s*
-
-### sap_hana_events
-
-<a id="check-sap-hana-events"></a>
-
-*SAP HANA Events %s*
-
-### sap_hana_fileinfo
-
-<a id="check-sap-hana-fileinfo"></a>
-
-*File %s*
-
-### sap_hana_fileinfo_groups
-
-<a id="check-sap-hana-fileinfo-groups"></a>
-
-*File group %s*
-
-### sap_hana_instance_status
-
-<a id="check-sap-hana-instance-status"></a>
-
-*SAP HANA Instance Status %s*
-
-### sap_hana_license
-
-<a id="check-sap-hana-license"></a>
-
-*SAP HANA License %s*
-
-### sap_hana_memrate
-
-<a id="check-sap-hana-memrate"></a>
-
-*SAP HANA Memory %s*
-
-### sap_hana_proc
-
-<a id="check-sap-hana-proc"></a>
-
-*SAP HANA Process %s*
-
-### sap_hana_replication_status
-
-<a id="check-sap-hana-replication-status"></a>
-
-*SAP HANA Replication Status %s*
-
-### sap_hana_status
-
-<a id="check-sap-hana-status"></a>
-
-*SAP HANA %s*
-
-### sap_value
-
-<a id="check-sap-value"></a>
-
-*%s*
-
-### sap_value_groups
-
-<a id="check-sap-value-groups"></a>
-
-*%s*
-
-### scaleio_devices
-
-<a id="check-scaleio-devices"></a>
-
-*ScaleIO Data Server %s Devices*
-
-### scaleio_mdm
-
-<a id="check-scaleio-mdm"></a>
-
-*ScaleIO cluster status*
-
-### scaleio_pd
-
-<a id="check-scaleio-pd"></a>
-
-*ScaleIO PD capacity %s*
-
-### scaleio_pd_status
-
-<a id="check-scaleio-pd-status"></a>
-
-*ScaleIO PD status %s*
-
-### scaleio_sds
-
-<a id="check-scaleio-sds"></a>
-
-*ScaleIO SDS capacity %s*
-
-### scaleio_sds_status
-
-<a id="check-scaleio-sds-status"></a>
-
-*ScaleIO SDS status %s*
-
-### scaleio_storage_pool
-
-<a id="check-scaleio-storage-pool"></a>
-
-*ScaleIO SP capacity %s*
-
-### scaleio_storage_pool_rebalancerw
-
-<a id="check-scaleio-storage-pool-rebalancerw"></a>
-
-*ScaleIO SP rebalance IO %s*
-
-### scaleio_storage_pool_totalrw
-
-<a id="check-scaleio-storage-pool-totalrw"></a>
-
-*ScaleIO SP total IO %s*
-
-### scaleio_system
-
-<a id="check-scaleio-system"></a>
-
-*ScaleIO System %s*
-
-### scaleio_volume
-
-<a id="check-scaleio-volume"></a>
-
-*ScaleIO Volume %s*
-
-### security_master
-
-<a id="check-security-master"></a>
-
-*Sensor %s*
-
-### security_master_humidity
-
-<a id="check-security-master-humidity"></a>
-
-*Sensor %s*
-
-### security_master_temp
-
-<a id="check-security-master-temp"></a>
-
-*Sensor %s*
-
-### seh_ports
-
-<a id="check-seh-ports"></a>
-
-*Port %s*
-
-### sensatronics_temp
-
-<a id="check-sensatronics-temp"></a>
-
-*Temperature %s*
-
-### sentry_pdu
-
-<a id="check-sentry-pdu"></a>
-
-*Plug %s*
-
-### sentry_pdu_outlets
-
-<a id="check-sentry-pdu-outlets"></a>
-
-*Outlet %s*
-
-### sentry_pdu_outlets_v4
-
-<a id="check-sentry-pdu-outlets-v4"></a>
-
-*Outlet %s*
-
-### sentry_pdu_v4
-
-<a id="check-sentry-pdu-v4"></a>
-
-*Plug %s*
-
-### services
-
-<a id="check-services"></a>
-
-*Service %s*
-
-### services_summary
-
-<a id="check-services-summary"></a>
-
-*Service Summary*
-
-### sftp
-
-<a id="check-sftp"></a>
 
 ### siemens_plc_counter
 
@@ -16274,12 +17420,6 @@ The check runs the configured `command` (argv list) on the host. It interprets N
 
 *CPU state*
 
-### siemens_plc_duration
-
-<a id="check-siemens-plc-duration"></a>
-
-*Duration %s*
-
 ### siemens_plc_flag
 
 <a id="check-siemens-plc-flag"></a>
@@ -16292,377 +17432,11 @@ The check runs the configured `command` (argv list) on the host. It interprets N
 
 *Info %s*
 
-### siemens_plc_temp
-
-<a id="check-siemens-plc-temp"></a>
-
-*Temperature %s*
-
-### silverpeak_VX6000
-
-<a id="check-silverpeak-vx6000"></a>
-
-*Alarms*
-
-### site_object_counts
-
-<a id="check-site-object-counts"></a>
-
-*OMD objects*
-
-### skype
-
-<a id="check-skype"></a>
-
-*Skype Web Components*
-
-### skype_conferencing
-
-<a id="check-skype-conferencing"></a>
-
-*Skype Conferencing*
-
-### skype_data_proxy
-
-<a id="check-skype-data-proxy"></a>
-
-*Skype Data Proxy %s*
-
-### skype_edge
-
-<a id="check-skype-edge"></a>
-
-*Skype AV Edge %s*
-
-### skype_edge_auth
-
-<a id="check-skype-edge-auth"></a>
-
-*Skype Edge Authentification*
-
-### skype_mcu
-
-<a id="check-skype-mcu"></a>
-
-*Skype MCU Health*
-
-### skype_mediation_server
-
-<a id="check-skype-mediation-server"></a>
-
-*Skype Mediation Server*
-
-### skype_mobile
-
-<a id="check-skype-mobile"></a>
-
-*Skype Mobile Sessions*
-
-### skype_sip_stack
-
-<a id="check-skype-sip-stack"></a>
-
-*Skype SIP Stack*
-
-### skype_xmpp_proxy
-
-<a id="check-skype-xmpp-proxy"></a>
-
-*Skype XMPP Proxy*
-
-### smart_ata_stats
-
-<a id="check-smart-ata-stats"></a>
-
-*SMART %s Stats*
-
-### smart_ata_temp
-
-<a id="check-smart-ata-temp"></a>
-
-*Temperature SMART %s*
-
-### smart_nvme_stats
-
-<a id="check-smart-nvme-stats"></a>
-
-*SMART %s Stats*
-
-### smart_nvme_temp
-
-<a id="check-smart-nvme-temp"></a>
-
-*Temperature SMART %s*
-
-### smart_scsi_temp
-
-<a id="check-smart-scsi-temp"></a>
-
-*Temperature SMART %s*
-
-### smtp
-
-<a id="check-smtp"></a>
-
-### sni_octopuse_cpu
-
-<a id="check-sni-octopuse-cpu"></a>
-
-*CPU utilization*
-
-### sni_octopuse_status
-
-<a id="check-sni-octopuse-status"></a>
-
-*Global status*
-
-### sni_octopuse_trunks
-
-<a id="check-sni-octopuse-trunks"></a>
-
-*Trunk Port %s*
-
-### snmp_info
-
-<a id="check-snmp-info"></a>
-
-*SNMP Info*
-
-### solaris_fmadm
-
-<a id="check-solaris-fmadm"></a>
-
-*FMD Status*
-
-### solaris_multipath
-
-<a id="check-solaris-multipath"></a>
-
-*Multipath %s*
-
-### solaris_prtdiag_status
-
-<a id="check-solaris-prtdiag-status"></a>
-
-*Hardware Overall State*
-
-### solaris_services
-
-<a id="check-solaris-services"></a>
-
-*SMF Service %s*
-
-### solaris_services_summary
-
-<a id="check-solaris-services-summary"></a>
-
-*SMF Services Summary*
-
-### sql
-
-<a id="check-sql"></a>
-
-### ssh
-
-<a id="check-ssh"></a>
-
-### sshd_config
-
-<a id="check-sshd-config"></a>
-
-*SSH daemon configuration*
-
-### statgrab_cpu
-
-<a id="check-statgrab-cpu"></a>
-
-*CPU utilization*
-
-### storcli_cache_vault
-
-<a id="check-storcli-cache-vault"></a>
-
-*RAID cache vault %s*
-
-### storcli_pdisks
-
-<a id="check-storcli-pdisks"></a>
-
-*RAID PDisk EID:Slot-Device %s*
-
-### storcli_vdrives
-
-<a id="check-storcli-vdrives"></a>
-
-*RAID Virtual Drive %s*
-
-### storeonce4x_appliances
-
-<a id="check-storeonce4x-appliances"></a>
-
-*Appliance %s Status*
-
 ### storeonce4x_appliances_license
 
 <a id="check-storeonce4x-appliances-license"></a>
 
 *Appliance %s License*
-
-### storeonce4x_appliances_storage
-
-<a id="check-storeonce4x-appliances-storage"></a>
-
-*Appliance %s Storage*
-
-### storeonce4x_appliances_summaries
-
-<a id="check-storeonce4x-appliances-summaries"></a>
-
-*Appliance %s Summaries*
-
-### storeonce4x_cat_stores
-
-<a id="check-storeonce4x-cat-stores"></a>
-
-*Catalyst Stores %s*
-
-### storeonce_clusterinfo
-
-<a id="check-storeonce-clusterinfo"></a>
-
-*%s*
-
-### storeonce_clusterinfo_cluster
-
-<a id="check-storeonce-clusterinfo-cluster"></a>
-
-*Appliance Status*
-
-### storeonce_clusterinfo_space
-
-<a id="check-storeonce-clusterinfo-space"></a>
-
-*%s*
-
-### storeonce_clusterinfo_uptime
-
-<a id="check-storeonce-clusterinfo-uptime"></a>
-
-*Uptime*
-
-### storeonce_servicesets
-
-<a id="check-storeonce-servicesets"></a>
-
-*ServiceSet %s Status*
-
-### storeonce_servicesets_capacity
-
-<a id="check-storeonce-servicesets-capacity"></a>
-
-*ServiceSet %s Capacity*
-
-### storeonce_stores
-
-<a id="check-storeonce-stores"></a>
-
-*%s*
-
-### stormshield_cluster
-
-<a id="check-stormshield-cluster"></a>
-
-*HA Status*
-
-### stormshield_cluster_node
-
-<a id="check-stormshield-cluster-node"></a>
-
-*HA Member %s*
-
-### stormshield_cpu_temp
-
-<a id="check-stormshield-cpu-temp"></a>
-
-*CPU Temp %s*
-
-### stormshield_disk
-
-<a id="check-stormshield-disk"></a>
-
-*Disk %s*
-
-### stormshield_info
-
-<a id="check-stormshield-info"></a>
-
-*Stormshield Info*
-
-### stormshield_packets
-
-<a id="check-stormshield-packets"></a>
-
-*Packet Stats %s*
-
-### stormshield_policy
-
-<a id="check-stormshield-policy"></a>
-
-*Policy %s*
-
-### stormshield_route
-
-<a id="check-stormshield-route"></a>
-
-*Gateway %s*
-
-### stormshield_services
-
-<a id="check-stormshield-services"></a>
-
-*Service %s*
-
-### stormshield_updates
-
-<a id="check-stormshield-updates"></a>
-
-*Autoupdate %s*
-
-### strem1_sensors
-
-<a id="check-strem1-sensors"></a>
-
-*Sensor - %s*
-
-### supermicro
-
-<a id="check-supermicro"></a>
-
-*Overall Hardware Health*
-
-### supermicro_sensors
-
-<a id="check-supermicro-sensors"></a>
-
-*Sensor %s*
-
-### supermicro_smart
-
-<a id="check-supermicro-smart"></a>
-
-*SMART Health %s*
-
-### superstack3_sensors
-
-<a id="check-superstack3-sensors"></a>
-
-*%s*
-
-### suseconnect
-
-<a id="check-suseconnect"></a>
-
-*SLES license*
 
 ### sylo
 
@@ -16670,787 +17444,19 @@ The check runs the configured `command` (argv list) on the host. It interprets N
 
 *Sylo*
 
-### sym_brightmail_queues
-
-<a id="check-sym-brightmail-queues"></a>
-
-*Queue %s*
-
-### symantec_av_progstate
-
-<a id="check-symantec-av-progstate"></a>
-
-*AV Program Status*
-
-### symantec_av_quarantine
-
-<a id="check-symantec-av-quarantine"></a>
-
-*AV Quarantine*
-
-### symantec_av_updates
-
-<a id="check-symantec-av-updates"></a>
-
-*AV Update Status*
-
-### synology_disks
-
-<a id="check-synology-disks"></a>
-
-*Disks %s*
-
-### synology_fans
-
-<a id="check-synology-fans"></a>
-
-*Fan %s*
-
-### synology_info
-
-<a id="check-synology-info"></a>
-
-*Info*
-
-### synology_raid
-
-<a id="check-synology-raid"></a>
-
-*Raid %s*
-
-### synology_status
-
-<a id="check-synology-status"></a>
-
-*Status*
-
 ### synology_update
 
 <a id="check-synology-update"></a>
 
 *Update*
 
-### systemd_units_services
-
-<a id="check-systemd-units-services"></a>
-
-*Systemd Service %s*
-
-### systemd_units_services_summary
-
-<a id="check-systemd-units-services-summary"></a>
-
-*Systemd Service Summary*
-
-### systemd_units_sockets
-
-<a id="check-systemd-units-sockets"></a>
-
-*Systemd Socket %s*
-
-### systemd_units_sockets_summary
-
-<a id="check-systemd-units-sockets-summary"></a>
-
-*Systemd Socket Summary*
-
-### systemtime
-
-<a id="check-systemtime"></a>
-
-*System Time*
-
-### tcp
-
-<a id="check-tcp"></a>
-
-### tcp_conn_stats
-
-<a id="check-tcp-conn-stats"></a>
-
-*TCP Connections*
-
-### teracom_tcw241_analog
-
-<a id="check-teracom-tcw241-analog"></a>
-
-*Analog Sensor %s*
-
-### teracom_tcw241_digital
-
-<a id="check-teracom-tcw241-digital"></a>
-
-*Digital Sensor %s*
-
-### timemachine
-
-<a id="check-timemachine"></a>
-
-### timesyncd
-
-<a id="check-timesyncd"></a>
-
-*Systemd Timesyncd Time*
-
-### traceroute
-
-<a id="check-traceroute"></a>
-
-### tsm_drives
-
-<a id="check-tsm-drives"></a>
-
-*TSM Drive %s*
-
-### tsm_paths
-
-<a id="check-tsm-paths"></a>
-
-*TSM Paths*
-
-### tsm_scratch
-
-<a id="check-tsm-scratch"></a>
-
-*Scratch Pool %s*
-
-### tsm_sessions
-
-<a id="check-tsm-sessions"></a>
-
-*tsm_sessions*
-
-### tsm_stagingpools
-
-<a id="check-tsm-stagingpools"></a>
-
-*TSM Stagingpool %s*
-
-### tsm_storagepools
-
-<a id="check-tsm-storagepools"></a>
-
-*TSM Storagepool %s*
-
-### ucd_cpu_util
-
-<a id="check-ucd-cpu-util"></a>
-
-*CPU utilization*
-
-### ucd_disk
-
-<a id="check-ucd-disk"></a>
-
-*Filesystem %s*
-
-### ucd_diskio
-
-<a id="check-ucd-diskio"></a>
-
-*Disk IO %s*
-
-### ucd_processes
-
-<a id="check-ucd-processes"></a>
-
-*Processes %s*
-
 ### uniserv
 
 <a id="check-uniserv"></a>
-
-### unitrends_backup
-
-<a id="check-unitrends-backup"></a>
-
-*Schedule %s*
-
-### unitrends_replication
-
-<a id="check-unitrends-replication"></a>
-
-*Replicaion %s*
-
-### ups_bat_temp
-
-<a id="check-ups-bat-temp"></a>
-
-*Temperature %s*
-
-### ups_battery_state
-
-<a id="check-ups-battery-state"></a>
-
-*Battery state*
-
-### ups_capacity
-
-<a id="check-ups-capacity"></a>
-
-*Battery capacity*
-
-### ups_cps_battery
-
-<a id="check-ups-cps-battery"></a>
-
-*UPS Battery*
-
-### ups_cps_battery_temp
-
-<a id="check-ups-cps-battery-temp"></a>
-
-*Temperature %s*
-
-### ups_cps_inphase
-
-<a id="check-ups-cps-inphase"></a>
-
-*UPS Input Phase %s*
-
-### ups_cps_outphase
-
-<a id="check-ups-cps-outphase"></a>
-
-*UPS Output Phase %s*
-
-### ups_eaton_enviroment
-
-<a id="check-ups-eaton-enviroment"></a>
-
-*Enviroment*
-
-### ups_in_freq
-
-<a id="check-ups-in-freq"></a>
-
-*IN frequency phase %s*
-
-### ups_in_voltage
-
-<a id="check-ups-in-voltage"></a>
-
-*IN voltage phase %s*
-
-### ups_modulys_alarms
-
-<a id="check-ups-modulys-alarms"></a>
-
-*UPS Alarms*
-
-### ups_modulys_battery
-
-<a id="check-ups-modulys-battery"></a>
-
-*Battery Charge*
-
-### ups_modulys_battery_temp
-
-<a id="check-ups-modulys-battery-temp"></a>
-
-*Temperature %s*
-
-### ups_modulys_inphase
-
-<a id="check-ups-modulys-inphase"></a>
-
-*Input %s*
-
-### ups_modulys_outphase
-
-<a id="check-ups-modulys-outphase"></a>
-
-*Output %s*
-
-### ups_out_load
-
-<a id="check-ups-out-load"></a>
-
-*OUT load phase %s*
-
-### ups_out_voltage
-
-<a id="check-ups-out-voltage"></a>
-
-*OUT voltage phase %s*
-
-### ups_socomec_capacity
-
-<a id="check-ups-socomec-capacity"></a>
-
-*Battery capacity*
-
-### ups_socomec_in_voltage
-
-<a id="check-ups-socomec-in-voltage"></a>
-
-*IN voltage phase %s*
-
-### ups_socomec_out_source
-
-<a id="check-ups-socomec-out-source"></a>
-
-*Output Source*
-
-### ups_socomec_out_voltage
-
-<a id="check-ups-socomec-out-voltage"></a>
-
-*OUT voltage phase %s*
-
-### ups_socomec_outphase
-
-<a id="check-ups-socomec-outphase"></a>
-
-*Output %s*
-
-### ups_test
-
-<a id="check-ups-test"></a>
-
-*Self Test*
-
-### varnish
-
-<a id="check-varnish"></a>
-
-*Varnish Uptime*
-
-### varnish_backend
-
-<a id="check-varnish-backend"></a>
-
-*Varnish Backend*
-
-### varnish_cache
-
-<a id="check-varnish-cache"></a>
-
-*Varnish Cache*
-
-### varnish_cache_hit_ratio
-
-<a id="check-varnish-cache-hit-ratio"></a>
-
-*Varnish Cache Hit Ratio*
-
-### varnish_client
-
-<a id="check-varnish-client"></a>
-
-*Varnish Client*
-
-### varnish_esi
-
-<a id="check-varnish-esi"></a>
-
-*Varnish ESI*
-
-### varnish_fetch
-
-<a id="check-varnish-fetch"></a>
-
-*Varnish Fetch*
-
-### varnish_objects
-
-<a id="check-varnish-objects"></a>
-
-*Varnish Objects*
-
-### varnish_worker
-
-<a id="check-varnish-worker"></a>
-
-*Varnish Worker*
-
-### varnish_worker_thread_ratio
-
-<a id="check-varnish-worker-thread-ratio"></a>
-
-*Varnish Worker Thread Ratio*
-
-### vbox_guest
-
-<a id="check-vbox-guest"></a>
-
-*VBox Guest Additions*
-
-### veeam_cdp_jobs
-
-<a id="check-veeam-cdp-jobs"></a>
-
-*VEEAM CDP Job %s*
-
-### veeam_jobs
-
-<a id="check-veeam-jobs"></a>
-
-*VEEAM Job %s*
-
-### veeam_tapejobs
-
-<a id="check-veeam-tapejobs"></a>
-
-*VEEAM Tape Job %s*
-
-### veritas_vcs
-
-<a id="check-veritas-vcs"></a>
-
-*VCS Cluster %s*
-
-### veritas_vcs_resource
-
-<a id="check-veritas-vcs-resource"></a>
-
-*VCS Resource %s*
-
-### veritas_vcs_servicegroup
-
-<a id="check-veritas-vcs-servicegroup"></a>
-
-*VCS Service Group %s*
-
-### veritas_vcs_system
-
-<a id="check-veritas-vcs-system"></a>
-
-*VCS System %s*
-
-### viprinet_firmware
-
-<a id="check-viprinet-firmware"></a>
-
-*Firmware Version*
-
-### viprinet_mem
-
-<a id="check-viprinet-mem"></a>
-
-*Memory*
-
-### vms_cpu
-
-<a id="check-vms-cpu"></a>
-
-*CPU utilization*
-
-### vms_diskstat_df
-
-<a id="check-vms-diskstat-df"></a>
-
-*Filesystem %s*
-
-### vms_system_ios
-
-<a id="check-vms-system-ios"></a>
-
-*IOs*
-
-### vms_system_procs
-
-<a id="check-vms-system-procs"></a>
-
-*Number of processes*
-
-### vms_users
-
-<a id="check-vms-users"></a>
-
-*VMS Users*
-
-### vnx_quotas
-
-<a id="check-vnx-quotas"></a>
-
-*VNX Quota %s*
-
-### vutlan_ems_smoke
-
-<a id="check-vutlan-ems-smoke"></a>
-
-*Smoke Detector %s*
-
-### vxvm_enclosures
-
-<a id="check-vxvm-enclosures"></a>
-
-*Enclosure %s*
-
-### vxvm_multipath
-
-<a id="check-vxvm-multipath"></a>
-
-*Multipath %s*
-
-### vxvm_objstatus
-
-<a id="check-vxvm-objstatus"></a>
-
-*VXVM objstatus %s*
-
-### w32time_status
-
-<a id="check-w32time-status"></a>
-
-*Windows time service*
-
-### wagner_titanus_topsense_airflow_deviation
-
-<a id="check-wagner-titanus-topsense-airflow-deviation"></a>
-
-*Airflow Deviation Detector %s*
-
-### wagner_titanus_topsense_alarm
-
-<a id="check-wagner-titanus-topsense-alarm"></a>
-
-*Alarm Detector %s*
-
-### wagner_titanus_topsense_chamber_deviation
-
-<a id="check-wagner-titanus-topsense-chamber-deviation"></a>
-
-*Chamber Deviation Detector %s*
-
-### wagner_titanus_topsense_info
-
-<a id="check-wagner-titanus-topsense-info"></a>
-
-*Topsense Info*
-
-### wagner_titanus_topsense_overall_status
-
-<a id="check-wagner-titanus-topsense-overall-status"></a>
-
-*Overall Status*
-
-### wagner_titanus_topsense_smoke
-
-<a id="check-wagner-titanus-topsense-smoke"></a>
-
-*Smoke Detector %s*
-
-### wagner_titanus_topsense_temp
-
-<a id="check-wagner-titanus-topsense-temp"></a>
-
-*Temperature %s*
-
-### watchdog_sensors
-
-<a id="check-watchdog-sensors"></a>
-
-*%s*
-
-### watchdog_sensors_dew
-
-<a id="check-watchdog-sensors-dew"></a>
-
-*%s*
-
-### watchdog_sensors_humidity
-
-<a id="check-watchdog-sensors-humidity"></a>
-
-*%s*
-
-### watchdog_sensors_temp
-
-<a id="check-watchdog-sensors-temp"></a>
-
-*%s*
-
-### win_dhcp_pools
-
-<a id="check-win-dhcp-pools"></a>
-
-*DHCP Pool %s*
-
-### win_dhcp_pools_stats
-
-<a id="check-win-dhcp-pools-stats"></a>
-
-*DHCP Stats*
-
-### win_license
-
-<a id="check-win-license"></a>
-
-*Windows License*
-
-### win_netstat
-
-<a id="check-win-netstat"></a>
-
-*TCP Connection %s*
-
-### win_printers
-
-<a id="check-win-printers"></a>
-
-*Printer %s*
-
-### windows_broadcom_bonding
-
-<a id="check-windows-broadcom-bonding"></a>
-
-*Bonding Interface %s*
-
-### windows_intel_bonding
-
-<a id="check-windows-intel-bonding"></a>
-
-*Bonding interface %s*
-
-### windows_multipath
-
-<a id="check-windows-multipath"></a>
-
-*Multipath*
-
-### windows_tasks
-
-<a id="check-windows-tasks"></a>
-
-*Task %s*
-
-### windows_updates
-
-<a id="check-windows-updates"></a>
-
-*System Updates*
-
-### winperf_if
-
-<a id="check-winperf-if"></a>
-
-*Interface %s*
-
-### winperf_mem
-
-<a id="check-winperf-mem"></a>
-
-*Memory Pages*
-
-### winperf_msx_queues
-
-<a id="check-winperf-msx-queues"></a>
-
-*Queue %s*
-
-### winperf_phydisk
-
-<a id="check-winperf-phydisk"></a>
-
-*Disk IO %s*
-
-### winperf_ts_sessions
-
-<a id="check-winperf-ts-sessions"></a>
-
-*Sessions*
-
-### wmi_webservices
-
-<a id="check-wmi-webservices"></a>
-
-*Web Service %s*
-
-### wmic_process
-
-<a id="check-wmic-process"></a>
-
-*Process %s*
-
-### wut_webio
-
-<a id="check-wut-webio"></a>
-
-*Check plug-in for W&T WebIO device*
-
-### wut_webtherm
-
-<a id="check-wut-webtherm"></a>
-
-*Temperature %s*
-
-### wut_webtherm_pressure
-
-<a id="check-wut-webtherm-pressure"></a>
-
-*Pressure %s*
 
 ### zebra_model
 
 <a id="check-zebra-model"></a>
 
 *Zebra Printer Model*
-
-### zebra_printer_status
-
-<a id="check-zebra-printer-status"></a>
-
-*Zebra Printer Status*
-
-### zertificon_mail_queues
-
-<a id="check-zertificon-mail-queues"></a>
-
-*Zertificon Mail Queues*
-
-### zerto_agent
-
-<a id="check-zerto-agent"></a>
-
-*Zerto Agent Status*
-
-### zerto_vpg_rpo
-
-<a id="check-zerto-vpg-rpo"></a>
-
-*Zerto VPG RPO %s*
-
-### zfs_arc_cache
-
-<a id="check-zfs-arc-cache"></a>
-
-*ZFS arc cache*
-
-### zfs_arc_cache_l2
-
-<a id="check-zfs-arc-cache-l2"></a>
-
-*ZFS arc cache L2*
-
-### zfsget
-
-<a id="check-zfsget"></a>
-
-*Filesystem %s*
-
-### zorp_connections
-
-<a id="check-zorp-connections"></a>
-
-*Zorp FW - connections*
-
-### zpool
-
-<a id="check-zpool"></a>
-
-*Storage Pool %s*
-
-### zpool_status
-
-<a id="check-zpool-status"></a>
-
-*zpool status*
-
-### zypper
-
-<a id="check-zypper"></a>
-
-*Zypper Updates*
 
