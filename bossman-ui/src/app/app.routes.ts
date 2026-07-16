@@ -56,6 +56,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/config-templates/config-templates.component').then((m) => m.ConfigTemplatesComponent),
   },
   {
+    path: 'config-codecs',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/config-codecs/config-codecs.component').then((m) => m.ConfigCodecsComponent),
+  },
+  {
     path: 'runbooks',
     canActivate: [authGuard],
     loadComponent: () => import('./features/runbooks/runbook-editor.component').then((m) => m.RunbookEditorComponent),

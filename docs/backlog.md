@@ -75,8 +75,12 @@ The AI must, exposed **as an MCP skill**:
   catalog count — two bookkeepings; reconcile now that categorization is done.~~
   ✅ DONE — Modules excludes checkmk checks and links to Checks with the real
   count; filter chips count only real modules.
-- **F-8** Codec registry still has no UI (config-templates page exists; codecs
-  don't).
+- ~~**F-8** Codec registry still has no UI (config-templates page exists; codecs
+  don't).~~ ✅ DONE — new read-only catalog at Setup → Config codecs: GET
+  /api/v1/config-codecs serves configs/config_codecs.json (mounted into the
+  bossman container) as a flat, searchable list grouped by codec, with a detail
+  pane (comment/separator syntax, confidence, covered paths + packages).
+  Verified live: 114 patterns (63 keyvalue, 22 ini, 22 none, 6 xml, 1 toml).
 - **F-9** Virtualization: piggyback sources not visible/configurable.
 - **F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
   Runbooks page (currently text-only NestedText).

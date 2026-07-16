@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # in the repo), each a <name>/ dir with template.j2 + schema.json +
     # sample.json. Served as a catalog and bound to discovered config files.
     config_templates_dir: str = "/app/config-templates"
+    # F-8: the man-page-derived codec registry (configs/config_codecs.json in
+    # the repo, also go:embedded in the agent). Read-only; served as a catalog
+    # so an operator can see how each config file's grammar is read/written.
+    config_codecs_path: str = "/app/config_codecs.json"
 
     # The Starlark module library (docs/plan.md Blocks G7/G8): translated
     # collection modules land here as <collection>/<name>.{yaml,star},
