@@ -1,11 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { BulkUpdateResult, CveFilters, CveSummary, FleetCve, SecurityService } from '../../core/services/security.service';
+import { BulkUpdateResult, CveFilters, CveSummary, FeedStatus, FleetCve, SecurityService } from '../../core/services/security.service';
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 
 /** Block 4-D — fleet-wide Security page: which pending package upgrades close
@@ -15,7 +16,7 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
 @Component({
   selector: 'app-security',
   standalone: true,
-  imports: [FormsModule, RouterLink, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, FilterBarComponent],
+  imports: [DatePipe, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, FilterBarComponent],
   template: `
     <div class="bm-sec">
       <header class="bm-head">
@@ -26,6 +27,22 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
         </button>
         <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
       </header>
+
+      @if (feed(); as f) {
+        <p class="bm-feed-status">
+          @if (!f.enabled) {
+            <mat-icon class="bm-fi bm-fi-off">pause_circle</mat-icon> Scheduled CVE feed is <strong>disabled</strong> — use “Refresh CVE feed”.
+          } @else {
+            <mat-icon class="bm-fi" [class.bm-fi-ok]="f.last_run_ok" [class.bm-fi-err]="f.last_run_ok === false">
+              {{ f.last_run_ok === false ? 'error' : 'schedule' }}
+            </mat-icon>
+            Feed every {{ f.interval_hours }} h ·
+            @if (f.last_run_started) { last refresh {{ f.last_run_started | date: 'medium' }} } @else { not run yet }
+            @if (f.last_run_ok === false) { — <span class="bm-fi-err-txt">failed: {{ f.last_error }}</span> }
+            · {{ feedTotal(f) }} advisories cached
+          }
+        </p>
+      }
 
       @if (feedMsg()) { <p class="bm-feed-msg">{{ feedMsg() }}</p> }
 
@@ -147,6 +164,12 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-hint { font-size: 12px; opacity: 0.6; }
       .bm-bulkmsg { font-size: 12.5px; margin: 0 0 8px; padding: 6px 10px; border-radius: 6px; background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); white-space: pre-line; }
       .bm-bulkerr { background: color-mix(in srgb, #c62828 14%, transparent); }
+      .bm-feed-status { display: flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: 0.85; margin: 0 0 4px; flex-wrap: wrap; }
+      .bm-fi { font-size: 17px; height: 17px; width: 17px; opacity: 0.7; }
+      .bm-fi-ok { color: #2e7d32; opacity: 1; }
+      .bm-fi-err { color: #c62828; opacity: 1; }
+      .bm-fi-off { color: #f9a825; opacity: 1; }
+      .bm-fi-err-txt { color: #c62828; }
     `,
   ],
 })
@@ -162,6 +185,7 @@ export class SecurityComponent {
   expanded = signal<string | null>(null);
   refreshing = signal(false);
   feedMsg = signal<string | null>(null);
+  feed = signal<FeedStatus | null>(null);
 
   filterDefs: FilterDef[] = [
     { ident: 'severity', label: 'Severity', kind: 'select', options: this.severities.map((s) => ({ value: s, label: s })) },
@@ -182,6 +206,16 @@ export class SecurityComponent {
   constructor() {
     this.reload();
     this.security.summary().subscribe({ next: (s) => this.summary.set(s), error: () => {} });
+    this.loadFeed();
+  }
+
+  private loadFeed(): void {
+    this.security.feedStatus().subscribe({ next: (f) => this.feed.set(f), error: () => {} });
+  }
+
+  /** Total advisories cached across all distros — proof the scheduled feed ran. */
+  feedTotal(f: FeedStatus): number {
+    return Object.values(f.counts || {}).reduce((a, b) => a + b, 0);
   }
 
   private filters(): CveFilters {
@@ -272,6 +306,8 @@ export class SecurityComponent {
         this.refreshing.set(false);
         this.feedMsg.set(`feed refreshed: ${Object.entries(r.counts).map(([d, n]) => `${d} ${n}`).join(', ')}`);
         this.security.summary().subscribe({ next: (s) => this.summary.set(s) });
+        this.loadFeed();
+        this.reload();
       },
       error: (e) => { this.refreshing.set(false); this.feedMsg.set(e?.error?.detail ?? 'refresh failed (admin only)'); },
     });

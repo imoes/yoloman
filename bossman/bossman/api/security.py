@@ -41,9 +41,12 @@ async def feed_status(
     stats = request.app.state.cve_feed_stats
     return {
         "enabled": settings.cve_feed_enabled,
+        "last_run_started": stats.last_run_started,
         "last_run_ok": stats.last_run_ok,
         "last_error": stats.last_error,
         "counts": stats.counts,
+        # So the UI can show the cadence and prove the poll is scheduled.
+        "interval_hours": settings.cve_feed_interval_hours,
     }
 
 

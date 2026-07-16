@@ -2,6 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
+export interface FeedStatus {
+  enabled: boolean;
+  last_run_started: string | null;
+  last_run_ok: boolean | null;
+  last_error: string | null;
+  counts: Record<string, number>;
+  interval_hours: number;
+}
+
 export interface CveHost {
   agent_id: string;
   host: string;
@@ -53,7 +62,7 @@ export class SecurityService {
   }
 
   feedStatus() {
-    return this.http.get<{ enabled: boolean; last_run_ok: boolean | null; last_error: string | null; counts: Record<string, number> }>(`${this.base}/feed-status`);
+    return this.http.get<FeedStatus>(`${this.base}/feed-status`);
   }
 
   refresh() {

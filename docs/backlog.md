@@ -96,7 +96,14 @@ The AI must, exposed **as an MCP skill**:
 - ~~**F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense.~~ ✅ DONE
   — the seeded defaults are Memory/Disk warn=80/crit=90, Disk IOPS 5000/10000
   (`_DEFAULT_CHECK_RULES`); verified against the live DB, no 10/20 rule exists.
-- **F-15** Security page is manual-only (no scheduled CVE poll surfaced).
+- ~~**F-15** Security page is manual-only (no scheduled CVE poll surfaced).~~
+  ✅ DONE — the scheduled poll already existed (cve_feed_loop + after_refresh
+  per-host collect), it just wasn't visible. feed-status now also returns
+  last_run_started + interval_hours, and the Security page shows a status line:
+  enabled/disabled, cadence ("every 24 h"), last refresh time, ok/error, and
+  advisories cached — so an operator can see the poll is scheduled (and whether
+  it's turned on: cve_feed_enabled defaults off) instead of only having the
+  manual "Refresh CVE feed" button.
 - ~~**F-16** Network provider detection (NetworkManager reported on docker-test,
   believed ifupdown) — verify.~~ ✅ DONE — real bug: NetworkManager was running
   but every real NIC was STATE=unmanaged (ens18 is driven by
