@@ -1,10 +1,22 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { DomSanitizer } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/auth/auth.service';
 import { ChatDockComponent } from './features/chat/chat-dock.component';
+import { IconComponent, BRAND_MARK } from './shared/components/icon/icon.component';
+
+// Route → bespoke icon name (icon.component's set). Keyed by path so the nav
+// data stays declarative and the icon set can evolve independently.
+const NAV_ICON: Record<string, string> = {
+  '/fleet': 'fleet', '/problems': 'problems', '/topology': 'topology', '/security': 'security',
+  '/host-placement': 'host-placement', '/plan-library': 'roles', '/deploy': 'deploy',
+  '/runs': 'runs', '/help': 'help',
+  '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
+  '/checks': 'checks', '/config-templates': 'config-templates', '/users': 'users', '/settings': 'settings',
+};
 
 interface NavItem {
   path: string;
@@ -46,13 +58,16 @@ const SETUP_NAV: NavItem[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent, IconComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
   auth = inject(AuthService);
   private router = inject(Router);
+  private sanitizer = inject(DomSanitizer);
+  readonly brandMark = this.sanitizer.bypassSecurityTrustHtml(BRAND_MARK);
+  navIcon(path: string): string { return NAV_ICON[path] ?? 'fleet'; }
   // Chromeless routes (e.g. the pop-out console) render bare — no nav/chat —
   // so a console window is just the terminal.
   private url = signal(this.router.url);
