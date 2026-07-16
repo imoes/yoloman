@@ -163,6 +163,39 @@ def _merge_values(old: dict | None, new: dict | None, fmt: str | None) -> dict:
     return out
 
 
+def remove_desired_key(row: Any, key: str) -> dict | None:
+    """GPO "Not configured": drop ONE key from a desired-values row
+    (HostConfigResource or ConfigPolicy). Returns the updated values dict, or
+    None when the key isn't managed. Nested formats navigate a dot-path and
+    prune empty parents; the caller persists (or deletes the emptied row)."""
+    values = dict(row.values or {})
+    if row.type != "template_render" and (row.config_format not in (None, "keyvalue")) and "." in key:
+        parts = key.split(".")
+        node = values
+        for p in parts[:-1]:
+            nxt = node.get(p)
+            if not isinstance(nxt, dict):
+                return None
+            node = nxt
+        if parts[-1] not in node:
+            return None
+        del node[parts[-1]]
+
+        def prune(d: dict) -> None:
+            for k in list(d.keys()):
+                if isinstance(d[k], dict):
+                    prune(d[k])
+                    if not d[k]:
+                        del d[k]
+
+        prune(values)
+    else:
+        if key not in values:
+            return None
+        del values[key]
+    return values
+
+
 class StateDocument(BaseModel):
     # One config resource per edited file: {type: "config", path, format,
     # separator?, values}. A value of null deletes that key (codec-level).
@@ -372,31 +405,9 @@ async def post_agent_config_unset(
     if row is None:
         raise HTTPException(status_code=404, detail=f"no desired config for {body.path} at that scope")
 
-    values = dict(row.values or {})
-    if row.type != "template_render" and (row.config_format not in (None, "keyvalue")) and "." in body.key:
-        # nested formats: navigate the dot-path
-        parts = body.key.split(".")
-        node = values
-        for p in parts[:-1]:
-            nxt = node.get(p)
-            if not isinstance(nxt, dict):
-                raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
-            node = nxt
-        if parts[-1] not in node:
-            raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
-        del node[parts[-1]]
-        # prune empty parents
-        def prune(d: dict) -> None:
-            for k in list(d.keys()):
-                if isinstance(d[k], dict):
-                    prune(d[k])
-                    if not d[k]:
-                        del d[k]
-        prune(values)
-    else:
-        if body.key not in values:
-            raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
-        del values[body.key]
+    values = remove_desired_key(row, body.key)
+    if values is None:
+        raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
 
     if not values and not row.template:
         await session.delete(row)

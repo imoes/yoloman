@@ -27,6 +27,28 @@ export class OuService {
     return this.http.delete<void>(`${environment.apiUrl}/config-policies/${id}`);
   }
 
+  /** Agents in the OU's subtree — the Policy-console gpedit uses the first
+   * reachable one as its settings catalog ("Host A = Host B"). */
+  members(ouId: string) {
+    return this.http.get<{ id: string; name: string; address: string | null; ou_id: string | null }[]>(
+      `${this.base}/${ouId}/members`,
+    );
+  }
+
+  /** Config policies WITH their values documents at one scope (the objects
+   * list only carries a label) — feeds the Policy-console gpedit editor. */
+  listConfigPolicies(scope: { ouId?: string; groupId?: string }) {
+    const q = scope.ouId ? `scope_ou_id=${scope.ouId}` : `host_group_id=${scope.groupId}`;
+    return this.http.get<
+      { id: string; scope_ou_id: string | null; host_group_id: string | null; path: string; type: string; format: string | null; separator: string | null; values: Record<string, unknown>; template: string | null }[]
+    >(`${environment.apiUrl}/config-policies?${q}`);
+  }
+
+  /** GPO "Not configured" at OU/group scope: stop managing one key. */
+  unsetConfigPolicyKey(body: { scope_ou_id?: string; host_group_id?: string; path: string; key: string }) {
+    return this.http.post<{ unset: boolean }>(`${environment.apiUrl}/config-policies/unset`, body);
+  }
+
   /** Block K4 — author a config-value policy at OU/group scope (gpedit's
    * "add a setting") and converge every reachable member host. Exactly one of
    * ouId / hostGroupId is set. `values` is the desired key→value document

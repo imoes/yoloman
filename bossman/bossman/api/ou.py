@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import re
 
 from bossman.api.auth import get_current_identity
-from bossman.api.management import _merge_values
+from bossman.api.management import _merge_values, remove_desired_key
 from bossman.api.plans import get_client_factory
 from bossman.config import get_settings
 from bossman.db.models import (
@@ -413,6 +413,90 @@ async def create_config_policy(
         "host_group_id": None if is_ou else str(body.host_group_id),
         "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run,
     }
+
+
+@router.get("/api/v1/ou/{ou_id}/members")
+async def list_ou_members(
+    ou_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[dict]:
+    """Agents in this OU's SUBTREE (policy semantics — a policy on /Munich
+    reaches hosts in /Munich/mue-0 too). The Policy-console gpedit editor uses
+    the first reachable member as its settings catalog ("Host A = Host B")."""
+    await _get_ou_or_404(session, ou_id)
+    out = []
+    for agent_id in await affected_agent_ids(session, "ou", ou_id=ou_id):
+        a = await session.get(Agent, agent_id)
+        if a is not None:
+            out.append({"id": str(a.id), "name": a.name, "address": a.address, "ou_id": str(a.ou_id) if a.ou_id else None})
+    return out
+
+
+@router.get("/api/v1/config-policies")
+async def list_config_policies(
+    scope_ou_id: UUID | None = None,
+    host_group_id: UUID | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> list[dict]:
+    """Config policies WITH their values documents, for the Policy-console
+    gpedit editor (the OU objects list only carries a label). Filter by OU or
+    group scope; no filter returns all."""
+    stmt = select(ConfigPolicy)
+    if scope_ou_id is not None:
+        stmt = stmt.where(ConfigPolicy.scope_ou_id == scope_ou_id)
+    if host_group_id is not None:
+        stmt = stmt.where(ConfigPolicy.host_group_id == host_group_id)
+    return [
+        {
+            "id": str(cp.id),
+            "scope_ou_id": str(cp.scope_ou_id) if cp.scope_ou_id else None,
+            "host_group_id": str(cp.host_group_id) if cp.host_group_id else None,
+            "path": cp.path, "type": cp.type, "format": cp.config_format,
+            "separator": cp.separator, "values": cp.values or {}, "template": cp.template,
+        }
+        for cp in (await session.scalars(stmt)).all()
+    ]
+
+
+class ConfigPolicyUnsetIn(BaseModel):
+    scope_ou_id: UUID | None = None
+    host_group_id: UUID | None = None
+    path: str
+    key: str
+
+
+@router.post("/api/v1/config-policies/unset")
+async def unset_config_policy_key(
+    body: ConfigPolicyUnsetIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """GPO "Not configured" at OU/group scope, agent-free (the Policy-console
+    editor's counterpart of /agents/{id}/config-desired/unset): stop managing
+    ONE key in a scope policy. Member hosts keep their live value; removing
+    the last key deletes the policy row."""
+    is_ou = body.scope_ou_id is not None
+    if is_ou == (body.host_group_id is not None):
+        raise HTTPException(status_code=422, detail="set exactly one of scope_ou_id / host_group_id")
+    if is_ou:
+        q = select(ConfigPolicy).where(ConfigPolicy.scope_ou_id == body.scope_ou_id, ConfigPolicy.path == body.path)
+    else:
+        q = select(ConfigPolicy).where(ConfigPolicy.host_group_id == body.host_group_id, ConfigPolicy.path == body.path)
+    row = await session.scalar(q)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no config policy for {body.path} at that scope")
+    values = remove_desired_key(row, body.key)
+    if values is None:
+        raise HTTPException(status_code=404, detail=f"key {body.key} not managed")
+    if not values and not row.template:
+        await session.delete(row)
+    else:
+        row.values = values
+        row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"path": body.path, "key": body.key, "unset": True}
 
 
 @router.delete("/api/v1/config-policies/{policy_id}", status_code=204)

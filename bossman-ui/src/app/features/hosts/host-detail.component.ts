@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -476,15 +477,22 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 }
                 <div class="bm-gpo">
                   <div class="bm-gpo-tree">
+                    <input
+                      class="bm-gpo-search"
+                      type="search"
+                      placeholder="Search settings…"
+                      [ngModel]="gpoSearch()"
+                      (ngModelChange)="gpoSearch.set($event)"
+                    />
                     <div class="bm-gpo-dir">Monitoring</div>
                     <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::thresholds'" (click)="selectPane('::thresholds')">Thresholds</div>
                     <div class="bm-gpo-dir">Policies</div>
                     <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::plans'" (click)="selectPane('::plans')">Applied plans</div>
                     <div class="bm-gpo-dir">Configuration files</div>
-                    @for (grp of dirGroups(obs); track grp.dir) {
-                      <div class="bm-gpo-subdir">{{ grp.dir }}</div>
+                    @for (grp of categoryGroups(obs); track grp.cat.key) {
+                      <div class="bm-gpo-subdir"><mat-icon class="bm-gpo-cat-ic">{{ grp.cat.icon }}</mat-icon>{{ grp.cat.label }}</div>
                       @for (f of grp.files; track f.path) {
-                        <div class="bm-gpo-file bm-gpo-indent" [class.bm-gpo-sel]="selectedPane() === f.path" (click)="selectPane(f.path)">
+                        <div class="bm-gpo-file bm-gpo-indent" [class.bm-gpo-sel]="selectedPane() === f.path" (click)="selectPane(f.path)" [title]="f.path">
                           {{ baseName(f.path) }}
                           @if (driftFor(f.path)) { <span class="bm-dot-drift">●</span> }
                         </div>
@@ -587,7 +595,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <table class="bm-gpo-settings">
                           <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
                           <tbody>
-                            @for (row of settingRows(r); track row.key) {
+                            @for (row of filteredSettingRows(r); track row.key) {
                               <tr (click)="openSetting(r, row)" [class.bm-row-sel]="settingKey() === row.key">
                                 <td class="bm-gpo-key">{{ row.key }}</td>
                                 <td [class.bm-dim]="row.state === 'Not configured'">{{ row.state }}</td>
@@ -1084,8 +1092,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-scope { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0; opacity: 0.85; }
       .bm-gpo { display: flex; gap: 14px; align-items: flex-start; }
       .bm-gpo-tree { flex: 0 0 240px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
+      .bm-gpo-search { display: block; width: calc(100% - 16px); margin: 2px 8px 6px; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
       .bm-gpo-dir { padding: 6px 10px 2px; font-weight: 700; font-size: 11px; text-transform: uppercase; opacity: 0.6; }
-      .bm-gpo-subdir { padding: 4px 10px 2px; font-size: 11px; opacity: 0.55; font-family: ui-monospace, monospace; }
+      .bm-gpo-subdir { padding: 6px 10px 2px; font-size: 11px; opacity: 0.7; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+      .bm-gpo-cat-ic { font-size: 14px; width: 14px; height: 14px; opacity: 0.8; }
       .bm-gpo-file { padding: 4px 10px; cursor: pointer; border-left: 3px solid transparent; }
       .bm-gpo-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-gpo-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
@@ -2005,17 +2015,38 @@ export class HostDetailComponent implements OnInit {
   baseName(p: string): string {
     return p.split('/').pop() || p;
   }
-  dirGroups(obs: ObservedState): { dir: string; files: ObservedResource[] }[] {
-    const m = new Map<string, ObservedResource[]>();
-    for (const r of obs.config) {
-      const dir = r.path.slice(0, r.path.lastIndexOf('/')) || '/';
-      if (!m.has(dir)) m.set(dir, []);
-      m.get(dir)!.push(r);
-    }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([dir, files]) => ({ dir, files }));
+  /** gpedit live search: filters the category tree by file path OR any
+   * setting key inside the file (searching "PermitRoot" surfaces sshd_config
+   * under Security even though the filename doesn't match). */
+  gpoSearch = signal('');
+  categoryGroups(obs: ObservedState): { cat: ConfigCategory; files: ObservedResource[] }[] {
+    const q = this.gpoSearch().trim().toLowerCase();
+    const files = !q
+      ? obs.config
+      : obs.config.filter(
+          (r) =>
+            r.path.toLowerCase().includes(q) ||
+            this.flatKeys(r).some((k) => k.toLowerCase().includes(q)),
+        );
+    return groupByCategory(files);
+  }
+  private flatKeys(r: ObservedResource): string[] {
+    const flat = r.format === 'keyvalue' ? Object.entries(r.values ?? {}) : this.flatten(r.values ?? {});
+    return flat.map(([k]) => k);
   }
   selRes(obs: ObservedState): ObservedResource | null {
     return obs.config.find((r) => r.path === this.selectedPane()) ?? null;
+  }
+
+  /** The settings list narrowed by the live search: when the query matched
+   * the file by a KEY (not its path), only the matching keys are shown, so
+   * searching "PermitRoot" jumps straight to the setting. */
+  filteredSettingRows(r: ObservedResource): { key: string; state: string; desired: string; live: string; source: string | null }[] {
+    const rows = this.settingRows(r);
+    const q = this.gpoSearch().trim().toLowerCase();
+    if (!q || r.path.toLowerCase().includes(q)) return rows;
+    const hit = rows.filter((row) => row.key.toLowerCase().includes(q));
+    return hit.length ? hit : rows;
   }
 
   /** Setting rows for a codec'd file: the union of live keys and desired keys.

@@ -38,6 +38,7 @@ import {
 } from '../../shared/components/host-group-members-dialog/host-group-members-dialog.component';
 import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult } from '../../shared/components/config-policy-dialog/config-policy-dialog.component';
+import { OuConfigEditorComponent } from './ou-config-editor.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
 import {
   OuLinkPlanDialogComponent,
@@ -83,7 +84,7 @@ interface PaletteItem {
 @Component({
   selector: 'app-ou-policy',
   standalone: true,
-  imports: [CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule],
+  imports: [CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule, OuConfigEditorComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header">
@@ -216,6 +217,7 @@ interface PaletteItem {
                 </table>
               }
               <p class="bm-hint">Right-click to add OUs/objects, assign a check, toggle Block Inheritance, or delete. A host's own check config overrides these.</p>
+              <app-ou-config-editor [ouId]="sel.ou!.id" [ouPath]="sel.ou!.path" />
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
               <table class="bm-kv">
