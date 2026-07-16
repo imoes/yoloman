@@ -65,6 +65,25 @@ services:
     depends_on:
       - bossman
 
+  # Block K6 — the Bossman-side poller agent: a normal agentic-mcpd with SNMP/
+  # SSH CLI tools, so SNMP/SSH checks can run against agent-less devices. It
+  # self-enrolls on first boot and is then polled like any other host.
+  bossman-poller:
+    build:
+      context: .
+      dockerfile: deploy/poller/Dockerfile
+    environment:
+      ENROLL_URL: http://bossman:8000
+      POLLER_NAME: bossman-poller
+      POLLER_ADDRESS: bossman-poller:8010
+    volumes:
+      - bossman-poller-conf:/etc/agentic-mcp
+      - bossman-poller-data:/var/lib/agentic-mcp
+    depends_on:
+      - bossman
+
 volumes:
   bossman-db-data:
   bossman-tls:
+  bossman-poller-conf:
+  bossman-poller-data:
