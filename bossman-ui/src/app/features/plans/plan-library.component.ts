@@ -30,7 +30,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
     <div class="bm-pl">
       <aside class="bm-pl-tree">
         <div class="bm-pl-head">
-          <strong>Plan library</strong>
+          <strong>Roles</strong>
           <span class="bm-spacer"></span>
           <button mat-icon-button (click)="openImport()" title="Import a plan (Ansible / Salt / Puppet / Chef)"><mat-icon>upload_file</mat-icon></button>
           <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>

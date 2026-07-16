@@ -42,7 +42,7 @@ interface RunItem {
     <div class="bm-deploy">
       <!-- Left: plan library tree (drag a plan into the Run) -->
       <aside class="bm-tree">
-        <div class="bm-tree-head"><strong>Plans</strong>
+        <div class="bm-tree-head"><strong>Roles</strong>
           <button mat-icon-button (click)="reload()" title="Reload"><mat-icon>refresh</mat-icon></button>
         </div>
         <ul>
@@ -54,22 +54,22 @@ interface RunItem {
             } @else {
               <li class="bm-plan" [style.padding-left.px]="8 + r.depth * 14"
                   draggable="true" (dragstart)="onDragStart(r.plan!, $event)"
-                  (dblclick)="addToRun(r.plan!)" title="Drag into the Run (or double-click to add)">
+                  (dblclick)="addToRun(r.plan!)" title="Drag this role into the Run (or double-click to add)">
                 <mat-icon>description</mat-icon>{{ r.label }}
                 <span class="bm-badge">{{ r.plan!.prefix }}</span>
               </li>
             }
           }
-          @if (!rows().length) { <li class="bm-empty">No stored plans. Import some in Plan library.</li> }
+          @if (!rows().length) { <li class="bm-empty">No roles yet. Import some in Roles.</li> }
         </ul>
       </aside>
 
       <!-- Center: the Run (drop target) + per-plan param forms -->
       <section class="bm-run" [class.bm-run-over]="dragOver()"
                (dragover)="onDragOver($event)" (dragleave)="dragOver.set(false)" (drop)="onDrop($event)">
-        <h2>Run <span class="bm-dim">— {{ runItems().length }} plan(s) → {{ targetCount() }} target(s)</span></h2>
+        <h2>Run <span class="bm-dim">— {{ runItems().length }} role(s) → {{ targetCount() }} target(s)</span></h2>
         @if (!runItems().length) {
-          <div class="bm-drop-hint"><mat-icon>drag_indicator</mat-icon> Drag plans here to build a run.</div>
+          <div class="bm-drop-hint"><mat-icon>drag_indicator</mat-icon> Drag roles here to build a run.</div>
         }
         @for (it of runItems(); track it.prefix + '/' + it.name; let i = $index) {
           <mat-card class="bm-item"

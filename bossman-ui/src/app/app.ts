@@ -16,15 +16,17 @@ interface NavItem {
 // Day-to-day operational views stay at the top level; configuration/admin
 // surfaces are grouped under a collapsible "Setup" section (below). The AI
 // Dashboard is reached from within Fleet Overview, not as its own nav entry.
+//
+// Automation is roles-centric (we dropped playbooks/tasks): one Roles library
+// to author in, Deploy to run roles across hosts/groups, Runs for history —
+// so the old Runbooks + Plans + Plan library trio collapses to just "Roles".
 const MAIN_NAV: NavItem[] = [
   { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
   { path: '/security', label: 'Security', icon: 'security' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
-  { path: '/runbooks', label: 'Runbooks', icon: 'terminal' },
-  { path: '/plans', label: 'Plans', icon: 'checklist' },
-  { path: '/plan-library', label: 'Plan library', icon: 'folder_special' },
+  { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
   { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/help', label: 'Help', icon: 'help_outline' },

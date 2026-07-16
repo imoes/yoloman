@@ -3,6 +3,9 @@ import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { AddHostDialogComponent } from './add-host-dialog.component';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
@@ -27,10 +30,13 @@ interface HostRow extends FleetHost {
 @Component({
   selector: 'app-hosts-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, MatIconModule, HostStatusBadgeComponent, PerfOMeterComponent],
+  imports: [RouterLink, DatePipe, MatCardModule, MatIconModule, MatButtonModule, HostStatusBadgeComponent, PerfOMeterComponent],
   template: `
     <div class="bm-page">
-      <h1>Hosts</h1>
+      <div class="bm-page-head">
+        <h1>Hosts</h1>
+        <button mat-flat-button color="primary" (click)="addHost()"><mat-icon>add</mat-icon> Add host</button>
+      </div>
       <mat-card>
         <table class="bm-table">
           <thead>
@@ -113,6 +119,12 @@ interface HostRow extends FleetHost {
         padding: 24px;
         max-width: 1200px;
         margin: 0 auto;
+      }
+      .bm-page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
       }
       .bm-table {
         width: 100%;
@@ -210,6 +222,7 @@ export class HostsListComponent implements OnInit {
   private monitoringService = inject(MonitoringService);
   private agentService = inject(AgentService);
   private dialog = inject(DialogService);
+  private matDialog = inject(MatDialog);
   hosts = signal<FleetHost[]>([]);
   /** The id currently being deleted, so its button disables (prevents a
    * double-submit); null when idle. */
@@ -247,6 +260,12 @@ export class HostsListComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+  }
+
+  /** Enrollment entry point on the Hosts page (was only in Settings). */
+  addHost(): void {
+    this.matDialog.open(AddHostDialogComponent, { width: '560px', maxWidth: '92vw' })
+      .afterClosed().subscribe((deployed) => { if (deployed) this.reload(); });
   }
 
   private reload(): void {
