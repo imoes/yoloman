@@ -202,9 +202,36 @@ async def _agent_with_address(session: AsyncSession, agent_id: UUID) -> Agent:
     return agent
 
 
-def _load_candidate_checks(settings: Settings, names: list[str] | None) -> list[dict[str, Any]]:
-    """Load the checks to run discovery for (default: the whole library),
-    each as {name, star, sidecar, sidecar_format, options, short_description}."""
+import re as _re
+
+_SNMP_CMD = _re.compile(r'"(snmpwalk|snmpget|snmpbulkget|snmpbulkwalk|snmptable)"')
+_SSH_CMD = _re.compile(r'"(sshpass|scp)"|\[\s*"ssh"')
+
+
+def _check_datasource(star: str) -> str:
+    """Which data source a check needs, read straight from its Starlark
+    (exact — SNMP checks ctx.run snmpwalk/snmpget). Bossman-side twin of
+    scripts/classify_check_datasource.py; used to keep discovery from running,
+    say, SNMP checks against a plain agent host."""
+    if _SNMP_CMD.search(star):
+        return "snmp"
+    if _SSH_CMD.search(star):
+        return "ssh"
+    return "agent"
+
+
+def _load_candidate_checks(
+    settings: Settings, names: list[str] | None, datasource: str = "agent"
+) -> list[dict[str, Any]]:
+    """Load the checks to run discovery for, each as {name, star, sidecar,
+    sidecar_format, options, short_description}.
+
+    Checkmk-style relevance pre-filter (see cmk .../discovery/_discover/
+    services.py `_find_host_plugins`): don't run every check in the library —
+    only those whose DATA SOURCE the host actually has. A plain agent host
+    never satisfies the 600+ SNMP checks, so running them was pure waste + the
+    reason discovery surfaced far too many/irrelevant candidates. When explicit
+    `names` are given (a targeted re-scan) the datasource filter is skipped."""
     from pathlib import Path
 
     catalog = {c["name"]: c for c in checks_library.list_checks(settings.checks_dir)}
@@ -219,6 +246,9 @@ def _load_candidate_checks(settings: Settings, names: list[str] | None) -> list[
             star = star_path.read_text(encoding="utf-8")
             sidecar = Path(yaml_path).read_text(encoding="utf-8")
         except OSError:
+            continue
+        # Relevance pre-filter by data source (skipped for an explicit re-scan).
+        if not names and _check_datasource(star) != datasource:
             continue
         # The sidecar is NestedText (.nt); the agent registers the tool under
         # its fqcn, so parse it out and pass it through (call_tool needs it).
@@ -257,7 +287,10 @@ async def discover_checks(
         raise HTTPException(status_code=403, detail="not authorized to manage this host")
     agent = await _agent_with_address(session, agent_id)
     names = (body or {}).get("check_names")
-    checks = _load_candidate_checks(settings, names)
+    # A host's data source scopes discovery (agent hosts don't run SNMP checks
+    # and vice-versa). Default 'agent'; SNMP devices pass datasource:'snmp'.
+    datasource = (body or {}).get("datasource") or "agent"
+    checks = _load_candidate_checks(settings, names, datasource)
     client = client_factory(agent, settings)
     try:
         proposals = await run_check_discovery(client, checks)

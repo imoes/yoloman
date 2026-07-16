@@ -1,13 +1,21 @@
-"""Auto-discovery run (Block G9-P3c): run checks in their `_discover` mode on
-a host and turn what they find into check proposals.
+"""Auto-discovery run (Block G9-P3c): find the checks that actually apply to a
+host and turn them into proposals.
 
-Mirrors Checkmk's service discovery: push the candidate check modules to the
-agent, invoke each in discovery mode (params `_discover: true`), and collect
-the items it reports (one per filesystem / file / sensor …, each with the
-metrics discovered for it — see services/checkmk_translation's contract).
-The result is a list of proposals the wizard / UI (or the AI) turns into
-host-scoped CheckAssignments — after collecting any required params
-(credentials) the check declares.
+Mirrors Checkmk's service discovery, whose core rule is "only a check whose
+section/data is present on the host applies" (see cmk .../discovery/_discover/
+services.py `_find_host_plugins`). Two gates:
+
+  1. datasource pre-filter (api/checks._load_candidate_checks): a plain agent
+     host never satisfies the SNMP checks, so they're not even candidates;
+  2. a REAL relevance probe here: run each candidate in normal mode and keep it
+     only if it produced actual data (state OK/WARN/CRIT). The translated
+     `_discover` mode is unreliable — it returns a hardcoded placeholder item
+     without touching the host — so trusting it made discovery list the whole
+     library. `_discover` is used only for the item/metric shape of a check
+     that already probed relevant.
+
+The result is proposals the wizard / UI (or the AI) turns into host-scoped
+CheckAssignments — after collecting any required params the check declares.
 
 Pure orchestration over the AgentClient interface (push_modules + call_tool),
 so it's unit-tested with a fake client and needs no live agent here.
@@ -96,6 +104,7 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
     proposals: list[CheckProposal] = []
     for c in checks:
         name = c["name"]
+        fqcn = c.get("fqcn") or name
         prop = CheckProposal(
             check_name=name,
             items=[],
@@ -103,11 +112,25 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
             needs_params=_needs_params(c.get("options", {})),
         )
         try:
-            # The agent registers a pushed module under the fqcn from its
-            # sidecar metadata (StarModule.Name() == fqcn), e.g.
-            # "checkmk.3par_cpgs" — so call it by that fqcn, not the flat name
-            # (which 404s as "unknown tool").
-            result = await client.call_tool(c.get("fqcn") or name, {"_discover": True})
+            # RELEVANCE PROBE (Checkmk: only a check whose section/data is
+            # present applies). The translated `_discover` mode is unreliable —
+            # it returns a hardcoded placeholder item without touching the host,
+            # so it can't tell relevant from irrelevant. Instead run the check
+            # FOR REAL (normal mode) and keep it only if it produced actual
+            # data: state OK/WARN/CRIT. UNKNOWN means its data source isn't here
+            # (e.g. acme_sbc's "show health" fails on a Linux box) → not
+            # applicable; skip it. This is what stops discovery listing the
+            # whole library.
+            probe = await client.call_tool(fqcn, {})
+            pdata = (probe or {}).get("data") if isinstance(probe, dict) else None
+            state = str((pdata or {}).get("state", "")).upper() if isinstance(pdata, dict) else ""
+            if state not in ("OK", "WARN", "CRIT"):
+                continue  # data source absent on this host — not relevant
+
+            # Relevant → enumerate its item(s) via _discover for the metric/param
+            # metadata (still the check's own shape), falling back to one default
+            # item when discovery yields nothing concrete.
+            result = await client.call_tool(fqcn, {"_discover": True})
             data = (result or {}).get("data") if isinstance(result, dict) else None
             discovery = (data or {}).get("discovery") if isinstance(data, dict) else None
             for entry in discovery or []:
@@ -120,12 +143,12 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
                         metrics=[str(m) for m in (entry.get("metrics") or [])],
                     )
                 )
+            if not prop.items:
+                prop.items.append(DiscoveredItem(item=""))
         except Exception as exc:  # noqa: BLE001 — one bad check must not sink the run
-            prop.error = str(exc)
+            # An exception in the probe means it didn't cleanly return data →
+            # treat as not-applicable rather than surfacing a traceback.
+            continue
         proposals.append(prop)
 
-    # Only surface checks that actually apply to this host (found ≥1 item).
-    # A check that discovered nothing, or errored in discovery mode (the
-    # translated module needs hardware/agent sections this host doesn't have),
-    # does NOT apply here — surfacing hundreds of tracebacks was pure noise.
-    return [p for p in proposals if p.items]
+    return proposals
