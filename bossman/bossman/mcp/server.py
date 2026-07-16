@@ -28,6 +28,7 @@ from sqlalchemy.orm import selectinload
 from bossman.config import Settings
 from bossman.db.models import (
     Agent,
+    CheckRule,
     HostEdge,
     HostGroup,
     HostGroupMember,
@@ -77,6 +78,11 @@ def _service_view_dict(view: ServiceView) -> dict[str, Any]:
         "state": s.state,
         "value": s.value,
         "output": s.output,
+        # F-17: what the value is graded against, so an AI can reason about the
+        # problem (and whether the threshold, not the host, is the issue).
+        "warn_threshold": view.warn_threshold,
+        "crit_threshold": view.crit_threshold,
+        "comparison": view.comparison,
         "acknowledged": s.acknowledged,
         "in_downtime": view.in_downtime,
         "last_state_change": s.last_state_change.isoformat(),
@@ -380,6 +386,125 @@ def build_mcp_server(
             "service_name": downtime.service_name,
             "starts_at": downtime.starts_at.isoformat(),
             "ends_at": downtime.ends_at.isoformat(),
+        }
+
+    @mcp.tool()
+    async def set_threshold(
+        service_name: str,
+        metric: str,
+        warn: float | None = None,
+        crit: float | None = None,
+        comparison: str = "ge",
+        host: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a monitoring threshold rule (K5) — the AI authoring its own
+        policy. Grades `metric` into the named service: WARN at `warn`, CRIT at
+        `crit`, using `comparison` (ge|gt|le|lt|eq|ne — e.g. ge for "high is
+        bad" like mem/disk %). Scope: one `host` (by name) if given, else a
+        global default across the fleet. Host scope overrides global (CheckMK
+        precedence). Takes effect on the next poll cycle."""
+        if comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
+            raise ValueError("comparison must be one of gt|lt|ge|le|eq|ne")
+        scope_type = "host" if host else "global"
+        async with session_factory() as session:
+            scope_value = None
+            if host is not None:
+                agent = await session.scalar(select(Agent).where(Agent.name == host))
+                if agent is None:
+                    raise ValueError(f"no such host {host!r}")
+                scope_value = host
+            # Idempotent: update the existing rule for this service+metric+scope
+            # rather than piling up duplicates (an AI may call this repeatedly).
+            rule = await session.scalar(
+                select(CheckRule).where(
+                    CheckRule.service_name == service_name,
+                    CheckRule.metric == metric,
+                    CheckRule.scope_type == scope_type,
+                    CheckRule.scope_value.is_(None) if scope_value is None else CheckRule.scope_value == scope_value,
+                    CheckRule.is_default.is_(False),
+                )
+            )
+            created = rule is None
+            if rule is None:
+                rule = CheckRule(service_name=service_name, metric=metric, scope_type=scope_type,
+                                  scope_value=scope_value, enabled=True)
+                session.add(rule)
+            rule.comparison = comparison
+            rule.warn_threshold = warn
+            rule.crit_threshold = crit
+            rule.enabled = True
+            await session.commit()
+            return {
+                "rule_id": str(rule.id),
+                "created": created,
+                "service_name": service_name,
+                "metric": metric,
+                "comparison": comparison,
+                "warn": warn,
+                "crit": crit,
+                "scope": f"host:{host}" if host else "global",
+            }
+
+    @mcp.tool()
+    async def get_host_logs(
+        host: str, lines: int = 100, level: str | None = None, since: str | None = None, unit: str | None = None
+    ) -> dict[str, Any]:
+        """Read a host's journald logs (read-only), for cross-signal debugging
+        of a problem. `level` filters by severity (err|warning|…), `since` is a
+        journalctl time spec ("-1h", "yesterday"), `unit` a systemd unit. Pair
+        with diagnose_host / host_services to correlate a failing service with
+        what the logs show."""
+        params: dict[str, Any] = {"lines": max(1, min(lines, 5000))}
+        if level:
+            params["priority"] = level
+        if since:
+            params["since"] = since
+        if unit:
+            params["unit"] = unit
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        try:
+            return await client.call_tool("journal", params)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def diagnose_host(host: str, log_lines: int = 40) -> dict[str, Any]:
+        """Cross-signal snapshot for diagnosing a host's problems in ONE call:
+        its non-OK services (each with the value + the warn/crit threshold it
+        tripped), plus the most recent error-level journal lines — the signals
+        an AI needs to reason about *why* a host is unhealthy and decide whether
+        to correct config (call_agent_tool) or tune a threshold (set_threshold).
+        Read-only. Logs are best-effort (empty if the host is unreachable)."""
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            views = await query_agent_services(session, agent.id)
+            reachable = bool(agent.address)
+        problems = [_service_view_dict(v) for v in (views or []) if v.service.state != "OK"]
+        all_services = len(views or [])
+        recent_errors: list[Any] = []
+        log_error = None
+        if reachable:
+            async with session_factory() as session:
+                agent = await _addressed_agent_or_raise(session, host)
+                client = client_factory(agent, settings)
+            try:
+                res = await client.call_tool("journal", {"lines": max(1, min(log_lines, 500)), "priority": "err"})
+                data = res.get("data") if isinstance(res, dict) else None
+                recent_errors = (data or {}).get("entries") or (data or {}).get("lines") or (data if isinstance(data, list) else [])
+            except AgentClientError as exc:
+                log_error = str(exc)
+        return {
+            "host": host,
+            "reachable": reachable,
+            "services_total": all_services,
+            "problem_count": len(problems),
+            "problems": problems,
+            "recent_errors": recent_errors,
+            "log_error": log_error,
         }
 
     @mcp.tool()

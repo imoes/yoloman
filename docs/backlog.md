@@ -62,13 +62,23 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
 
 ## AI / MCP-skill capabilities (vision — new)
 
-The AI must, exposed **as an MCP skill**:
-- **create its own policies** (config policies, thresholds, …) — the K4/K5
-  endpoints exist (`/config-policies`, check rules); wire them as MCP tools
-  the assistant can call;
-- **debug across signals**: pull in policies + **logs (from the host
-  overview)** + config settings, diagnose, and **correct** config/policy when
-  it finds the cause.
+⏳ IN PROGRESS — three MCP tools added (bossman/mcp/server.py), verified live
+over the MCP protocol against docker-test:
+- **`set_threshold`** — the AI authoring its own monitoring policy (K5): create/
+  update a CheckRule (host or global scope, warn/crit/comparison). Idempotent
+  (upserts by service+metric+scope) so repeated calls don't pile up duplicates.
+- **`get_host_logs`** — read a host's journald log (level/since/unit filters) for
+  cross-signal debugging.
+- **`diagnose_host`** — the cross-signal snapshot in ONE call: the host's non-OK
+  services (each with the value + the warn/crit threshold it tripped, via F-17)
+  plus recent error-level log lines — the signals to reason about *why* a host
+  is unhealthy and decide to correct config (`call_agent_tool`) or tune a
+  threshold (`set_threshold`). All monitoring tools now expose the F-17
+  thresholds via `_service_view_dict`.
+Still open: a persisted **config-policy** write tool (K4) — today the AI corrects
+config by running a config module via `call_agent_tool`; a first-class
+"set desired config value at scope X" tool (like set_threshold for config) is
+the remaining piece.
 
 ## Open UI-parity findings (docs/ui-parity.md)
 
