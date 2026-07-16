@@ -15,8 +15,8 @@ interface TopoGraph { nodes: TopoNode[]; edges: TopoEdge[]; stats?: { hosts: num
 const SEV_COLOR: Record<string, string> = {
   critical: '#d32f2f', high: '#e65100', medium: '#caa300', low: '#607d8b', ok: '#2e7d32',
 };
-const NODE_SIZE: Record<string, number> = { proxy: 26, host: 16 };
-const CATS = ['proxy', 'host'];
+const NODE_SIZE: Record<string, number> = { proxy: 26, host: 16, external: 12 };
+const CATS = ['proxy', 'host', 'external'];
 
 /**
  * Infrastructure map (CentralStation-style): hosts as nodes, eBPF-derived
@@ -113,16 +113,19 @@ export class TopologyComponent implements OnInit, OnDestroy {
         type: 'graph', layout: 'force', roam: true, draggable: true,
         categories: CATS.map((c) => ({ name: c })),
         force: { repulsion: 220, edgeLength: [60, 160], gravity: 0.08 },
-        label: { show: true, position: 'right', fontSize: 11, color: this.txt, formatter: (p: { data: { name: string } }) => p.data.name.split('.')[0] },
+        label: { show: true, position: 'right', fontSize: 11, color: this.txt, formatter: (p: { data: { name: string; nodeType?: string } }) => p.data.nodeType === 'external' ? p.data.name : p.data.name.split('.')[0] },
         labelLayout: { hideOverlap: true },
         emphasis: { focus: 'adjacency', label: { show: true } },
         lineStyle: { color: this.grid, width: 1.5, curveness: 0.08 },
         data: g.nodes.map((n) => ({
           id: n.id, name: n.label, category: Math.max(0, CATS.indexOf(n.type)),
           nodeType: n.type, status: n.status, alertCount: n.alert_count,
+          // External destinations (F-3) are diamonds in a neutral slate — they
+          // aren't managed hosts, so they carry no CheckMK state colour.
+          symbol: n.type === 'external' ? 'diamond' : 'circle',
           symbolSize: (NODE_SIZE[n.type] ?? 16) + Math.min(n.alert_count * 1.5, 10),
           itemStyle: {
-            color: SEV_COLOR[n.status] ?? SEV_COLOR['ok'],
+            color: n.type === 'external' ? '#78909c' : (SEV_COLOR[n.status] ?? SEV_COLOR['ok']),
             borderColor: spotlight && n.id === spotlight ? '#4fd6ff' : 'transparent',
             borderWidth: spotlight && n.id === spotlight ? 3 : 0,
             opacity: term && !n.label.toLowerCase().includes(term) ? 0.15 : (n.inactive ? 0.4 : 1),

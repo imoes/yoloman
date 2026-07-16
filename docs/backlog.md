@@ -58,8 +58,14 @@ The AI must, exposed **as an MCP skill**:
 
 ## Open UI-parity findings (docs/ui-parity.md)
 
-- **F-3** Topology "0 edges" — external destinations (LDAP/Kerberos) never
-  become nodes/edges.
+- ~~**F-3** Topology "0 edges" — external destinations (LDAP/Kerberos) never
+  become nodes/edges.~~ ✅ DONE — the graph only drew agent↔agent edges, but a
+  real host's traffic is almost all to non-enrolled services; docker-test had
+  226 external host_edges and 0 internal → "0 edges". topology_graph now
+  synthesises one node per external IP (loopback excluded, busiest 40 kept +
+  logged) with a service hint from well-known ports, and an aggregated edge per
+  talking agent. Verified live: docker-test's DCs show as "192.0.2.98 · Kerberos,
+  LDAP" etc. — 7 external nodes, 7 edges. UI draws them as neutral slate diamonds.
 - **F-4** Three notions of "checks" with no cross-links (Services vs Checks
   tab vs OU thresholds) — "why is this service checked / where's its
   threshold from?" unanswerable on the host.
