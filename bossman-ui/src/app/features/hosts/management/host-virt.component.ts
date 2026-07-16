@@ -28,7 +28,7 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
       } @else if (data(); as v) {
         <h4>Piggyback sources <span class="bm-mgmt-count">— where this host reports guests from</span></h4>
         @if (sources().length) {
-          <table class="bm-mgmt-table"><thead><tr><th>Source</th><th>Target</th><th>Reports</th><th>Guests</th><th>Status</th></tr></thead><tbody>
+          <table class="bm-mgmt-table"><thead><tr><th>Source</th><th>Target</th><th>Reports</th><th>Guests</th><th>Status</th><th class="bm-mgmt-actions"></th></tr></thead><tbody>
             @for (s of sources(); track s.type + s.target) {
               <tr>
                 <td class="bm-src-type">{{ s.type }}</td>
@@ -42,12 +42,30 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
                     <span class="bm-svc-err" [title]="s.error">unreachable</span>
                   }
                 </td>
+                <td class="bm-mgmt-actions">
+                  @if (s.type === 'proxmox' || s.type === 'vsphere') {
+                    <button mat-button (click)="removeSource(s.type, s.target)" [disabled]="srcBusy()">Remove</button>
+                  }
+                </td>
               </tr>
             }
           </tbody></table>
         } @else {
           <p class="bm-empty">No piggyback sources configured on this host.</p>
         }
+
+        <!-- F-9: add a remote Proxmox/vSphere source at runtime. -->
+        <div class="bm-acct-new">
+          <select [value]="srcType()" (change)="srcType.set($any($event.target).value)"><option value="proxmox">Proxmox</option><option value="vsphere">vSphere</option></select>
+          <input type="text" placeholder="host (e.g. pve1:8006)" [value]="srcHost()" (input)="srcHost.set($any($event.target).value)" />
+          <input type="text" placeholder="user (monitoring@pam)" [value]="srcUser()" (input)="srcUser.set($any($event.target).value)" />
+          <input type="password" placeholder="password" [value]="srcPass()" (input)="srcPass.set($any($event.target).value)" />
+          <label class="bm-chk"><input type="checkbox" [checked]="srcInsecure()" (change)="srcInsecure.set($any($event.target).checked)" /> insecure TLS</label>
+          <button mat-flat-button color="primary" (click)="addSource()" [disabled]="srcBusy() || !srcHost().trim()">
+            {{ srcBusy() ? 'Adding…' : 'Add source' }}
+          </button>
+          @if (srcMsg()) { <span [class.bm-svc-ok]="srcOk()" [class.bm-svc-err]="!srcOk()">{{ srcMsg() }}</span> }
+        </div>
 
         @if (!v.hypervisors.length && !guests().length && !sources().length) {
           <p class="bm-empty">No local virtualization stack detected on this host.</p>
@@ -155,6 +173,15 @@ export class HostVirtComponent {
 
   data = signal<VirtResponse | null>(null);
   sources = signal<PiggybackSource[]>([]);
+  // F-9: add-remote-source form state.
+  srcType = signal('proxmox');
+  srcHost = signal('');
+  srcUser = signal('');
+  srcPass = signal('');
+  srcInsecure = signal(true);
+  srcBusy = signal(false);
+  srcMsg = signal<string | null>(null);
+  srcOk = signal(false);
   guests = signal<{ name: string; mode: string; metrics: Record<string, number> }[]>([]);
   loading = signal(false);
   loaded = signal(false);
@@ -200,6 +227,34 @@ export class HostVirtComponent {
     this.agentService.piggybackSources(this.agentId()).subscribe({
       next: (res) => this.sources.set(res.sources ?? []),
       error: () => this.sources.set([]),
+    });
+  }
+
+  /** F-9: add a remote Proxmox/vSphere source, then refresh the sources list. */
+  addSource(): void {
+    if (!this.srcHost().trim() || this.srcBusy()) return;
+    this.srcBusy.set(true);
+    this.srcMsg.set(null);
+    this.agentService.addPiggybackSource(this.agentId(), {
+      type: this.srcType(), host: this.srcHost().trim(), user: this.srcUser().trim(),
+      password: this.srcPass(), insecure: this.srcInsecure(),
+    }).subscribe({
+      next: () => {
+        this.srcBusy.set(false); this.srcOk.set(true);
+        this.srcMsg.set(`added ${this.srcType()} ${this.srcHost().trim()}`);
+        this.srcHost.set(''); this.srcUser.set(''); this.srcPass.set('');
+        this.reload();
+      },
+      error: (e) => { this.srcBusy.set(false); this.srcOk.set(false); this.srcMsg.set(e?.error?.detail ?? 'failed to add source'); },
+    });
+  }
+
+  removeSource(type: string, host: string): void {
+    if (!confirm(`Remove ${type} piggyback source ${host}?`)) return;
+    this.srcBusy.set(true);
+    this.agentService.removePiggybackSource(this.agentId(), type, host).subscribe({
+      next: () => { this.srcBusy.set(false); this.reload(); },
+      error: (e) => { this.srcBusy.set(false); this.srcOk.set(false); this.srcMsg.set(e?.error?.detail ?? 'failed to remove'); },
     });
   }
 

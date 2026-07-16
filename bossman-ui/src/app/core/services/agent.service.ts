@@ -157,6 +157,16 @@ export class AgentService {
       `${this.base}/${id}/piggyback/sources`,
     );
   }
+  /** F-9 — add/replace a remote Proxmox/vSphere piggyback source at runtime. */
+  addPiggybackSource(id: string, body: { type: string; host: string; user: string; password: string; insecure: boolean }) {
+    return this.http.post<{ added: string; host: string }>(`${this.base}/${id}/piggyback/sources`, body);
+  }
+  /** F-9 — remove a remote piggyback source (by type + host). */
+  removePiggybackSource(id: string, type: string, host: string) {
+    return this.http.delete<{ removed: string; host: string }>(
+      `${this.base}/${id}/piggyback/sources`, { params: { type, host } },
+    );
+  }
 
   /** Block K3/G — drift + the GPO-resolved desired values: per path the merged
    * desired values, per key the winning level (host/ou/group), and the drifted

@@ -52,10 +52,15 @@ type RESTConfig struct {
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
 	AllowSelfUpdate bool
-	// Piggyback collectors report guests (Docker containers, Proxmox/vSphere
-	// VMs) as their own hosts via GET /api/v1/hosts/overview — the CheckMK
-	// piggyback idea. Empty = none.
-	Piggyback []piggyback.Collector
+	// Piggyback holds the live collector set that reports guests (Docker
+	// containers, Proxmox/vSphere VMs) as their own hosts via GET
+	// /api/v1/hosts/overview — the CheckMK piggyback idea. A *Store (not a
+	// bare slice) so F-9's add/remove endpoints can rebuild it at runtime.
+	// Nil = none.
+	Piggyback *piggyback.Store
+	// ConfigPath is this agent's config.yaml — the piggyback add/remove
+	// endpoints persist a new/removed source there before reloading the Store.
+	ConfigPath string
 	// ConsoleEnabled activates the interactive web shell at GET /api/v1/console
 	// (a PTY over WebSocket — see internal/console). Default true.
 	ConsoleEnabled bool
@@ -300,6 +305,14 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	// so the fleet UI can show which sources a host reports guests from.
 	mux.HandleFunc("GET /api/v1/piggyback/sources", func(w http.ResponseWriter, r *http.Request) {
 		handlePiggybackSources(w, r, cfg)
+	})
+	// F-9: add/remove a remote piggyback source (Proxmox/vSphere) at runtime;
+	// persists to config.yaml + reloads the collector Store (write-gated).
+	mux.HandleFunc("POST /api/v1/piggyback/sources", func(w http.ResponseWriter, r *http.Request) {
+		handlePiggybackAdd(w, r, cfg)
+	})
+	mux.HandleFunc("DELETE /api/v1/piggyback/sources", func(w http.ResponseWriter, r *http.Request) {
+		handlePiggybackRemove(w, r, cfg)
 	})
 
 	// Block L4: Bossman PUSHES the compiled desired state here (server→agent,

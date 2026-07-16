@@ -111,16 +111,18 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   bossman container) as a flat, searchable list grouped by codec, with a detail
   pane (comment/separator syntax, confidence, covered paths + packages).
   Verified live: 114 patterns (63 keyvalue, 22 ini, 22 none, 6 xml, 1 toml).
-- **F-9** Virtualization: piggyback sources not visible/configurable. ⏳ PARTLY
-  DONE — **visible**: the agent now exposes GET /api/v1/piggyback/sources (each
-  Collector gained a Source() descriptor); Bossman proxies it at
-  /agents/{id}/piggyback/sources; the host Virtualization tab shows a "Piggyback
-  sources" table (type, target, reports containers/VMs, live reachability +
-  guest count) even when the host runs no local hypervisor. Verified live:
-  docker-test shows the docker source (socket, reachable, 1 guest). Agent 0.49.0.
-  **Still open — configurable**: adding/editing remote Proxmox/vSphere endpoints
-  (credentials → write the agent's piggyback config + restart) needs secret
-  handling; deferred as its own block.
+- ~~**F-9** Virtualization: piggyback sources not visible/configurable.~~ ✅ DONE.
+  **Visible**: GET /api/v1/piggyback/sources (each Collector has a Source()
+  descriptor); the host Virtualization tab shows a sources table (type, target,
+  reachability, guest count). **Configurable** (agent 0.53.0): the collector set
+  is now a reloadable `piggyback.Store`; POST/DELETE /api/v1/piggyback/sources
+  add/remove a remote Proxmox/vSphere endpoint at runtime — write-gated, persist
+  to config.yaml (safe now the Duration round-trip is fixed) and reload the
+  collectors live, NO restart. Bossman proxies at /agents/{id}/piggyback/sources;
+  the Virtualization tab gets an add-source form (type/host/user/password/
+  insecure) + per-source Remove. Credentials live in the agent's root-owned
+  config.yaml (existing model, no new vault). Verified live: added vpp0221's own
+  Proxmox API → reachable, 6 guests, persisted; removed cleanly.
 - ~~**F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
   Runbooks page (currently text-only NestedText).~~ ✅ DONE — the fleet runbook
   editor now has a Text ⇄ Visual toggle. Visual mode is the Sequential Workflow

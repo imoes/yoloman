@@ -122,6 +122,32 @@ class AgentClient:
         body = await self._get_json("/api/v1/piggyback/sources", {})
         return body.get("sources", [])
 
+    async def add_piggyback_source(self, body: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/piggyback/sources (F-9) — add/replace a remote Proxmox/
+        vSphere endpoint; the agent persists it to config.yaml + reloads its
+        collectors (write-gated)."""
+        url = f"https://{self.address}/api/v1/piggyback/sources"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=body)
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: add piggyback source: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: add piggyback source returned {resp.status_code}: {resp.text[:1024]}")
+        return resp.json()
+
+    async def remove_piggyback_source(self, source_type: str, host: str) -> dict[str, Any]:
+        """DELETE /api/v1/piggyback/sources?type=&host= (F-9)."""
+        url = f"https://{self.address}/api/v1/piggyback/sources"
+        try:
+            async with self._client() as client:
+                resp = await client.delete(url, params={"type": source_type, "host": host})
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: remove piggyback source: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: remove piggyback source returned {resp.status_code}: {resp.text[:1024]}")
+        return resp.json()
+
     async def processes(self, limit: int = 0) -> dict[str, Any]:
         """GET /api/v1/processes — the agent's live process table (Block J1):
         per-PID CPU%/RSS/owner/command plus eBPF enrichment (container id,

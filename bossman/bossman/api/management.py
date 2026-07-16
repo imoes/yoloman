@@ -1016,3 +1016,50 @@ async def get_agent_piggyback_sources(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "sources": sources}
+
+
+class PiggybackSourceIn(BaseModel):
+    type: str  # proxmox | vsphere
+    host: str
+    user: str = ""
+    password: str = ""
+    insecure: bool = False
+
+
+@router.post("/api/v1/agents/{agent_id}/piggyback/sources")
+async def add_agent_piggyback_source(
+    agent_id: UUID,
+    body: PiggybackSourceIn,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """F-9 — add/replace a remote piggyback source (Proxmox/vSphere) on this
+    host at runtime: the agent persists it to its config.yaml and reloads its
+    collectors, no restart. Write-gated on the agent."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        return await client.add_piggyback_source(body.model_dump())
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.delete("/api/v1/agents/{agent_id}/piggyback/sources")
+async def remove_agent_piggyback_source(
+    agent_id: UUID,
+    type: str,  # noqa: A002 — matches the agent's query param
+    host: str,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """F-9 — remove a remote piggyback source (by type + host) on this host."""
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    try:
+        return await client.remove_piggyback_source(type, host)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

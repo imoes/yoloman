@@ -195,7 +195,8 @@ func run(args []string) error {
 		AllowSelfUpdate:    cfg.AllowSelfUpdate,
 		ConsoleEnabled:     cfg.Console.Enabled,
 		ConsoleCommand:     cfg.Console.Command,
-		Piggyback:          piggybackCollectors(cfg),
+		Piggyback:          piggyback.NewStore(cfg),
+		ConfigPath:         *configPath,
 		Mode:               cfg.Mode,
 		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM:  proxyPublicKeyPEM,
@@ -214,22 +215,8 @@ func run(args []string) error {
 // their own hosts via hosts/overview). Docker and libvirt are auto-detected at
 // collect time, so enabling them on a host without that runtime is a harmless
 // no-op.
-func piggybackCollectors(cfg config.Config) []piggyback.Collector {
-	var out []piggyback.Collector
-	if cfg.Piggyback.Docker {
-		out = append(out, piggyback.NewDockerCollector(cfg.Piggyback.DockerSocket))
-	}
-	for _, e := range cfg.Piggyback.Proxmox {
-		out = append(out, piggyback.NewProxmoxCollector(e.Host, e.User, e.Password, e.Insecure))
-	}
-	for _, e := range cfg.Piggyback.VSphere {
-		out = append(out, piggyback.NewVSphereCollector(e.Host, e.User, e.Password, e.Insecure))
-	}
-	if cfg.Piggyback.Libvirt {
-		out = append(out, piggyback.NewLibvirtCollector(cfg.Piggyback.LibvirtURI))
-	}
-	return out
-}
+// (piggyback collector construction now lives in piggyback.CollectorsFromConfig,
+// used by piggyback.NewStore so the set can be rebuilt at runtime — F-9.)
 
 // startEBPFCollector loads and attaches the eBPF collector if enabled,
 // running its ring-buffer consumer loop for the daemon's lifetime. Any

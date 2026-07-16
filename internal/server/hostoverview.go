@@ -105,7 +105,7 @@ func handleHostsOverview(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 	// the existing overview distribution. Best-effort: a source that isn't
 	// present is silently skipped.
 	now := time.Now().UTC().Format(time.RFC3339)
-	for _, col := range cfg.Piggyback {
+	for _, col := range piggybackList(cfg) {
 		guests, err := col.Collect(r.Context())
 		if err != nil {
 			continue
@@ -140,9 +140,19 @@ type PiggybackSource struct {
 // handlePiggybackSources probes every configured piggyback source once and
 // reports its status. Read-only: it runs the same Collect() the overview uses,
 // but surfaces the source + outcome rather than the guests.
+// piggybackList is the current collector snapshot, nil-safe (a host with no
+// piggyback Store configured reports none).
+func piggybackList(cfg RESTConfig) []piggyback.Collector {
+	if cfg.Piggyback == nil {
+		return nil
+	}
+	return cfg.Piggyback.List()
+}
+
 func handlePiggybackSources(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
-	sources := make([]PiggybackSource, 0, len(cfg.Piggyback))
-	for _, col := range cfg.Piggyback {
+	cols := piggybackList(cfg)
+	sources := make([]PiggybackSource, 0, len(cols))
+	for _, col := range cols {
 		info := col.Source()
 		ps := PiggybackSource{Type: info.Type, Target: info.Target, Kind: col.Kind()}
 		guests, err := col.Collect(r.Context())
