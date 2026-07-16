@@ -10,11 +10,74 @@ package tlsauth
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
+	"path/filepath"
+	"time"
 )
+
+// EnsureSelfSigned generates a self-signed ECDSA (P-256) certificate + key at
+// certPath/keyPath if either is missing, and returns nil if they already
+// exist. The agent's TLS server cert only needs to be self-signed: Bossman
+// pulls with verify=False (it authorizes the agent by bearer token + its own
+// client cert, not by a CA chain). Lets `register` bootstrap TLS with zero
+// manual openssl steps.
+func EnsureSelfSigned(certPath, keyPath, commonName string) error {
+	if fileExists(certPath) && fileExists(keyPath) {
+		return nil
+	}
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return fmt.Errorf("generating key: %w", err)
+	}
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return fmt.Errorf("generating serial: %w", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: commonName},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		return fmt.Errorf("creating certificate: %w", err)
+	}
+	keyDER, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return fmt.Errorf("marshaling key: %w", err)
+	}
+	for _, d := range []string{filepath.Dir(certPath), filepath.Dir(keyPath)} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return fmt.Errorf("creating %q: %w", d, err)
+		}
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
+		return fmt.Errorf("writing %q: %w", certPath, err)
+	}
+	if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
+		return fmt.Errorf("writing %q: %w", keyPath, err)
+	}
+	return nil
+}
+
+func fileExists(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && !info.IsDir()
+}
 
 // TrustedKey is one authorized caller's pinned public key: a name (for
 // logging/audit) and its canonical DER-encoded PKIX SubjectPublicKeyInfo.
