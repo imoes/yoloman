@@ -61,12 +61,25 @@ import {
           @if (proposals()!.length) {
             @for (p of proposals()!; track p.check_name) {
               <div class="bm-prop">
-                <label class="bm-prop-head">
+                <div class="bm-prop-head">
                   <input type="checkbox" [checked]="isSel(p.check_name)" (change)="toggleSel(p.check_name)" />
+                  <button type="button" class="bm-prop-expand" (click)="toggleExpand(p.check_name)"
+                          [attr.aria-label]="isExpanded(p.check_name) ? 'Collapse' : 'Read description'">
+                    <mat-icon>{{ isExpanded(p.check_name) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  </button>
                   <span class="bm-mono">{{ p.check_name }}</span>
                   <span class="bm-dim">{{ p.short_description }}</span>
                   <span class="bm-count">{{ p.items.length }} item(s)</span>
-                </label>
+                </div>
+                @if (isExpanded(p.check_name)) {
+                  <div class="bm-prop-desc">
+                    @if (description(p.check_name)) {
+                      <pre>{{ description(p.check_name) }}</pre>
+                    } @else {
+                      <span class="bm-dim">Loading description…</span>
+                    }
+                  </div>
+                }
                 <div class="bm-prop-items bm-dim">{{ itemsSummary(p) }}</div>
                 @if (p.needs_params.length && isSel(p.check_name)) {
                   <div class="bm-creds">
@@ -225,9 +238,14 @@ import {
       .bm-wizard { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
       .bm-prop { padding: 6px 0; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-prop:first-of-type { border-top: none; }
-      .bm-prop-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+      .bm-prop-head { display: flex; align-items: center; gap: 8px; }
+      .bm-prop-expand { background: none; border: none; color: inherit; cursor: pointer; padding: 2px; display: inline-flex; opacity: 0.7; border-radius: 4px; }
+      .bm-prop-expand:hover { opacity: 1; background: var(--bm-hover, rgba(255,255,255,0.06)); }
+      .bm-prop-expand mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      .bm-prop-desc { margin: 4px 0 8px 46px; padding: 10px 12px; border-left: 2px solid var(--bm-hairline, var(--mat-sys-outline-variant)); background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent); border-radius: 0 6px 6px 0; }
+      .bm-prop-desc pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12.5px; line-height: 1.5; opacity: 0.9; }
       .bm-count { margin-left: auto; font-size: 12px; opacity: 0.7; }
-      .bm-prop-items { font-size: 12px; margin: 2px 0 0 24px; }
+      .bm-prop-items { font-size: 12px; margin: 2px 0 0 46px; }
       .bm-creds { margin: 6px 0 4px 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
       .bm-ff-sm { width: 200px; }
       .bm-provision { margin: 4px 0 4px 24px; padding: 6px 10px; border-left: 2px solid color-mix(in srgb, var(--bm-green) 50%, transparent); }
@@ -263,6 +281,28 @@ export class HostChecksComponent {
     if (Math.abs(v) >= 100) return v.toFixed(0);
     if (Math.abs(v) >= 10) return v.toFixed(1);
     return v.toFixed(2);
+  }
+
+  // Expand a discovery proposal to read its full description before selecting.
+  private expanded = signal<Set<string>>(new Set());
+  private descriptions = signal<Record<string, string>>({});
+  isExpanded(name: string): boolean { return this.expanded().has(name); }
+  description(name: string): string { return this.descriptions()[name] ?? ''; }
+  toggleExpand(name: string): void {
+    const s = new Set(this.expanded());
+    if (s.has(name)) { s.delete(name); this.expanded.set(s); return; }
+    s.add(name);
+    this.expanded.set(s);
+    if (this.descriptions()[name] === undefined) {
+      this.descriptions.update((m) => ({ ...m, [name]: '' })); // mark loading
+      this.checkService.getCheck(name).subscribe({
+        next: (c) => {
+          const desc = (c as { metadata?: { description?: string } })?.metadata?.description || 'No description available.';
+          this.descriptions.update((m) => ({ ...m, [name]: desc }));
+        },
+        error: () => this.descriptions.update((m) => ({ ...m, [name]: 'Could not load description.' })),
+      });
+    }
   }
 
   /** Host-scope runbook variables (strongest in the GPO merge). */
