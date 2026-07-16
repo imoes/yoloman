@@ -72,8 +72,14 @@ The AI must, exposed **as an MCP skill**:
   Runbooks page (currently text-only NestedText).
 - **F-12** Default memory check_rule warn=10/crit=20 (%) is nonsense.
 - **F-15** Security page is manual-only (no scheduled CVE poll surfaced).
-- **F-16** Network provider detection (NetworkManager reported on docker-test,
-  believed ifupdown) — verify.
+- ~~**F-16** Network provider detection (NetworkManager reported on docker-test,
+  believed ifupdown) — verify.~~ ✅ DONE — real bug: NetworkManager was running
+  but every real NIC was STATE=unmanaged (ens18 is driven by
+  /etc/network/interfaces); the detector returned "networkmanager" on "running"
+  alone, so nmcli config would have been a no-op. `_detect_provider` now also
+  requires `_nm_manages_real_iface` (a device that isn't loopback and isn't
+  unmanaged/"externally"). Verified live: docker-test now reports
+  `provider = ifupdown` (agent 0.48.0).
 - ~~**F-17** Show the value/threshold that tripped a service state in the Fleet
   Overview / Problems rows.~~ ✅ DONE — ServiceOut now carries the owning rule's
   `warn_threshold`/`crit_threshold`/`comparison` (one rule fetch in `_to_view`,

@@ -143,11 +143,16 @@ def _service_active(ctx, unit):
 # _detect_provider picks the config system that actually manages this host's
 # interfaces, in order of how authoritative each is when present.
 def _detect_provider(ctx):
-    # NetworkManager: only if it is the running manager (nmcli present alone is
-    # not enough — some hosts ship nmcli but run networkd/ifupdown).
+    # NetworkManager: only if it is running AND actually manages a real
+    # interface. "running" alone is a trap (F-16): on a Debian host that
+    # configures ens18 via /etc/network/interfaces, NetworkManager can still
+    # be up and report RUNNING while every real NIC shows STATE=unmanaged
+    # (it only owns docker0/lo, and those "externally"). Driving nmcli there
+    # is a no-op — ifupdown is the real authority. So require a managed,
+    # real device before we claim NetworkManager.
     if _cmd_exists(ctx, "nmcli"):
         st = ctx.run(["nmcli", "-t", "-f", "RUNNING", "general"], mutates=False)
-        if st.rc == 0 and "running" in st.stdout.lower():
+        if st.rc == 0 and "running" in st.stdout.lower() and _nm_manages_real_iface(ctx):
             return "networkmanager"
     # netplan (Ubuntu Server) — the renderer binary implies netplan owns config.
     if _cmd_exists(ctx, "netplan"):
@@ -158,10 +163,38 @@ def _detect_provider(ctx):
     # classic Debian ifupdown
     if ctx.file_exists("/etc/network/interfaces"):
         return "ifupdown"
-    # last resort: a present-but-not-yet-running NetworkManager
+    # last resort: a present-but-not-actively-managing NetworkManager
     if _cmd_exists(ctx, "nmcli"):
         return "networkmanager"
     return "unknown"
+
+
+# _nm_manages_real_iface reports whether NetworkManager owns the config of at
+# least one real interface — i.e. a device that isn't loopback and whose state
+# is neither "unmanaged" nor "connected (externally)" (the latter meaning some
+# other tool, e.g. Docker for docker0, drives it). Without this, a host where
+# NM runs but leaves every NIC to ifupdown is misdetected as networkmanager.
+def _nm_manages_real_iface(ctx):
+    res = ctx.run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"], mutates=False)
+    if res.rc != 0:
+        return False
+    for line in res.stdout.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(":")
+        if len(parts) < 3:
+            continue
+        device = parts[0]
+        dtype = parts[1]
+        state = parts[2].lower()
+        if dtype == "loopback" or device == "lo":
+            continue
+        if "unmanaged" in state or "externally" in state:
+            continue
+        # a real device NM actively manages (connected/connecting/disconnected)
+        return True
+    return False
 
 
 # ---- configure (present / absent) -----------------------------------------
