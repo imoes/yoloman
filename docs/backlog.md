@@ -74,7 +74,11 @@ The AI must, exposed **as an MCP skill**:
 - **F-15** Security page is manual-only (no scheduled CVE poll surfaced).
 - **F-16** Network provider detection (NetworkManager reported on docker-test,
   believed ifupdown) — verify.
-- **F-17** Show the value/threshold that tripped a service state in the Fleet
-  Overview / Problems rows.
+- ~~**F-17** Show the value/threshold that tripped a service state in the Fleet
+  Overview / Problems rows.~~ ✅ DONE — ServiceOut now carries the owning rule's
+  `warn_threshold`/`crit_threshold`/`comparison` (one rule fetch in `_to_view`,
+  shared with the K4 value-map lookup). Problems + host Services render the
+  humane value plus a "warn ≥ 80 %, crit ≥ 90 %" context line, and the
+  perf-o-meter uses the real thresholds (fallback 80/90 for rule-less builtins).
 - **ADMX-equivalent**: mine man-page value catalogs (qwen79b) so the GPO
   editor offers full per-directive listbox options, not just boolean families.

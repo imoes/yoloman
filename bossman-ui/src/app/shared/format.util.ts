@@ -54,3 +54,35 @@ function round(v: number, digits: number): number {
   const f = 10 ** digits;
   return Math.round(v * f) / f;
 }
+
+/** The comparison operator as its arithmetic symbol. */
+export function comparisonSymbol(comparison: string | null | undefined): string {
+  switch (comparison) {
+    case 'gt': return '>';
+    case 'lt': return '<';
+    case 'ge': return '≥';
+    case 'le': return '≤';
+    case 'eq': return '=';
+    case 'ne': return '≠';
+    default: return '';
+  }
+}
+
+/**
+ * F-17: the compact "graded against" string for a service — what its value is
+ * being compared to, unit-aware. e.g. "warn ≥ 80 %, crit ≥ 90 %". Empty when
+ * the service has no rule thresholds (rule-less builtins like Uptime).
+ */
+export function thresholdContext(
+  svc: { warn_threshold: number | null; crit_threshold: number | null; comparison: string | null; metric?: string; name?: string },
+): string {
+  const sym = comparisonSymbol(svc.comparison);
+  const parts: string[] = [];
+  if (svc.warn_threshold !== null && svc.warn_threshold !== undefined) {
+    parts.push(`warn ${sym} ${formatMetricValue(svc.warn_threshold, svc.metric, svc.name)}`.trim());
+  }
+  if (svc.crit_threshold !== null && svc.crit_threshold !== undefined) {
+    parts.push(`crit ${sym} ${formatMetricValue(svc.crit_threshold, svc.metric, svc.name)}`.trim());
+  }
+  return parts.join(', ');
+}

@@ -119,6 +119,11 @@ class ServiceOut(BaseModel):
     # CheckRule's attached ValueMap (e.g. 0 -> "Down"); null if no map is
     # attached or the rule isn't materializing this service.
     mapped_value: str | None
+    # F-17: the owning rule's thresholds + comparison, so the UI can show
+    # what a service is being graded against (null for rule-less builtins).
+    warn_threshold: float | None
+    crit_threshold: float | None
+    comparison: str | None
 
     @classmethod
     def from_view(cls, view: ServiceView) -> "ServiceOut":
@@ -144,6 +149,9 @@ class ServiceOut(BaseModel):
             ack_expires_at=s.ack_expires_at,
             in_downtime=view.in_downtime,
             mapped_value=view.mapped_value,
+            warn_threshold=view.warn_threshold,
+            crit_threshold=view.crit_threshold,
+            comparison=view.comparison,
         )
 
 

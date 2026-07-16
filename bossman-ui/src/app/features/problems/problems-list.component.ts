@@ -17,6 +17,7 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { serviceStateBadge } from '../../shared/status.util';
+import { formatMetricValue, thresholdContext } from '../../shared/format.util';
 
 /**
  * The full "unbehandelte Probleme" view (see docs/plan.md's monitoring
@@ -85,7 +86,14 @@ import { serviceStateBadge } from '../../shared/status.util';
                   <td><a [routerLink]="['/hosts', p.agent_id]">{{ p.agent_name }}</a></td>
                   <td>{{ p.name }}</td>
                   <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
-                  <td class="bm-detail" [title]="p.output">{{ p.output }}</td>
+                  <td class="bm-detail" [title]="p.output">
+                    <div class="bm-detail-value">{{ svcValue(p) }}</div>
+                    @if (thresholdOf(p); as t) {
+                      <div class="bm-detail-thresh">{{ t }}</div>
+                    } @else {
+                      <div class="bm-detail-thresh">{{ p.output }}</div>
+                    }
+                  </td>
                   <td>{{ p.last_state_change | date: 'medium' }}</td>
                   <td>
                     @if (p.in_downtime) {
@@ -172,6 +180,15 @@ import { serviceStateBadge } from '../../shared/status.util';
         font-size: 12px;
         opacity: 0.75;
         margin-right: 8px;
+      }
+      .bm-detail-value {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .bm-detail-thresh {
+        font-size: 12px;
+        opacity: 0.6;
+        font-variant-numeric: tabular-nums;
       }
       .bm-empty {
         opacity: 0.6;
@@ -269,6 +286,17 @@ export class ProblemsListComponent implements OnInit {
 
   badgeOf(p: ServiceState) {
     return serviceStateBadge(p.state);
+  }
+
+  /** F-17: the tripped value, humane-formatted (mapped label wins if present). */
+  svcValue(p: ServiceState): string {
+    if (p.mapped_value) return p.mapped_value;
+    return formatMetricValue(p.value, p.metric, p.name);
+  }
+
+  /** F-17: "warn ≥ 80 %, crit ≥ 90 %" — what the value is graded against. */
+  thresholdOf(p: ServiceState): string {
+    return thresholdContext(p);
   }
 
   acknowledge(p: ServiceState): void {

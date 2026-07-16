@@ -751,6 +751,13 @@ class ServiceView:
     agent_name: str
     in_downtime: bool
     mapped_value: str | None = None
+    # F-17: the owning CheckRule's thresholds, so the UI can show *why* a
+    # service is WARN/CRIT ("39.8 % — warn ≥ 80, crit ≥ 90") instead of a
+    # bare state pill. Null when no rule materialises this service (agent
+    # builtins like Uptime, or an assigned Starlark check that self-grades).
+    warn_threshold: float | None = None
+    crit_threshold: float | None = None
+    comparison: str | None = None
 
 
 async def is_in_downtime(session: AsyncSession, agent_id: UUID, service_name: str, now: datetime) -> bool:
@@ -770,30 +777,41 @@ async def is_in_downtime(session: AsyncSession, agent_id: UUID, service_name: st
     return bool(await session.scalar(select(exists_clause)))
 
 
-async def _lookup_mapped_value(session: AsyncSession, service: Service) -> str | None:
-    """Block K4: the human label for service.value, via its owning
-    CheckRule's attached ValueMap, if any. Tries the whole-number form of
-    the key first ("0") since that's how an operator naturally authors a
-    mapping, falling back to the raw float's string form."""
-    if service.value is None or service.rule_id is None:
-        return None
-    rule = await session.get(CheckRule, service.rule_id)
-    if rule is None or rule.value_map_id is None:
-        return None
-    value_map = await session.get(ValueMap, rule.value_map_id)
+def _mapped_value_from(value_map: "ValueMap | None", value: float) -> str | None:
+    """Block K4: the human label for a raw value via a ValueMap. Tries the
+    whole-number form of the key first ("0") since that's how an operator
+    naturally authors a mapping, falling back to the raw float's string."""
     if value_map is None:
         return None
-    if service.value == int(service.value):
-        key = str(int(service.value))
+    if value == int(value):
+        key = str(int(value))
         if key in value_map.mappings:
             return value_map.mappings[key]
-    return value_map.mappings.get(str(service.value))
+    return value_map.mappings.get(str(value))
 
 
 async def _to_view(session: AsyncSession, service: Service, agent_name: str, now: datetime) -> ServiceView:
     in_downtime = await is_in_downtime(session, service.agent_id, service.name, now)
-    mapped_value = await _lookup_mapped_value(session, service)
-    return ServiceView(service=service, agent_name=agent_name, in_downtime=in_downtime, mapped_value=mapped_value)
+    # One rule fetch feeds both the K4 value-mapped label and the F-17
+    # thresholds — the two things about a service that live on its rule, not
+    # its row. Builtins with no rule_id keep all of these null.
+    mapped_value = None
+    warn = crit = comparison = None
+    if service.rule_id is not None:
+        rule = await session.get(CheckRule, service.rule_id)
+        if rule is not None:
+            warn, crit, comparison = rule.warn_threshold, rule.crit_threshold, rule.comparison
+            if service.value is not None and rule.value_map_id is not None:
+                mapped_value = _mapped_value_from(await session.get(ValueMap, rule.value_map_id), service.value)
+    return ServiceView(
+        service=service,
+        agent_name=agent_name,
+        in_downtime=in_downtime,
+        mapped_value=mapped_value,
+        warn_threshold=warn,
+        crit_threshold=crit,
+        comparison=comparison,
+    )
 
 
 async def to_view(session: AsyncSession, service: Service) -> ServiceView:

@@ -21,6 +21,13 @@ export interface ServiceState {
   ack_by: string | null;
   ack_expires_at: string | null;
   in_downtime: boolean;
+  /** Block K4: the value-mapped label for `value` (e.g. 0 → "Down"), or null. */
+  mapped_value: string | null;
+  /** F-17: the owning rule's thresholds + comparison, so the UI can show
+   * what the value is graded against. Null for rule-less builtins. */
+  warn_threshold: number | null;
+  crit_threshold: number | null;
+  comparison: CheckRuleComparison | null;
 }
 
 /** Matches bossman/api/monitoring.py's ServiceHistoryPointOut. */

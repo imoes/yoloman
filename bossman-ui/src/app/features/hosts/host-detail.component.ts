@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal, viewChild } from '@angular
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
-import { formatMetricValue } from '../../shared/format.util';
+import { formatMetricValue, thresholdContext } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -223,12 +223,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           }
                         </td>
                         <td class="bm-svc-name">{{ svc.name }}</td>
-                        <td class="bm-col-summary">{{ svc.output || '—' }}</td>
+                        <td class="bm-col-summary">
+                          <div>{{ svc.output || '—' }}</div>
+                          @if (thresholdOf(svc); as t) {
+                            <div class="bm-svc-thresh" title="the rule this service is graded against">{{ t }}</div>
+                          }
+                        </td>
                         <td class="bm-col-age">{{ timeAgo(svc.last_state_change) }}</td>
                         <td class="bm-col-age">{{ timeAgo(svc.last_checked) }}</td>
                         <td class="bm-col-pom">
                           @if (serviceIsPct(svc) && svc.value !== null) {
-                            <app-perf-o-meter [value]="svc.value" [warn]="80" [crit]="90" />
+                            <app-perf-o-meter [value]="svc.value" [warn]="pomWarn(svc)" [crit]="pomCrit(svc)" />
                           } @else if (svc.value !== null) {
                             <span class="bm-svc-value">{{ svcValue(svc) }}</span>
                           }
@@ -1387,6 +1392,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         font-variant-numeric: tabular-nums;
         font-weight: 600;
       }
+      .bm-svc-thresh {
+        font-size: 12px;
+        opacity: 0.55;
+        font-variant-numeric: tabular-nums;
+        margin-top: 2px;
+      }
       .bm-flag {
         margin-left: 6px;
         font-size: 12px;
@@ -1875,6 +1886,20 @@ export class HostDetailComponent implements OnInit {
   serviceIsPct(svc: ServiceState): boolean {
     const spec = serviceMetricSpec(svc.name, svc.metric);
     return !!spec && spec.members[0].endsWith('_pct');
+  }
+
+  /** F-17: "warn ≥ 80 %, crit ≥ 90 %" — the rule the service is graded against. */
+  thresholdOf(svc: ServiceState): string {
+    return thresholdContext(svc);
+  }
+
+  /** F-17: real warn threshold for the perf-o-meter, falling back to the
+   * historical 80/90 pair when the service has no rule thresholds. */
+  pomWarn(svc: ServiceState): number {
+    return svc.warn_threshold ?? 80;
+  }
+  pomCrit(svc: ServiceState): number {
+    return svc.crit_threshold ?? 90;
   }
 
   selectService(svc: ServiceState): void {
