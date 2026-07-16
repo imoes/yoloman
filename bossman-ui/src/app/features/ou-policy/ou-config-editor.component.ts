@@ -45,21 +45,31 @@ interface SettingRow {
       } @else if (loaded()) {
         <p class="bm-oce-src">No reachable member host — showing this scope's policies only.</p>
       }
+      <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
       <div class="bm-oce-panes">
-        <div class="bm-oce-tree">
-          <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+        <!-- Miller column 1: categories -->
+        <div class="bm-oce-col">
           @for (grp of groups(); track grp.cat.key) {
-            <div class="bm-oce-cat"><mat-icon class="bm-oce-cat-ic">{{ grp.cat.icon }}</mat-icon>{{ grp.cat.label }}</div>
-            @for (f of grp.files; track f.path) {
-              <div class="bm-oce-file" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
-                {{ baseName(f.path) }}
-                @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
-              </div>
-            }
+            <div class="bm-oce-cat" [class.bm-oce-sel]="activeCat() === grp.cat.key" (click)="selectCat(grp.cat.key)">
+              <mat-icon class="bm-oce-cat-ic">{{ grp.cat.icon }}</mat-icon>{{ grp.cat.label }}
+              <span class="bm-oce-count">{{ grp.files.length }}</span>
+            </div>
           } @empty {
             <p class="bm-oce-empty">{{ loaded() ? 'Nothing matches.' : 'Loading…' }}</p>
           }
         </div>
+        <!-- Miller column 2: files in the active category -->
+        <div class="bm-oce-col">
+          @for (f of filesInActiveCat(); track f.path) {
+            <div class="bm-oce-file" [class.bm-oce-sel]="selected() === f.path" (click)="select(f.path)" [title]="f.path">
+              {{ baseName(f.path) }}
+              @if (policyFor(f.path)) { <span class="bm-oce-dot" title="policy at this scope">●</span> }
+            </div>
+          } @empty {
+            <p class="bm-oce-empty">{{ activeCat() ? 'No files.' : 'Pick a category.' }}</p>
+          }
+        </div>
+        <!-- Miller column 3: the file's settings -->
         <div class="bm-oce-main">
           @if (selected(); as sel) {
             <h4 class="bm-oce-file-h">{{ sel }}</h4>
@@ -113,12 +123,14 @@ interface SettingRow {
       .bm-oce { margin-top: 18px; }
       .bm-oce-h { margin: 0 0 4px; }
       .bm-oce-src { font-size: 12px; opacity: 0.65; margin: 0 0 10px; }
-      .bm-oce-panes { display: flex; gap: 14px; align-items: flex-start; }
-      .bm-oce-tree { flex: 0 0 230px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
-      .bm-oce-search { display: block; width: calc(100% - 16px); margin: 2px 8px 6px; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
-      .bm-oce-cat { padding: 6px 10px 2px; font-size: 11px; opacity: 0.7; display: flex; align-items: center; gap: 5px; font-weight: 600; }
-      .bm-oce-cat-ic { font-size: 14px; width: 14px; height: 14px; opacity: 0.8; }
-      .bm-oce-file { padding: 4px 10px 4px 26px; cursor: pointer; border-left: 3px solid transparent; display: flex; align-items: center; gap: 6px; }
+      .bm-oce-panes { display: flex; gap: 10px; align-items: stretch; }
+      .bm-oce-col { flex: 0 0 200px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
+      .bm-oce-search { display: block; width: 100%; max-width: 420px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
+      .bm-oce-cat { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+      .bm-oce-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-oce-cat .bm-oce-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
+      .bm-oce-cat-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; }
+      .bm-oce-file { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; display: flex; align-items: center; gap: 6px; }
       .bm-oce-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-oce-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-oce-dot { color: var(--mat-sys-primary); font-size: 10px; }
@@ -154,6 +166,7 @@ export class OuConfigEditorComponent implements OnChanges {
   private catalog = signal<ObservedResource[]>([]);
   private policies = signal<ScopePolicy[]>([]);
   search = signal('');
+  activeCat = signal<string | null>(null);
   selected = signal<string | null>(null);
   editKey = signal<string | null>(null);
   mode = signal<'notconf' | 'configured' | 'removed'>('configured');
@@ -210,6 +223,23 @@ export class OuConfigEditorComponent implements OnChanges {
       })
       .map(([path]) => ({ path }));
     return groupByCategory(items);
+  }
+
+  /** Miller-column navigation: category → its files → the file's settings.
+   * The active category defaults to the first available and follows the
+   * search (if the active one filters out, fall back to the first). */
+  selectCat(key: string): void {
+    this.activeCat.set(key);
+    this.selected.set(null);
+    this.editKey.set(null);
+  }
+
+  filesInActiveCat(): { path: string }[] {
+    const gs = this.groups();
+    if (!gs.length) return [];
+    let active = gs.find((g) => g.cat.key === this.activeCat());
+    if (!active) { active = gs[0]; }
+    return active.files;
   }
 
   select(path: string): void {

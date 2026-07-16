@@ -475,30 +475,35 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     }
                   </div>
                 }
+                <input
+                  class="bm-gpo-search"
+                  type="search"
+                  placeholder="Search settings…"
+                  [ngModel]="gpoSearch()"
+                  (ngModelChange)="gpoSearch.set($event)"
+                />
                 <div class="bm-gpo">
-                  <div class="bm-gpo-tree">
-                    <input
-                      class="bm-gpo-search"
-                      type="search"
-                      placeholder="Search settings…"
-                      [ngModel]="gpoSearch()"
-                      (ngModelChange)="gpoSearch.set($event)"
-                    />
-                    <div class="bm-gpo-dir">Monitoring</div>
-                    <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::thresholds'" (click)="selectPane('::thresholds')">Thresholds</div>
-                    <div class="bm-gpo-dir">Policies</div>
-                    <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === '::plans'" (click)="selectPane('::plans')">Applied plans</div>
-                    <div class="bm-gpo-dir">Configuration files</div>
-                    @for (grp of categoryGroups(obs); track grp.cat.key) {
-                      <div class="bm-gpo-subdir"><mat-icon class="bm-gpo-cat-ic">{{ grp.cat.icon }}</mat-icon>{{ grp.cat.label }}</div>
-                      @for (f of grp.files; track f.path) {
-                        <div class="bm-gpo-file bm-gpo-indent" [class.bm-gpo-sel]="selectedPane() === f.path" (click)="selectPane(f.path)" [title]="f.path">
-                          {{ baseName(f.path) }}
-                          @if (driftFor(f.path)) { <span class="bm-dot-drift">●</span> }
-                        </div>
-                      }
+                  <!-- Miller column 1: categories -->
+                  <div class="bm-gpo-col">
+                    @for (c of gpoCategories(obs); track c.key) {
+                      <div class="bm-gpo-cat" [class.bm-gpo-sel]="gpoActiveCat() === c.key" (click)="selectGpoCat(c.key)">
+                        <mat-icon class="bm-gpo-cat-ic">{{ c.icon }}</mat-icon>{{ c.label }}
+                        <span class="bm-gpo-count">{{ c.count }}</span>
+                      </div>
                     }
                   </div>
+                  <!-- Miller column 2: the category's items (thresholds / plans / files) -->
+                  <div class="bm-gpo-col">
+                    @for (it of gpoColItems(obs); track it.pane) {
+                      <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === it.pane" (click)="selectPane(it.pane)" [title]="it.title">
+                        {{ it.label }}
+                        @if (it.drift) { <span class="bm-dot-drift">●</span> }
+                      </div>
+                    } @empty {
+                      <p class="bm-gpo-empty">Pick a category.</p>
+                    }
+                  </div>
+                  <!-- Miller column 3: the selected pane -->
                   <div class="bm-gpo-main">
                     @if (selectedPane() === '::thresholds') {
                       <h3 class="bm-gpo-h">Monitoring thresholds</h3>
@@ -1090,16 +1095,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
       .bm-drift-h { margin: 8px 0 2px; }
       .bm-scope { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0; opacity: 0.85; }
-      .bm-gpo { display: flex; gap: 14px; align-items: flex-start; }
-      .bm-gpo-tree { flex: 0 0 240px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
-      .bm-gpo-search { display: block; width: calc(100% - 16px); margin: 2px 8px 6px; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
-      .bm-gpo-dir { padding: 6px 10px 2px; font-weight: 700; font-size: 11px; text-transform: uppercase; opacity: 0.6; }
-      .bm-gpo-subdir { padding: 6px 10px 2px; font-size: 11px; opacity: 0.7; display: flex; align-items: center; gap: 5px; font-weight: 600; }
-      .bm-gpo-cat-ic { font-size: 14px; width: 14px; height: 14px; opacity: 0.8; }
-      .bm-gpo-file { padding: 4px 10px; cursor: pointer; border-left: 3px solid transparent; }
+      .bm-gpo { display: flex; gap: 10px; align-items: stretch; }
+      .bm-gpo-col { flex: 0 0 210px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
+      .bm-gpo-search { display: block; width: 100%; max-width: 440px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
+      .bm-gpo-cat { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+      .bm-gpo-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-gpo-cat .bm-gpo-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
+      .bm-gpo-cat-ic { font-size: 16px; width: 16px; height: 16px; opacity: 0.8; }
+      .bm-gpo-file { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; display: flex; align-items: center; gap: 6px; }
       .bm-gpo-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-gpo-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
-      .bm-gpo-indent { padding-left: 20px; }
+      .bm-gpo-empty { opacity: 0.55; font-size: 12px; padding: 8px 10px; }
       .bm-gpo-main { flex: 1 1 auto; min-width: 0; }
       .bm-gpo-h { margin: 0 0 8px; }
       .bm-gpo-settings { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -2011,6 +2017,31 @@ export class HostDetailComponent implements OnInit {
     this.cancelEdit();
     this.cancelTemplateEdit();
     this.thrKey.set(null);
+  }
+
+  // gpedit Miller columns: category (col 1) → its items (col 2) → pane (col 3).
+  // Monitoring + Policies are pseudo-categories; the rest are config-file
+  // categories from categoryGroups().
+  gpoActiveCat = signal<string>('::mon');
+  selectGpoCat(key: string): void { this.gpoActiveCat.set(key); }
+
+  gpoCategories(obs: ObservedState): { key: string; label: string; icon: string; count: number }[] {
+    const cats: { key: string; label: string; icon: string; count: number }[] = [
+      { key: '::mon', label: 'Monitoring', icon: 'speed', count: this.thresholds().length },
+      { key: '::pol', label: 'Policies', icon: 'policy', count: this.appliedPlans().length },
+    ];
+    for (const g of this.categoryGroups(obs)) {
+      cats.push({ key: g.cat.key, label: g.cat.label, icon: g.cat.icon, count: g.files.length });
+    }
+    return cats;
+  }
+
+  gpoColItems(obs: ObservedState): { pane: string; label: string; title: string; drift: boolean }[] {
+    const cat = this.gpoActiveCat();
+    if (cat === '::mon') return [{ pane: '::thresholds', label: 'Thresholds', title: 'Monitoring thresholds', drift: false }];
+    if (cat === '::pol') return [{ pane: '::plans', label: 'Applied plans', title: 'Applied plans', drift: false }];
+    const grp = this.categoryGroups(obs).find((g) => g.cat.key === cat);
+    return (grp?.files ?? []).map((f) => ({ pane: f.path, label: this.baseName(f.path), title: f.path, drift: !!this.driftFor(f.path) }));
   }
   baseName(p: string): string {
     return p.split('/').pop() || p;
