@@ -45,12 +45,40 @@ func newBearerToken() (string, error) {
 // and restarts the service. No enrollment secret (registration is open; the
 // SSH-driven deploy is the authenticated path). Existing config is updated in
 // place (token/cert kept, trusted key + listen ensured), not clobbered.
+// advertisedAddress works out the host:port this agent tells Bossman to reach
+// it on, plus the address it should listen on. It must produce a reachable
+// result WITHOUT --address (zero-touch): the host defaults to the agent name
+// (its hostname/FQDN), the port to the configured listen's port (falling back
+// to 8010), and the listener is always bound on 0.0.0.0 — never the
+// loopback-only default, which would leave the agent enrolled yet unreachable.
+// --address overrides host and/or port; given without a port it's the host.
+func advertisedAddress(agentName, addressFlag, cfgListen string) (advertise, listen string) {
+	listenPort := "8010"
+	if _, port, err := net.SplitHostPort(cfgListen); err == nil && port != "" {
+		listenPort = port
+	}
+	host := agentName
+	if addressFlag != "" {
+		if h, p, err := net.SplitHostPort(addressFlag); err == nil {
+			if h != "" {
+				host = h
+			}
+			if p != "" {
+				listenPort = p
+			}
+		} else {
+			host = addressFlag
+		}
+	}
+	return net.JoinHostPort(host, listenPort), net.JoinHostPort("0.0.0.0", listenPort)
+}
+
 func runRegister(args []string) error {
 	fs := flag.NewFlagSet("agentic-mcpd register", flag.ContinueOnError)
 	enrollURL := fs.String("enroll-url", "", "enrollment endpoint of the Bossman or Selecta this agent is joining, e.g. https://selecta.internal:8443")
 	enrollSecret := fs.String("enroll-secret", "", "optional shared bootstrap secret — Bossman enrollment is open and ignores it; a Selecta proxy may still require it")
 	name := fs.String("name", "", "this agent's name as reported to the enrollment authority (default: hostname)")
-	address := fs.String("address", "", "this agent's own reachable host:port, so it can be reached later (optional)")
+	address := fs.String("address", "", "override this agent's auto-detected reachable host:port (default: <name>:<listen-port>); rarely needed")
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml (read for this agent's own bearer token)")
 	keyName := fs.String("key-name", "enroller", "name under which to pin the fetched key in tls.trusted_client_keys")
 	trustedKeyPath := fs.String("trusted-key-path", "/etc/agentic-mcp/trusted/enroller.pub.pem", "where to write the enrollment authority's public key")
@@ -110,21 +138,25 @@ func runRegister(args []string) error {
 	}
 	cfg.TLS.Enabled = true
 
-	// Bind reachably: the default listen is 127.0.0.1, which Bossman couldn't
-	// pull from. When an --address (the host:port Bossman will use) is given,
-	// bind 0.0.0.0 on that port so the freshly-registered agent is actually
-	// reachable — the whole point of a zero-touch enroll.
-	if *address != "" {
-		if _, port, splitErr := net.SplitHostPort(*address); splitErr == nil && port != "" {
-			cfg.Listen = net.JoinHostPort("0.0.0.0", port)
-		}
-	}
+	// Work out this agent's own reachable address (host:port) so Bossman can
+	// pull from it — the whole point of enrolling. This MUST work without
+	// --address: a zero-touch enroll shouldn't require the operator to know
+	// and type the host's reachable address. So default the host to the agent
+	// name (its hostname/FQDN, which is also how Bossman refers to it) and the
+	// port to the configured listen port, and ALWAYS bind the listener on
+	// 0.0.0.0 — the config default 127.0.0.1 is loopback-only, so an agent
+	// registered without --address used to enroll fine yet be unreachable
+	// (empty address in Bossman + a loopback listen). --address stays as an
+	// override for when the auto-detected name isn't the reachable one.
+	advAddress, listenBind := advertisedAddress(agentName, *address, cfg.Listen)
+	cfg.Listen = listenBind
+	fmt.Printf("register: advertising reachable address %s (listening on %s)\n", advAddress, cfg.Listen)
 
 	result, err := enroll.Register(context.Background(), *enrollURL, enroll.Request{
 		Name:         agentName,
 		EnrollSecret: *enrollSecret,
 		Token:        cfg.Token,
-		Address:      *address,
+		Address:      advAddress,
 	})
 	if err != nil {
 		return fmt.Errorf("register: %w", err)
