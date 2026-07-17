@@ -37,6 +37,8 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
+import { DesiredStateReportComponent } from '../../shared/components/desired-state-report/desired-state-report.component';
+import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -121,6 +123,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     PerfOMeterComponent,
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
+    DesiredStateReportComponent,
     FormsModule,
   ],
   template: `
@@ -756,7 +759,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
               </ng-template></mat-tab>
-              <mat-tab label="Desired state (JSON)"><ng-template matTabContent>
+              <mat-tab label="Desired state"><ng-template matTabContent>
                 <div class="bm-ds-head">
                   <span class="bm-dim">The full compiled desired_state for this host — the GPO-merged result of the global, OU, group and host layers.</span>
                   <button mat-stroked-button (click)="loadDesiredJson()" [disabled]="desiredJsonLoading()"><mat-icon>refresh</mat-icon> Reload</button>
@@ -765,8 +768,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   <p class="bm-empty">Compiling the desired state…</p>
                 } @else if (desiredJsonError(); as e) {
                   <p class="bm-empty">{{ e }}</p>
-                } @else if (desiredJson(); as js) {
-                  <pre class="bm-ds-json">{{ js }}</pre>
+                } @else if (desiredStateFull(); as ds) {
+                  <app-desired-state-report [state]="ds" />
                 }
               </ng-template></mat-tab>
              </mat-tab-group>
@@ -1092,8 +1095,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-page {
         padding: 24px;
-        max-width: 1100px;
-        margin: 0 auto;
+        /* No fixed max-width: the page simply grows wider so the tab bar fits on
+           one row instead of wrapping/paginating. */
+        max-width: none;
+        margin: 0;
       }
       .bm-header-row {
         display: flex;
@@ -1104,17 +1109,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tab-content {
         padding: 16px 4px;
       }
-      /* Let the host tab bar wrap onto a second row instead of paginating with
-         scroll arrows — there's plenty of horizontal room. Scoped to the outer
-         group so the nested Configuration sub-tabs keep their default behaviour. */
-      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-label-container { overflow: visible; }
-      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-list { transform: none !important; }
-      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-labels { flex-wrap: wrap; }
-      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-header-pagination { display: none !important; }
-      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header { --mat-tab-header-inactive-focus-label-text-color: inherit; }
-      /* Desired-state JSON viewer */
       .bm-ds-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-      .bm-ds-json { margin: 0; padding: 14px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.06)); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; white-space: pre; overflow-x: auto; max-height: 620px; overflow-y: auto; }
+      /* Compact the host tab labels so all of them fit on one row in the now
+         full-width page — the user wants the page to widen, not the tab bar to
+         wrap or paginate. Scoped to the outer group only. */
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mdc-tab { padding: 0 12px !important; min-width: 0 !important; }
       .bm-cfg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
       .bm-cfg-card { padding: 12px 14px; margin-bottom: 10px; }
       .bm-cfg-row { display: flex; align-items: center; gap: 10px; }
@@ -2055,7 +2054,7 @@ export class HostDetailComponent implements OnInit {
 
   /** Inner Configuration tabs: lazy-load the desired_state JSON on first open. */
   onConfigSubTab(event: MatTabChangeEvent): void {
-    if (event.tab.textLabel === 'Desired state (JSON)' && this.desiredJson() === null && !this.desiredJsonLoading()) {
+    if (event.tab.textLabel === 'Desired state' && this.desiredStateFull() === null && !this.desiredJsonLoading()) {
       this.loadDesiredJson();
     }
   }
@@ -2318,9 +2317,10 @@ export class HostDetailComponent implements OnInit {
   thrCrit = signal('');
   thrBusy = signal(false);
   thrError = signal<string | null>(null);
-  // Desired-state tab: the full compiled desired_state document for this host
-  // (the GPO-merged result of global/OU/group/host layers), shown verbatim.
-  desiredJson = signal<string | null>(null);
+  // Desired-state sub-tab: the full compiled desired_state document for this host
+  // (the GPO-merged result of global/OU/group/host layers), rendered as a
+  // gpresult-style collapsible report.
+  desiredStateFull = signal<CompiledHostState | null>(null);
   desiredJsonLoading = signal(false);
   desiredJsonError = signal<string | null>(null);
   loadDesiredJson(): void {
@@ -2330,7 +2330,7 @@ export class HostDetailComponent implements OnInit {
     this.desiredJsonError.set(null);
     this.orchestration.desiredState(agent.id).subscribe({
       next: (d) => {
-        this.desiredJson.set(JSON.stringify(d.state ?? d, null, 2));
+        this.desiredStateFull.set(d);
         this.desiredJsonLoading.set(false);
       },
       error: (e: { error?: { detail?: string } }) => {
