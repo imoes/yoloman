@@ -56,6 +56,10 @@ services:
       - ./configs/config_codecs.json:/app/config_codecs.json:ro
       - ./configs/config_directives.json:/app/config_directives.json:ro
       - bossman-tls:/app/data/tls
+      # Persist the downloaded CVE feed (+ its parsed descriptions) across
+      # restarts/rebuilds so it isn't re-fetched (78MB) and CVE descriptions
+      # survive a container restart.
+      - bossman-cve-cache:/etc/bossman/cve-cache
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -87,5 +91,6 @@ services:
 volumes:
   bossman-db-data:
   bossman-tls:
+  bossman-cve-cache:
   bossman-poller-conf:
   bossman-poller-data:
