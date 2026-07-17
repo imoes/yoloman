@@ -974,7 +974,7 @@ export class OuPolicyComponent implements OnInit {
       return;
     }
     this.dialog.open<PolicyGpeditDialogComponent, PolicyGpeditDialogData>(
-      PolicyGpeditDialogComponent, { data: { scope } },
+      PolicyGpeditDialogComponent, { data: { scope }, width: 'min(1100px, 94vw)', maxWidth: '94vw' },
     ).afterClosed().subscribe(() => this.reload());
   }
 
