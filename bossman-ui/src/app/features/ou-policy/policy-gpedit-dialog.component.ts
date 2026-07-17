@@ -27,7 +27,9 @@ export interface PolicyGpeditDialogData {
     </mat-dialog-actions>
   `,
   styles: [`
-    mat-dialog-content { min-width: min(1100px, 88vw); max-width: 88vw; }
+    /* Fit the viewport and never scroll sideways — the editor's Miller columns
+       wrap on their own when the panel is narrow. */
+    mat-dialog-content { width: min(1100px, 88vw); max-width: 88vw; overflow-x: hidden; box-sizing: border-box; }
   `],
 })
 export class PolicyGpeditDialogComponent {

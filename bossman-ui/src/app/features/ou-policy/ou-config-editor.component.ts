@@ -6,7 +6,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { OuService } from '../../core/services/ou.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
-import { DirectiveSpec, ObservedResource } from '../../core/models/agent.model';
+import { DirectiveSpec } from '../../core/models/agent.model';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
 
 interface ScopePolicy {
@@ -51,11 +51,7 @@ export interface EditorScope {
   template: `
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
-      @if (catalogHost(); as ch) {
-        <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}. The available settings are read from a member host (<strong>{{ ch }}</strong>) as a reference.</p>
-      } @else if (loaded()) {
-        <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}. No reachable member host — showing only settings that already have a policy.</p>
-      }
+      <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}; a host's own config overrides them. Pick from every known config file (the codec registry) — the host doesn't need the file yet.</p>
       <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
       <div class="bm-oce-panes">
         <!-- Miller column 1: categories -->
@@ -85,7 +81,7 @@ export interface EditorScope {
           @if (selected(); as sel) {
             <h4 class="bm-oce-file-h">{{ sel }}</h4>
             <table class="bm-oce-settings">
-              <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Live example</th></tr></thead>
+              <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
                 @for (row of rows(); track row.key) {
                   <tr (click)="openRow(row)" [class.bm-oce-row-sel]="editKey() === row.key" [class.bm-oce-managed]="row.state !== 'Not configured'">
@@ -190,10 +186,11 @@ export class OuConfigEditorComponent implements OnChanges {
   private scopeArg() { return this.scope.kind === 'ou' ? { scope_ou_id: this.scope.id } : { host_group_id: this.scope.id }; }
 
   loaded = signal(false);
-  catalogHost = signal<string | null>(null);
   // ADMX per-directive value catalog (parity with the host gpedit) — loaded once.
   directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
-  private catalog = signal<ObservedResource[]>([]);
+  // Host-independent file catalog: every known config file from the codec
+  // registry ({path, format}). A policy can target any of them.
+  private catalog = signal<{ path: string; format: string }[]>([]);
   private policies = signal<ScopePolicy[]>([]);
   search = signal('');
   activeCat = signal<string | null>(null);
@@ -215,68 +212,51 @@ export class OuConfigEditorComponent implements OnChanges {
     this.policies.set([]);
     this.selected.set(null);
     this.editKey.set(null);
-    this.catalogHost.set(null);
     this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
     if (!Object.keys(this.directiveCatalog()).length) {
       this.agentService.configDirectives().subscribe({ next: (r) => this.directiveCatalog.set(r.directives || {}), error: () => {} });
     }
-    // Resolve a reachable member as the settings catalog host: an OU asks its
-    // subtree members endpoint; a group uses its own member agent ids.
-    const useCatalog = (host: { id: string; name: string } | null) => {
-      if (!host) { this.loaded.set(true); return; }
-      this.agentService.observedState(host.id).subscribe({
-        next: (res) => {
-          this.catalog.set((res.observed?.config ?? []).filter((r) => !r.error && r.values));
-          this.catalogHost.set(host.name);
-          this.loaded.set(true);
-        },
-        error: () => this.loaded.set(true),
-      });
-    };
-    if (this.scope.kind === 'ou') {
-      this.ouService.members(this.scope.id).subscribe({
-        next: (members) => useCatalog(members.find((m) => m.address) ?? null),
-        error: () => this.loaded.set(true),
-      });
-    } else {
-      // Group: resolve member agent ids (given, or looked up), then use the
-      // first reachable member as the catalog host.
-      const pick = (ids: Set<string>) => {
-        this.agentService.list().subscribe({
-          next: (agents) => useCatalog(agents.find((a) => ids.has(a.id) && a.address) ?? null),
-          error: () => this.loaded.set(true),
-        });
-      };
-      if (this.scope.memberAgentIds?.length) {
-        pick(new Set(this.scope.memberAgentIds));
-      } else {
-        this.hostGroupService.list().subscribe({
-          next: (groups) => pick(new Set(groups.find((g) => g.id === this.scope.id)?.member_agent_ids ?? [])),
-          error: () => this.loaded.set(true),
-        });
-      }
-    }
+    // Host-independent file catalog: the codec registry lists every config file
+    // we know how to parse — a policy can target any of them, whether or not a
+    // member host currently has the file. Use the first concrete path per entry.
+    this.agentService.configCodecs().subscribe({
+      next: (r) => {
+        const seen = new Set<string>();
+        const files: { path: string; format: string }[] = [];
+        for (const e of r.entries ?? []) {
+          const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
+          if (!path || path.includes('*') || seen.has(path)) continue;
+          seen.add(path);
+          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec });
+        }
+        this.catalog.set(files);
+        this.loaded.set(true);
+      },
+      error: () => this.loaded.set(true),
+    });
   }
 
   /** Catalog files ∪ policy-only paths, category-grouped, search-filtered by
    * path or any setting key inside (mirrors the host gpedit's live search). */
   groups(): { cat: ConfigCategory; files: { path: string }[] }[] {
-    const paths = new Map<string, ObservedResource | null>();
-    for (const r of this.catalog()) paths.set(r.path, r);
-    for (const p of this.policies()) if (!paths.has(p.path)) paths.set(p.path, null);
+    const paths = new Set<string>();
+    for (const r of this.catalog()) paths.add(r.path);
+    for (const p of this.policies()) paths.add(p.path);
     const q = this.search().trim().toLowerCase();
-    const items = [...paths.entries()]
-      .filter(([path, res]) => {
+    const items = [...paths]
+      .filter((path) => {
         if (!q) return true;
         if (path.toLowerCase().includes(q)) return true;
-        const keys = [
-          ...(res ? this.flatKeys(res.values ?? {}, res.format) : []),
-          ...this.policyKeys(path),
-        ];
+        const keys = [...this.directiveKeysFor(path), ...this.policyKeys(path)];
         return keys.some((k) => k.toLowerCase().includes(q));
       })
-      .map(([path]) => ({ path }));
+      .map((path) => ({ path }));
     return groupByCategory(items);
+  }
+
+  /** Known setting keys for a file, from the ADMX directive catalog (by name). */
+  private directiveKeysFor(path: string): string[] {
+    return Object.keys(this.directiveCatalog()[this.baseName(path)] ?? {});
   }
 
   /** Miller-column navigation: category → its files → the file's settings.
@@ -308,11 +288,10 @@ export class OuConfigEditorComponent implements OnChanges {
   rows(): SettingRow[] {
     const path = this.selected();
     if (!path) return [];
-    const res = this.catalog().find((r) => r.path === path) ?? null;
-    const fmt = res?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
-    const live = new Map(res ? this.flat(res.values ?? {}, fmt) : []);
+    const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
+    const specs = this.directiveCatalog()[this.baseName(path)] ?? {};
     const des = new Map(this.flat(this.policyFor(path)?.values ?? {}, fmt));
-    const keys = [...new Set([...live.keys(), ...des.keys()])].sort();
+    const keys = [...new Set([...Object.keys(specs), ...des.keys()])].sort();
     const q = this.search().trim().toLowerCase();
     const all = keys.map((key): SettingRow => {
       const managed = des.has(key);
@@ -321,7 +300,8 @@ export class OuConfigEditorComponent implements OnChanges {
         key,
         state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Not configured',
         policy: dv === null || dv === undefined ? '' : this.scalar(dv),
-        live: live.has(key) ? this.scalar(live.get(key)) : '',
+        // No live host value here — show the directive default as a reference.
+        live: this.scalar(specs[key]?.default ?? ''),
       };
     });
     if (!q || path.toLowerCase().includes(q)) return all;

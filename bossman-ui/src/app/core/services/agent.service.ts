@@ -122,6 +122,15 @@ export class AgentService {
     );
   }
 
+  /** The codec registry as a flat catalog — every known config file + its codec.
+   * The gpedit uses it as its file catalog (host-independent), so a policy can
+   * target ANY config file, not just those a sample host happens to have. */
+  configCodecs() {
+    return this.http.get<{ entries: { pattern: string; codec: string; separator: string; paths: string[] }[]; available: boolean }>(
+      `${environment.apiUrl}/config-codecs`,
+    );
+  }
+
   /** ADMX — the per-directive value catalog ({file: {directive: spec}}), used
    * by the gpedit editor to offer real per-directive listboxes. */
   configDirectives() {
