@@ -754,6 +754,39 @@ def build_mcp_server(
             await session.commit()
         return {"runbook": doc.name, "host": host, "dry_run": True, **rr}
 
+    @mcp.tool()
+    async def list_runbooks(folder: str | None = None) -> list[dict[str, Any]]:
+        """List stored runbooks (optionally filtered by folder, e.g. "wizards"
+        for the package-installation runbooks). Each entry carries its typed
+        `parameters` (the input mask: name -> {type, description, default, ...}),
+        so you know what to pass to run_runbook. The install-<pkg> runbooks
+        install and configure a server package in one procedure."""
+        from bossman.db.models import Runbook
+
+        async with session_factory() as session:
+            q = select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID)
+            if folder is not None:
+                q = q.where(Runbook.folder == folder)
+            rows = (await session.scalars(q.order_by(Runbook.name))).all()
+            return [{"name": r.name, "kind": r.kind, "folder": r.folder or "",
+                     "steps": len((r.doc or {}).get("steps", [])),
+                     "parameters": (r.doc or {}).get("parameters", {})} for r in rows]
+
+    @mcp.tool()
+    async def search_runbooks(query: str, top_k: int = 8) -> list[dict[str, Any]]:
+        """Find runbooks by name/folder substring (case-insensitive). Returns the
+        same shape as list_runbooks (incl. `parameters`)."""
+        from bossman.db.models import Runbook
+
+        ql = query.lower()
+        async with session_factory() as session:
+            rows = (await session.scalars(
+                select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID).order_by(Runbook.name)
+            )).all()
+            hits = [r for r in rows if ql in r.name.lower() or ql in (r.folder or "").lower()]
+            return [{"name": r.name, "kind": r.kind, "folder": r.folder or "",
+                     "parameters": (r.doc or {}).get("parameters", {})} for r in hits[:top_k]]
+
     # ── Policy & Orchestration (Block L2) ────────────────────────────────
     # Read-only + a safe dry-run preview + ONE gated write tool for the
     # Policy/Orchestration layer (Block L1: OU tree, host groups,
