@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
@@ -13,7 +14,7 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
 @Component({
   selector: 'app-roles-features',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule],
   template: `
     <div class="bm-rf-head">
       <div>
@@ -28,6 +29,7 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     @if (!ready()) {
       <p class="bm-dim">Loading catalog…</p>
     } @else {
+      <input class="bm-rf-search" placeholder="Search roles…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
       <table class="bm-rf-tbl">
         <thead><tr><th>Role</th><th>Category</th><th>Status</th><th>Version</th><th></th></tr></thead>
         <tbody>
@@ -55,6 +57,8 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     .bm-rf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
     .bm-rf-head h3 { margin: 0; }
     .bm-dim { opacity: 0.62; margin: 2px 0 0; font-size: 13px; }
+    .bm-rf-search { display: block; width: 100%; max-width: 380px; margin: 0 0 10px; padding: 7px 11px; border-radius: 6px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
     .bm-rf-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .bm-rf-tbl th { text-align: left; font-size: 12px; opacity: 0.6; padding: 6px 10px; }
     .bm-rf-tbl td { padding: 8px 10px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
@@ -73,22 +77,25 @@ export class RolesFeaturesComponent implements OnInit {
   private catalog = signal<Record<string, CatalogPackage>>({});
   private context = signal<WizardContext | null>(null);
   ready = computed(() => Object.keys(this.catalog()).length > 0 && this.context() !== null);
+  query = signal('');
 
   rows = computed(() => {
     const ctx = this.context();
+    const q = this.query().trim().toLowerCase();
     return Object.entries(this.catalog())
       .map(([name, e]) => ({
         name, label: e.label, category: e.category, icon: e.icon, template: e.template,
         installed: !!ctx && name in ctx.installed,
         version: ctx?.installed[name] ?? '',
       }))
+      .filter((r) => !q || r.name.toLowerCase().includes(q) || r.label.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
       .sort((a, b) => Number(b.installed) - Number(a.installed) || a.label.localeCompare(b.label));
   });
 
   ngOnInit(): void { this.reload(); }
 
-  reload(): void {
-    forkJoin({ cat: this.catalogSvc.catalog(), ctx: this.wizard.context(this.agentId()) }).subscribe({
+  reload(refresh = false): void {
+    forkJoin({ cat: this.catalogSvc.catalog(), ctx: this.wizard.context(this.agentId(), refresh) }).subscribe({
       next: ({ cat, ctx }) => { this.catalog.set(cat.packages); this.context.set(ctx); },
       error: () => {},
     });
@@ -101,7 +108,7 @@ export class RolesFeaturesComponent implements OnInit {
       agentId: this.agentId(), hostName: this.agentId(), catalog: this.catalog(), context: ctx, preselect,
     };
     this.dialog.open(AddRolesWizardComponent, { data, width: 'min(1080px, 94vw)', maxWidth: '94vw' })
-      .afterClosed().subscribe((changed) => { if (changed) this.reload(); });
+      .afterClosed().subscribe((changed) => { if (changed) this.reload(true); });
   }
 
   openWizard(): void { this.open(); }

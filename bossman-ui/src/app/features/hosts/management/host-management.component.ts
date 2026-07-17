@@ -69,9 +69,6 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         </div>
         <div class="bm-mmc-asub">{{ selectedLabel() }}</div>
         <button mat-stroked-button class="bm-mmc-action" (click)="refreshSelected()"><mat-icon>refresh</mat-icon> Refresh</button>
-        @if (selected() === 'roles') {
-          <button mat-stroked-button class="bm-mmc-action" (click)="roles()?.openWizard()"><mat-icon>add</mat-icon> Add roles and features</button>
-        }
       </aside>
     </div>
   `,

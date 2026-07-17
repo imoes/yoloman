@@ -147,7 +147,12 @@ func (a *Apt) dpkgStatus(ctx context.Context, pkg string) (installed bool, versi
 	if len(parts) > 1 {
 		version = parts[1]
 	}
-	installed = strings.Contains(status, "installed")
+	// The status line is e.g. "install ok installed" vs "unknown ok
+	// not-installed" — a substring match on "installed" wrongly matched the
+	// latter (dpkg knows the package but it is NOT installed), which made
+	// `state: present` a silent no-op. Compare the final status word exactly.
+	fields := strings.Fields(status)
+	installed = len(fields) > 0 && fields[len(fields)-1] == "installed"
 	return installed, version, nil
 }
 

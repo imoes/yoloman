@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
@@ -88,6 +89,14 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 	}
 	changed := string(existing) != rendered
 	if changed && !dryRun {
+		// The destination directory may not exist yet (e.g. rendering a config
+		// right after a fresh install, or for a package that ships none) —
+		// create it rather than failing the render.
+		if dir := filepath.Dir(dest); dir != "" && dir != "." {
+			if merr := os.MkdirAll(dir, 0o755); merr != nil {
+				return Result{}, fmt.Errorf("template_render: mkdir %s: %w", dir, merr)
+			}
+		}
 		mode := os.FileMode(0o644)
 		if fi, e := os.Stat(dest); e == nil {
 			mode = fi.Mode().Perm()

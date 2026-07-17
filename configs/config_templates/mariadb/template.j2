@@ -1,7 +1,7 @@
 [mysqld]
 # Basic server identification and logging
 server-id = {{ server_id }}
-log_bin = {{ log_bin_enabled | ternary('mysql-bin', '') }}
+log_bin = {{ 'mysql-bin' if log_bin_enabled else '' }}
 
 # Data directory and temporary files
 basedir = {{ basedir }}
@@ -18,7 +18,7 @@ max_allowed_packet = {{ max_allowed_packet }}
 innodb_buffer_pool_size = {{ innodb_buffer_pool_size }}
 innodb_log_file_size = {{ innodb_log_file_size }}
 innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit }}
-innodb_file_per_table = {{ innodb_file_per_table | ternary(1, 0) }}
+innodb_file_per_table = {{ 1 if innodb_file_per_table else 0 }}
 
 # Query cache (deprecated in newer MariaDB versions, but kept for compatibility)
 query_cache_type = {{ query_cache_type }}
@@ -32,12 +32,12 @@ character_set_server = {{ character_set_server }}
 collation_server = {{ collation_server }}
 
 # Slow query logging
-slow_query_log = {{ slow_query_log_enabled | ternary('1', '0') }}
+slow_query_log = {{ '1' if slow_query_log_enabled else '0' }}
 slow_query_log_file = {{ slow_query_log_file }}
 long_query_time = {{ long_query_time }}
 
 # Binary logging (for replication)
-log_bin_trust_function_creators = {{ log_bin_trust_function_creators | ternary(1, 0) }}
+log_bin_trust_function_creators = {{ 1 if log_bin_trust_function_creators else 0 }}
 
 # Replication (master) settings
 {% for replica_host in replication_hosts %}
@@ -55,7 +55,7 @@ expire_logs_days = {{ replica_host.expire_logs_days }}
 # Replication: Slave settings for {{ replica_host.name }}
 server-id = {{ replica_host.server_id }}
 relay_log = {{ replica_host.relay_log }}
-read_only = {{ replica_host.read_only | ternary(1, 0) }}
+read_only = {{ 1 if replica_host.read_only else 0 }}
 {% endif %}
 {% endfor %}
 

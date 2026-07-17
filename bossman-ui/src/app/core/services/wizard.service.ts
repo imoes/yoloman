@@ -38,8 +38,8 @@ export class WizardService {
   private http = inject(HttpClient);
   private base = environment.apiUrl;
 
-  context(agentId: string) {
-    return this.http.get<WizardContext>(`${this.base}/agents/${agentId}/package-wizard/context`);
+  context(agentId: string, refresh = false) {
+    return this.http.get<WizardContext>(`${this.base}/agents/${agentId}/package-wizard/context${refresh ? '?refresh=true' : ''}`);
   }
 
   /** Resolve a seeded runbook by name → its id, NT source and parameter mask. */

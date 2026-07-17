@@ -71,12 +71,16 @@ interface Field { key: string; spec: ParamSpec; }
               <table>
                 <thead><tr>@for (c of itemCols(f.spec); track c) { <th>{{ c }}</th> }<th></th></tr></thead>
                 <tbody>
-                  @for (row of rows(f.key); track $index) {
+                  @for (row of rows(f.key); let ri = $index; track ri) {
                     <tr>
                       @for (c of itemCols(f.spec); track c) {
-                        <td><input class="bm-pf-cell" [ngModel]="row[c]" (ngModelChange)="setRow(f.key, $index, c, $event)" /></td>
+                        <!-- ri aliases the ROW index: inside this nested for-loop
+                             the implicit index is the COLUMN index (it silently
+                             wrote every edit into row 0). One-way value + input,
+                             NOT ngModel, so recycled inputs don't get clobbered. -->
+                        <td><input class="bm-pf-cell" [value]="row[c] ?? ''" (input)="setRow(f.key, ri, c, $any($event.target).value)" /></td>
                       }
-                      <td><button type="button" class="bm-pf-x" (click)="delRow(f.key, $index)"><mat-icon>close</mat-icon></button></td>
+                      <td><button type="button" class="bm-pf-x" (click)="delRow(f.key, ri)"><mat-icon>close</mat-icon></button></td>
                     </tr>
                   }
                 </tbody>
@@ -119,8 +123,13 @@ export class ParamFormComponent implements OnInit {
   valuesChange = output<Record<string, unknown>>();
 
   /** Emit the prefilled defaults immediately so a consumer that never edits a
-   * field still receives the full value set (the wizard runs on defaults). */
-  ngOnInit(): void { this.valuesChange.emit(this.values()); }
+   * field still receives the full value set (the wizard runs on defaults). When
+   * every field has a default (no essentials), open the list right away — an
+   * empty form with just an "Advanced" toggle reads as broken. */
+  ngOnInit(): void {
+    this.valuesChange.emit(this.values());
+    if (!this.essential().length) this.showAdvanced.set(true);
+  }
 
   showAdvanced = signal(false);
   private overrides = signal<Record<string, unknown>>({});
@@ -170,7 +179,17 @@ export class ParamFormComponent implements OnInit {
   num(v: unknown): number | null { const n = Number(v); return isNaN(n) ? null : n; }
   joinList(v: unknown): string { return Array.isArray(v) ? v.join('\n') : (v ?? '') as string; }
   splitList(s: string): string[] { return s.split('\n').map((x) => x.trim()).filter(Boolean); }
-  itemCols(spec: ParamSpec): string[] { return Object.keys(spec.items ?? {}); }
+  /** The element schema of a list-of-objects. Accepts both shapes: a direct
+   * {field: spec} map AND the JSON-Schema style {type:'object', properties:{…}}
+   * the template miner emits. */
+  private itemSpec(spec: ParamSpec): Record<string, ParamSpec> {
+    const items = (spec.items ?? {}) as Record<string, unknown>;
+    if (items['properties'] && typeof items['properties'] === 'object') {
+      return items['properties'] as Record<string, ParamSpec>;
+    }
+    return items as Record<string, ParamSpec>;
+  }
+  itemCols(spec: ParamSpec): string[] { return Object.keys(this.itemSpec(spec)); }
   rows(key: string): Record<string, unknown>[] { const v = this.values()[key]; return Array.isArray(v) ? v as Record<string, unknown>[] : []; }
 
   set(key: string, value: unknown): void {
@@ -183,7 +202,7 @@ export class ParamFormComponent implements OnInit {
   }
   addRow(key: string, spec: ParamSpec): void {
     const blank: Record<string, unknown> = {};
-    for (const [c, s] of Object.entries(spec.items ?? {})) blank[c] = s.default ?? '';
+    for (const [c, s] of Object.entries(this.itemSpec(spec))) blank[c] = (s as ParamSpec).default ?? '';
     this.setList(key, [...this.rows(key), blank]);
   }
   delRow(key: string, i: number): void { const list = [...this.rows(key)]; list.splice(i, 1); this.setList(key, list); }

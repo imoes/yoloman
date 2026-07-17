@@ -1,10 +1,11 @@
 import { Component, Inject, computed, inject, signal, viewChildren } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { forkJoin, of, catchError, map } from 'rxjs';
+import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
 import { CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
@@ -26,7 +27,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
 @Component({
   selector: 'app-add-roles-wizard',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, ParamFormComponent],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, ParamFormComponent],
   template: `
     <div class="bm-wz">
       <div class="bm-wz-title">Add Roles and Features <span class="bm-wz-host">{{ data.hostName }}</span></div>
@@ -53,6 +54,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
             @case ('select') {
               <h2>Select roles</h2>
               <p class="bm-wz-lead">Pick the roles to install on this host.</p>
+              <input class="bm-wz-search" placeholder="Search roles…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
               <div class="bm-wz-select">
                 <div class="bm-wz-roles">
                   @for (grp of grouped(); track grp.category) {
@@ -164,6 +166,8 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-wz-main { overflow-y: auto; padding: 0 6px; min-width: 0; }
     .bm-wz-main h2 { margin: 4px 0 2px; }
     .bm-wz-lead { opacity: 0.7; margin: 0 0 16px; line-height: 1.5; }
+    .bm-wz-search { display: block; width: 100%; max-width: 360px; margin: 0 0 12px; padding: 7px 11px; border-radius: 6px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
     .bm-wz-select { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
     .bm-wz-cat { font-size: 11px; text-transform: uppercase; opacity: 0.55; margin: 12px 0 4px; }
     .bm-wz-role { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
@@ -217,7 +221,10 @@ export class AddRolesWizardComponent {
   }
 
   // ---- step model ----
-  toInstall = computed(() => [...this.picked()].filter((p) => !this.isInstalled(p)));
+  // An installed package is normally excluded (nothing to install) — EXCEPT the
+  // preselect ("Configure" on an installed role): its runbook re-runs install
+  // (idempotent noop) + config render + service restart.
+  toInstall = computed(() => [...this.picked()].filter((p) => !this.isInstalled(p) || p === this.data.preselect));
   private cfgPkgs = computed(() => this.toInstall().filter((p) => this.data.catalog[p]?.template));
   stepLabels = computed(() => [
     'Before you begin', 'Select roles',
@@ -236,9 +243,13 @@ export class AddRolesWizardComponent {
   cfgPkg = computed(() => this.cfgPkgs()[this.step() - 2] ?? '');
   cfgLabel = computed(() => this.catLabel(this.cfgPkg()));
 
+  roleQuery = signal('');
   grouped = computed(() => {
+    const q = this.roleQuery().trim().toLowerCase();
     const groups = new Map<string, (CatalogPackage & { name: string })[]>();
     for (const [name, entry] of Object.entries(this.data.catalog)) {
+      if (q && !name.toLowerCase().includes(q) && !entry.label.toLowerCase().includes(q)
+          && !(entry.description || '').toLowerCase().includes(q)) continue;
       const cat = entry.category || 'other';
       (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push({ ...entry, name });
     }
@@ -299,14 +310,23 @@ export class AddRolesWizardComponent {
     this.busy.set(true);
     if (!dry) this.runStates.set(pkgs.map((p) => ({ pkg: p, running: true })));
     this.loadRunbooks(pkgs);
-    forkJoin(pkgs.map((p) => {
-      const r = this.runbooks()[p];
-      if (!r) return of<RunState>({ pkg: p, error: 'no install runbook (template missing)' });
-      return this.wizard.run(this.data.agentId, r.nt, this.varsFor(p), dry).pipe(
-        map((resp): RunState => ({ pkg: p, result: resp })),
-        catchError((e: { error?: { detail?: string } }) => of<RunState>({ pkg: p, error: e?.error?.detail || 'run failed' })),
-      );
-    })).subscribe((states) => {
+    // SEQUENTIAL on purpose: two apt/dnf runs on the same host would fight over
+    // the package-manager lock. Each package's result is surfaced as it lands.
+    from(pkgs).pipe(
+      concatMap((p) => {
+        const r = this.runbooks()[p];
+        if (!r) return of<RunState>({ pkg: p, error: 'no install runbook (template missing)' });
+        return this.wizard.run(this.data.agentId, r.nt, this.varsFor(p), dry).pipe(
+          map((resp): RunState => ({ pkg: p, result: resp })),
+          catchError((e: { error?: { detail?: string } }) => of<RunState>({ pkg: p, error: e?.error?.detail || 'run failed' })),
+        );
+      }),
+      map((state) => {
+        if (!dry) this.runStates.update((all) => all.map((s) => (s.pkg === state.pkg ? state : s)));
+        return state;
+      }),
+      toArray(),
+    ).subscribe((states) => {
       this.busy.set(false);
       if (dry) this.dryRun.set(states);
       else { this.runStates.set(states); this.finished.set(true); }

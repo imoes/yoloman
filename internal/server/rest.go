@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -526,6 +527,46 @@ func listAvailableTools(cfg RESTConfig) []availableTool {
 	return out
 }
 
+// coerceParams converts string values into the bool/number types a module's
+// input schema declares. NestedText runbook args are always strings ("true",
+// "8080"), while modules validate against typed params — this bridges the two
+// without every module needing its own string parsing. Non-string values and
+// params without a schema type pass through untouched.
+func coerceParams(params map[string]any, schema map[string]any) map[string]any {
+	props, _ := schema["properties"].(map[string]any)
+	if props == nil || params == nil {
+		return params
+	}
+	for key, raw := range params {
+		s, isStr := raw.(string)
+		if !isStr {
+			continue
+		}
+		spec, _ := props[key].(map[string]any)
+		if spec == nil {
+			continue
+		}
+		switch spec["type"] {
+		case "boolean", "bool":
+			switch strings.ToLower(strings.TrimSpace(s)) {
+			case "true", "yes", "on", "1":
+				params[key] = true
+			case "false", "no", "off", "0":
+				params[key] = false
+			}
+		case "integer", "int":
+			if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				params[key] = n
+			}
+		case "number":
+			if f, err := strconv.ParseFloat(strings.TrimSpace(s), 64); err == nil {
+				params[key] = f
+			}
+		}
+	}
+	return params
+}
+
 func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	name := r.PathValue("name")
 	start := time.Now()
@@ -571,6 +612,10 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		if !authorizeTool(w, r, cfg, name, m.Writes()) {
 			return
 		}
+		// NestedText runbooks are stringly-typed — every leaf arrives as a
+		// string. Coerce string values to the bool/number the module's schema
+		// declares, so `enabled: true` from a runbook works like the JSON bool.
+		params = coerceParams(params, m.InputSchema())
 		// A caller may request a preview with "dry_run": true — a write module
 		// then computes what would change without touching the host (config's
 		// merge, template_render, …). Absent/false keeps always-apply.

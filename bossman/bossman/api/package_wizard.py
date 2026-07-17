@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from bossman.api.auth import get_current_identity
+from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent
 from bossman.db.session import get_session
@@ -52,13 +53,30 @@ def _catalog(settings: Settings) -> dict:
 @router.get("/api/v1/agents/{agent_id}/package-wizard/context")
 async def wizard_context(
     agent_id: UUID,
+    refresh: bool = False,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent not found")
+    # refresh=1 (used right after a wizard install): re-pull the installed
+    # package list live instead of waiting for the poller's 6h cadence, so the
+    # roles list flips to "Installed" immediately. Best-effort.
+    if refresh and agent.address:
+        try:
+            res = await client_factory(agent, settings).call_tool("package_facts", {})
+            pkgs = res.get("data") if isinstance(res, dict) else None
+            if isinstance(pkgs, list):
+                from datetime import datetime, timezone
+
+                agent.facts = {**(agent.facts or {}), "installed_packages": pkgs,
+                               "installed_packages_at": datetime.now(timezone.utc).isoformat()}
+                await session.commit()
+        except Exception:  # noqa: BLE001 — stale inventory is better than a 502
+            pass
     facts = agent.facts or {}
     family = _family(facts)
     catalog = _catalog(settings)
