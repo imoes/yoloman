@@ -1095,11 +1095,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-page {
         padding: 24px;
-        /* Cap the width so the view isn't uncomfortably wide, but align it to the
-           right edge (rechtsbündig) rather than centring — wide enough that the
-           compact tab bar still fits on one row. */
+        /* Cap the width so the view isn't uncomfortably wide, centred — wide
+           enough that the compact tab bar still fits on one row. */
         max-width: 1500px;
-        margin: 0 0 0 auto;
+        margin: 0 auto;
       }
       .bm-header-row {
         display: flex;
