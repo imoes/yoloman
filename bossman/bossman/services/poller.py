@@ -309,6 +309,39 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
         agent.facts_updated_at = now
 
 
+async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: AgentClient) -> None:
+    """GPO-style config enforcement (auto, per poll): re-plan the host's managed
+    desired config against its live state and, if a MANAGED file drifted (someone
+    changed it out of band), re-apply the desired resource to overwrite the change
+    back — recording an agent generation (so the change is noted + roll-backable).
+    Host-based (unmanaged) files are never touched: they have no policy, so the
+    host's own value stands and a rollback is still available. Best-effort; a
+    failure here must never break the poll cycle."""
+    from bossman.services.config_desired import effective_resources
+
+    eff = await effective_resources(session, agent)
+    if not eff:
+        return
+    resources = [e["resource"] for e in eff]
+    try:
+        plan = await client.state_plan({"resources": resources})
+    except AgentClientError:
+        return
+    changes = plan.get("changes", []) if isinstance(plan, dict) else []
+    drifted = {c.get("path") for c in changes if c.get("action") not in (None, "noop") and not c.get("error")}
+    if not drifted:
+        return
+    push = [r for r in resources if r.get("path") in drifted]
+    try:
+        await client.state_apply({"resources": push}, False)
+        logger.info(
+            "config drift enforced on %s: re-applied %d managed file(s): %s",
+            agent.name, len(push), ", ".join(sorted(drifted)),
+        )
+    except AgentClientError as exc:
+        logger.warning("config drift enforcement failed on %s: %s", agent.name, exc)
+
+
 async def _collect_packages(agent: Agent, client: AgentClient, now: datetime) -> None:
     """Best-effort installed-package inventory (Debian dpkg via the agent's
     package_facts tool), stored on agent.facts["installed_packages"] so the
@@ -469,6 +502,13 @@ async def poll_agent(
             # Inventory: refresh the installed-package list (throttled, best-effort).
             if not is_infra_agent(agent):
                 await _collect_packages(agent, client, now)
+            # Config enforcement: overwrite any drifted MANAGED config back to
+            # desired (GPO-style). Isolated so it can't crash the poll cycle.
+            if not is_infra_agent(agent):
+                try:
+                    await _enforce_config_drift(session, agent, client)
+                except Exception:
+                    logger.exception("config drift enforcement crashed for agent %s", agent.name)
 
         await session.commit()
 
