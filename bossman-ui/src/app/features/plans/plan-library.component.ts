@@ -32,18 +32,24 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
         <div class="bm-pl-head">
           <strong>Roles</strong>
           <span class="bm-spacer"></span>
+          <button mat-icon-button (click)="newFolder()" title="New folder"><mat-icon>create_new_folder</mat-icon></button>
           <button mat-icon-button (click)="openImport()" title="Import a plan (Ansible / Salt / Puppet / Chef)"><mat-icon>upload_file</mat-icon></button>
           <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>
         </div>
         @if (loadErr()) { <p class="bm-err">{{ loadErr() }}</p> }
-        <ul>
+        <ul (dragover)="$event.preventDefault()" (drop)="onDropTo('', $event)"
+            [class.bm-drop-root]="dragging()" title="drag a role onto a folder to move it">
           @for (r of rows(); track r.kind + (r.path || '') + (r.plan?.prefix + '/' + r.plan?.name)) {
             @if (r.kind === 'folder') {
-              <li class="bm-fold" [style.padding-left.px]="8 + r.depth * 16" (click)="toggle(r.path!)">
+              <li class="bm-fold" [class.bm-drop-target]="dragging()" [style.padding-left.px]="8 + r.depth * 16"
+                  (click)="toggle(r.path!)"
+                  (dragover)="$event.preventDefault(); $event.stopPropagation()" (drop)="onDropTo(r.path!, $event)">
                 <mat-icon>{{ expanded().has(r.path!) ? 'folder_open' : 'folder' }}</mat-icon>{{ r.label }}
               </li>
             } @else {
-              <li class="bm-plan" [class.bm-sel]="isSel(r.plan!)" [style.padding-left.px]="8 + r.depth * 16" (click)="open(r.plan!)">
+              <li class="bm-plan" [class.bm-sel]="isSel(r.plan!)" [style.padding-left.px]="8 + r.depth * 16"
+                  draggable="true" (dragstart)="onDragStart(r.plan!)" (dragend)="dragging.set(false)"
+                  (click)="open(r.plan!)">
                 <mat-icon>description</mat-icon>{{ r.label }}
                 <span class="bm-badge">{{ r.plan!.prefix }}</span>
               </li>
@@ -121,6 +127,10 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       .bm-pl-tree li { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; font-size: 13px; }
       .bm-pl-tree li mat-icon { font-size: 17px; width: 17px; height: 17px; opacity: 0.7; }
       .bm-fold { font-weight: 600; }
+      .bm-plan[draggable=true] { cursor: grab; }
+      .bm-drop-target { outline: 1px dashed color-mix(in srgb, var(--mat-sys-primary) 50%, transparent); outline-offset: -2px; }
+      .bm-drop-target:hover { background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent); }
+      .bm-drop-root { min-height: 60px; }
       .bm-plan:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
       .bm-plan.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
       .bm-badge { margin-left: auto; font-size: 10.5px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); opacity: 0.7; }
@@ -193,9 +203,11 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
       const f = p.folder || '';
       (byFolder.get(f) ?? byFolder.set(f, []).get(f)!).push(p);
     }
-    // collect all folder paths (incl. ancestors)
+    // collect all folder paths (incl. ancestors) — plus any freshly-created
+    // empty folders (extraFolders), which have no plan yet but must show so a
+    // role can be dragged into them.
     const folders = new Set<string>(['']);
-    for (const f of byFolder.keys()) {
+    for (const f of [...byFolder.keys(), ...this.extraFolders()]) {
       const segs = f ? f.split('/') : [];
       for (let i = 0; i <= segs.length; i++) folders.add(segs.slice(0, i).join('/'));
     }
@@ -312,6 +324,43 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     this.planService.move(d.prefix, d.name, this.moveFolder.trim()).subscribe({
       next: (r) => { this.busy.set(false); this.msg.set(`moved to ${r.folder || 'root'}`); this.doc.set({ ...d, folder: r.folder }); this.reload(); },
       error: (e) => { this.busy.set(false); this.saveErr.set(e?.error?.detail ?? 'move failed'); },
+    });
+  }
+
+  // Folder create + drag-and-drop move.
+  dragging = signal(false);
+  extraFolders = signal<string[]>([]);
+  private draggedPlan: StoredPlan | null = null;
+
+  newFolder(): void {
+    const path = (prompt('New folder path (e.g. linux/base):') || '').trim().replace(/^\/+|\/+$/g, '');
+    if (!path) return;
+    this.extraFolders.update((f) => f.includes(path) ? f : [...f, path]);
+    this.expanded.update((e) => new Set(e).add(path));
+  }
+
+  onDragStart(plan: StoredPlan): void {
+    this.draggedPlan = plan;
+    this.dragging.set(true);
+  }
+
+  onDropTo(folder: string, ev: DragEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.dragging.set(false);
+    const plan = this.draggedPlan;
+    this.draggedPlan = null;
+    if (!plan || (plan.folder || '') === folder) return;
+    this.planService.move(plan.prefix, plan.name, folder).subscribe({
+      next: () => {
+        // the folder is now backed by a plan — drop it from the ephemeral set
+        this.extraFolders.update((f) => f.filter((x) => x !== folder));
+        if (this.doc()?.name === plan.name && this.doc()?.prefix === plan.prefix) {
+          this.doc.set({ ...this.doc()!, folder });
+        }
+        this.reload();
+      },
+      error: (e) => this.saveErr.set(e?.error?.detail ?? 'move failed'),
     });
   }
 
