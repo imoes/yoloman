@@ -40,6 +40,7 @@ import { ThresholdDialogComponent, ThresholdDialogData } from '../../shared/comp
 import { ConfigPolicyDialogComponent, ConfigPolicyDialogData, ConfigPolicyResult } from '../../shared/components/config-policy-dialog/config-policy-dialog.component';
 import { OuConfigEditorComponent } from './ou-config-editor.component';
 import { OrchestrationPlanDialogComponent } from '../../shared/components/orchestration-plan-dialog/orchestration-plan-dialog.component';
+import { PolicyGpeditDialogComponent, PolicyGpeditDialogData } from './policy-gpedit-dialog.component';
 import {
   OuLinkPlanDialogComponent,
   OuLinkPlanDialogData,
@@ -174,8 +175,11 @@ interface PaletteItem {
         <div class="bm-palette">
           <div class="bm-palette-head">
             <span>Policies — drag onto an OU to link</span>
-            <button mat-stroked-button class="bm-palette-new" (click)="newPolicyUnlinked()">
+            <button mat-stroked-button class="bm-palette-new" (click)="newPolicyUnlinked()" title="Author config settings for the selected OU/group (gpedit)">
               <mat-icon>add</mat-icon> New Policy
+            </button>
+            <button mat-button class="bm-palette-new" (click)="newCompositePolicy()" title="Create a role / threshold / notification policy object">
+              <mat-icon>tune</mat-icon> Role/threshold…
             </button>
           </div>
           @for (p of allPolicies(); track p.kind + ':' + p.id) {
@@ -955,7 +959,27 @@ export class OuPolicyComponent implements OnInit {
    * it appears in the palette as "(unlinked)" and can be dragged onto an OU
    * or bound to a host/group later. Distinct from newOrchestrationPlan(ou),
    * which creates AND links under a specific OU. */
+  /** "New Policy" authors a config policy AT A SCOPE through the full gpedit
+   * editor (the new format): a policy set on an OU applies to every host under
+   * it; a host's own config overrides it. Config policies live at scope, so a
+   * scope must be selected. (The composite role/threshold policy still exists
+   * via OrchestrationPlanDialog — newCompositePolicy.) */
   newPolicyUnlinked(): void {
+    const sel = this.selected();
+    let scope: PolicyGpeditDialogData['scope'] | null = null;
+    if (sel?.kind === 'ou' && sel.ou) scope = { kind: 'ou', id: sel.ou.id, label: sel.ou.path };
+    else if (sel?.kind !== 'ou' && sel?.obj?.kind === 'host_group') scope = { kind: 'group', id: sel.obj.id, label: sel.obj.label };
+    if (!scope) {
+      this.appDialog.notify('Select an OU (or host group) first — a policy is authored at a scope and applies to every host under it.', 'info');
+      return;
+    }
+    this.dialog.open<PolicyGpeditDialogComponent, PolicyGpeditDialogData>(
+      PolicyGpeditDialogComponent, { data: { scope } },
+    ).afterClosed().subscribe(() => this.reload());
+  }
+
+  /** The former "New Policy" — a composite role/threshold/route policy object. */
+  newCompositePolicy(): void {
     const ref = this.dialog.open<OrchestrationPlanDialogComponent, undefined, OrchestrationPlanInput>(
       OrchestrationPlanDialogComponent, { width: '480px' },
     );
