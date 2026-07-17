@@ -90,7 +90,8 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
     r = await session.get(Runbook, runbook_id)
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")
-    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "", "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "",
+            "parameters": (r.doc or {}).get("parameters", {}), "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
 
 
 @router.post("/api/v1/runbooks")
@@ -149,7 +150,8 @@ async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) ->
         doc = nt_runbook.parse_document(body.nt)
     except nt_runbook.NTRunbookError as exc:
         return {"ok": False, "error": str(exc), "line": getattr(exc, "line", None)}
-    return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps)}
+    return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps),
+            "parameters": getattr(doc, "parameters", {})}
 
 
 class RunBody(BaseModel):

@@ -89,6 +89,16 @@ async def execute_runbook(
     row plus the engine result dict (with `facts_gathered`)."""
     magic = await gather_magic_vars(client, agent)
     variables = await resolve_run_variables(session, agent, settings, magic, request_vars or {})
+    # A runbook's typed parameter defaults are the WEAKEST layer — they fill in
+    # anything the caller/facts/scope-vars didn't supply (so the wizard's install
+    # runbooks work even when a field is left at its default and omitted).
+    param_defaults = {
+        name: spec["default"]
+        for name, spec in (getattr(doc, "parameters", {}) or {}).items()
+        if isinstance(spec, dict) and spec.get("default") is not None
+    }
+    if param_defaults:
+        variables = {**param_defaults, **variables}
 
     # Config templates a `config_template` step can render (name -> Jinja2 body).
     from bossman.api.config_templates import load_template_bodies

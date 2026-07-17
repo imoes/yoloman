@@ -76,12 +76,18 @@ class Runbook:
     name: str
     steps: list[Step]
     targets: str | None = None
+    # Typed input-mask schema (Block G11-wizard): {name: spec}, see
+    # _parse_parameters. Drives the installation-wizard / run-dialog form.
+    parameters: dict[str, Any] = field(default_factory=dict)
 
     kind = "runbook"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": "runbook", "name": self.name, "targets": self.targets,
-                "steps": [s.to_dict() for s in self.steps]}
+        d: dict[str, Any] = {"kind": "runbook", "name": self.name, "targets": self.targets,
+                             "steps": [s.to_dict() for s in self.steps]}
+        if self.parameters:
+            d["parameters"] = self.parameters
+        return d
 
 
 @dataclass
@@ -103,6 +109,37 @@ class Role:
 
 
 _STEP_KEYS = {"name", "module", "args", "run", "when", "loop", "register", "ignore_errors"}
+
+_PARAM_TYPES = {"string", "number", "bool", "list", "object"}
+
+
+def _parse_parameters(raw: Any) -> dict[str, Any]:
+    """Normalise a `parameters:` block into {name: spec}, where a spec is
+    {type, description?, default?, secret?, enum?, items?, hidden?, required?}.
+    `boolean` is normalised to `bool`. A value that isn't a typed spec (i.e. not
+    a mapping with a `type` key) is passed through unchanged — this keeps the
+    legacy free-form Role `parameters` working."""
+    if not raw:
+        return {}
+    if not isinstance(raw, dict):
+        raise NTRunbookError("'parameters' must be a mapping of name -> spec")
+    out: dict[str, Any] = {}
+    for pname, spec in raw.items():
+        if not isinstance(spec, dict) or "type" not in spec:
+            out[pname] = spec  # legacy / free-form — leave as-is
+            continue
+        s = dict(spec)
+        t = str(s.get("type", "string")).lower()
+        if t == "boolean":
+            t = "bool"
+        if t not in _PARAM_TYPES:
+            raise NTRunbookError(f"parameter {pname!r}: unknown type {s.get('type')!r}")
+        s["type"] = t
+        s["secret"] = _as_bool(s.get("secret"))
+        s["hidden"] = _as_bool(s.get("hidden"))
+        s["required"] = _as_bool(s.get("required"))
+        out[pname] = s
+    return out
 
 
 def _parse_step(raw: Any, idx: int) -> Step:
@@ -172,7 +209,7 @@ def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
         return Role(
             name=str(data["role"]),
             description=str(data.get("description", "") or ""),
-            parameters=data.get("parameters") or {},
+            parameters=_parse_parameters(data.get("parameters")),
             steps=_parse_steps(data.get("steps")),
             checks=_str_list((data.get("monitoring") or {}).get("checks")),
             notification_routes=_str_list((data.get("notifications") or {}).get("routes")),
@@ -181,7 +218,9 @@ def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
     name = data.get("name")
     if not name:
         raise NTRunbookError(f"{source}: a runbook needs a top-level 'name' (or 'role:' for a role)")
-    return Runbook(name=str(name), targets=data.get("targets"), steps=_parse_steps(data.get("steps")))
+    return Runbook(name=str(name), targets=data.get("targets"),
+                   parameters=_parse_parameters(data.get("parameters")),
+                   steps=_parse_steps(data.get("steps")))
 
 
 def parse_file(path: str | Path) -> Runbook | Role:
