@@ -303,7 +303,7 @@ export class AddRolesWizardComponent {
       const r = this.runbooks()[p];
       if (!r) return of<RunState>({ pkg: p, error: 'no install runbook (template missing)' });
       return this.wizard.run(this.data.agentId, r.nt, this.varsFor(p), dry).pipe(
-        map((resp): RunState => ({ pkg: p, result: resp.result })),
+        map((resp): RunState => ({ pkg: p, result: resp })),
         catchError((e: { error?: { detail?: string } }) => of<RunState>({ pkg: p, error: e?.error?.detail || 'run failed' })),
       );
     })).subscribe((states) => {

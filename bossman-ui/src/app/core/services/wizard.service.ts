@@ -54,7 +54,8 @@ export class WizardService {
   }
 
   run(agentId: string, nt: string, variables: Record<string, unknown>, dryRun: boolean) {
-    return this.http.post<{ result: RunbookRunResult }>(
+    // The endpoint spreads the run result at the top level (run_id, steps, ok, …).
+    return this.http.post<RunbookRunResult & { run_id: string; runbook: string }>(
       `${this.base}/agents/${agentId}/runbook/run`, { nt, variables, dry_run: dryRun },
     );
   }

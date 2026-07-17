@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, OnInit, computed, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -113,10 +113,14 @@ interface Field { key: string; spec: ParamSpec; }
     .bm-pf-addrow { margin-top: 6px; }
   `],
 })
-export class ParamFormComponent {
+export class ParamFormComponent implements OnInit {
   params = input.required<ParamSchema>();
   initial = input<Record<string, unknown>>({});
   valuesChange = output<Record<string, unknown>>();
+
+  /** Emit the prefilled defaults immediately so a consumer that never edits a
+   * field still receives the full value set (the wizard runs on defaults). */
+  ngOnInit(): void { this.valuesChange.emit(this.values()); }
 
   showAdvanced = signal(false);
   private overrides = signal<Record<string, unknown>>({});

@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal, viewChild } from '@angular/core';
+import { Component, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../core/services/agent.service';
@@ -102,9 +102,13 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     @media (max-width: 1280px) { .bm-mmc { grid-template-columns: 240px 1fr; } .bm-mmc-actions { display: none; } }
   `],
 })
-export class HostManagementComponent {
+export class HostManagementComponent implements OnInit {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
+
+  /** Self-activate on init so a deep-link (?tab=management) loads the default
+   * snap-in without waiting for a tab-change event. */
+  ngOnInit(): void { this.activate(); }
 
   firewallAvailable = signal(true);
   actionsOpen = signal(true);

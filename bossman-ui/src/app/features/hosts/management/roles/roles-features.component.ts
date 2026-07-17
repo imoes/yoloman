@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
@@ -64,7 +64,7 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
   `],
 })
-export class RolesFeaturesComponent {
+export class RolesFeaturesComponent implements OnInit {
   private catalogSvc = inject(PackageCatalogService);
   private wizard = inject(WizardService);
   private dialog = inject(MatDialog);
@@ -85,7 +85,7 @@ export class RolesFeaturesComponent {
       .sort((a, b) => Number(b.installed) - Number(a.installed) || a.label.localeCompare(b.label));
   });
 
-  constructor() { this.reload(); }
+  ngOnInit(): void { this.reload(); }
 
   reload(): void {
     forkJoin({ cat: this.catalogSvc.catalog(), ctx: this.wizard.context(this.agentId()) }).subscribe({
