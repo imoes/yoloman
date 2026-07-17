@@ -1,6 +1,6 @@
 import { Component, computed, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CompiledHostState } from '../../../core/models/orchestration.model';
+import { CompiledHostState, HostInventory } from '../../../core/models/orchestration.model';
 
 interface ThresholdRow {
   service_name?: string;
@@ -172,6 +172,54 @@ interface ConfigSettingRow {
           }
         }
       </section>
+
+      <!-- Inventory (document tail) -->
+      <section class="bm-gpr-sec">
+        <button type="button" class="bm-gpr-h bm-gpr-h1" (click)="toggle('inventory')">
+          <span class="bm-gpr-caret">{{ open('inventory') ? '▾' : '▸' }}</span> Inventory
+        </button>
+        @if (open('inventory')) {
+          @if (inventory(); as inv) {
+            <table class="bm-gpr-kv">
+              @if (inv.os) {
+                <tr><th>OS</th><td>{{ inv.os.pretty_name || inv.os.distribution }} {{ inv.os.version }}<span class="bm-gpr-dim"> · kernel {{ inv.os.kernel }}</span></td></tr>
+              }
+              @if (inv.system?.manufacturer || inv.system?.product_name) {
+                <tr><th>System</th><td>{{ inv.system?.manufacturer }} {{ inv.system?.product_name }}<span class="bm-gpr-dim">{{ inv.system?.virtualization ? ' · ' + inv.system?.virtualization : '' }}</span></td></tr>
+              }
+              @if (inv.cpu) {
+                <tr><th>CPU</th><td>{{ inv.cpu.model }}<span class="bm-gpr-dim"> · {{ inv.cpu.cores }} cores / {{ inv.cpu.threads }} threads · {{ inv.cpu.architecture }}</span></td></tr>
+              }
+              @if (inv.memory_mb) {
+                <tr><th>Memory</th><td>{{ (inv.memory_mb / 1024).toFixed(1) }} GiB</td></tr>
+              }
+              @if (inv.disks?.length) {
+                <tr><th>Disks</th><td>@for (d of inv.disks; track d.name) { <div>{{ d.name }} — {{ gib(d.size_bytes) }}<span class="bm-gpr-dim">{{ d.model ? ' · ' + d.model : '' }}{{ d.rotational === false ? ' · SSD' : '' }}</span></div> }</td></tr>
+              }
+              @if (inv.nics?.length) {
+                <tr><th>Network</th><td>@for (n of inv.nics; track n.name) { <div>{{ n.name }} <span class="bm-gpr-dim">{{ n.mac }}{{ n.state ? ' · ' + n.state : '' }}</span>{{ (n.ipv4 || []).length ? ' — ' + (n.ipv4 || []).join(', ') : '' }}</div> }</td></tr>
+              }
+            </table>
+            <div class="bm-gpr-sub">
+              <h4>Installed packages @if (inv.installed_packages?.length) { <span class="bm-gpr-dim">({{ inv.installed_packages?.length }})</span> }</h4>
+              @if (inv.installed_packages?.length) {
+                <table class="bm-gpr-tbl">
+                  <thead><tr><th>Package</th><th>Version</th><th>Arch</th></tr></thead>
+                  <tbody>
+                    @for (p of inv.installed_packages; track p.name) {
+                      <tr><td class="bm-gpr-mono">{{ p.name }}</td><td class="bm-gpr-mono">{{ p.version }}</td><td class="bm-gpr-dim">{{ p.arch }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="bm-gpr-empty">Package list not collected yet (the poller gathers it periodically).</p>
+              }
+            </div>
+          } @else {
+            <p class="bm-gpr-empty" style="padding: 4px 14px 12px 30px;">No inventory reported for this host yet.</p>
+          }
+        }
+      </section>
     </div>
   `,
   styles: [`
@@ -217,7 +265,14 @@ export class DesiredStateReportComponent {
     s.has(key) ? s.delete(key) : s.add(key);
     this.collapsed.set(s);
   }
-  private readonly sections = ['summary', 'monitoring', 'orchestration', 'configuration'];
+  private readonly sections = ['summary', 'monitoring', 'orchestration', 'configuration', 'inventory'];
+
+  inventory = computed<HostInventory | null>(() => this.state().state.inventory ?? null);
+  gib(bytes?: number): string {
+    if (!bytes) return '—';
+    const gib = bytes / 1024 ** 3;
+    return gib >= 1 ? `${gib.toFixed(1)} GiB` : `${(bytes / 1024 ** 2).toFixed(0)} MiB`;
+  }
   allCollapsed = computed(() => this.sections.every((s) => this.collapsed().has(s)));
   toggleAll(): void {
     this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.sections));

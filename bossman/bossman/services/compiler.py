@@ -394,6 +394,34 @@ async def _build_desired_state(
         for r in (a.generated_monitoring or {}).get("roles", []) or []:
             roles.add(r)
 
+    # Managed config (GPO-resolved, DB-only — no live agent call): the config
+    # files a policy sets on this host, with per-key winning source. Local import
+    # avoids a compiler↔config_desired import cycle.
+    from bossman.services.config_desired import effective_resources
+
+    eff = await effective_resources(session, agent)
+    config = [
+        {
+            "path": e["path"],
+            "format": e["resource"].get("format"),
+            "values": e["resource"].get("values", {}),
+            "source": e["source"],
+            "key_sources": e["key_sources"],
+        }
+        for e in eff
+    ]
+
+    # Inventory (the "server is a document" tail): the near-static HW/OS/network
+    # facts already stored on the agent row, plus installed packages when the
+    # poller has collected them. Appended LAST so the document ends with a full
+    # inventory the AI can reason over. Null facts are dropped for cleanliness.
+    facts = agent.facts or {}
+    inventory = {
+        k: facts.get(k)
+        for k in ("collected_at", "os", "system", "board", "bios", "cpu", "memory_mb", "disks", "nics", "installed_packages")
+        if facts.get(k) is not None
+    }
+
     state = {
         "host": {
             "name": agent.name,
@@ -407,6 +435,8 @@ async def _build_desired_state(
                 for a in assignments
             ],
         },
+        "config": config,
+        "inventory": inventory,
     }
     explain = {
         "ou_path": [n.path for n in ancestry],

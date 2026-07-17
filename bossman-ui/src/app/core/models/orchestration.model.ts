@@ -93,6 +93,22 @@ export interface OrchestrationPlanLinkInput {
   require_approval?: boolean;
 }
 
+/** The host inventory tail of the desired-state document (from agent.facts +
+ * the poller's installed-package collection). All fields best-effort/optional. */
+export interface HostInventory {
+  collected_at?: string;
+  os?: { distribution?: string; version?: string; pretty_name?: string; codename?: string; kernel?: string; hostname?: string; id?: string };
+  system?: { manufacturer?: string; product_name?: string; serial_number?: string; family?: string; virtualization?: string };
+  board?: { vendor?: string; name?: string; serial?: string; version?: string };
+  bios?: { vendor?: string; version?: string; date?: string; release?: string };
+  cpu?: { model?: string; vendor?: string; sockets?: number; cores?: number; threads?: number; mhz?: number; architecture?: string };
+  memory_mb?: number;
+  disks?: { name?: string; size_bytes?: number; model?: string; rotational?: boolean }[];
+  nics?: { name?: string; mac?: string; state?: string; mtu?: number; speed_mbps?: number; ipv4?: string[]; ipv6?: string[] }[];
+  installed_packages?: { name: string; version: string; arch?: string }[];
+  installed_packages_at?: string;
+}
+
 /** Matches bossman/api/orchestration.py's CompiledStateOut — the
  * compiler's per-host output (docs/plan.md's L1 block). */
 export interface CompiledHostState {
@@ -103,6 +119,8 @@ export interface CompiledHostState {
     host: { name: string; ou: string | null };
     monitoring: { checks: string[]; thresholds: Record<string, unknown>; notifications: string[] };
     orchestration: { roles: string[]; plans: { name: string; version: number; type: string; parameters: Record<string, unknown> }[] };
+    config?: { path: string; format: string | null; values: Record<string, unknown>; source: string; key_sources: Record<string, string> }[];
+    inventory?: HostInventory;
   };
   explain: Record<string, unknown>;
 }

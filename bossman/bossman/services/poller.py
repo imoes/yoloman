@@ -293,11 +293,44 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
     inv = host.get("inventory")
     if not isinstance(inv, dict) or not inv:
         return
-    stripped = {k: v for k, v in inv.items() if k != "collected_at"}
-    current = {k: v for k, v in (agent.facts or {}).items() if k != "collected_at"}
+    # installed_packages(+_at) are collected separately (_collect_packages) and
+    # live in the same facts doc — preserve them across an inventory rewrite and
+    # exclude them from the change comparison.
+    _ignore = ("collected_at", "installed_packages", "installed_packages_at")
+    stripped = {k: v for k, v in inv.items() if k not in _ignore}
+    current = {k: v for k, v in (agent.facts or {}).items() if k not in _ignore}
     if stripped != current:
-        agent.facts = inv
+        prev = agent.facts or {}
+        merged = dict(inv)
+        for k in ("installed_packages", "installed_packages_at"):
+            if prev.get(k) is not None:
+                merged[k] = prev[k]
+        agent.facts = merged
         agent.facts_updated_at = now
+
+
+async def _collect_packages(agent: Agent, client: AgentClient, now: datetime) -> None:
+    """Best-effort installed-package inventory (Debian dpkg via the agent's
+    package_facts tool), stored on agent.facts["installed_packages"] so the
+    desired-state document's inventory block lists them. Refreshed at most every
+    6h and never allowed to break the poll cycle."""
+    facts = agent.facts or {}
+    last = facts.get("installed_packages_at")
+    if last:
+        try:
+            if (now - datetime.fromisoformat(last)).total_seconds() < 21600:
+                return
+        except (ValueError, TypeError):
+            pass
+    try:
+        res = await client.call_tool("package_facts", {})
+    except Exception:  # noqa: BLE001 — best-effort, must not break the poll
+        return
+    pkgs = res.get("data") if isinstance(res, dict) else None
+    if not isinstance(pkgs, list):
+        return
+    agent.facts = {**facts, "installed_packages": pkgs, "installed_packages_at": now.isoformat()}
+    agent.facts_updated_at = now
 
 
 async def _poll_snmp_device(
@@ -433,6 +466,9 @@ async def poll_agent(
                 touched += await evaluate_assigned_checks(session, agent, client, settings.checks_dir)
             except Exception:
                 logger.exception("evaluate_assigned_checks failed for agent %s", agent.name)
+            # Inventory: refresh the installed-package list (throttled, best-effort).
+            if not is_infra_agent(agent):
+                await _collect_packages(agent, client, now)
 
         await session.commit()
 
