@@ -76,6 +76,7 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-checks">
             <mat-label>What to monitor</mat-label>
             <mat-select [(ngModel)]="checkNames" multiple [placeholder]="kind === 'snmp' ? 'pick SNMP checks' : 'pick SSH checks'">
+              <mat-select-trigger>{{ selectedLabels() }}</mat-select-trigger>
               @for (c of kindChecks(); track c.name) {
                 <mat-option [value]="c.name">
                   {{ checkLabel(c) }}<span class="bm-opt-key"> · {{ c.name }}</span>
@@ -219,6 +220,10 @@ export class SnmpDevicesComponent implements OnInit {
   }
   checkNameLabel(name: string): string {
     return this.labelByName()[name] ?? name;
+  }
+  /** Plain-language summary of the selected checks for the select's trigger. */
+  selectedLabels(): string {
+    return this.checkNames.map((n) => this.checkNameLabel(n)).join(', ');
   }
   onKind(): void {
     this.checkNames = [];

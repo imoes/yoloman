@@ -1,12 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
 import { ModuleService } from '../../core/services/module.service';
-import { CheckService } from '../../core/services/check.service';
 import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../../core/models/module.model';
 
 /** The module library browser (Block H4) — the management surface for the
@@ -20,11 +17,9 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
   standalone: true,
   imports: [
     FormsModule,
-    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    RouterLink,
   ],
   template: `
     <div class="bm-page">
@@ -35,26 +30,6 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
       </p>
 
       @if (catalog(); as cat) {
-        <div class="bm-collection-row">
-          <mat-card class="bm-collection-card bm-collection-card--builtin">
-            <div class="bm-collection-name">built-in</div>
-            <div class="bm-collection-count">52 native Go modules</div>
-          </mat-card>
-          @for (entry of collectionEntries(); track entry.name) {
-            <mat-card class="bm-collection-card">
-              <div class="bm-collection-name">{{ entry.name }}</div>
-              <div class="bm-collection-count">{{ entry.total }} modules</div>
-            </mat-card>
-          }
-          <!-- Checkmk items are read-only CHECKS, not modules — they live in
-               the Checks library, so point there with the real count instead
-               of showing a misleading '0 / 1444' module row (F-5). -->
-          <a class="bm-collection-card bm-collection-card--link" routerLink="/checks">
-            <div class="bm-collection-name">checkmk <span class="bm-chip">checks</span></div>
-            <div class="bm-collection-count">{{ checkmkCount() }} checks — open Checks →</div>
-          </a>
-        </div>
-
         <div class="bm-toolbar">
           <mat-form-field appearance="outline" class="bm-search">
             <mat-label>Search modules</mat-label>
@@ -67,7 +42,7 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
             <tr>
               <th>Module</th>
               <th>Collection</th>
-              <th>Mode</th>
+              <th class="bm-mode-col">Mode</th>
               <th>Description</th>
             </tr>
           </thead>
@@ -75,8 +50,8 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
             @for (m of visibleModules(); track m.fqcn) {
               <tr class="bm-row-link" [class.bm-row-selected]="expanded() === m.fqcn" (click)="toggle(m)">
                 <td class="bm-mono">{{ m.name }}</td>
-                <td class="bm-dim">{{ m.collection }}</td>
-                <td>
+                <td class="bm-dim">{{ displayCollection(m.collection) }}</td>
+                <td class="bm-mode-col">
                   <span class="bm-chip" [class.bm-chip--write]="m.writes">{{ m.writes ? 'write' : 'read-only' }}</span>
                 </td>
                 <td class="bm-desc">{{ m.short_description || '' }}</td>
@@ -226,6 +201,14 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
       .bm-chip--write {
         background: color-mix(in srgb, var(--bm-gold) 25%, transparent);
       }
+      .bm-mode-col {
+        width: 120px;
+        white-space: nowrap;
+      }
+      .bm-mode-col .bm-chip {
+        display: inline-block;
+        white-space: nowrap;
+      }
       .bm-expand-row td {
         border-top: none;
         background: color-mix(in srgb, var(--mat-sys-primary) 4%, transparent);
@@ -281,18 +264,6 @@ export class ModulesListComponent implements OnInit {
   expanded = signal<string | null>(null);
   detail = signal<ModuleDetail | null>(null);
 
-  // checkmk items are checks, not modules — surfaced as a link to the Checks
-  // page, so they're excluded from the module collection cards (F-5).
-  checkmkCount = signal(0);
-  collectionEntries = computed(() => {
-    const cat = this.catalog();
-    if (!cat) return [];
-    return Object.entries(cat.collections)
-      .filter(([name]) => name !== 'checkmk')
-      .map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
-
   visibleModules = computed(() => {
     const cat = this.catalog();
     if (!cat) return [];
@@ -304,10 +275,14 @@ export class ModulesListComponent implements OnInit {
     });
   });
 
-  private checkService = inject(CheckService);
+  /** ansible.builtin modules are shipped native in Go — we don't run Ansible —
+   * so they read as "built-in" rather than an ansible collection. */
+  displayCollection(collection: string): string {
+    return collection === 'ansible.builtin' ? 'built-in' : collection;
+  }
+
   ngOnInit(): void {
     this.moduleService.catalog().subscribe((cat) => this.catalog.set(cat));
-    this.checkService.listChecks().subscribe({ next: (r) => this.checkmkCount.set((r.checks ?? []).length), error: () => {} });
   }
 
   toggle(m: ModuleInfo): void {
