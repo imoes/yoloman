@@ -13,6 +13,7 @@ import { Definition, Step, StepsConfiguration, ToolboxConfiguration, DefinitionC
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { AgentService } from '../../core/services/agent.service';
+import { ModuleService } from '../../core/services/module.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
@@ -335,6 +336,7 @@ const MAGIC_VARS = [
 export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private http = inject(HttpClient);
   private agentService = inject(AgentService);
+  private moduleService = inject(ModuleService);
   private dialog = inject(DialogService);
   private base = environment.apiUrl;
   @ViewChild('editor') editorEl!: ElementRef<HTMLDivElement>;
@@ -361,16 +363,37 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   visualName = 'my-runbook';
   visualTargets = '';
   definition: Definition = { sequence: [], properties: {} };
+  // The toolbox: a Flow group + one draggable step per catalog module. The SWD
+  // toolbox has a built-in search box, so populating it with the real modules is
+  // what makes it searchable ("apt", "service", "docker_container", …).
   toolbox: ToolboxConfiguration = {
     groups: [{
-      name: 'Steps',
+      name: 'Flow',
       steps: [
-        vtask('module', 'module', { module: '', args: '{}' }),
+        vtask('module', 'module (any)', { module: '', args: '{}' }),
         vtask('set_fact', 'set_fact', { facts: '{}' }),
         vtask('debug', 'debug', { msg: '' }),
       ],
     }],
   };
+
+  /** Populate the toolbox from the module catalog so each module is a draggable,
+   * searchable step (type 'module' with its name pre-filled → serialises 1:1). */
+  private buildToolbox(): void {
+    this.moduleService.catalog().subscribe((cat) => {
+      const byCollection = new Map<string, Step[]>();
+      for (const m of cat.modules) {
+        if (m.fqcn.startsWith('checkmk.')) continue; // checks, not runbook modules
+        const coll = m.collection === 'ansible.builtin' ? 'built-in' : m.collection;
+        const step = vtask('module', m.name, { module: m.name, args: '{}' });
+        (byCollection.get(coll) ?? byCollection.set(coll, []).get(coll)!).push(step);
+      }
+      const moduleGroups = [...byCollection.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, steps]) => ({ name, steps: steps.sort((a, b) => a.name.localeCompare(b.name)) }));
+      this.toolbox = { groups: [this.toolbox.groups[0], ...moduleGroups] };
+    });
+  }
   stepsConfig: StepsConfiguration = { iconUrlProvider: () => null };
 
   setMode(m: 'text' | 'visual'): void {
@@ -443,6 +466,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
     this.loadRuns();
+    this.buildToolbox();
   }
 
   private loadRuns(): void {
