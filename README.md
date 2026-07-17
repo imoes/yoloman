@@ -162,6 +162,15 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   desired state is compiled with real GPO precedence (`global < group < OU(root→host) < host`),
   `enforced` links, and block-inheritance — resolved server-side, previewed before it's pushed.
   Fleet-wide check thresholds ship as an auto-created **Default Policy** rather than nameless globals.
+- **Management console (MMC-style)** — each host's Management tab is a console: a snap-in tree
+  (Roles & Features, Services, Updates, Logs, Accounts, Network, Firewall, Storage, …), the
+  selected panel in the middle, an Actions pane on the right.
+- **Roles & Features installation wizard** — like Windows Server Manager's "Add Roles and
+  Features": pick server packages, configure each through a generated input mask (every setting
+  shown with its description **and default value**), preview as a dry run, then install — all in
+  the console. Each configurable package ships a seeded `install-<pkg>` runbook (install → render
+  config from its template → validate → enable/restart service) with a typed parameter schema;
+  works across Debian and RedHat via a per-family package catalog.
 - **Config management with drift enforcement** — a gpedit-style editor (categories → files →
   settings) authored from the codec registry; a key with no policy is **host based** (the host's own
   value stands). Managed files are **auto-enforced every poll**: an out-of-band change is overwritten
