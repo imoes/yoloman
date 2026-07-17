@@ -116,8 +116,8 @@ const MAGIC_VARS = [
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
-        <h1>Runbooks</h1>
-        <span class="bm-subtitle">Author a NestedText runbook, lint it, dry-run against a host, then apply.</span>
+        <h1>Workflow designer</h1>
+        <span class="bm-subtitle">Author a runbook — drag modules on the canvas or edit NestedText — lint it, dry-run against a host, then apply.</span>
       </div>
 
       <div class="bm-split">
