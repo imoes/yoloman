@@ -286,14 +286,24 @@ async def post_agent_state_apply(
             member_ids = await affected_agent_ids(session, "ou", ou_id=body.ou_id)
         else:
             member_ids = await affected_agent_ids(session, "group", host_group_id=body.host_group_id)
+        affected_paths = {r.get("path") for r in body.resources}
         applied, skipped = [], []
         for mid in member_ids:
             m = await session.get(Agent, mid)
             if m is None or not m.address:
                 skipped.append(str(mid))
                 continue
+            # Push the GPO-RESOLVED resources for the affected paths (host > OU >
+            # group per key), NOT the raw scoped values — so a host's own
+            # setting keeps overriding the OU/group policy. dry_run isn't
+            # persisted yet, so preview with the raw resources.
+            if body.dry_run:
+                push = body.resources
+            else:
+                eff = await effective_resources(session, m)
+                push = [e["resource"] for e in eff if e["path"] in affected_paths] or body.resources
             try:
-                await client_factory(m, settings).state_apply({"resources": body.resources}, body.dry_run)
+                await client_factory(m, settings).state_apply({"resources": push}, body.dry_run)
                 applied.append(m.name)
             except AgentClientError:
                 skipped.append(m.name)

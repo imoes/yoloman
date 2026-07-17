@@ -40,6 +40,7 @@ from bossman.db.models import (
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.compiler import affected_agent_ids, compile_host_desired_state, resolve_ou_ancestry
+from bossman.services.config_desired import effective_resources
 
 router = APIRouter()
 
@@ -402,8 +403,16 @@ async def create_config_policy(
         if m is None or not m.address:
             skipped.append(str(mid))
             continue
+        # Apply the GPO-RESOLVED resource for this path (host > OU > group,
+        # per key), NOT the raw OU policy — so a host's own setting keeps
+        # overriding the OU policy. On dry_run the policy isn't persisted yet,
+        # so effective_resources can't see it; fall back to the raw preview.
+        push = resource
+        if not body.dry_run:
+            eff = await effective_resources(session, m)
+            push = next((e["resource"] for e in eff if e["path"] == body.path), resource)
         try:
-            await client_factory(m, settings).state_apply({"resources": [resource]}, body.dry_run)
+            await client_factory(m, settings).state_apply({"resources": [push]}, body.dry_run)
             applied.append(m.name)
         except AgentClientError:
             skipped.append(m.name)
