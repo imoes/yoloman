@@ -854,7 +854,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       <tbody>
                         @for (t of filteredTalkers(); track t.comm + t.dst_addr + t.dst_port) {
                           <tr class="bm-ebpf-row" [class.bm-ebpf-row-sel]="ebpfFilter() === t.comm" (click)="toggleEbpfFilter(t.comm)">
-                            <td class="bm-mono">{{ t.comm }}</td><td class="bm-mono">{{ t.dst_addr }}:{{ t.dst_port }}</td><td class="bm-num">{{ t.count }}</td>
+                            <td class="bm-mono">{{ t.comm }}</td>
+                            <td class="bm-mono">
+                              @if (t.dst_host) {
+                                {{ t.dst_host }}:{{ t.dst_port }}<span class="bm-dim bm-ebpf-ip"> · {{ t.dst_addr }}</span>
+                              } @else {
+                                {{ t.dst_addr }}:{{ t.dst_port }}
+                              }
+                            </td>
+                            <td class="bm-num">{{ t.count }}</td>
                           </tr>
                         }
                       </tbody>
@@ -1175,6 +1183,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-ebpf-panel { border: 1px solid var(--bm-border, #e0e0e0); border-radius: 6px; padding: 12px; overflow-x: auto; }
       .bm-ebpf-h { font-weight: 600; margin-bottom: 8px; }
       .bm-ebpf-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .bm-ebpf-ip { font-size: 11px; }
       .bm-ebpf-tbl th, .bm-ebpf-tbl td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--bm-border, #eee); white-space: nowrap; }
       .bm-ebpf-tbl th.bm-num, .bm-ebpf-tbl td.bm-num { text-align: right; }
       .bm-ebpf-panel .bm-mono { font-family: var(--bm-mono, monospace); }

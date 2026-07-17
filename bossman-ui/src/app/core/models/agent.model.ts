@@ -83,7 +83,7 @@ export interface MetricSeriesResponse {
 }
 
 /** GET /agents/{id}/ebpf — the 'what' behind the latency heatmaps. */
-export interface EbpfTopTalker { comm: string; dst_addr: string; dst_port: number; count: number; }
+export interface EbpfTopTalker { comm: string; dst_addr: string; dst_port: number; count: number; dst_host?: string; }
 export interface EbpfDiskIO { comm: string; dev: number; latency_ns: number; rwbs: string; timestamp: string; error: number; }
 export interface EbpfDetail { top_talkers: EbpfTopTalker[]; slowest_disk_io: EbpfDiskIO[]; }
 

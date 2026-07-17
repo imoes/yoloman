@@ -11,6 +11,8 @@ agent into a clean HTTP error rather than a stack trace.
 
 from __future__ import annotations
 
+import asyncio
+import socket
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -118,7 +120,42 @@ async def get_agent_ebpf(
         disk = await client.ebpf_slowest_disk_io(limit=limit)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    top_talkers = talkers.get("top_talkers", [])
+    # Reverse-DNS the destination IPs (best-effort) so a connection reads as a
+    # hostname, not a bare address — the "what am I talking to" question.
+    await _enrich_rdns(top_talkers)
     return {
-        "top_talkers": talkers.get("top_talkers", []),
+        "top_talkers": top_talkers,
         "slowest_disk_io": disk.get("disk_io", []),
     }
+
+
+# Small process-lifetime cache so repeated eBPF opens don't re-resolve the same
+# IPs; PTR records rarely change and a miss is cached too (as None).
+_RDNS_CACHE: dict[str, str | None] = {}
+
+
+async def _rdns(ip: str) -> str | None:
+    if ip in _RDNS_CACHE:
+        return _RDNS_CACHE[ip]
+    host: str | None = None
+    try:
+        loop = asyncio.get_event_loop()
+        name = await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: socket.gethostbyaddr(ip)[0]), timeout=1.0
+        )
+        # Ignore a PTR that just echoes the IP back (no real name).
+        host = name if name and name != ip else None
+    except Exception:  # noqa: BLE001 — resolution is best-effort
+        host = None
+    _RDNS_CACHE[ip] = host
+    return host
+
+
+async def _enrich_rdns(talkers: list[dict]) -> None:
+    ips = {t.get("dst_addr") for t in talkers if t.get("dst_addr")}
+    resolved = dict(zip(ips, await asyncio.gather(*(_rdns(ip) for ip in ips))))
+    for t in talkers:
+        host = resolved.get(t.get("dst_addr"))
+        if host:
+            t["dst_host"] = host
