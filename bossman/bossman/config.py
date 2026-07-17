@@ -211,6 +211,9 @@ class Settings(BaseSettings):
     chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web
     hermes_web_base_url: str = "https://llm.example.internal/qwen79b"
     hermes_web_model: str = "qwen3next-79b"
+    # SearXNG metasearch (co-located with the LLM host) — backs the package-doc
+    # verification batch and the web_search MCP tool.
+    searxng_base_url: str = "http://llm.example.internal:8080"
     hermes_web_token: str = ""
     codex_base_url: str = "https://chatgpt.com/backend-api/codex"
     codex_model: str = "gpt-5.5"

@@ -105,6 +105,25 @@ def build_mcp_server(
     mcp = FastMCP(name="bossman", instructions=catalog_cache.catalog_markdown, streamable_http_path="/")
 
     @mcp.tool()
+    async def web_search(query: str, limit: int = 6) -> list[dict[str, str]]:
+        """Search the web via the internal SearXNG metasearch engine. Returns
+        ranked hits as {title, url, content}. Use it to find official software
+        documentation, man pages, and configuration references — then fetch_url
+        to read a page. Backs the package-doc verification of config roles."""
+        from bossman.services.websearch import SearxngClient
+
+        results = await SearxngClient(settings.searxng_base_url).search(query, limit=limit)
+        return [r.to_dict() for r in results]
+
+    @mcp.tool()
+    async def fetch_url(url: str, max_chars: int = 12000) -> str:
+        """Fetch a URL and return its readable plain text (HTML stripped),
+        truncated to max_chars. Pair with web_search to read documentation."""
+        from bossman.services.websearch import SearxngClient
+
+        return await SearxngClient(settings.searxng_base_url).fetch(url, max_chars=max_chars)
+
+    @mcp.tool()
     async def list_hosts() -> list[dict[str, Any]]:
         """List every known agent: name, address, mode, last_seen, tags,
         parent (the proxy this host was discovered behind, if any — see
