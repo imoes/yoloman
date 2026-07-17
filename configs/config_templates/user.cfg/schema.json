@@ -1,0 +1,249 @@
+{
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed internal logging and diagnostics for troubleshooting"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error, critical"
+  },
+  "runtime_dir": {
+    "type": "string",
+    "default": "/var/lib/service/runtime",
+    "description": "Directory to store runtime data (temp files, sockets, etc.)"
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/service",
+    "description": "Directory to store persistent configuration files"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/service.pid",
+    "description": "Full path to the process ID file"
+  },
+  "service_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Short name used to identify this service in logs and process listings"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the service binds to"
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for incoming client connections"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous client connections"
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to keep a client connection alive without activity"
+  },
+  "backend_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for a response from a backend server"
+  },
+  "retry_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry a failed backend request"
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 200,
+    "description": "Milliseconds to wait between retry attempts"
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to spawn for handling requests"
+  },
+  "worker_graceful_reload": {
+    "type": "bool",
+    "default": true,
+    "description": "When true, workers reload configuration without dropping active connections"
+  },
+  "worker_idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity after which a worker process is restarted"
+  },
+  "worker_memory_limit": {
+    "type": "number",
+    "default": 512,
+    "description": "Maximum megabytes of memory a worker may use before automatic restart"
+  },
+  "enable_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS listener (requires SSL/TLS configuration)"
+  },
+  "enable_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip/deflate compression for text responses"
+  },
+  "enable_access_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Log successful requests to access log"
+  },
+  "enable_error_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Log error conditions (5xx responses, crashes, etc.)"
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS encryption for HTTPS connections"
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/service/ssl/server.crt",
+    "description": "Path to the SSL certificate file (PEM format)"
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/service/ssl/server.key",
+    "description": "Path to the SSL private key file (PEM format)"
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to the CA bundle for client certificate verification"
+  },
+  "ssl_protocols": {
+    "type": "list",
+    "default": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "description": "List of acceptable SSL/TLS protocols (e.g., TLSv1.2, TLSv1.3)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "SSLv2",
+        "SSLv3",
+        "TLSv1",
+        "TLSv1.1",
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "description": "Supported SSL/TLS protocol version"
+    }
+  },
+  "ssl_prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "Use server's cipher preference instead of client's"
+  },
+  "ssl_session_cache_size": {
+    "type": "number",
+    "default": 20000,
+    "description": "Number of SSL sessions to cache"
+  },
+  "ssl_session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Seconds an SSL session remains valid in cache"
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers to forward client requests to",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for the backend"
+        },
+        "address": {
+          "type": "string",
+          "description": "Backend server hostname or IP address"
+        },
+        "port": {
+          "type": "number",
+          "description": "Backend service port"
+        },
+        "weight": {
+          "type": "number",
+          "default": 100,
+          "description": "Load balancing weight (higher = more traffic)"
+        },
+        "health_check": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable periodic health checks for this backend"
+        },
+        "health_check_interval": {
+          "type": "number",
+          "default": 10,
+          "description": "Seconds between health check requests"
+        },
+        "health_check_uri": {
+          "type": "string",
+          "default": "/health",
+          "description": "Path used to probe backend health"
+        },
+        "healthy_threshold": {
+          "type": "number",
+          "default": 2,
+          "description": "Consecutive successes required to mark backend as healthy"
+        },
+        "unhealthy_threshold": {
+          "type": "number",
+          "default": 3,
+          "description": "Consecutive failures required to mark backend as unhealthy"
+        }
+      }
+    }
+  },
+  "rate_limit_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-client request rate limiting"
+  },
+  "rate_limit_requests_per_second": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum requests per second per client before throttling"
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum burst size (requests allowed in short bursts)"
+  },
+  "request_body_limit": {
+    "type": "number",
+    "default": 10240,
+    "description": "Maximum allowed request body size in kilobytes"
+  },
+  "origin_validation_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Validate the Origin header against allowed origins (CORS)"
+  },
+  "allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed origins for CORS requests (e.g., https://example.com)",
+    "items": {
+      "type": "string",
+      "pattern": "^https?://[\\w.-]+(:\\d+)?(/.*)?$",
+      "description": "Allowed origin URL (scheme + host + optional port/path)"
+    }
+  }
+}

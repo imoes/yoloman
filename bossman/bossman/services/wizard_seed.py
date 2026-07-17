@@ -60,10 +60,16 @@ def _build_parameters(schema: dict, directives: dict, entry: dict) -> dict[str, 
             p["default"] = spec["default"]
         if isinstance(spec.get("items"), dict):
             p["items"] = spec["items"]
-        # Enrich from the directive catalog (best-effort exact-name match).
+        # Schema-level enum is authoritative (enrich_schema_enums already merged
+        # ADMX + curated choices into the schema) — carry it into the mask so the
+        # wizard renders a dropdown.
+        if spec.get("enum"):
+            p["enum"] = spec["enum"]
+        # Enrich from the directive catalog (best-effort exact-name match) for
+        # any field the schema didn't already mark.
         d = directives.get(var)
         if isinstance(d, dict):
-            if d.get("type") == "enum" and d.get("values"):
+            if not p.get("enum") and d.get("type") == "enum" and d.get("values"):
                 p["enum"] = d["values"]
             if p.get("default") is None and d.get("default") not in (None, ""):
                 p["default"] = d["default"]
