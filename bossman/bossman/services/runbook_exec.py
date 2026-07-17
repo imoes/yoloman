@@ -90,7 +90,11 @@ async def execute_runbook(
     magic = await gather_magic_vars(client, agent)
     variables = await resolve_run_variables(session, agent, settings, magic, request_vars or {})
 
-    result = await nt_engine.run_runbook(doc, client, variables, check_mode=dry_run)
+    # Config templates a `config_template` step can render (name -> Jinja2 body).
+    from bossman.api.config_templates import load_template_bodies
+
+    templates = load_template_bodies(settings)
+    result = await nt_engine.run_runbook(doc, client, variables, check_mode=dry_run, templates=templates)
     rr = result.to_dict()
     rr["facts_gathered"] = len(magic) - 1
 

@@ -35,6 +35,21 @@ def _load_template(d: Path) -> dict | None:
     return out
 
 
+def load_template_bodies(settings) -> dict[str, str]:
+    """{name: raw Jinja2 body} for every config template — so a runbook's
+    `config_template` step can reference one by name and hand its body to the
+    agent's template_render apply (the agent does the actual rendering)."""
+    root = Path(settings.config_templates_dir)
+    out: dict[str, str] = {}
+    if root.is_dir():
+        for d in sorted(root.iterdir()):
+            if d.is_dir():
+                t = _load_template(d)
+                if t is not None:
+                    out[t["name"]] = t["template"]
+    return out
+
+
 @router.get("/api/v1/config-templates")
 async def list_config_templates(
     settings: Settings = Depends(get_settings),

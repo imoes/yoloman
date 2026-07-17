@@ -92,12 +92,42 @@ def _summarize_register(results: list[StepResult], looped: bool) -> dict[str, An
     }
 
 
+async def _apply_config_template(
+    step: Any, args: dict[str, Any], item: Any, client: Any,
+    variables: dict[str, Any], templates: dict[str, str], check_mode: bool,
+) -> StepResult:
+    """The `config_template` step: render a named config template (e.g. apache2
+    vhost) to a destination file. The template body is handed to the agent as a
+    template_render config resource — the agent renders the Jinja2 with `values`
+    (the runbook variables overlaid with the step's own `vars`)."""
+    name = args.get("template") or args.get("name")
+    dest = args.get("dest") or args.get("path")
+    body = templates.get(name) if name else None
+    if not name or not dest:
+        return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                          error="config_template needs `template` (name) and `dest` (path)")
+    if body is None:
+        return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                          error=f"unknown config template {name!r}")
+    values = {**variables, **(args.get("vars") or {})}
+    resource = {"type": "template_render", "path": dest, "template": body, "values": values}
+    try:
+        resp = await client.state_apply({"resources": [resource]}, check_mode)
+        changes = resp.get("changes", []) if isinstance(resp, dict) else []
+        changed = any(c.get("action") not in (None, "noop") for c in changes)
+        return StepResult(name=step.name, module=step.module, status=("changed" if changed else "ok"),
+                          item=item, changed=changed, response=resp if isinstance(resp, dict) else {"result": resp})
+    except Exception as exc:  # noqa: BLE001 — recorded, not raised
+        return StepResult(name=step.name, module=step.module, status="failed", item=item, error=str(exc))
+
+
 async def run_runbook(
     runbook: Runbook,
     client: Any,
     variables: dict[str, Any] | None = None,
     *,
     check_mode: bool = False,
+    templates: dict[str, str] | None = None,
 ) -> RunResult:
     """Run `runbook` against `client` (an AgentClient). `variables` is the
     already-GPO-merged variable scope. Returns a RunResult recording every
@@ -130,6 +160,18 @@ async def run_runbook(
             if item is not None:
                 subst["item"] = item
             args = substitute(step.args, subst)
+            # A config_template step renders a named template to a file via the
+            # agent's template_render apply, instead of a generic tool call.
+            if step.module == "config_template":
+                sr = await _apply_config_template(step, args, item, client, variables, templates or {}, check_mode)
+                iteration_results.append(sr)
+                out.steps.append(sr)
+                if sr.status == "failed" and not step.ignore_errors:
+                    out.aborted = True
+                    if step.register:
+                        context[step.register] = _summarize_register(iteration_results, looped)
+                    return out
+                continue
             body = {**args, "dry_run": True} if check_mode else dict(args)
             try:
                 resp = await client.call_tool(step.module, body)
