@@ -86,18 +86,6 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
               </tr>
               @if (expanded() === p.package) {
                 <tr class="bm-detail"><td></td><td colspan="4">
-                  <!-- The CVEs this update closes, each explained in plain language -->
-                  <div class="bm-cvelist">
-                    @for (c of p.cves; track c.cve) {
-                      <div class="bm-cveitem">
-                        <div class="bm-cveline">
-                          <span class="bm-sev bm-sev-{{ c.severity || 'unknown' }}">{{ c.severity || 'unknown' }}</span>
-                          <a class="bm-mono bm-cvelink" [href]="cveUrl(c.cve)" target="_blank" rel="noopener">{{ c.cve }} <mat-icon>open_in_new</mat-icon></a>
-                        </div>
-                        <p class="bm-cvedesc">{{ c.description || 'No description in the current feed — open the link for details.' }}</p>
-                      </div>
-                    }
-                  </div>
                   <div class="bm-bulkbar">
                     @if (selectedHosts().size) {
                       <span class="bm-bulkcount">{{ selectedHosts().size }} host(s) selected</span>
@@ -131,6 +119,19 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
                       }
                     </tbody>
                   </table>
+                  <!-- Then the CVEs this update closes, each explained in plain language -->
+                  <h4 class="bm-cvehead">CVEs closed by this update</h4>
+                  <div class="bm-cvelist">
+                    @for (c of p.cves; track c.cve) {
+                      <div class="bm-cveitem">
+                        <div class="bm-cveline">
+                          <span class="bm-sev bm-sev-{{ c.severity || 'unknown' }}">{{ c.severity || 'unknown' }}</span>
+                          <a class="bm-mono bm-cvelink" [href]="cveUrl(c.cve)" target="_blank" rel="noopener">{{ c.cve }} <mat-icon>open_in_new</mat-icon></a>
+                        </div>
+                        <p class="bm-cvedesc">{{ c.description || 'No description in the current feed — open the link for details.' }}</p>
+                      </div>
+                    }
+                  </div>
                 </td></tr>
               }
             }
@@ -187,6 +188,7 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-fi-off { color: #f9a825; opacity: 1; }
       .bm-fi-err-txt { color: #c62828; }
       .bm-pkg { font-weight: 600; }
+      .bm-cvehead { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; opacity: 0.6; }
       .bm-cvelist { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 12px; }
       .bm-cveitem { border-left: 3px solid var(--mat-sys-outline-variant); padding: 2px 0 2px 12px; }
       .bm-cveline { display: flex; align-items: center; gap: 8px; }
