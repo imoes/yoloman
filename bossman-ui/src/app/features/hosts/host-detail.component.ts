@@ -37,7 +37,7 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
-import { DesiredStateReportComponent } from '../../shared/components/desired-state-report/desired-state-report.component';
+import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 
@@ -769,7 +769,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 } @else if (desiredJsonError(); as e) {
                   <p class="bm-empty">{{ e }}</p>
                 } @else if (desiredStateFull(); as ds) {
-                  <app-desired-state-report [state]="ds" />
+                  <app-desired-state-report [state]="ds" [config]="desiredConfig()" />
                 }
               </ng-template></mat-tab>
              </mat-tab-group>
@@ -1095,10 +1095,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       }
       .bm-page {
         padding: 24px;
-        /* No fixed max-width: the page simply grows wider so the tab bar fits on
-           one row instead of wrapping/paginating. */
-        max-width: none;
-        margin: 0;
+        /* Cap the width so the view isn't uncomfortably wide, but align it to the
+           right edge (rechtsbündig) rather than centring — wide enough that the
+           compact tab bar still fits on one row. */
+        max-width: 1500px;
+        margin: 0 0 0 auto;
       }
       .bm-header-row {
         display: flex;
@@ -2321,6 +2322,7 @@ export class HostDetailComponent implements OnInit {
   // (the GPO-merged result of global/OU/group/host layers), rendered as a
   // gpresult-style collapsible report.
   desiredStateFull = signal<CompiledHostState | null>(null);
+  desiredConfig = signal<ConfigDesiredResource[] | null>(null);
   desiredJsonLoading = signal(false);
   desiredJsonError = signal<string | null>(null);
   loadDesiredJson(): void {
@@ -2328,9 +2330,13 @@ export class HostDetailComponent implements OnInit {
     if (!agent) return;
     this.desiredJsonLoading.set(true);
     this.desiredJsonError.set(null);
-    this.orchestration.desiredState(agent.id).subscribe({
-      next: (d) => {
-        this.desiredStateFull.set(d);
+    forkJoin({
+      state: this.orchestration.desiredState(agent.id),
+      config: this.agentService.configDesired(agent.id),
+    }).subscribe({
+      next: ({ state, config }) => {
+        this.desiredStateFull.set(state);
+        this.desiredConfig.set(config.resources);
         this.desiredJsonLoading.set(false);
       },
       error: (e: { error?: { detail?: string } }) => {

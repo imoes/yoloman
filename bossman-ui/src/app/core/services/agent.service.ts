@@ -122,6 +122,16 @@ export class AgentService {
     );
   }
 
+  /** The GPO-resolved desired config for a host (no live-agent contact) — the
+   * merged config files + per-key winning value/origin. Feeds the desired-state
+   * report's Configuration section. */
+  configDesired(agentId: string) {
+    return this.http.get<{
+      agent_id: string;
+      resources: { path: string; format: string | null; values: Record<string, unknown>; source: string; key_sources: Record<string, string> }[];
+    }>(`${environment.apiUrl}/agents/${agentId}/config-desired`);
+  }
+
   /** The codec registry as a flat catalog — every known config file + its codec.
    * The gpedit uses it as its file catalog (host-independent), so a policy can
    * target ANY config file, not just those a sample host happens to have. */

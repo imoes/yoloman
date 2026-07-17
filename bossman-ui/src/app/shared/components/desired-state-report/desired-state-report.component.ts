@@ -17,6 +17,18 @@ interface PlanRow {
   source: string;
   parameters: Record<string, unknown>;
 }
+export interface ConfigDesiredResource {
+  path: string;
+  format: string | null;
+  values: Record<string, unknown>;
+  source: string;
+  key_sources: Record<string, string>;
+}
+interface ConfigSettingRow {
+  key: string;
+  value: string;
+  source: string;
+}
 
 /**
  * gpresult-style report of a host's compiled desired_state: collapsible sections
@@ -128,6 +140,38 @@ interface PlanRow {
           </div>
         }
       </section>
+
+      <!-- Configuration -->
+      <section class="bm-gpr-sec">
+        <button type="button" class="bm-gpr-h bm-gpr-h1" (click)="toggle('configuration')">
+          <span class="bm-gpr-caret">{{ open('configuration') ? '▾' : '▸' }}</span> Configuration
+        </button>
+        @if (open('configuration')) {
+          @if (configFiles().length) {
+            @for (f of configFiles(); track f.path) {
+              <div class="bm-gpr-sub">
+                <h4>{{ f.path }} <span class="bm-gpr-src">{{ f.source }}</span></h4>
+                @if (f.rows.length) {
+                  <table class="bm-gpr-tbl">
+                    <thead><tr><th>Setting</th><th>Value</th><th>Source</th></tr></thead>
+                    <tbody>
+                      @for (r of f.rows; track r.key) {
+                        <tr>
+                          <td class="bm-gpr-mono">{{ r.key }}</td>
+                          <td class="bm-gpr-mono">{{ r.value }}</td>
+                          <td><span class="bm-gpr-src">{{ r.source }}</span></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else { <p class="bm-gpr-empty">Whole-file template (no per-key settings).</p> }
+              </div>
+            }
+          } @else {
+            <p class="bm-gpr-empty" style="padding: 4px 14px 12px 30px;">No config policies apply to this host.</p>
+          }
+        }
+      </section>
     </div>
   `,
   styles: [`
@@ -160,6 +204,9 @@ interface PlanRow {
 })
 export class DesiredStateReportComponent {
   state = input.required<CompiledHostState>();
+  /** GPO-resolved config files (from GET .../config-desired). Optional — when
+   * absent the Configuration section just shows "no config policies". */
+  config = input<ConfigDesiredResource[] | null>(null);
   private collapsed = signal<Set<string>>(new Set());
 
   open(key: string): boolean {
@@ -170,7 +217,7 @@ export class DesiredStateReportComponent {
     s.has(key) ? s.delete(key) : s.add(key);
     this.collapsed.set(s);
   }
-  private readonly sections = ['summary', 'monitoring', 'orchestration'];
+  private readonly sections = ['summary', 'monitoring', 'orchestration', 'configuration'];
   allCollapsed = computed(() => this.sections.every((s) => this.collapsed().has(s)));
   toggleAll(): void {
     this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.sections));
@@ -198,6 +245,34 @@ export class DesiredStateReportComponent {
       parameters: p.parameters ?? {},
     }));
   });
+
+  configFiles = computed<{ path: string; source: string; rows: ConfigSettingRow[] }[]>(() => {
+    const files = this.config() ?? [];
+    return files.map((f) => ({
+      path: f.path,
+      source: f.source,
+      rows: this.flatten(f.values, f.key_sources, f.source),
+    }));
+  });
+
+  /** Flatten a possibly-nested config values object into key/value/source rows.
+   * key_sources is keyed by the same flat dot-path effective_resources emits. */
+  private flatten(values: Record<string, unknown>, keySources: Record<string, string>, fileSource: string, prefix = ''): ConfigSettingRow[] {
+    const rows: ConfigSettingRow[] = [];
+    for (const [k, v] of Object.entries(values ?? {})) {
+      const key = prefix ? `${prefix}.${k}` : k;
+      if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+        rows.push(...this.flatten(v as Record<string, unknown>, keySources, fileSource, key));
+      } else {
+        rows.push({
+          key,
+          value: v === null ? '(absent)' : Array.isArray(v) ? v.join(', ') : String(v),
+          source: keySources[key] ?? fileSource,
+        });
+      }
+    }
+    return rows.sort((a, b) => a.key.localeCompare(b.key));
+  }
 
   paramSummary(params: Record<string, unknown>): string {
     const keys = Object.keys(params ?? {});

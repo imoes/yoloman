@@ -14,7 +14,7 @@ import { OuService } from '../../core/services/ou.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OuNodeDialogComponent, OuNodeDialogData } from '../../shared/components/ou-node-dialog/ou-node-dialog.component';
 import { HostGroupDialogComponent, HostGroupDialogData } from '../../shared/components/host-group-dialog/host-group-dialog.component';
-import { DesiredStateReportComponent } from '../../shared/components/desired-state-report/desired-state-report.component';
+import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 
 interface Row {
   kind: 'ou' | 'host' | 'unassigned';
@@ -190,7 +190,7 @@ interface AppliedPolicy {
               }
 
               <h3>Full desired state</h3>
-              <app-desired-state-report [state]="d" />
+              <app-desired-state-report [state]="d" [config]="desiredConfig()" />
             } @else {
               <p class="bm-empty">Loading desired state…</p>
             }
@@ -314,6 +314,7 @@ export class HostPlacementComponent implements OnInit {
   selectedHost = signal<Agent | null>(null);
   selectedGroup = signal<HostGroup | null>(null);
   desired = signal<CompiledHostState | null>(null);
+  desiredConfig = signal<ConfigDesiredResource[] | null>(null);
   groupReport = signal<GroupPolicyReport | null>(null);
   ctxOu = signal<OUNode | null>(null);
   dragHostId = signal<string | null>(null);
@@ -435,7 +436,9 @@ export class HostPlacementComponent implements OnInit {
     this.groupReport.set(null);
     this.selectedHost.set(host);
     this.desired.set(null);
+    this.desiredConfig.set(null);
     this.orchestration.desiredState(host.id).subscribe((d) => this.desired.set(d));
+    this.agentService.configDesired(host.id).subscribe((c) => this.desiredConfig.set(c.resources));
   }
 
   selectGroup(group: HostGroup): void {

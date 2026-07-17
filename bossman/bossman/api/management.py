@@ -384,6 +384,35 @@ async def get_agent_config_drift(
     }
 
 
+@router.get("/api/v1/agents/{agent_id}/config-desired")
+async def get_agent_config_desired(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """The GPO-resolved desired config for this host WITHOUT contacting the agent
+    (unlike config-drift, which re-plans against the live host). Powers the
+    "Configuration" section of the desired-state report — the merged config files
+    and their per-key winning value + origin (host/OU/group/global)."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+    eff = await effective_resources(session, agent)
+    return {
+        "agent_id": str(agent.id),
+        "resources": [
+            {
+                "path": e["path"],
+                "format": e["resource"].get("format"),
+                "values": e["resource"].get("values", {}),
+                "source": e["source"],
+                "key_sources": e["key_sources"],
+            }
+            for e in eff
+        ],
+    }
+
+
 class UnsetDesiredRequest(BaseModel):
     path: str
     key: str  # dot-path for nested formats; literal for keyvalue
