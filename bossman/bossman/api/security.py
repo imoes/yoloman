@@ -24,6 +24,7 @@ from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.auth import user_can_manage_agent
 from bossman.services.cve_collect import collect_all_hosts
+from bossman.services.cve_feed import cve_description
 
 router = APIRouter()
 
@@ -106,6 +107,7 @@ async def fleet_cves(
     out = sorted(by_cve.values(), key=lambda a: (-_SEV_RANK.get(a["severity"], 0), a["cve"]))
     for a in out:
         a["host_count"] = len(a["hosts"])
+        a["description"] = cve_description(a["cve"])
     return {"count": len(out), "cves": out}
 
 

@@ -35,6 +35,15 @@ logger = logging.getLogger("bossman.cve_feed")
 Advisory = dict[str, str]  # {cve, fixed_version, severity}
 Index = dict[str, dict[str, list[Advisory]]]  # release -> src_pkg -> advisories
 
+# cve -> one-line human description, populated from the Debian tracker on parse.
+# Module-level (not persisted): repopulated on each feed refresh; the UI falls
+# back to a tracker link when a description isn't loaded (e.g. cache-only start).
+_CVE_DESCRIPTIONS: dict[str, str] = {}
+
+
+def cve_description(cve: str) -> str:
+    return _CVE_DESCRIPTIONS.get(cve, "")
+
 
 @dataclass
 class CveFeedStats:
@@ -143,6 +152,11 @@ class CveFeed:
             for cve, info in cves.items():
                 if not cve.startswith("CVE-") or not isinstance(info, dict):
                     continue
+                # Stash the human description so a CVE number becomes meaningful
+                # in the UI (the Debian tracker carries a one-line summary).
+                desc = (info.get("description") or "").strip()
+                if desc:
+                    _CVE_DESCRIPTIONS[cve] = desc
                 for release, rel in (info.get("releases") or {}).items():
                     if not isinstance(rel, dict):
                         continue

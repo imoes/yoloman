@@ -23,6 +23,7 @@ export interface FleetCve {
   cve: string;
   severity: string;
   distro: string;
+  description?: string;
   hosts: CveHost[];
   host_count: number;
 }

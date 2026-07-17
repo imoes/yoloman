@@ -6,7 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { BulkUpdateResult, CveFilters, CveSummary, FeedStatus, FleetCve, SecurityService } from '../../core/services/security.service';
+import { BulkUpdateResult, CveFilters, CveHost, CveSummary, FeedStatus, FleetCve, SecurityService } from '../../core/services/security.service';
+
+/** A package to update, with the CVEs it closes and the hosts affected —
+ * inverted from the CVE-keyed API so the page reads "package → its CVEs". */
+interface PkgCve { cve: string; severity: string; description: string; }
+interface PkgGroup { package: string; severity: string; cves: PkgCve[]; hosts: CveHost[]; }
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 
 /** Block 4-D — fleet-wide Security page: which pending package upgrades close
@@ -20,7 +25,7 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
   template: `
     <div class="bm-sec">
       <header class="bm-head">
-        <h2><mat-icon>security</mat-icon> Security — CVEs fixed by pending updates</h2>
+        <h2><mat-icon>security</mat-icon> Security — packages to update &amp; the CVEs they close</h2>
         <span class="bm-spacer"></span>
         <button mat-stroked-button (click)="refreshFeed()" [disabled]="refreshing()">
           <mat-icon>cloud_download</mat-icon> {{ refreshing() ? 'Refreshing feed…' : 'Refresh CVE feed' }}
@@ -69,18 +74,30 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
         <p class="bm-err">{{ err() }}</p>
       } @else {
         <table class="bm-ct">
-          <thead><tr><th></th><th>CVE</th><th>Severity</th><th>Distro</th><th>Hosts</th></tr></thead>
+          <thead><tr><th></th><th>Package to update</th><th>Severity</th><th>CVEs</th><th>Hosts</th></tr></thead>
           <tbody>
-            @for (c of cves(); track c.cve) {
-              <tr class="bm-row" (click)="toggle(c.cve)">
-                <td class="bm-exp"><mat-icon>{{ expanded() === c.cve ? 'expand_more' : 'chevron_right' }}</mat-icon></td>
-                <td class="bm-mono">{{ c.cve }}</td>
-                <td><span class="bm-sev bm-sev-{{ c.severity || 'unknown' }}">{{ c.severity || 'unknown' }}</span></td>
-                <td>{{ c.distro }}</td>
-                <td>{{ c.host_count }}</td>
+            @for (p of packages(); track p.package) {
+              <tr class="bm-row" (click)="toggle(p.package)">
+                <td class="bm-exp"><mat-icon>{{ expanded() === p.package ? 'expand_more' : 'chevron_right' }}</mat-icon></td>
+                <td class="bm-mono bm-pkg">{{ p.package }}</td>
+                <td><span class="bm-sev bm-sev-{{ p.severity || 'unknown' }}">{{ p.severity || 'unknown' }}</span></td>
+                <td>{{ p.cves.length }}</td>
+                <td>{{ p.hosts.length }}</td>
               </tr>
-              @if (expanded() === c.cve) {
+              @if (expanded() === p.package) {
                 <tr class="bm-detail"><td></td><td colspan="4">
+                  <!-- The CVEs this update closes, each explained in plain language -->
+                  <div class="bm-cvelist">
+                    @for (c of p.cves; track c.cve) {
+                      <div class="bm-cveitem">
+                        <div class="bm-cveline">
+                          <span class="bm-sev bm-sev-{{ c.severity || 'unknown' }}">{{ c.severity || 'unknown' }}</span>
+                          <a class="bm-mono bm-cvelink" [href]="cveUrl(c.cve)" target="_blank" rel="noopener">{{ c.cve }} <mat-icon>open_in_new</mat-icon></a>
+                        </div>
+                        <p class="bm-cvedesc">{{ c.description || 'No description in the current feed — open the link for details.' }}</p>
+                      </div>
+                    }
+                  </div>
                   <div class="bm-bulkbar">
                     @if (selectedHosts().size) {
                       <span class="bm-bulkcount">{{ selectedHosts().size }} host(s) selected</span>
@@ -99,15 +116,14 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
                   @if (bulkMsg()) { <p class="bm-bulkmsg" [class.bm-bulkerr]="bulkHadError()">{{ bulkMsg() }}</p> }
                   <table class="bm-hosts">
                     <thead><tr>
-                      <th class="bm-cb"><mat-checkbox [checked]="allHostsSelected(c)" [indeterminate]="someHostsSelected(c)" (change)="toggleAllHosts(c, $event.checked)" /></th>
-                      <th>Host</th><th>Package</th><th>Installed</th><th>Fixed in</th><th></th>
+                      <th class="bm-cb"><mat-checkbox [checked]="allHostsSelected(p)" [indeterminate]="someHostsSelected(p)" (change)="toggleAllHosts(p, $event.checked)" /></th>
+                      <th>Host</th><th>Installed</th><th>Fixed in</th><th></th>
                     </tr></thead>
                     <tbody>
-                      @for (h of c.hosts; track h.agent_id + h.package) {
+                      @for (h of p.hosts; track h.agent_id) {
                         <tr [class.bm-hsel]="hostSelected(h.agent_id)">
                           <td class="bm-cb"><mat-checkbox [checked]="hostSelected(h.agent_id)" (change)="toggleHost(h.agent_id)" /></td>
                           <td class="bm-mono">{{ h.host }}</td>
-                          <td class="bm-mono">{{ h.package }}</td>
                           <td class="bm-mono">{{ h.current_version || '—' }}</td>
                           <td class="bm-mono">{{ h.fixed_version || '—' }}</td>
                           <td><a mat-button [routerLink]="['/hosts', h.agent_id]" [queryParams]="{ tab: 'management' }"><mat-icon>open_in_new</mat-icon> Updates</a></td>
@@ -118,7 +134,7 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
                 </td></tr>
               }
             }
-            @if (!cves().length) { <tr><td colspan="5" class="bm-empty">No CVEs correlated. Refresh the feed and open a host's Updates/CVE view to collect.</td></tr> }
+            @if (!packages().length) { <tr><td colspan="5" class="bm-empty">No updatable packages with CVEs. Refresh the feed and open a host's Updates/CVE view to collect.</td></tr> }
           </tbody>
         </table>
       }
@@ -170,6 +186,14 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-fi-err { color: #c62828; opacity: 1; }
       .bm-fi-off { color: #f9a825; opacity: 1; }
       .bm-fi-err-txt { color: #c62828; }
+      .bm-pkg { font-weight: 600; }
+      .bm-cvelist { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 12px; }
+      .bm-cveitem { border-left: 3px solid var(--mat-sys-outline-variant); padding: 2px 0 2px 12px; }
+      .bm-cveline { display: flex; align-items: center; gap: 8px; }
+      .bm-cvelink { display: inline-flex; align-items: center; gap: 3px; color: var(--mat-sys-primary); text-decoration: none; }
+      .bm-cvelink:hover { text-decoration: underline; }
+      .bm-cvelink mat-icon { font-size: 13px; width: 13px; height: 13px; }
+      .bm-cvedesc { margin: 3px 0 0; font-size: 12.5px; opacity: 0.8; line-height: 1.45; }
     `,
   ],
 })
@@ -180,6 +204,23 @@ export class SecurityComponent {
 
   summary = signal<CveSummary | null>(null);
   cves = signal<FleetCve[]>([]);
+  // Invert the CVE-keyed list into "package → its CVEs + affected hosts", worst
+  // severity first, so the page leads with what you actually act on: the update.
+  packages = computed<PkgGroup[]>(() => {
+    const byPkg = new Map<string, PkgGroup>();
+    for (const c of this.cves()) {
+      for (const h of c.hosts) {
+        let g = byPkg.get(h.package);
+        if (!g) { g = { package: h.package, severity: '', cves: [], hosts: [] }; byPkg.set(h.package, g); }
+        if (!g.cves.some((x) => x.cve === c.cve)) g.cves.push({ cve: c.cve, severity: c.severity, description: c.description || '' });
+        if (!g.hosts.some((x) => x.agent_id === h.agent_id)) g.hosts.push(h);
+        if (this.sevRank(c.severity) > this.sevRank(g.severity)) g.severity = c.severity;
+      }
+    }
+    return [...byPkg.values()].sort((a, b) =>
+      this.sevRank(b.severity) - this.sevRank(a.severity) || a.package.localeCompare(b.package),
+    );
+  });
   loading = signal(false);
   err = signal<string | null>(null);
   expanded = signal<string | null>(null);
@@ -258,18 +299,25 @@ export class SecurityComponent {
     next.has(agentId) ? next.delete(agentId) : next.add(agentId);
     this.selectedHosts.set(next);
   }
-  private hostIds(c: FleetCve): string[] {
-    return [...new Set(c.hosts.map((h) => h.agent_id))];
+  private hostIds(p: PkgGroup): string[] {
+    return [...new Set(p.hosts.map((h) => h.agent_id))];
   }
-  allHostsSelected(c: FleetCve): boolean {
-    const ids = this.hostIds(c);
+  allHostsSelected(p: PkgGroup): boolean {
+    const ids = this.hostIds(p);
     return ids.length > 0 && ids.every((id) => this.selectedHosts().has(id));
   }
-  someHostsSelected(c: FleetCve): boolean {
-    return this.selectedHosts().size > 0 && !this.allHostsSelected(c);
+  someHostsSelected(p: PkgGroup): boolean {
+    return this.selectedHosts().size > 0 && !this.allHostsSelected(p);
   }
-  toggleAllHosts(c: FleetCve, checked: boolean): void {
-    this.selectedHosts.set(checked ? new Set(this.hostIds(c)) : new Set());
+  toggleAllHosts(p: PkgGroup, checked: boolean): void {
+    this.selectedHosts.set(checked ? new Set(this.hostIds(p)) : new Set());
+  }
+  private sevRank(s: string): number {
+    return { critical: 4, important: 3, high: 3, moderate: 2, medium: 2, low: 1 }[(s || '').toLowerCase()] ?? 0;
+  }
+  /** Link to the authoritative CVE record (Debian tracker) for the full write-up. */
+  cveUrl(cve: string): string {
+    return `https://security-tracker.debian.org/tracker/${cve}`;
   }
   clearHosts(): void {
     this.selectedHosts.set(new Set());
