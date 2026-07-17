@@ -52,9 +52,9 @@ export interface EditorScope {
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
       @if (catalogHost(); as ch) {
-        <p class="bm-oce-src">Catalog from member host <strong>{{ ch }}</strong> — policies here apply to every host under this {{ scopeWord }}.</p>
+        <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}. The available settings are read from a member host (<strong>{{ ch }}</strong>) as a reference.</p>
       } @else if (loaded()) {
-        <p class="bm-oce-src">No reachable member host — showing this scope's policies only.</p>
+        <p class="bm-oce-src">Policies set here apply down to every host under this {{ scopeWord }}. No reachable member host — showing only settings that already have a policy.</p>
       }
       <input class="bm-oce-search" type="search" placeholder="Search settings…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
       <div class="bm-oce-panes">
