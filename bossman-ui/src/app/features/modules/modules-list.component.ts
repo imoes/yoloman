@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,8 +8,6 @@ import { RouterLink } from '@angular/router';
 import { ModuleService } from '../../core/services/module.service';
 import { CheckService } from '../../core/services/check.service';
 import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../../core/models/module.model';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
 
 /** The module library browser (Block H4) — the management surface for the
  * Starlark collection modules (docs/plan.md Blocks G7/G8): per-collection
@@ -24,12 +21,9 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
   imports: [
     FormsModule,
     MatCardModule,
-    MatButtonToggleModule,
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    HostStatusBadgeComponent,
-    PerfOMeterComponent,
     RouterLink,
   ],
   template: `
@@ -45,13 +39,11 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
           <mat-card class="bm-collection-card bm-collection-card--builtin">
             <div class="bm-collection-name">built-in</div>
             <div class="bm-collection-count">52 native Go modules</div>
-            <app-perf-o-meter [value]="100" unit="%" />
           </mat-card>
           @for (entry of collectionEntries(); track entry.name) {
             <mat-card class="bm-collection-card">
               <div class="bm-collection-name">{{ entry.name }}</div>
-              <div class="bm-collection-count">{{ entry.translated }} / {{ entry.total }} translated</div>
-              <app-perf-o-meter [value]="(entry.translated / entry.total) * 100" unit="%" />
+              <div class="bm-collection-count">{{ entry.total }} modules</div>
             </mat-card>
           }
           <!-- Checkmk items are read-only CHECKS, not modules — they live in
@@ -60,7 +52,6 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
           <a class="bm-collection-card bm-collection-card--link" routerLink="/checks">
             <div class="bm-collection-name">checkmk <span class="bm-chip">checks</span></div>
             <div class="bm-collection-count">{{ checkmkCount() }} checks — open Checks →</div>
-            <app-perf-o-meter [value]="100" unit="%" />
           </a>
         </div>
 
@@ -69,11 +60,6 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
             <mat-label>Search modules</mat-label>
             <input matInput [(ngModel)]="search" placeholder="docker_container, sysctl, x509…" />
           </mat-form-field>
-          <mat-button-toggle-group [value]="filter()" (change)="filter.set($event.value)">
-            <mat-button-toggle value="all">All ({{ moduleCounts().total }})</mat-button-toggle>
-            <mat-button-toggle value="translated">Translated ({{ moduleCounts().translated }})</mat-button-toggle>
-            <mat-button-toggle value="pending">Pending ({{ moduleCounts().total - moduleCounts().translated }})</mat-button-toggle>
-          </mat-button-toggle-group>
         </div>
 
         <table class="bm-table">
@@ -81,7 +67,6 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
             <tr>
               <th>Module</th>
               <th>Collection</th>
-              <th>Status</th>
               <th>Mode</th>
               <th>Description</th>
             </tr>
@@ -92,21 +77,13 @@ import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o
                 <td class="bm-mono">{{ m.name }}</td>
                 <td class="bm-dim">{{ m.collection }}</td>
                 <td>
-                  <app-status-badge
-                    [status]="m.translated ? 'ok' : 'unknown'"
-                    [label]="m.translated ? 'translated' : 'pending'"
-                  />
-                </td>
-                <td>
-                  @if (m.translated) {
-                    <span class="bm-chip" [class.bm-chip--write]="m.writes">{{ m.writes ? 'write' : 'read-only' }}</span>
-                  }
+                  <span class="bm-chip" [class.bm-chip--write]="m.writes">{{ m.writes ? 'write' : 'read-only' }}</span>
                 </td>
                 <td class="bm-desc">{{ m.short_description || '' }}</td>
               </tr>
               @if (expanded() === m.fqcn) {
                 <tr class="bm-expand-row">
-                  <td colspan="5">
+                  <td colspan="4">
                     @if (detail(); as d) {
                       <div class="bm-detail">
                         @if (d.metadata.short_description) {
@@ -300,7 +277,6 @@ export class ModulesListComponent implements OnInit {
   private moduleService = inject(ModuleService);
 
   catalog = signal<ModuleCatalog | null>(null);
-  filter = signal<'all' | 'translated' | 'pending'>('all');
   search = '';
   expanded = signal<string | null>(null);
   detail = signal<ModuleDetail | null>(null);
@@ -308,13 +284,6 @@ export class ModulesListComponent implements OnInit {
   // checkmk items are checks, not modules — surfaced as a link to the Checks
   // page, so they're excluded from the module collection cards (F-5).
   checkmkCount = signal(0);
-  /** Module counts EXCLUDING checkmk (those are checks, counted on Checks). */
-  moduleCounts = computed(() => {
-    const cat = this.catalog();
-    if (!cat) return { total: 0, translated: 0 };
-    const mods = cat.modules.filter((m) => !m.fqcn.startsWith('checkmk.'));
-    return { total: mods.length, translated: mods.filter((m) => m.translated).length };
-  });
   collectionEntries = computed(() => {
     const cat = this.catalog();
     if (!cat) return [];
@@ -327,12 +296,9 @@ export class ModulesListComponent implements OnInit {
   visibleModules = computed(() => {
     const cat = this.catalog();
     if (!cat) return [];
-    const filter = this.filter();
     const q = this.search.trim().toLowerCase();
     return cat.modules.filter((m) => {
       if (m.fqcn.startsWith('checkmk.')) return false; // checks, not modules — on the Checks page
-      if (filter === 'translated' && !m.translated) return false;
-      if (filter === 'pending' && m.translated) return false;
       if (q && !m.fqcn.toLowerCase().includes(q) && !(m.short_description ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
