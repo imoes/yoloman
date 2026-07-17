@@ -27,7 +27,7 @@ from bossman.services.chat_client import chat_client_for
 from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
 from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
-from bossman.services.monitoring import seed_default_check_rules
+from bossman.services.monitoring import mark_poller_agent, seed_default_check_rules
 from bossman.services.poller import PollerStats, poller_loop
 from bossman.services.reconciler import ReconcileStats, reconciler_loop
 
@@ -81,6 +81,12 @@ async def lifespan(app: FastAPI):
     if settings.seed_default_checks:
         async with app.state.session_factory() as session:
             await seed_default_check_rules(session)
+
+    # Mark the co-located SNMP/SSH poller as a hidden proxy ("selecta") so it
+    # runs silently and doesn't clutter the Hosts/fleet views — it exists only
+    # to poll agent-less devices on their behalf. Idempotent.
+    async with app.state.session_factory() as session:
+        await mark_poller_agent(session, settings.poller_agent_name)
 
     # docs/zielbestimmung.md #5: import the file-based plans_dir plans into
     # the canonical store at startup — the store is the source of truth;

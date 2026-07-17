@@ -25,6 +25,7 @@ from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric
 from bossman.db.session import get_session
 from bossman.services import module_library
+from bossman.services.monitoring import is_infra_agent
 from bossman.services.agent_client import AgentClientError
 from bossman.services.metrics_query import query_series
 from bossman.services.poller import PollResult, poll_agent
@@ -125,8 +126,10 @@ async def list_agents(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[AgentOut]:
+    # Hide infrastructure agents (the silent SNMP/SSH poller "selecta") from the
+    # Hosts list — it isn't a monitored host, just the engine behind devices.
     agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
-    return [AgentOut.from_model(a) for a in agents]
+    return [AgentOut.from_model(a) for a in agents if not is_infra_agent(a)]
 
 
 async def _get_agent_or_404(session: AsyncSession, agent_id: UUID) -> Agent:

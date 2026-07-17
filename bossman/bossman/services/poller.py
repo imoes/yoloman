@@ -30,7 +30,7 @@ from bossman.config import Settings
 from bossman.db.models import Agent, HostEdge, Metric
 from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
-from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks
+from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks, is_infra_agent
 
 logger = logging.getLogger(__name__)
 
@@ -401,7 +401,10 @@ async def poll_agent(
             # Once we reach it, it's a Selecta (proxy) if it fronts satellites,
             # else a Duppy (satellite role). Only set when hosts_overview
             # succeeded, so a transient failure can't flip a proxy to duppy.
-            agent.mode = "proxy" if result.satellites_discovered > 0 else "satellite"
+            # The infra poller keeps its fixed proxy/"selecta" role (it fronts
+            # agent-less devices, not hosts/overview satellites) — don't downgrade.
+            if not is_infra_agent(agent):
+                agent.mode = "proxy" if result.satellites_discovered > 0 else "satellite"
         except AgentClientError as exc:
             result.errors.append(f"hosts_overview: {exc}")
 

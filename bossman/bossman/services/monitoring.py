@@ -859,6 +859,8 @@ async def query_problems(
         select(Service, Agent.name)
         .join(Agent, Agent.id == Service.agent_id)
         .where(Service.state != "OK", Service.state_type == "hard")
+        # Hide the infra poller's own services from Problems (is_infra_agent).
+        .where(Agent.agent_metadata["role"].astext.is_distinct_from("poller"))
     )
     if state is not None:
         stmt = stmt.where(Service.state == state)
@@ -1128,12 +1130,42 @@ class FleetSummary:
     open_problems: int
 
 
+def is_infra_agent(agent: Agent) -> bool:
+    """True for infrastructure agents that run silently and must NOT appear as
+    monitored hosts — currently the co-located SNMP/SSH poller ("selecta"). It
+    exists only to poll agent-less devices on their behalf; it is not itself a
+    host anyone monitors."""
+    return (agent.agent_metadata or {}).get("role") == "poller"
+
+
+async def mark_poller_agent(session: AsyncSession, name: str) -> None:
+    """Mark the co-located poller as a hidden proxy (selecta): mode=proxy +
+    agent_metadata.role=poller, so the Hosts/fleet/problems views filter it out
+    (is_infra_agent) while it keeps polling SNMP/SSH devices. Idempotent."""
+    agent = await session.scalar(select(Agent).where(Agent.name == name))
+    if agent is None:
+        return
+    changed = False
+    if agent.mode != "proxy":
+        agent.mode = "proxy"
+        changed = True
+    meta = dict(agent.agent_metadata or {})
+    if meta.get("role") != "poller":
+        meta["role"] = "poller"
+        agent.agent_metadata = meta
+        changed = True
+    if changed:
+        await session.commit()
+
+
 async def fleet_summary(session: AsyncSession) -> FleetSummary:
     """Counters for the fleet overview page: hosts by enrollment state,
     services by monitoring state, and how many are genuinely open problems
     (non-OK, unacknowledged, not in downtime) — the number that should
     actually draw a human's attention."""
-    agents = (await session.scalars(select(Agent))).all()
+    all_agents = (await session.scalars(select(Agent))).all()
+    infra_ids = {a.id for a in all_agents if is_infra_agent(a)}
+    agents = [a for a in all_agents if a.id not in infra_ids]
     hosts_by_enrollment: dict[str, int] = {}
     for a in agents:
         hosts_by_enrollment[a.enrollment_state] = hosts_by_enrollment.get(a.enrollment_state, 0) + 1
@@ -1143,6 +1175,8 @@ async def fleet_summary(session: AsyncSession) -> FleetSummary:
     services_by_state: dict[str, int] = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0}
     open_problems = 0
     for s in services:
+        if s.agent_id in infra_ids:
+            continue  # hide the poller's own services from fleet counts
         services_by_state[s.state] = services_by_state.get(s.state, 0) + 1
         if s.state != "OK" and not s.acknowledged:
             if not await is_in_downtime(session, s.agent_id, s.name, now):
@@ -1224,7 +1258,7 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
     disk values a real fleet cockpit needs. Exactly 5 queries total
     (agents, services, and 3 latest-metric lookups), never one per host:
     the concrete fix for "no bulk endpoint for a host-overview table"."""
-    agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
+    agents = [a for a in (await session.scalars(select(Agent).order_by(Agent.name))).all() if not is_infra_agent(a)]
     names_by_id = {a.id: a.name for a in agents}
 
     services = (await session.scalars(select(Service))).all()
