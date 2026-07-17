@@ -1292,9 +1292,13 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
         counts = {"OK": 0, "WARN": 0, "CRIT": 0, "UNKNOWN": 0}
         worst = "OK"
         for s in agent_services:
-            counts[s.state] = counts.get(s.state, 0) + 1
-            if _STATE_SEVERITY.get(s.state, 0) > _STATE_SEVERITY.get(worst, 0):
-                worst = s.state
+            # A soft (not-yet-confirmed) non-OK state is "pending", not a problem
+            # yet — it must NOT flip the host to WARN/CRIT, so the fleet status
+            # stays consistent with the Problems view (which is hard-state only).
+            effective = s.state if (s.state == "OK" or s.state_type == "hard") else "OK"
+            counts[effective] = counts.get(effective, 0) + 1
+            if _STATE_SEVERITY.get(effective, 0) > _STATE_SEVERITY.get(worst, 0):
+                worst = effective
 
         out.append(
             FleetHostSummary(
