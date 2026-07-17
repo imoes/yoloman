@@ -187,6 +187,11 @@ interface AppliedPolicy {
                   }
                 </div>
               }
+
+              <details class="bm-ds-details">
+                <summary>Full desired_state (JSON)</summary>
+                <pre class="bm-ds-json">{{ desiredJson(d) }}</pre>
+              </details>
             } @else {
               <p class="bm-empty">Loading desired state…</p>
             }
@@ -243,7 +248,10 @@ interface AppliedPolicy {
         border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; min-height: 340px;
       }
       .bm-tree { flex: 1 1 50%; padding: 6px 0; overflow-x: auto; }
-      .bm-detail { flex: 1 1 50%; padding: 12px 16px; }
+      .bm-detail { flex: 1 1 50%; padding: 12px 16px; min-width: 0; }
+      .bm-ds-details { margin-top: 16px; }
+      .bm-ds-details > summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+      .bm-ds-json { margin: 0; padding: 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.06)); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; white-space: pre; overflow-x: auto; max-height: 480px; overflow-y: auto; }
       .bm-node { display: flex; align-items: center; gap: 6px; padding: 3px 10px; white-space: nowrap; user-select: none; }
       .bm-ou { cursor: default; }
       .bm-host, .bm-group { cursor: pointer; }
@@ -397,6 +405,11 @@ export class HostPlacementComponent implements OnInit {
     const t = (this.desired()?.state.monitoring.thresholds ?? {}) as Record<string, { service_name?: string; warn?: unknown; crit?: unknown; comparison?: string }>;
     return Object.entries(t).map(([metric, v]) => ({ metric, ...v }));
   });
+
+  /** The full compiled desired_state document, pretty-printed for the JSON view. */
+  desiredJson(d: CompiledHostState): string {
+    return JSON.stringify(d.state ?? d, null, 2);
+  }
 
   ngOnInit(): void {
     this.reload();

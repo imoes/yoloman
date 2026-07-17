@@ -131,7 +131,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <app-status-badge [status]="healthStatus()" [label]="agent.enrollment_state" />
         </div>
 
-        <mat-tab-group [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
+        <mat-tab-group class="bm-host-tabs" [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
           <mat-tab label="Overview"><ng-template matTabContent>
             <div class="bm-tab-content">
               @if (overview(); as ov) {
@@ -468,6 +468,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <mat-tab label="Configuration"><ng-template matTabContent>
             <div class="bm-tab-content">
+             <mat-tab-group class="bm-cfg-sub" (selectedTabChange)="onConfigSubTab($event)">
+              <mat-tab label="Settings"><ng-template matTabContent>
               @if (observedLoading()) {
                 <p class="bm-empty">Reading the host's configuration…</p>
               } @else if (observedError(); as err) {
@@ -753,6 +755,21 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               } @else {
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
+              </ng-template></mat-tab>
+              <mat-tab label="Desired state (JSON)"><ng-template matTabContent>
+                <div class="bm-ds-head">
+                  <span class="bm-dim">The full compiled desired_state for this host — the GPO-merged result of the global, OU, group and host layers.</span>
+                  <button mat-stroked-button (click)="loadDesiredJson()" [disabled]="desiredJsonLoading()"><mat-icon>refresh</mat-icon> Reload</button>
+                </div>
+                @if (desiredJsonLoading()) {
+                  <p class="bm-empty">Compiling the desired state…</p>
+                } @else if (desiredJsonError(); as e) {
+                  <p class="bm-empty">{{ e }}</p>
+                } @else if (desiredJson(); as js) {
+                  <pre class="bm-ds-json">{{ js }}</pre>
+                }
+              </ng-template></mat-tab>
+             </mat-tab-group>
             </div>
           </ng-template></mat-tab>
 
@@ -1087,6 +1104,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tab-content {
         padding: 16px 4px;
       }
+      /* Let the host tab bar wrap onto a second row instead of paginating with
+         scroll arrows — there's plenty of horizontal room. Scoped to the outer
+         group so the nested Configuration sub-tabs keep their default behaviour. */
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-label-container { overflow: visible; }
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-list { transform: none !important; }
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-labels { flex-wrap: wrap; }
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mat-mdc-tab-header-pagination { display: none !important; }
+      :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header { --mat-tab-header-inactive-focus-label-text-color: inherit; }
+      /* Desired-state JSON viewer */
+      .bm-ds-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+      .bm-ds-json { margin: 0; padding: 14px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.06)); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; white-space: pre; overflow-x: auto; max-height: 620px; overflow-y: auto; }
       .bm-cfg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
       .bm-cfg-card { padding: 12px 14px; margin-bottom: 10px; }
       .bm-cfg-row { display: flex; align-items: center; gap: 10px; }
@@ -2025,6 +2053,13 @@ export class HostDetailComponent implements OnInit {
     }
   }
 
+  /** Inner Configuration tabs: lazy-load the desired_state JSON on first open. */
+  onConfigSubTab(event: MatTabChangeEvent): void {
+    if (event.tab.textLabel === 'Desired state (JSON)' && this.desiredJson() === null && !this.desiredJsonLoading()) {
+      this.loadDesiredJson();
+    }
+  }
+
   /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
    * loaded lazily when the Configuration tab is first opened. */
   loadObserved(): void {
@@ -2283,6 +2318,27 @@ export class HostDetailComponent implements OnInit {
   thrCrit = signal('');
   thrBusy = signal(false);
   thrError = signal<string | null>(null);
+  // Desired-state tab: the full compiled desired_state document for this host
+  // (the GPO-merged result of global/OU/group/host layers), shown verbatim.
+  desiredJson = signal<string | null>(null);
+  desiredJsonLoading = signal(false);
+  desiredJsonError = signal<string | null>(null);
+  loadDesiredJson(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.desiredJsonLoading.set(true);
+    this.desiredJsonError.set(null);
+    this.orchestration.desiredState(agent.id).subscribe({
+      next: (d) => {
+        this.desiredJson.set(JSON.stringify(d.state ?? d, null, 2));
+        this.desiredJsonLoading.set(false);
+      },
+      error: (e: { error?: { detail?: string } }) => {
+        this.desiredJsonError.set(e?.error?.detail ?? 'failed to load desired state');
+        this.desiredJsonLoading.set(false);
+      },
+    });
+  }
   loadDesiredMonitoring(): void {
     const agent = this.agent();
     if (!agent) return;
