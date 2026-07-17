@@ -6,7 +6,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { OuService } from '../../core/services/ou.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
-import { ObservedResource } from '../../core/models/agent.model';
+import { DirectiveSpec, ObservedResource } from '../../core/models/agent.model';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
 
 interface ScopePolicy {
@@ -102,13 +102,22 @@ export interface EditorScope {
             @if (editKey(); as ek) {
               <div class="bm-oce-editor">
                 <strong>{{ ek }}</strong>
+                @if (directiveSpec(); as ds) {
+                  @if (ds.description) { <p class="bm-oce-src">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
+                }
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Not configured — no policy at this {{ scopeWord }}</label>
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'configured'" (change)="mode.set('configured')" /> Configured</label>
                 @if (mode() === 'configured') {
-                  <input class="bm-oce-val" [ngModel]="value()" (ngModelChange)="value.set($event)" list="bm-oce-suggest" />
-                  <datalist id="bm-oce-suggest">
-                    @for (v of suggestions(); track v) { <option [value]="v"></option> }
-                  </datalist>
+                  @if (valueOptions(); as opts) {
+                    <select class="bm-oce-val" [ngModel]="value()" (ngModelChange)="value.set($event)">
+                      @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
+                    </select>
+                  } @else {
+                    <input class="bm-oce-val" [ngModel]="value()" (ngModelChange)="value.set($event)" list="bm-oce-suggest" />
+                    <datalist id="bm-oce-suggest">
+                      @for (v of suggestions(); track v) { <option [value]="v"></option> }
+                    </datalist>
+                  }
                 }
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'removed'" (change)="mode.set('removed')" /> Removed — enforce the key's absence</label>
                 @if (error(); as e) { <p class="bm-oce-err">{{ e }}</p> }
@@ -134,8 +143,11 @@ export interface EditorScope {
       .bm-oce { margin-top: 18px; }
       .bm-oce-h { margin: 0 0 4px; }
       .bm-oce-src { font-size: 12px; opacity: 0.65; margin: 0 0 10px; }
-      .bm-oce-panes { display: flex; gap: 10px; align-items: stretch; }
-      .bm-oce-col { flex: 0 0 200px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
+      /* Wrap so the settings table drops below the two Miller columns in a
+         narrow panel (the OU detail panel) instead of overflowing to the right;
+         stays side-by-side when there's room (like the host gpedit). */
+      .bm-oce-panes { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+      .bm-oce-col { flex: 0 0 190px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 480px; overflow-y: auto; }
       .bm-oce-search { display: block; width: 100%; max-width: 420px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
       .bm-oce-cat { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
       .bm-oce-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
@@ -145,7 +157,8 @@ export interface EditorScope {
       .bm-oce-file:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-oce-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-oce-dot { color: var(--mat-sys-primary); font-size: 10px; }
-      .bm-oce-main { flex: 1 1 auto; min-width: 0; }
+      .bm-oce-main { flex: 1 1 360px; min-width: 0; overflow-x: auto; }
+      .bm-oce-live { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bm-oce-file-h { margin: 0 0 8px; font-family: ui-monospace, monospace; font-size: 14px; }
       .bm-oce-settings { width: 100%; border-collapse: collapse; font-size: 13px; }
       .bm-oce-settings th { text-align: left; font-size: 11px; opacity: 0.65; padding: 6px 10px; }
@@ -178,6 +191,8 @@ export class OuConfigEditorComponent implements OnChanges {
 
   loaded = signal(false);
   catalogHost = signal<string | null>(null);
+  // ADMX per-directive value catalog (parity with the host gpedit) — loaded once.
+  directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
   private catalog = signal<ObservedResource[]>([]);
   private policies = signal<ScopePolicy[]>([]);
   search = signal('');
@@ -202,6 +217,9 @@ export class OuConfigEditorComponent implements OnChanges {
     this.editKey.set(null);
     this.catalogHost.set(null);
     this.ouService.listConfigPolicies(this.listArg()).subscribe((ps) => this.policies.set(ps));
+    if (!Object.keys(this.directiveCatalog()).length) {
+      this.agentService.configDirectives().subscribe({ next: (r) => this.directiveCatalog.set(r.directives || {}), error: () => {} });
+    }
     // Resolve a reachable member as the settings catalog host: an OU asks its
     // subtree members endpoint; a group uses its own member agent ids.
     const useCatalog = (host: { id: string; name: string } | null) => {
@@ -326,6 +344,31 @@ export class OuConfigEditorComponent implements OnChanges {
     if (!k) return;
     this.newKey.set('');
     this.openRow({ key: k, state: 'Not configured', policy: '', live: '' });
+  }
+
+  /** ADMX spec for the setting being edited (by file basename + key). */
+  directiveSpec(): DirectiveSpec | null {
+    const path = this.selected(), key = this.editKey();
+    if (!path || !key) return null;
+    const file = path.split('/').pop() || '';
+    return this.directiveCatalog()[file]?.[key] ?? null;
+  }
+
+  /** Enum/bool → real allowed values from the ADMX catalog (a listbox), like
+   * the host gpedit; falls back to the yes/no-family guess, else free text. */
+  valueOptions(): string[] | null {
+    const spec = this.directiveSpec();
+    if (spec) {
+      if (spec.type === 'enum' && spec.values?.length) {
+        const v = this.value();
+        return spec.values.includes(v) || !v ? spec.values : [v, ...spec.values];
+      }
+      if (spec.type === 'bool') return ['yes', 'no'];
+      if (spec.type === 'int' || spec.type === 'string' || spec.type === 'list') return null;
+    }
+    const cur = this.value().trim().toLowerCase();
+    const families = [['yes', 'no'], ['true', 'false'], ['on', 'off'], ['enabled', 'disabled']];
+    return families.find((f) => f.includes(cur)) ?? null;
   }
 
   suggestions(): string[] {
