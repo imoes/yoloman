@@ -150,13 +150,33 @@ instead of graduated — is more or less this project's whole design brief. Full
 Bossman aggregates the fleet and gives an AI (and you) one place to run it. What it does today:
 
 - **Fleet inventory & monitoring** — hosts, services, metrics, problems, downtimes,
-  notifications, availability, dependency/topology graphs.
+  notifications, availability, dependency/topology graphs. eBPF "top talkers" reverse-resolve their
+  destination IPs to hostnames.
+- **The server as one document** — every host compiles to a single `desired_state` JSON: its OU,
+  monitoring (checks/thresholds/notifications), orchestration (roles/plans), the GPO-resolved
+  **managed config** (per-key winning source), and a full **inventory** tail (OS/kernel, hardware,
+  network, and the installed-package list). It's what the AI reads for analysis and what the
+  gpresult-style report on each host renders.
 - **Policy & Orchestration (GPO-style)** — an **OU tree** (LDAP-style, ltree-backed), first-class
   **host groups**, and **orchestration plans/roles** you bind to an OU / group / host. Per-host
   desired state is compiled with real GPO precedence (`global < group < OU(root→host) < host`),
   `enforced` links, and block-inheritance — resolved server-side, previewed before it's pushed.
+  Fleet-wide check thresholds ship as an auto-created **Default Policy** rather than nameless globals.
+- **Config management with drift enforcement** — a gpedit-style editor (categories → files →
+  settings) authored from the codec registry; a key with no policy is **host based** (the host's own
+  value stands). Managed files are **auto-enforced every poll**: an out-of-band change is overwritten
+  back to desired and recorded as a roll-backable generation. Config **templates** (apache2 vhost,
+  chrony, …) are also usable from a runbook via a `config_template` step.
+- **Security** — the fleet's pending package updates organised by **package → the CVEs it closes**,
+  each with severity, a plain-language description (Debian tracker) and a link, plus bulk security
+  updates across the affected hosts.
 - **Checks subsystem** (see below) — a flat `checks.d` library of monitoring checks, assignable to
-  host/group/OU with per-scope thresholds, with auto-discovery and credential provisioning.
+  host/group/OU with per-scope thresholds, with auto-discovery and credential provisioning. State
+  checks (a service is running or not) drop the meaningless comparison/warn-crit inputs.
+- **Agent-less devices** — SNMP gear and SSH-only hosts monitored via a co-located poller, presented
+  as monitored hosts.
+- **Visual workflow designer** — a drag-and-drop runbook builder whose toolbox is searchable across
+  the whole module catalog.
 - **Users & Access** — human users (admin/operator), machine API tokens, and per-host/group
   **access grants** (admin manages everything; operator/token only what a grant covers).
 - **AI chat console** — Claude CLI, ChatGPT Codex, or a self-hosted model, agentic (the model calls
@@ -224,11 +244,12 @@ steps:
       state: present
   -
     name: drop the vhost config
-    module: template
+    module: config_template
     args:
-      src: nginx/site.conf.j2
-      dest: /etc/nginx/sites-enabled/site.conf
-      mode: "0644"
+      template: apache2
+      dest: /etc/apache2/sites-available/site.conf
+      vars:
+        server_name: example.com
   -
     name: enable and start nginx
     module: service
