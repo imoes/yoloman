@@ -490,10 +490,14 @@ func handleReplaceACLRules(w http.ResponseWriter, r *http.Request, cfg RESTConfi
 }
 
 // availableTool describes one callable REST tool for GET /api/v1/tools.
+// Modules also carry their input schema + description so a UI (the workflow
+// designer's step editor) can render a real parameter form for native modules.
 type availableTool struct {
-	Name   string `json:"name"`
-	Kind   string `json:"kind"` // "module" | "task" | "pipeline"
-	Writes bool   `json:"writes"`
+	Name        string         `json:"name"`
+	Kind        string         `json:"kind"` // "module" | "task" | "pipeline"
+	Writes      bool           `json:"writes"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"input_schema,omitempty"`
 }
 
 func listAvailableTools(cfg RESTConfig) []availableTool {
@@ -502,7 +506,8 @@ func listAvailableTools(cfg RESTConfig) []availableTool {
 		if m.Writes() && !cfg.Write {
 			continue
 		}
-		out = append(out, availableTool{Name: m.Name(), Kind: "module", Writes: m.Writes()})
+		out = append(out, availableTool{Name: m.Name(), Kind: "module", Writes: m.Writes(),
+			Description: m.Description(), InputSchema: m.InputSchema()})
 	}
 	for _, t := range cfg.Tasks {
 		writes, err := t.Writes(cfg.ModReg)

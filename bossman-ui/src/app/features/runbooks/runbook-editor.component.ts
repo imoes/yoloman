@@ -582,7 +582,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   argspecLoaded(module: string): boolean {
     return module in this.argspecCache();
   }
-  /** The module's declared options (cached; fetched lazily on first render). */
+  /** The module's declared options (cached; fetched lazily on first render).
+   * Catalog (Starlark collection) modules come from the module detail; NATIVE
+   * Go modules (apt, service, file, …) aren't in the catalog — their schema is
+   * fetched from a host's GET /agents/{id}/tools (input_schema). */
   argFields(module: string): ArgField[] {
     if (!module) return [];
     const cached = this.argspecCache()[module];
@@ -593,15 +596,68 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
       this.moduleService.detail(fqcn).subscribe({
         next: (d) => {
           const fields = Object.entries(d.metadata.options ?? {}).map(([key, spec]) => ({ key, spec }));
+          if (!fields.length) { this.agentSchemaFields(module); return; }
           // Required options first, then alphabetical — the form reads top-down.
           fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
           if (d.metadata.short_description) this.descByModule.set(module, d.metadata.short_description);
           this.argspecCache.update((m) => ({ ...m, [module]: fields }));
         },
-        error: () => this.argspecCache.update((m) => ({ ...m, [module]: [] })),
+        error: () => this.agentSchemaFields(module),
       });
     }
     return [];
+  }
+
+  // name -> {description, input_schema} from a live agent's tool list; loaded
+  // once per editor session (native modules are the same on every agent).
+  private agentTools: Record<string, { description?: string; input_schema?: { properties?: Record<string, Record<string, unknown>>; required?: string[] } }> | null = null;
+  private agentToolsLoading = false;
+  private agentToolsWaiters: string[] = [];
+
+  /** Resolve a native module's options from an agent's tool schema. */
+  private agentSchemaFields(module: string): void {
+    if (this.agentTools) { this.finishAgentSchema(module); return; }
+    this.agentToolsWaiters.push(module);
+    if (this.agentToolsLoading) return;
+    const hid = this.hostId() || this.hosts()[0]?.id;
+    if (!hid) { this.argspecCache.update((m) => ({ ...m, [module]: [] })); return; }
+    this.agentToolsLoading = true;
+    this.http.get<{ tools: { name: string; description?: string; input_schema?: { properties?: Record<string, Record<string, unknown>>; required?: string[] } }[] }>(
+      `${this.base}/agents/${hid}/tools`,
+    ).subscribe({
+      next: (r) => {
+        this.agentTools = Object.fromEntries((r.tools || []).map((t) => [t.name, t]));
+        for (const w of this.agentToolsWaiters) this.finishAgentSchema(w);
+        this.agentToolsWaiters = [];
+      },
+      error: () => {
+        this.agentTools = {};
+        for (const w of this.agentToolsWaiters) this.argspecCache.update((m) => ({ ...m, [w]: [] }));
+        this.agentToolsWaiters = [];
+      },
+    });
+  }
+
+  private finishAgentSchema(module: string): void {
+    const tool = this.agentTools?.[module];
+    const schema = tool?.input_schema;
+    const required = new Set(schema?.required ?? []);
+    const fields: ArgField[] = Object.entries(schema?.properties ?? {}).map(([key, s]) => ({
+      key,
+      spec: {
+        type: (s['type'] as string) ?? 'str',
+        description: this.descText(s['description']),
+        choices: (s['enum'] as unknown[]) ?? undefined,
+        default: s['default'],
+        required: required.has(key),
+      } as ModuleOptionSpec,
+    }));
+    fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
+    if (tool?.description && !this.descByModule.has(module)) {
+      // Native descriptions are long-form — keep the first sentence for the header.
+      this.descByModule.set(module, tool.description.split(/\.\s/)[0].slice(0, 160));
+    }
+    this.argspecCache.update((m) => ({ ...m, [module]: fields }));
   }
   private stepArgs(step: Step): Record<string, unknown> {
     const p = step.properties as Record<string, unknown>;
