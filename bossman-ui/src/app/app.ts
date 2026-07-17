@@ -11,7 +11,7 @@ import { IconComponent } from './shared/components/icon/icon.component';
 // data stays declarative and the icon set can evolve independently.
 const NAV_ICON: Record<string, string> = {
   '/fleet': 'fleet', '/problems': 'problems', '/topology': 'topology', '/security': 'security',
-  '/host-placement': 'host-placement', '/plan-library': 'roles', '/deploy': 'deploy',
+  '/host-placement': 'host-placement', '/plan-library': 'roles', '/runbooks': 'workflow', '/deploy': 'deploy',
   '/runs': 'runs', '/help': 'help',
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
@@ -34,18 +34,19 @@ interface NavItem {
 // so the old Runbooks + Plans + Plan library trio collapses to just "Roles".
 const MAIN_NAV: NavItem[] = [
   { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
+  { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
   { path: '/security', label: 'Security', icon: 'security' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
   { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
+  { path: '/runbooks', label: 'Workflow designer', icon: 'account_tree' },
   { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/help', label: 'Help', icon: 'help_outline' },
 ];
 
 const SETUP_NAV: NavItem[] = [
-  { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/notifications', label: 'Notifications', icon: 'notifications' },
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/modules', label: 'Modules', icon: 'extension' },

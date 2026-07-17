@@ -37,6 +37,7 @@ const ICONS: Record<string, IconDef> = {
   'config-templates': `<g ${S}><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 9l-2 2 2 2M15 9l2 2-2 2"/></g>`,
   users: `<g ${S}><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6M20.5 20a5.5 5.5 0 0 0-4-5.3"/></g>`,
   settings: `<g ${S}><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></g>`,
+  workflow: `<g ${S}><rect x="3" y="4" width="6" height="5" rx="1.2"/><rect x="15" y="4" width="6" height="5" rx="1.2"/><rect x="9" y="15" width="6" height="5" rx="1.2"/><path d="M6 9v2.5a1.5 1.5 0 0 0 1.5 1.5H12M18 9v2.5a1.5 1.5 0 0 1-1.5 1.5H12M12 13v2"/></g>`,
   // ── actions ──
   add: `<g ${S}><path d="M12 5v14M5 12h14"/></g>`,
   logout: `<g ${S}><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></g>`,
