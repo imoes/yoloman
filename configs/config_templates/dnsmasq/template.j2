@@ -1,0 +1,60 @@
+# /etc/dnsmasq.conf — DNS/DHCP server configuration
+# Basic settings
+{% if domain %}domain={{ domain }}{% endif %}
+{% if expand_hosts %}expand-hosts{% endif %}
+{% if no_resolv %}no-resolv{% endif %}
+{% if no_poll %}no-poll{% endif %}
+{% if read_ethers %}read-ethers{% endif %}
+{% if enable_tftp %}enable-tftp{% endif %}
+
+# Interface binding
+{% if interface %}interface={{ interface }}{% endif %}
+{% if except_interface %}except-interface={{ except_interface }}{% endif %}
+{% if bind_interfaces %}bind-interfaces{% endif %}
+{% if bind_dynamic %}bind-dynamic{% endif %}
+
+# Listening addresses
+{% if listen_address %}listen-address={{ listen_address }}{% endif %}
+{% for addr in listen_addresses %}listen-address={{ addr }}{% endfor %}
+
+# DHCP configuration
+{% if no_dhcp_interface %}no-dhcp-interface={{ no_dhcp_interface }}{% endif %}
+{% for dhcp_pool in dhcp_pools %}# DHCP pool: {{ dhcp_pool.name }}
+{% if dhcp_pool.start and dhcp_pool.end %}dhcp-range={{ dhcp_pool.start }},{{ dhcp_pool.end }}{% if dhcp_pool.lease_time %},{{ dhcp_pool.lease_time }}{% endif %}{% if dhcp_pool.netmask %},{{ dhcp_pool.netmask }}{% endif %}{% endif %}
+{% if dhcp_pool.dns %}dhcp-option={{ dhcp_pool.dns_option or 'option:dns-server' }},{{ dhcp_pool.dns | join(',') }}{% endif %}
+{% if dhcp_pool.gateway %}dhcp-option={{ dhcp_pool.gateway_option or 'option:router' }},{{ dhcp_pool.gateway }}{% endif %}
+{% if dhcp_pool.ntp %}dhcp-option={{ dhcp_pool.ntp_option or 'option:ntp-server' }},{{ dhcp_pool.ntp | join(',') }}{% endif %}
+{% endfor %}
+
+# Static DHCP leases
+{% for lease in static_leases %}# Static lease: {{ lease.name }}
+dhcp-host={{ lease.mac }},{{ lease.ip }},{{ lease.name }}{% if lease.hostname %},{{ lease.hostname }}{% endif %}{% if lease.lease_time %},{{ lease.lease_time }}{% endif %}
+{% endfor %}
+
+# DNS forwarding / upstream servers
+{% if server %}server={{ server }}{% endif %}
+{% for srv in servers %}server={{ srv }}{% endfor %}
+{% if dnssec %}dnssec{% endif %}
+{% if dnssec_check_valid %}dnssec-check-valid{% endif %}
+
+# DNS rewrite rules
+{% for rule in dns_rewrite_rules %}# Rewrite: {{ rule.name }}
+dnsmasq-rewrite={{ rule.pattern }}{% if rule.replace %}={{ rule.replace }}{% endif %}
+{% endfor %}
+
+# Logging and verbosity
+{% if log_queries %}log-queries{% endif %}
+{% if log_dhcp %}log-dhcp{% endif %}
+{% if log_facility %}log-facility={{ log_facility }}{% endif %}
+
+# Cache and limits
+{% if cache_size %}cache-size={{ cache_size }}{% endif %}
+{% if min_cache_ttl %}min-cache-ttl={{ min_cache_ttl }}{% endif %}
+{% if max_cache_ttl %}max-cache-ttl={{ max_cache_ttl }}{% endif %}
+
+# TFTP settings
+{% if tftp_root %}tftp-root={{ tftp_root }}{% endif %}
+{% if tftp_no_fail %}tftp-no-fail{% endif %}
+
+# Additional options (passed through literally)
+{% for line in extra_lines %}{{ line }}{% endfor %}

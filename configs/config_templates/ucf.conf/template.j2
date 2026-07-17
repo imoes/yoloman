@@ -1,0 +1,33 @@
+# Debugging: Print extra diagnostic information during ucf execution.
+# Setting this to 1 enables verbose internal debugging output (e.g., trace logs).
+DEBUG={{ DEBUG }}
+
+# Verbosity: Control amount of user-facing output.
+# Set to 1 for verbose mode (prints status messages); 0 (default) is quiet.
+VERBOSE={{ VERBOSE }}
+
+# Force retention of old conffile: Do NOT prompt user on conffile conflict.
+# If set (non-empty), ucf will *always* keep the installed conffile version, even if modified.
+# This overrides default interactive behavior and the UCF_FORCE_CONFFOLD env var.
+{% if conf_force_conffold is defined %}conf_force_conffold={{ conf_force_conffold | string | lower }}
+{% else %}# (conf_force_conffold unset — interactive behavior enabled)
+{% endif %}
+
+# Force override of old conffile: Do NOT prompt user on conffile conflict.
+# If set (non-empty), ucf will *always* replace the installed conffile with the new one, even if modified.
+# This overrides default interactive behavior and the UCF_FORCE_CONFFNEW env var.
+{% if conf_force_conffnew is defined %}conf_force_conffnew={{ conf_force_conffnew | string | lower }}
+{% else %}# (conf_force_conffnew unset — interactive behavior enabled)
+{% endif %}
+
+# Source directory for historical md5sums: Where ucf looks for .md5sum or .md5sum.d/ files.
+# Used during upgrades to compare current vs new conffiles; defaults to /var/lib/ucf.
+# Overridden by UCF_SOURCE_DIR environment variable if set.
+conf_source_dir="{{ conf_source_dir }}"
+
+# Explicit path to historical md5sum file: Override default search location.
+# If set, ucf reads the checksum from *this file only* (not from conf_source_dir).
+# Overrides UCF_OLD_MDSUM_FILE environment variable and default .md5sum lookup logic.
+{% if conf_old_mdsum_file is defined and conf_old_mdsum_file | length > 0 %}conf_old_mdsum_file="{{ conf_old_mdsum_file }}"
+{% else %}# (conf_old_mdsum_file unset — uses conf_source_dir + filename.md5sum pattern)
+{% endif %}

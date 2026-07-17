@@ -1,0 +1,48 @@
+{
+  "logtarget": "/var/log/fail2ban.log",
+  "syslogfacility": "daemon",
+  "bantime": 3600,
+  "findtime": 600,
+  "maxretry": 3,
+  "backend": "systemd",
+  "mta": "sendmail",
+  "destemail": "admin@example.com",
+  "sender": "fail2ban@example.com",
+  "sendername": "Fail2Ban Server",
+  "defaction": "iptables-allports",
+  "sshd_enabled": true,
+  "sshd_port": "22",
+  "sshd_logpath": "/var/log/auth.log",
+  "sshd_maxretry": 3,
+  "sshd_bantime": 7200,
+  "sshd_findtime": 600,
+  "custom_jails": [
+    {
+      "name": "apache-auth",
+      "enabled": true,
+      "port": [
+        "http",
+        "https"
+      ],
+      "filter": "apache-auth",
+      "logpath": "/var/log/apache2/access.log",
+      "maxretry": 3,
+      "bantime": 3600,
+      "findtime": 600,
+      "action": "iptables[name=HTTP, port=http,protocol=tcp]"
+    },
+    {
+      "name": "nginx-botsearch",
+      "enabled": true,
+      "port": [
+        "http",
+        "https"
+      ],
+      "filter": "nginx-botsearch",
+      "logpath": "/var/log/nginx/access.log",
+      "maxretry": 2,
+      "bantime": 86400,
+      "findtime": 3600
+    }
+  ]
+}

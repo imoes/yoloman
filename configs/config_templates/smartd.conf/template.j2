@@ -1,0 +1,156 @@
+# smartd.conf - SMART Disk Monitoring Daemon Configuration
+# Generated via Jinja2 template
+#
+# Each non-comment line specifies a device and optional directives
+# Lines may be continued using backslash '\'
+# Comments start with '#'
+
+# DEVICESCAN scans all devices and applies the following directives to them
+# If no directives follow DEVICESCAN, defaults to '-a' (monitor all SMART properties)
+{% if devicescan_directives %}DEVICESCAN{% for dir in devicescan_directives %} {{ dir }}{% endfor %}
+{% else %}# DEVICESCAN omitted — explicit device list used instead
+{% endif %}
+
+# Default settings applied to all subsequent device entries until next DEFAULT line
+# These become implicit prefixes for all following device lines
+{% if default_directives %}DEFAULT{% for dir in default_directives %} {{ dir }}{% endfor %}
+{% endif %}
+
+# Explicit device monitoring entries
+{% for dev in devices %}
+# Device path and type
+# The device node to monitor (e.g., /dev/sda, /dev/nvme0n1, /dev/sg2)
+/dev/{{ dev.name }}
+{% for directive in dev.directives %}
+{% if directive.name == 'type' %}
+# Device type: specifies underlying controller or translation layer (e.g., sat, megaraid, nvme)
+# Overrides automatic detection of device type and ensures correct command set is used
+{% if directive.value %} -d {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'monitor' %}
+# Monitor mode: sets which SMART checks are enabled (e.g., -a for all, -H for health only)
+# -a = -H -l selftest -t -o on -S on -f -F critical -C 4 -U 4 -W 2,40,45 -R 5!
+{% if directive.value %} {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'mail' %}
+# Email recipients: sends alerts to comma-separated list of email addresses or system users
+# May be overridden per device or via DEFAULT directive
+{% if directive.value %} -m {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'mailtype' %}\n# Mail behavior control: 'test' sends an email on startup for testing; 'only' restricts to certain events
+# 'test' sends a test email on daemon start; 'only' prevents repeated warnings
+{% if directive.value %} -M {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'selftest' %}
+# Self-test schedule: defines when long/short self-tests run using cron-like syntax
+# Format: type/(date spec)/(day spec)/(time spec) with support for alternatives via parentheses
+# Example: 'L/../../7/00' = long test every Sunday at 00:00
+{% if directive.value %} -s {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'ignoreattr' %}
+# Ignore SMART attributes by ID: prevents them from being monitored or causing warnings
+# Commonly ignored: 194 (temperature), 231 (temperature), 9 (power-on hours)
+{% if directive.value %} -I {{ directive.value | replace(' ', ', ') | replace(',', ' -I ') }}
+{% endif %}
+{% elif directive.name == 'log' %}
+# Enable logging of SMART logs: error log (-l error), self-test log (-l selftest), etc.
+# Required for full SMART compliance and historical tracking of issues
+{% if directive.value %} -l {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'offlineauto' %}
+# Enable/disable automatic offline data collection: on/off controls background testing
+# Improves SMART data availability but may impact disk performance slightly
+{% if directive.value == True %} -o on
+{% elif directive.value == False %} -o off
+{% endif %}
+{% elif directive.name == 'autosave' %}
+# Enable/disable SMART Attribute autosave: on/off controls persistence of threshold changes
+# Should generally be 'on' to ensure vendor-specific thresholds are honored
+{% if directive.value == True %} -S on
+{% elif directive.value == False %} -S off
+{% endif %}
+{% elif directive.name == 'failcritical' %}
+# Enable/disable critical attribute failure detection: -F critical enables vendor-specific checks
+# Detects failures flagged by the drive's internal logic (e.g., pending sectors)
+{% if directive.value == True %} -F critical
+{% endif %}
+{% elif directive.name == 'powermode' %}
+# Power mode checks: skip checks if device is in standby/sleep (e.g., -P ignore or -P standby)
+# Reduces false positives for disks that spin down during idle
+{% if directive.value %} -P {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'removable' %}
+# Treat device as removable media: adjusts SMART behavior for USB flash, optical, etc.
+# Prevents spurious warnings for devices that don’t support full SMART set
+{% if directive.value == True %} -d removable
+{% endif %}
+{% elif directive.name == 'all' %}
+# Alias for -a: equivalent to enabling all monitoring directives
+{% if directive.value == True %} -a
+{% endif %}
+{% elif directive.name == 'healthonly' %}
+# Monitor only health status: equivalent to -H
+# Lightweight option if only failure detection is needed
+{% if directive.value == True %} -H
+{% endif %}
+{% elif directive.name == 'selftestlog' %}
+# Enable self-test log monitoring: -l selftest
+# Alerts on new self-test errors or failures
+{% if directive.value == True %} -l selftest
+{% endif %}
+{% elif directive.name == 'errorlog' %}
+# Enable error log monitoring: -l error
+# Reports new ATA/SCSI errors in the log
+{% if directive.value == True %} -l error
+{% endif %}
+{% elif directive.name == 'attribute_tracking' %}
+# Enable attribute tracking: -t
+# Monitors change in SMART attributes unless explicitly ignored
+{% if directive.value == True %} -t
+{% endif %}
+{% elif directive.name == 'online_test' %}
+# Enable online testing: -o on
+# Starts background self-tests automatically if schedule is defined
+{% if directive.value == True %} -o on
+{% endif %}
+{% elif directive.name == 'autosave_test' %}
+# Enable attribute autosave: -S on
+# Ensures changes to SMART thresholds persist across reboots
+{% if directive.value == True %} -S on
+{% endif %}
+{% elif directive.name == 'critical_alert' %}
+# Enable critical alert monitoring: -F critical
+# Triggers alerts on vendor-specific critical attributes
+{% if directive.value == True %} -F critical
+{% endif %}
+{% elif directive.name == 'uncorrectable' %}
+# Monitor uncorrectable sectors: -U 4 (default threshold)
+# Alerts when uncorrectable sector count exceeds threshold
+{% if directive.value %} -U {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'reallocation' %}
+# Monitor reallocated sectors: -R 5! (default threshold with '!')
+# Alerts when reallocated sector count exceeds threshold
+{% if directive.value %} -R {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'warning' %}
+# Warning threshold for attributes: -W <temp>,<min>,<max>
+# Default: -W 2,40,45 means alert if temperature >45°C or drops >2°C rapidly from max 45°C
+{% if directive.value %} -W {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'rawlog' %}
+# Enable raw attribute logging: -r <id>,<mask>
+# Reports raw attribute values in emails/logs
+{% if directive.value %} -r {{ directive.value }}
+{% endif %}
+{% elif directive.name == 'scan' %}
+# DEVICESCAN override: skip device scan entirely if false
+{% if directive.value == False %}# Scan disabled
+{% endif %}
+{% else %}
+# Unknown directive — omitted to preserve validity
+{% endif %}
+{% endfor %}
+{% if not loop.last %}
+{% endif %}
+{% endfor %}

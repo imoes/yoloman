@@ -1,0 +1,24 @@
+# Magic pattern file for the 'file' command
+# Each line defines a test for file type detection
+# Format: offset type [modifiers] value message
+
+# Top-level magic entries; binary tests are tried before text ones
+{% for entry in magic_entries %}
+{% if entry.offset is number %}{{ entry.offset }}{% else %}"{{ entry.offset }}"{% endif %} {{ entry.type }}{% if entry.modifiers %} {{ entry.modifiers }}{% endif %}{% if entry.comparison is defined %} {{ entry.comparison }}{% endif %}{{ entry.value | tojson }} {{ entry.message }}
+
+{% if entry.mime_type is defined %}
+# MIME type associated with the preceding file type description
+!:mime {{ entry.mime_type }}
+
+{% endif %}
+{% if entry.extensions is defined %}
+# Common filename extensions for this file type
+#:ext {{ entry.extensions | join('/') }}
+
+{% endif %}
+{% if entry.strength is defined %}
+# Optional strength override (higher priority wins in ambiguous cases)
+#: strength {{ entry.strength }}
+
+{% endif %}
+{% endfor %}

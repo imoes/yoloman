@@ -1,0 +1,185 @@
+# -*- rsyslog -*-
+# rsyslog.conf template - site-specific configuration
+# This configuration supports modular syslog handling with UDP/TCP/RELP inputs,
+# file-based output (with optional sync control), remote forwarding, user notifications,
+# and dynamic log routing via selectors.
+
+# Global directives
+# ----------------------------------------------------------
+
+# Global work directory: where rsyslog stores runtime state and queues
+# Default: /var/spool/rsyslog
+# Affects: queue files, PID file location, etc.
+$WorkDirectory /var/spool/rsyslog
+
+# Number of messages allowed in the main queue before blocking input
+# Default: 10000
+# Affects: memory usage and backpressure under high load
+$MainMessageQueueSize {{ main_queue_size }}
+
+# Whether to drop messages if the main queue is full (false = block until space is available)
+# Default: false
+# Affects: reliability vs latency
+$MainMessageQueueDiscardOnBlockOnOverflow off
+
+# Number of worker threads to process messages from the main queue
+# Default: 1
+# Affects: parallelism; set >1 only on multi-core systems with high throughput
+$WorkDirectory {{ work_threads }}
+
+# Enable/disable synchronous writes to files (improved durability at cost of performance)
+# Default: off
+# Affects: disk I/O performance and crash resilience
+$ActionFileEnableSync {{ action_file_enable_sync }}
+
+# Load input modules for receiving syslog messages
+# imuxsock: Unix socket (e.g., /dev/log) for local processes
+# imklog: kernel log (替代 klogd); only needed if you want kernel messages
+# imudp/imtcp/imrelp: for remote syslog reception (UDP/TCP/RELP)
+# ----------------------------------------------------------
+{% for module in input_modules %}
+# Load {{ module.name }} module for {{ module.purpose }}
+$ModLoad {{ module.name }}
+{% endfor %}
+
+# Configure input ports and bind addresses
+# ----------------------------------------------------------
+{% for input in inputs %}
+# {{ input.description }}
+{% if input.type == 'imuxsock' %}
+# Path to Unix socket (e.g., /dev/log); use 'off' to disable
+$InputUnixListenSocketPath {{ input.path }}
+{% elif input.type == 'imudp' %}
+# Enable UDP listener on specified port and optional bind address
+$UDPServerRun {{ input.port }}
+$UDPServerAddress {{ input.address }}
+{% elif input.type == 'imtcp' %}
+# Enable plain TCP listener on specified port and optional bind address
+$InputTCPServerRun {{ input.port }}
+$InputTCPServerAddress {{ input.address }}
+{% elif input.type == 'imrelp' %}
+# Enable RELP listener on specified port (reliable, TCP-based)
+$InputRELPServerRun {{ input.port }}
+{% endif %}
+{% endfor %}
+
+# Output templates
+# ----------------------------------------------------------
+# Define templates for log message formatting and file naming
+# Format: $template Name, "TemplateString"[, Options]
+# Using RFC3339 (ISO 8601) timestamp format by default
+# ----------------------------------------------------------
+{% if use_rfc3339_timestamps %}
+$template Rfc3339Format,"%timestamp:::date-rfc3339% %HOSTNAME% %syslogtag%%msg%\n"
+{% endif %}
+
+# Template for per-host log files (dynamic file names)
+# Example: /var/log/hosts/remote-host1.log
+# Uses: %HOSTNAME% to extract the originating host name
+# ----------------------------------------------------------
+{% if dynamic_host_logs %}
+$template DynHostFile,"/var/log/hosts/%HOSTNAME%.log"
+{% endif %}
+
+# Default template used for file outputs when none is specified
+# ----------------------------------------------------------
+{% if custom_default_template %}
+$template DefaultFileFormat,"{{ custom_default_template }}"
+{% else %}
+# If not defined, rsyslog falls back to RFC3339-style by default in modern versions
+{% endif %}
+
+# Ruleset for custom routing logic
+# ----------------------------------------------------------
+{% if rulesets %}
+{% for ruleset in rulesets %}
+# Define ruleset "{{ ruleset.name }}" ({{ ruleset.description }})
+{% for rule in ruleset.rules %}
+{% if rule.type == 'selector' %}
+# Selector rule: {{ rule.selector }} -> {{ rule.action }}
+{% if rule.template %}
+{%   if rule.action_type == 'file' %}
+{{ rule.selector }}    {{ rule.action }};{{ rule.template }}
+{%   elif rule.action_type == 'remote_udp' %}
+{{ rule.selector }}    @{{ rule.target }}
+{%   elif rule.action_type == 'remote_tcp' %}
+{{ rule.selector }}    @@{{ rule.target }}
+{%   elif rule.action_type == 'remote_relp' %}
+{{ rule.selector }}    :omrelp:{{ rule.target }}
+{%   elif rule.action_type == 'user' %}
+{{ rule.selector }}    :omusrmsg:{{ rule.users | join(',') }}
+{%   elif rule.action_type == 'wall' %}
+{{ rule.selector }}    :omusrmsg:*
+{%   elif rule.action_type == 'pipe' %}
+{{ rule.selector }}    |{{ rule.action }}
+{%   else %}
+{{ rule.selector }}    {{ rule.action }}
+{%   endif %}
+{% else %}
+{%   if rule.action_type == 'file' %}
+{{ rule.selector }}    {{ rule.action }}
+{%   elif rule.action_type == 'remote_udp' %}
+{{ rule.selector }}    @{{ rule.target }}
+{%   elif rule.action_type == 'remote_tcp' %}
+{{ rule.selector }}    @@{{ rule.target }}
+{%   elif rule.action_type == 'remote_relp' %}
+{{ rule.selector }}    :omrelp:{{ rule.target }}
+{%   elif rule.action_type == 'user' %}
+{{ rule.selector }}    :omusrmsg:{{ rule.users | join(',') }}
+{%   elif rule.action_type == 'wall' %}
+{{ rule.selector }}    :omusrmsg:*
+{%   elif rule.action_type == 'pipe' %}
+{{ rule.selector }}    |{{ rule.action }}
+{%   else %}
+{{ rule.selector }}    {{ rule.action }}
+{%   endif %}
+{% endif %}
+{% elif rule.type == 'property' %}
+# Property-based filter: {{ rule.filter }} -> {{ rule.action }}
+{% if rule.filter %}
+{{ rule.filter | replace(':', ':', 1) | replace('"', '"', 1) }}
+{% endif %}
+{{ rule.action }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% else %}
+# Default ruleset (fallback behavior if no custom rulesets defined)
+{% if use_rfc3339_timestamps %}
+*.=debug;authpriv.none     /var/log/debug.log;Rfc3339Format
+authpriv.*                /var/log/secure;Rfc3339Format
+mail.*                    -/var/log/maillog;Rfc3339Format
+cron.*                    /var/log/cron;Rfc3339Format
+*.emerg                   :omusrmsg:*
+local0.*                  /var/log/boot.log;Rfc3339Format
+{% else %}
+*.=debug;authpriv.none     /var/log/debug.log
+authpriv.*                /var/log/secure
+mail.*                    -/var/log/maillog
+cron.*                    /var/log/cron
+*.emerg                   :omusrmsg:*
+local0.*                  /var/log/boot.log
+{% endif %}
+{% endif %}
+
+# Remote forwarding (as client)
+# ----------------------------------------------------------
+# Forward all messages to upstream syslog server(s)
+{% for forwarder in remote_forwards %}
+# Forward all messages to {{ forwarder.host }} via {{ forwarder.protocol }} (port {{ forwarder.port }})
+{% if forwarder.protocol == 'udp' %}
+*.* @{{ forwarder.host }}:{{ forwarder.port }}
+{% elif forwarder.protocol == 'tcp' %}
+*.* @@{{ forwarder.host }}:{{ forwarder.port }}
+{% elif forwarder.protocol == 'relp' %}
+*.* :omrelp:{{ forwarder.host }}:{{ forwarder.port }}
+{% endif %}
+{% endfor %}
+
+# Optional discard rule to suppress noisy logs
+# ----------------------------------------------------------
+# Discard all messages from local6 facility (commonly used by some firewalls/routers)
+# Must appear early in ruleset to take effect
+{% if discard_local6 %}
+local6.*  stop
+{% endif %}

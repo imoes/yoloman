@@ -1,0 +1,145 @@
+{
+  "logtarget": {
+    "type": "string",
+    "default": "/var/log/fail2ban.log",
+    "description": "Log target for fail2ban daemon output (file path or SYSLOG)."
+  },
+  "syslogfacility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when logging to syslog."
+  },
+  "bantime": {
+    "type": "number",
+    "default": 600,
+    "description": "Default duration (seconds) a host remains banned."
+  },
+  "findtime": {
+    "type": "number",
+    "default": 600,
+    "description": "Time window (seconds) during which failed attempts are counted."
+  },
+  "maxretry": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of failures within `findtime` before banning."
+  },
+  "backend": {
+    "type": "string",
+    "default": "auto",
+    "description": "File monitoring backend (e.g., auto, inotify, polling)."
+  },
+  "mta": {
+    "type": "string",
+    "default": "sendmail",
+    "description": "Mail transfer agent to use for email notifications."
+  },
+  "destemail": {
+    "type": "string",
+    "default": "root@localhost",
+    "description": "Recipient email address for ban notifications."
+  },
+  "sender": {
+    "type": "string",
+    "default": "fail2ban@localhost",
+    "description": "Sender email address in ban notifications."
+  },
+  "sendername": {
+    "type": "string",
+    "default": "Fail2Ban",
+    "description": "Display name for sender in email notifications."
+  },
+  "defaction": {
+    "type": "string",
+    "default": "iptables-multiport",
+    "description": "Default action taken when a host is banned (e.g., iptables-multiport, firewallcmd-whitelist)."
+  },
+  "sshd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable protection for SSH (sshd) service."
+  },
+  "sshd_port": {
+    "type": "string",
+    "default": "ssh",
+    "description": "SSH port(s) to monitor (e.g., '22' or '22,2222')."
+  },
+  "sshd_logpath": {
+    "type": "string",
+    "default": "/var/log/auth.log",
+    "description": "Path to the SSH authentication log file."
+  },
+  "sshd_maxretry": {
+    "type": "number",
+    "default": 5,
+    "description": "Per-jail override for max retry count for SSH."
+  },
+  "sshd_bantime": {
+    "type": "number",
+    "default": 600,
+    "description": "Per-jail override for ban time for SSH."
+  },
+  "sshd_findtime": {
+    "type": "number",
+    "default": 600,
+    "description": "Per-jail override for find time for SSH."
+  },
+  "custom_jails": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom jails to define. Each jail includes name, filter, and logpath; other fields are optional.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for the jail (e.g., 'apache-auth')."
+        },
+        "enabled": {
+          "type": "bool",
+          "required": true,
+          "description": "Whether the jail is active."
+        },
+        "port": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "required": true,
+          "description": "Service port(s) to monitor (e.g., ['http', 'https'] or ['80', '443'])."
+        },
+        "filter": {
+          "type": "string",
+          "required": true,
+          "description": "Name of the filter file (without .conf extension) used to detect failures."
+        },
+        "logpath": {
+          "type": "string",
+          "required": true,
+          "description": "Path to the log file to monitor."
+        },
+        "maxretry": {
+          "type": "number",
+          "default": null,
+          "description": "Override of maxretry for this jail."
+        },
+        "bantime": {
+          "type": "number",
+          "default": null,
+          "description": "Override of bantime for this jail."
+        },
+        "findtime": {
+          "type": "number",
+          "default": null,
+          "description": "Override of findtime for this jail."
+        },
+        "action": {
+          "type": "string",
+          "default": null,
+          "description": "Override of default action (e.g., 'iptables[name=HTTP, port=http, protocol=tcp]')."
+        }
+      }
+    }
+  }
+}

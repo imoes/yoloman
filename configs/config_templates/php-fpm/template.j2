@@ -1,0 +1,40 @@
+; Common settings
+[global]
+error_log = {{ global.error_log }}
+log_level = {{ global.log_level }}
+
+; Process management
+process_manager = {{ pool.process_manager }}
+start_servers = {{ pool.start_servers }}
+min_spare_servers = {{ pool.min_spare_servers }}
+max_spare_servers = {{ pool.max_spare_servers }}
+max_requests = {{ pool.max_requests }}
+
+; Listen configuration
+listen = {{ pool.listen }}
+listen.allowed_clients = {{ pool.listen_allowed_clients | join(', ') if pool.listen_allowed_clients else 'none' }}
+listen.backlog = {{ pool.listen_backlog }}
+listen.owner = {{ pool.listen_owner }}
+listen.group = {{ pool.listen_group }}
+listen.mode = {{ pool.listen_mode }}
+
+; Unix user/group of processes
+user = {{ pool.user }}
+group = {{ pool.group }}
+
+; PHP configuration
+php_admin_value[error_log] = {{ pool.php_admin_value.error_log }}
+php_admin_flag[log_errors] = {{ pool.php_admin_flag.log_errors | string | lower }}
+
+; Additional PHP settings
+{% for key, value in pool.php_values.items() %}php_value[{{ key }}] = {{ value }}
+{% endfor %}
+{% for key, value in pool.php_flags.items() %}php_flag[{{ key }}] = {{ value | string | lower }}
+{% endfor %}
+
+; Status page
+pm.status_path = {{ pool.status_path }}
+
+; Logging
+slowlog = {{ pool.slowlog }}
+request_slowlog_timeout = {{ pool.request_slowlog_timeout }}

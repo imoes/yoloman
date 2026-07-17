@@ -1,0 +1,79 @@
+{
+  "port": 22,
+  "listen_address": "0.0.0.0",
+  "syslog_facility": "AUTH",
+  "log_level": "INFO",
+  "login_grace_time": 60,
+  "permit_root_login": "no",
+  "strict_modes": true,
+  "max_auth_tries": 4,
+  "max_sessions": 5,
+  "password_authentication": false,
+  "pubkey_authentication": true,
+  "authorized_keys_file": [
+    ".ssh/authorized_keys",
+    ".ssh/authorized_keys2"
+  ],
+  "authentication_methods": [
+    "publickey"
+  ],
+  "use_pam": true,
+  "allow_users": [
+    "admin",
+    "deploy"
+  ],
+  "allow_groups": [],
+  "deny_users": [
+    "root",
+    "nobody"
+  ],
+  "deny_groups": [],
+  "accept_env": [
+    "LANG",
+    "LC_ALL",
+    "LC_MESSAGES"
+  ],
+  "banner_path": "/etc/ssh/banner",
+  "permit_tunnel": "no",
+  "x11_forwarding": false,
+  "x11_display_offset": 10,
+  "x11_use_localhost": true,
+  "allow_tcp_forwarding": true,
+  "allow_agent_forwarding": false,
+  "gateway_ports": false,
+  "client_alive_interval": 300,
+  "client_alive_count_max": 2,
+  "compression": "delayed",
+  "gssapi_authentication": false,
+  "gssapi_cleanup_credentials": true,
+  "sftp_subsystem": "internal-sftp",
+  "sftp_users": [
+    {
+      "username": "sftpuser",
+      "chroot_path": "/chroot/sftpuser",
+      "allow_tcp_forwards": false,
+      "disable_x11": true
+    }
+  ],
+  "extra_match_blocks": [
+    {
+      "comment": "Allow trusted internal host full access",
+      "condition": "Host 10.0.0.%",
+      "settings": {
+        "password_authentication": true,
+        "allow_tcp_forwarding": true,
+        "allow_agent_forwarding": true
+      }
+    },
+    {
+      "comment": "Restrict developer account",
+      "condition": "User dev",
+      "settings": {
+        "permit_tunnel": "no",
+        "x11_forwarding": false,
+        "allow_tcp_forwarding": false,
+        "max_sessions": 2
+      }
+    }
+  ]
+}

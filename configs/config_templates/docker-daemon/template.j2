@@ -1,0 +1,42 @@
+{# JSON config for Docker daemon #}
+{
+  {# Listen address for Docker API (REST) #}
+  "hosts": [{{ hosts | map('"{}"' | format) | join(', ') }}],
+
+  {# Root directory for Docker data (images, containers, volumes, etc.) #}
+  "data-root": "{{ data_root }}",
+
+  {# Storage driver to use (e.g., overlay2, zfs, btrfs) #}
+  "storage-driver": "{{ storage_driver }}",
+
+  {# Logging driver and options for containers #}
+  "log-driver": "{{ log_driver }}",
+  "log-opts": {
+    {{ log_opts | to_entries | map('  "{}": "{}"'.format | indent(2, true)) | join(',\n') }}
+  },
+
+  {# DNS servers for containers #}
+  "dns": [{{ dns | map('"{}"' | format) | join(', ') }}],
+
+  {# DNS search domains for containers #}
+  "dns-search": [{{ dns_search | map('"{}"' | format) | join(', ') }}],
+
+  {# Enable insecure registries (not recommended for production) #}
+  "insecure-registries": [{{ insecure_registries | map('"{}"' | format) | join(', ') }}],
+
+  {# Default runtime (usually "runc") #}
+  "default-runtime": "{{ default_runtime }}",
+
+  {# Runtimes for OCI-compliant runtimes (e.g., runsc, kata) #}
+  "runtimes": {
+    {{ runtimes | to_entries | map('  "{}": {\n    "path": "{}",\n    "args": {}'.format | indent(4, true)) | join(',\n') | replace('    ', '    ') }}
+  },
+
+  {# Enable Live Restore to keep containers running during daemon restarts #}
+  "live-restore": {{ live_restore | lower }},
+
+  {# Enable containerd snapshotter for image layering (v2 only) #}
+  "features": {
+    "containerd-snapshotter": {{ features_containerd_snapshotter | lower }}
+  }
+}

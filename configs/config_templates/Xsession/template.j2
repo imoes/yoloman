@@ -1,0 +1,106 @@
+#!/bin/sh
+#
+# Xsession startup script template — renders to a typical /etc/X11/Xsession implementation
+# This script initializes an X session by orchestrating pre- and post-startup scripts.
+#
+# The script expects the Xsession.d directory to exist; aborts if not found.
+# It logs session startup and client output to ~/.xsession-errors or a temp file if unwritable.
+# It supports optional session type arguments (failsafe, default, program).
+#
+# The behavior is heavily customizable via /etc/X11/Xsession.options and scripts in /etc/Xsession.d/.
+# The following variables and functions are available (see Xsession(5)):
+#   message, message_nonl, errormsg: for user-facing diagnostics
+#   Built-in logic is encapsulated in run-parts calls for modular extensibility.
+#
+# {{ session_type | default('default') }}: session type to start; one of 'failsafe', 'default', 'program'
+SESSION_TYPE="{{ session_type | default('default') }}"
+
+# {{ xsession_d_path }}: path to the directory containing modular startup scripts
+#   Controls where run-parts looks for extra initialization steps.
+#   Must exist; otherwise the script aborts.
+XSESSION_D="{{ xsession_d_path | default('/etc/X11/Xsession.d') }}"
+
+# {{ xresources_d_path }}: path to directory containing system X resources
+#   Files are merged via xrdb -merge during startup.
+XRESOURCES_D="{{ xresources_d_path | default('/etc/X11/Xresources') }}"
+
+# {{ user_xresources }}: whether to load ~/.Xresources (default: true)
+#   Enables per-user X resource overrides.
+USER_XRESOURCES="{{ user_xresources | default(true) | lower }}"
+
+# {{ allow_failsafe }}: whether to honor 'failsafe' session type (default: true)
+#   If false, attempts to use 'failsafe' are silently ignored.
+ALLOW_FAILSAFE="{{ allow_failsafe | default(true) | lower }}"
+
+# {{ allow_user_xsession }}: whether to allow user .xsession/.Xsession scripts (default: true)
+#   Controls whether user-provided session scripts are respected.
+ALLOW_USER_XSESSION="{{ allow_user_xsession | default(true) | lower }}"
+
+# {{ allow_user_xsession_program }}: whether to allow 'program' session type (default: true)
+#   Controls whether arbitrary user-specified session programs (via session-type argument) are allowed.
+ALLOW_USER_XSESSION_PROGRAM="{{ allow_user_xsession_program | default(true) | lower }}"
+
+# {{ use_ssh_agent }}: whether to start/use ssh-agent for the session (default: true)
+#   If true and no ssh-agent is running, one is started and used to launch the session.
+USE_SSH_AGENT="{{ use_ssh_agent | default(true) | lower }}"
+
+# {{ sysmodmap }}: optional system X modmap file
+#   Loaded via xmodmap(1) if present and executable.
+SYSMODMAP="{{ sysmodmap | default('/etc/X11/Xmodmap') }}"
+
+# {{ usrmodmap }}: optional user X modmap file
+#   Loaded via xmodmap(1) if present and executable.
+USRMODMAP="{{ usrmodmap | default('$HOME/.Xmodmap') }}"
+
+# {{ xmodmap_executable }}: path to xmodmap binary
+#   Only invoked if this binary exists and is executable.
+XMODMAP_EXEC="{{ xmodmap_executable | default('/usr/bin/X11/xmodmap') }}"
+
+# {{ xhost_enabled }}: whether to run xhost to allow local user access (default: true)
+#   Adds local-user access to the X server for same-user processes.
+XHOST_ENABLED="{{ xhost_enabled | default(true) | lower }}"
+
+# {{ error_log_path }}: fallback log path if ~/.xsession-errors is unwritable
+#   Must be in a secure temp directory (e.g., /tmp or $TMPDIR)
+ERROR_LOG_FALLBACK="{{ error_log_path | default('$TMPDIR/xsession-XXXXXX') }}"
+
+# Built-in functions (defined later by the real Xsession script in production)
+# For this template, we define stubs to preserve semantics and ensure correctness on render.
+message() {
+  echo "$*" >&2
+}
+
+message_nonl() {
+  printf '%s' "$*" >&2
+}
+
+errormsg() {
+  message "$*"
+  exit 1
+}
+
+# Create session error log file
+# Attempts $HOME/.xsession-errors first; falls back to $ERROR_LOG_FALLBACK if unwritable.
+# If both fail, script aborts.
+if [ -w "$HOME" ]; then
+  ERRORFILE="$HOME/.xsession-errors"
+  exec >>"$ERRORFILE" 2>&1
+else
+  ERRORFILE=$(mktemp "$ERROR_LOG_FALLBACK" 2>/dev/null)
+  if [ -z "$ERRORFILE" ] || [ ! -w "$ERRORFILE" ]; then
+    errormsg "Xsession: Unable to open error log file."
+  fi
+  exec >>"$ERRORFILE" 2>&1
+fi
+
+# Report session start
+message "Xsession: Session started at $(date) for user $(whoami)"
+
+# Verify Xsession.d directory
+if [ ! -d "$XSESSION_D" ]; then
+  errormsg "Xsession: X session directory ($XSESSION_D) does not exist."
+fi
+
+# Source modular startup scripts via run-parts
+# This runs all files in XSESSION_D in lexicographic order.
+run-parts --arg="${SESSION_TYPE}" "$XSESSION_D"

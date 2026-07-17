@@ -1,0 +1,53 @@
+# fail2ban configuration - jail.local
+# This file overrides defaults from jail.conf
+
+[DEFAULT]
+# Enable logging to syslog
+logtarget = {{ logtarget }}
+
+# Syslog facility
+syslogfacility = {{ syslogfacility }}
+
+# Ban time in seconds
+bantime = {{ bantime }}
+
+# Find time window in seconds
+findtime = {{ findtime }}
+
+# Max retry attempts before ban
+maxretry = {{ maxretry }}
+
+# Backend used for file monitoring
+backend = {{ backend }}
+
+# Email action settings
+mta = {{ mta }}
+destemail = {{ destemail }}
+sender = {{ sender }}
+sendername = {{ sendername }}
+
+# Default action to take (e.g., iptables, firewallcmd)
+defaction = {{ defaction }}
+
+# Enable SSH jail by default
+[sshd]
+enabled = {{ sshd_enabled | default(true) }}
+port = {{ sshd_port }}
+filter = sshd
+logpath = {{ sshd_logpath }}
+maxretry = {{ sshd_maxretry | default(maxretry) }}
+bantime = {{ sshd_bantime | default(bantime) }}
+findtime = {{ sshd_findtime | default(findtime) }}
+
+# Custom jails — generate dynamically
+{% for jail in custom_jails %}
+[{{ jail.name }}]
+enabled = {{ jail.enabled }}
+port = {{ jail.port | join(', ') }}
+filter = {{ jail.filter }}
+logpath = {{ jail.logpath }}
+{% if jail.maxretry is defined %}maxretry = {{ jail.maxretry }}{% endif %}
+{% if jail.bantime is defined %}bantime = {{ jail.bantime }}{% endif %}
+{% if jail.findtime is defined %}findtime = {{ jail.findtime }}{% endif %}
+{% if jail.action is defined %}action = {{ jail.action }}{% endif %}
+{% endfor %}

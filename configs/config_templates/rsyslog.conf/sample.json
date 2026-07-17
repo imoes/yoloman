@@ -1,0 +1,99 @@
+{
+  "main_queue_size": 50000,
+  "work_threads": 2,
+  "action_file_enable_sync": false,
+  "input_modules": [
+    {
+      "name": "imuxsock",
+      "purpose": "local syslog via /dev/log"
+    },
+    {
+      "name": "imklog",
+      "purpose": "kernel log messages (\u66ff\u4ee3 klogd)"
+    },
+    {
+      "name": "imudp",
+      "purpose": "UDP syslog receiver"
+    },
+    {
+      "name": "imtcp",
+      "purpose": "TCP syslog receiver"
+    }
+  ],
+  "inputs": [
+    {
+      "type": "imudp",
+      "port": 514,
+      "address": "0.0.0.0",
+      "description": "Receive UDP syslog on port 514"
+    },
+    {
+      "type": "imtcp",
+      "port": 514,
+      "address": "0.0.0.0",
+      "description": "Receive TCP syslog on port 514"
+    }
+  ],
+  "use_rfc3339_timestamps": true,
+  "dynamic_host_logs": true,
+  "custom_default_template": null,
+  "rulesets": [
+    {
+      "name": "local-system",
+      "description": "Standard local logging",
+      "rules": [
+        {
+          "type": "selector",
+          "selector": "*.=debug;authpriv.none",
+          "action": "/var/log/debug.log",
+          "action_type": "file"
+        },
+        {
+          "type": "selector",
+          "selector": "authpriv.*",
+          "action": "/var/log/secure",
+          "action_type": "file"
+        },
+        {
+          "type": "selector",
+          "selector": "mail.*",
+          "action": "-/var/log/maillog",
+          "action_type": "file"
+        },
+        {
+          "type": "selector",
+          "selector": "cron.*",
+          "action": "/var/log/cron",
+          "action_type": "file"
+        },
+        {
+          "type": "selector",
+          "selector": "*.emerg",
+          "action": ":omusrmsg:*",
+          "action_type": "wall"
+        },
+        {
+          "type": "selector",
+          "selector": "local0.*",
+          "action": "/var/log/boot.log",
+          "action_type": "file"
+        }
+      ]
+    }
+  ],
+  "remote_forwards": [
+    {
+      "host": "syslog-collector.internal",
+      "port": 514,
+      "protocol": "udp",
+      "description": "Primary remote syslog collector (lossy)"
+    },
+    {
+      "host": "backup-syslog.internal",
+      "port": 2514,
+      "protocol": "relp",
+      "description": "Reliable backup collector"
+    }
+  ],
+  "discard_local6": true
+}

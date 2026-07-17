@@ -1,0 +1,82 @@
+{
+  "hosts": {
+    "type": "list",
+    "default": [
+      "unix:///var/run/docker.sock"
+    ],
+    "description": "List of addresses for the Docker daemon to listen on (e.g., tcp://0.0.0.0:2375, unix:///var/run/docker.sock)."
+  },
+  "data_root": {
+    "type": "string",
+    "default": "/var/lib/docker",
+    "description": "Path to the directory where Docker stores data (images, containers, volumes, etc.)."
+  },
+  "storage_driver": {
+    "type": "string",
+    "default": "overlay2",
+    "description": "Storage driver to use for managing container layers (e.g., overlay2, vfs, btrfs). Must be supported by the host filesystem."
+  },
+  "log_driver": {
+    "type": "string",
+    "default": "json-file",
+    "description": "Default logging driver for containers."
+  },
+  "log_opts": {
+    "type": "object",
+    "default": {
+      "max-size": "10m",
+      "max-file": "3"
+    },
+    "description": "Options for the default logging driver (e.g., max-size, max-file)."
+  },
+  "dns": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of DNS servers for containers to use for name resolution."
+  },
+  "dns_search": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS search domains for containers."
+  },
+  "insecure_registries": {
+    "type": "list",
+    "default": [],
+    "description": "List of private registry hostnames/IPs that are allowed to use HTTP or HTTPS with untrusted certificates."
+  },
+  "default_runtime": {
+    "type": "string",
+    "default": "runc",
+    "description": "Default OCI runtime to use for running containers."
+  },
+  "runtimes": {
+    "type": "object",
+    "default": {},
+    "description": "Additional OCI-compliant runtimes available for use (e.g., 'runsc' for gVisor, 'kata' for Kata Containers). Each entry maps a name to path and args.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to the runtime binary."
+      },
+      "args": {
+        "type": "list",
+        "default": [],
+        "description": "List of arguments to pass to the runtime binary (e.g., ['--debug'])."
+      }
+    }
+  },
+  "live_restore": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, containers continue running when the Docker daemon is restarted (no interruption to container lifecycle)."
+  },
+  "features_containerd_snapshotter": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable containerd-based image snapshotter (required for certain features like image layering with snapshotters)."
+  }
+}

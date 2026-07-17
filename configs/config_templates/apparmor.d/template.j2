@@ -1,0 +1,80 @@
+{# AppArmor profile template for a single service. #}
+# AppArmor profile for {{ profile_name }}
+# Generated from apparmor.d template
+
+# ABI declaration: specifies the policy language version and features supported
+{% if abi_version %}abi {{ abi_version }},
+{% endif %}
+
+# Include standard macros and common definitions from AppArmor helper files
+# This pulls in reusable definitions (e.g., common file patterns, variables) to simplify profiles
+{% if include_common %}#include <tunables/global>
+{% endif %}
+{% for include_path in includes %}#include "{{ include_path }}"
+{% endfor %}
+
+{% if profile_name | lower != profile_name %}profile "{{ profile_name }}" {% else %}profile {{ profile_name }} {% endif %}{% if attach_path %} {{ attach_path }}{% endif %} {
+  # Policy mode: controls whether rules are enforced, logged, or both
+  # 'enforce' = blocking access violations; 'complain' = allow + log; 'kill' = kill on violation; 'unconfined' = no enforcement
+  {% if mode != 'enforce' %}  {{ mode }},
+{% endif %}
+
+  # Audit mode: enables detailed logging for matched rules, regardless of mode
+  # Adds 'audit' prefix to rules that would otherwise only log on violations
+  {% if audit_rules %}{% for rule in audit_rules %}  audit {{ rule }},
+{% endfor %}{% endif %}
+
+  # Debug mode: outputs verbose debug info to kernel log on violations
+  {% if debug %}  debug,
+{% endif %}
+
+  # Capabilities: grants specific privileged operations (e.g., NET_BIND_SERVICE for low ports)
+  # Each capability allows one kernel operation; see capabilities(7) for details
+  {% if capabilities | length > 0 %}  capability {% for cap in capabilities %}{{ cap }}{% if not loop.last %}, {% endif %}{% endfor %},
+{% endif %}
+
+  # Network access rules: controls which protocols, ports, and peers the process may use
+  # 'network inet tcp' = TCP over IPv4; 'network inet udp' = UDP over IPv4; 'network unix stream' = Unix sockets
+  {% if network_rules | length > 0 %}{% for rule in network_rules %}  network {{ rule.domain }} {{ rule.access }}{% if rule.local %} {{ rule.local }}{% endif %}{% if rule.peer %} peer={{ rule.peer }}{% endif %},
+{% endfor %}{% endif %}
+
+  # File access rules: grants read/write/execute/etc. on paths (supports globbing: * ? [] {} ^)
+  # 'owner' prefix restricts to files owned by the same UID; '->' defines exec transition behavior
+  {% if file_rules | length > 0 %}{% for rule in file_rules %}  {% if rule.owner %}owner {% endif %}{% if rule.type %}{{ rule.type }} {% endif %}"{{ rule.path }}"{% if rule.access %} {{ rule.access }}{% endif %}{% if rule.target %} -> {{ rule.target }}{% endif %},
+{% endfor %}{% endif %}
+
+  # Signal rules: controls inter-process signaling (e.g., SIGTERM, SIGKILL)
+  # 'send' = send signal; 'receive' = receive signal; 'peer' restricts to specific labels
+  {% if signal_rules | length > 0 %}{% for rule in signal_rules %}  signal {% if rule.access %}{{ rule.access }}{% endif %}{% if rule.set %} set=({{ rule.set | join(', ') }}){% endif %}{% if rule.peer %} peer={{ rule.peer }}{% endif %},
+{% endfor %}{% endif %}
+
+  # UNIX socket rules: fine-grained control over Unix domain sockets (path, label, address, etc.)
+  # 'unix' rules are required for local IPC (e.g., D-Bus via Unix sockets)
+  {% if unix_rules | length > 0 %}{% for rule in unix_rules %}  unix {% if rule.access %}{{ rule.access }}{% endif %}{% if rule.type %} type={{ rule.type }}{% endif %}{% if rule.protocol %} protocol={{ rule.protocol }}{% endif %}{% if rule.local %} {{ rule.local }}{% endif %}{% if rule.peer %} peer={{ rule.peer }}{% endif %},
+{% endfor %}{% endif %}
+
+  # DBus rules: controls access to D-Bus buses (system/session), names, paths, and messages
+  # 'send/receive' = outbound/inbound message; 'bind' = claim a well-known name
+  {% if dbus_rules | length > 0 %}{% for rule in dbus_rules %}  dbus {% if rule.access %}{{ rule.access }}{% endif %}{% if rule.bus %} bus=({{ rule.bus }}){% endif %}{% if rule.name %} name=({{ rule.name }}){% endif %}{% if rule.path %} path=({{ rule.path }}){% endif %}{% if rule.interface %} interface=({{ rule.interface }}){% endif %}{% if rule.member %} member=({{ rule.member }}){% endif %}{% if rule.peer %} peer={{ rule.peer }}{% endif %},
+{% endfor %}{% endif %}
+
+  # Mount rules: allows/denies mount/umount/remount of filesystems with specific options
+  # Common fstypes: ext4, tmpfs, proc, sysfs, etc.; options: ro, rw, nosuid, nodev, noexec, bind, etc.
+  {% if mount_rules | length > 0 %}{% for rule in mount_rules %}  mount {{ rule.access }}{% if rule.fstype %} fstype={{ rule.fstype }}{% endif %}{% if rule.options %} options={{ rule.options }}{% endif %} {{ rule.source }} -> {{ rule.dest }},
+{% endfor %}{% endif %}
+
+  # Rlimit rules: set resource limits (CPU time, memory, open files, etc.)
+  # Example: 'set rlimit cpu <= 1h' caps CPU time to 1 hour
+  {% if rlimit_rules | length > 0 %}{% for rule in rlimit_rules %}  set rlimit {{ rule.resource }}{% if rule.operator %} {{ rule.operator }}{% endif %}{% if rule.value %} {{ rule.value }}{% endif %},
+{% endfor %}{% endif %}
+
+  # Change profile rules: permits transitioning to another AppArmor profile
+  # 'exec_cond' = binary path that triggers transition; '-> profile' = target profile
+  {% if change_profile_rules | length > 0 %}{% for rule in change_profile_rules %}  change_profile {% if rule.exec_mode %}{{ rule.exec_mode }} {% endif %}{% if rule.exec_cond %}{{ rule.exec_cond }}{% endif %}{% if rule.target %} -> {{ rule.target }}{% endif %},
+{% endfor %}{% endif %}
+
+  # Allow all (dangerous! only for testing)
+  {% if allow_all %}  all,
+{% endif %}
+
+}

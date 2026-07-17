@@ -1,0 +1,147 @@
+# sshd_config — OpenSSH server configuration file
+# This file configures the OpenSSH daemon (sshd).
+# Lines starting with '#' are comments; uncomment and adjust values as needed.
+
+# Listen on specific address and port
+# Set to 0.0.0.0 to listen on all interfaces, or a specific IP for binding.
+# Port {{ port }}
+Port {{ port }}
+
+# Protocol version (2 is modern, secure, and required; 1 is obsolete and insecure)
+Protocol 2
+
+# Listen address (use * or 0.0.0.0 to listen on all interfaces)
+# Bind to specific IPv4/IPv6 address if desired
+# ListenAddress {{ listen_address }}
+ListenAddress {{ listen_address }}
+
+# Host keys — essential for server identity and key exchange
+# Do NOT share or modify these manually; generated at install time
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging verbosity (0–3); higher = more verbose
+SyslogFacility {{ syslog_facility }}
+LogLevel {{ log_level }}
+
+# Authentication settings
+# Login grace time: seconds before connection closed if auth not completed
+LoginGraceTime {{ login_grace_time }}
+
+# Permit root login: yes/no/without-password/prohibit-password
+PermitRootLogin {{ permit_root_login }}
+
+# Enforce public key authentication for all users
+StrictModes {{ strict_modes | string | lower }}
+
+# Maximum authentication attempts per session
+MaxAuthTries {{ max_auth_tries }}
+
+# Maximum open sessions per connection (0 = unlimited)
+MaxSessions {{ max_sessions }}
+
+# Enable or disable password authentication
+PasswordAuthentication {{ password_authentication | string | lower }}
+
+# Enable or disable public key authentication
+PubkeyAuthentication {{ pubkey_authentication | string | lower }}
+
+# AuthorizedKeysFile — path(s) to user's authorized public keys (relative to ~)
+AuthorizedKeysFile {{ authorized_keys_file | join(' ') }}
+
+# Authentication methods order (e.g., 'publickey,password' means try pubkey, then password)
+# Order matters for multi-method setups
+AuthenticationMethods {{ authentication_methods | join(',') | default('') }}
+
+# Require PAM for authentication (enables session, account, password control)
+UsePAM {{ use_pam | string | lower }}
+
+# Allow/deny users and groups
+# Format: user1,user2 or @group1,@group2
+AllowUsers {{ allow_users | join(' ') | default('') }}
+AllowGroups {{ allow_groups | join(' ') | default('') }}
+DenyUsers {{ deny_users | join(' ') | default('') }}
+DenyGroups {{ deny_groups | join(' ') | default('') }}
+
+# Environment & locale
+# LANG and LC_* variables may be set via PAM or explicitly here
+# Accept locale-related environment vars:
+AcceptEnv {{ accept_env | join(' ') }}
+
+# Set locale defaults if not overridden by client
+# LANG {{ default_lang }}
+# LC_* settings handled via PAM by default
+
+# Subsystem — defines built-in services like SFTP
+# Use internal-sftp for chrooted SFTP without external binaries
+Subsystem sftp {{ sftp_subsystem | default('internal-sftp') }}
+
+# SFTP-specific options
+# For internal-sftp, use ChrootDirectory and force command options
+{% for sftp_user in sftp_users %}
+# SFTP user: {{ sftp_user.username }}
+Match User {{ sftp_user.username }}
+    ChrootDirectory {{ sftp_user.chroot_path }}
+    ForceCommand internal-sftp
+    AllowTcpForwarding {{ 'no' if sftp_user.allow_tcp_forwards else 'yes' }}
+    X11Forwarding {{ 'no' if sftp_user.disable_x11 else 'yes' }}
+{% endfor %}
+
+# TCP keep-alives (client-side, not server-side; often set on clients)
+# ClientAliveInterval {{ client_alive_interval }}
+# ClientAliveCountMax {{ client_alive_count_max }}
+
+# Banner — file shown before authentication (e.g., legal notice)
+# Banner {{ banner_path }}
+Banner {{ banner_path }}
+
+# Permit TUN/TAP devices (for VPNs)
+PermitTunnel {{ permit_tunnel | string | lower }}
+
+# X11 forwarding — use with caution in production
+X11Forwarding {{ x11_forwarding | string | lower }}
+X11DisplayOffset {{ x11_display_offset }}
+X11UseLocalhost {{ x11_use_localhost | string | lower }}
+
+# TCP port forwarding
+AllowTcpForwarding {{ allow_tcp_forwarding | string | lower }}
+AllowAgentForwarding {{ allow_agent_forwarding | string | lower }}
+
+# Gateway ports — allow remote hosts to connect to forwarded ports
+GatewayPorts {{ gateway_ports | string | lower }}
+
+# Idle timeout
+ClientAliveInterval {{ client_alive_interval }}
+ClientAliveCountMax {{ client_alive_count_max }}
+
+# Compression — use 'delayed' or 'yes'; avoid 'yes' on slow CPUs
+Compression {{ compression }}
+
+# GSSAPI authentication (for Kerberos; disable in non-Kerberos envs)
+GSSAPIAuthentication {{ gssapi_authentication | string | lower }}
+GSSAPICleanupCredentials {{ gssapi_cleanup_credentials | string | lower }}
+
+# Override defaults for specific hosts or users via Match blocks
+# Example:
+# Match Host badhost
+#     Banner none
+# Match User baduser
+#     AllowAgentForwarding no
+# (Leave empty or add custom Match blocks in `extra_match_blocks`)
+{% for match_block in extra_match_blocks %}
+{% if match_block.condition %}
+# Match block: {{ match_block.comment or 'custom' }}
+Match {{ match_block.condition }}
+{% for key, val in match_block.settings.items() %}
+    {{ key | replace('_', ' ') | title | replace(' ', '') }} {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Deprecated or legacy options (not recommended in modern sshd)
+# Keep commented unless explicitly needed for legacy compatibility
+# KeyRegenerationInterval 3600
+# ServerKeyBits 1024
+# Macs hmac-sha2-512,hmac-sha2-256
+# KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256

@@ -1,0 +1,74 @@
+# GDB initialization script template
+# This file is sourced automatically by GDB during startup, unless suppressed by -nx, -n, or -nh.
+# Each directive below is executed in order during GDB initialization.
+#
+# {{ 'set auto-load' }} controls whether GDB loads auxiliary init files from the binary's directory (e.g., .gdbinit).
+# See 'info gdb -n Init File in the Current Directory' for details.
+{% if enable_auto_load_local_gdbinit %}set auto-load local-gdbinit on{% else %}set auto-load local-gdbinit off{% endif %}
+
+# {{ 'set auto-load safe-path' }} sets the colon-separated list of directories from which GDB will auto-load init files.
+# By default, GDB restricts auto-loading to safe paths (e.g., $HOME, /usr) for security.
+# This setting overrides that restriction for your site-specific paths.
+set auto-load safe-path {{ safe_paths | join(':') }}
+
+# {{ 'set history size' }} limits the number of command lines stored in GDB's command history.
+# Increase to retain more history across sessions; 0 means unlimited.
+set history size {{ history_size }}
+
+# {{ 'set history save' }} controls whether GDB saves the command history to the history file on exit.
+# When on, the history is written to the file specified by `set history filename`.
+set history save {{ history_save | lower }}
+
+# {{ 'set history filename' }} specifies the path to the file where GDB stores command history.
+# Default is `~/.gdb_history`. Ensure the directory exists and is writable.
+set history filename {{ history_filename }}
+
+# {{ 'set print pretty' }} controls whether C/C++ structures are printed in a pretty, indented format.
+# When on, structures are formatted with indentation and line breaks for readability.
+set print pretty {{ print_pretty | lower }}
+
+# {{ 'set print object' }} controls whether GDB prints the dynamic type of C++ objects.
+# When on, GDB shows the actual (derived) type, not the static type, for polymorphic objects.
+set print object {{ print_object | lower }}
+
+# {{ 'set print demangle' }} controls whether C++ symbols are demangled when printed.
+# When on (default), mangled names like `_Z3foov` become `foo()`. Set to off for raw names.
+set print demangle {{ print_demangle | lower }}
+
+# {{ 'set backtrace past-main' }} allows backtraces to include frames before main() (e.g., __libc_start_main).
+# Useful when debugging application startup or dynamic linker issues.
+set backtrace past-main {{ backtrace_past_main | lower }}
+
+# {{ 'set confirm off' }} disables interactive confirmation prompts for potentially dangerous commands (e.g., `kill`, `run`).
+# Improves automation/scripting safety and reduces friction in CI/debug loops.
+set confirm off
+
+# {{ 'set pagination off' }} disables GDB’s built-in pager; output is not split into pages.
+# Necessary when redirecting output or running in non-interactive environments (e.g., CI, scripts).
+set pagination off
+
+# {{ 'set debug libthread_db' }} enables verbose logging of libthread_db interactions (used for thread debugging).
+# Only useful for GDB developers or diagnosing thread-aware debugging issues.
+{% if debug_libthread_db %}set debug libthread_db 1{% else %}set debug libthread_db 0{% endif %}
+
+# {{ 'set debug solib' }} enables debugging output for shared library loading (e.g., when symbols fail to load).
+# Helpful when troubleshooting missing symbols in dynamically linked programs.
+{% if debug_solib %}set debug solib 1{% else %}set debug solib 0{% endif %}
+
+# Custom user-defined aliases for convenience commands (e.g., `bt-all` for full backtrace).
+# Aliases are defined via `define` blocks — GDB allows multiple commands per alias.
+# Below is a template alias list; add/remove entries as needed.
+{% for alias in aliases %}
+# {{ alias.description }}
+define {{ alias.name }}
+  {{ alias.body | replace('\n', '
+  ') | trim }}
+end
+{% endfor %}
+
+# Predefined convenience variables (e.g., $foo = 123) can be initialized here.
+# Useful for setting breakpoints, memory inspection defaults, or custom state.
+{% for var in vars %}
+# {{ var.description }}
+set ${{ var.name }} = {{ var.value }}
+{% endfor %}

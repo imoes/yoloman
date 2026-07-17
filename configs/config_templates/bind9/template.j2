@@ -1,0 +1,72 @@
+// Forward DNS resolution: enable recursive queries
+options {
+{% if allow_query %}
+	// Allow clients (ACL-based) to query this server
+	allow-query		{ {{ allow_query | join(', ') }} };
+{% endif %}
+
+{% if allow_recursion %}
+	// Permit recursive queries from specified networks
+	allow-recursion	{ {{ allow_recursion | join(', ') }} };
+{% else %}
+	// Default: only allow recursion from local networks
+	allow-recursion	{ localhost; localnets; };
+{% endif %}
+
+{% if dnssec_validation %}
+	// Enable DNSSEC validation (auto or strict)
+	dnssec-validation	{{ "auto" if dnssec_validation == true else dnssec_validation }};
+{% endif %}
+
+{% if listen_on %}
+	// Interface(s) and port(s) to listen on
+	listen-on		{ {{ (listen_on | map(attribute='address') | join(', ')) }} };
+{% else %}
+	listen-on		port {{ port }} { any; };
+{% endif %}
+
+{% if listen_on_v6 %}
+	listen-on-v6		{ {{ (listen_on_v6 | map(attribute='address') | join(', ')) }} };
+{% else %}
+	listen-on-v6		{ none; };
+{% endif %}
+
+{% if forwarders %}
+	// Forward unresolved queries to upstream resolvers
+	forwarders		{
+{% for forwarder in forwarders %}
+		{{ forwarder.address }};
+{% endfor %}
+	};
+{% endif %}
+
+	// DNS forwarding behavior
+	forward			{{ forward_policy }};
+
+{% if max_cache_size %}
+	// Maximum size of cache (in MB)
+	max-cache-size	{{ max_cache_size }};
+{% endif %}
+
+{% if querylog %}
+	// Log queries for debugging (disable in production by default)
+	querylog		on;
+{% else %}
+	querylog		off;
+{% endif %}
+
+	// PID file location
+	pid-file		"{{ pid_file }}";
+
+	// Directory for zone files (unless overridden per-zone)
+	directory		"{{ working_directory }}";
+
+	// Statistics file location
+	statistics-file	"{{ stats_file }}";
+
+	// DNS over HTTPS (DoH) endpoint — optional
+{% if doh_endpoint %}
+	doh-listen-on	{ address({{ doh_endpoint.address }}) port {{ doh_endpoint.port }} tls "{{ doh_endpoint.tls_cert }}" key "{{ doh_endpoint.tls_key }}"; };
+{% endif %}
+
+};

@@ -1,0 +1,75 @@
+[global]
+# Global Samba settings
+workgroup = {{ workgroup }}
+server string = {{ server_string }}
+security = {{ security_mode }}
+map to guest = {{ map_to_guest }}
+
+# Logging and performance tuning
+log level = {{ log_level }}
+log file = {{ log_file }}
+max log size = {{ max_log_size }}
+
+# Network and performance
+socket options = {{ socket_options }}
+tcp nodelay = {{ tcp_nodelay }}
+read raw = {{ read_raw }}
+write raw = {{ write_raw }}
+
+# Printing (disable if not needed)
+load printers = {{ load_printers }}
+printcap name = {{ printcap_name }}
+
+# User mapping and domain integration
+idmap config * : backend = tdb
+idmap config * : range = {{ idmap_range }}
+winbind enum users = {{ winbind_enum_users }}
+winbind enum groups = {{ winbind_enum_groups }}
+winbind use default domain = {{ winbind_use_default_domain }}
+
+# Time server (for Windows clients)
+time server = {{ time_server }}
+
+# File system options
+unix extensions = {{ unix_extensions }}
+hide unreadable = {{ hide_unreadable }}
+
+# Default permissions for new files/directories
+create mask = {{ create_mask }}
+directory mask = {{ directory_mask }}
+
+# Home directory settings
+[homes]
+comment = Home Directories
+browseable = no
+read only = no
+create mask = {{ create_mask }}
+directory mask = {{ directory_mask }}
+valid users = %S
+
+# Shared printers (if enabled)
+{% for printer in printers %}[{{ printer.name }}]
+comment = {{ printer.comment }}
+path = {{ printer.path }}
+browseable = {{ printer.browseable }}
+read only = {{ printer.read_only }}
+guest ok = {{ printer.guest_ok }}
+printable = yes
+{% if printer.printer_driver %}printer driver = {{ printer.printer_driver }}{% endif %}
+{% if printer.printer_driver_location %}printer driver location = {{ printer.printer_driver_location }}{% endif %}
+{% endfor %}
+
+# Custom shares
+{% for share in shares %}[{{ share.name }}]
+comment = {{ share.comment }}
+path = {{ share.path }}
+browseable = {{ share.browseable }}
+read only = {{ share.read_only }}
+guest ok = {{ share.guest_ok }}
+{% if share.valid_users %}valid users = {{ share.valid_users | join(', ') }}{% endif %}
+{% if share.write_list %}write list = {{ share.write_list | join(', ') }}{% endif %}
+create mask = {{ share.create_mask | default(create_mask) }}
+directory mask = {{ share.directory_mask | default(directory_mask) }}
+{% if share.force_user %}force user = {{ share.force_user }}{% endif %}
+{% if share.force_group %}force group = {{ share.force_group }}{% endif %}
+{% endfor %}

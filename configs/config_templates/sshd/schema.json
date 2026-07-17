@@ -1,0 +1,231 @@
+{
+  "port": {
+    "type": "number",
+    "default": 22,
+    "description": "Port number on which sshd listens for incoming connections."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the SSH daemon to. Use * or 0.0.0.0 for all interfaces."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "AUTH",
+    "description": "Syslog facility to use for logging (e.g., AUTH, AUTHPRIV, DAEMON)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for sshd logs (NONE, QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, etc.)."
+  },
+  "login_grace_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Time (in seconds) the server waits for authentication before disconnecting."
+  },
+  "permit_root_login": {
+    "type": "string",
+    "default": "prohibit-password",
+    "description": "Whether root may log in. Options: 'yes', 'no', 'without-password', 'prohibit-password'."
+  },
+  "strict_modes": {
+    "type": "bool",
+    "default": true,
+    "description": "Check file permissions of user's key files and home directory before allowing login."
+  },
+  "max_auth_tries": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of authentication attempts permitted per connection."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of open sessions per connection. Set to 0 for unlimited."
+  },
+  "password_authentication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable password-based authentication."
+  },
+  "pubkey_authentication": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable public key (SSH key) authentication."
+  },
+  "authorized_keys_file": {
+    "type": "list",
+    "default": [
+      ".ssh/authorized_keys"
+    ],
+    "description": "List of file paths (relative to user's home) containing authorized public keys."
+  },
+  "authentication_methods": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of authentication methods (e.g., ['publickey,password']). Leave empty to use default."
+  },
+  "use_pam": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PAM for authentication, account, session, and password management."
+  },
+  "allow_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames allowed to log in (empty = all allowed unless denied)."
+  },
+  "allow_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of Unix group names allowed to log in (empty = all allowed unless denied)."
+  },
+  "deny_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames explicitly denied login access."
+  },
+  "deny_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of Unix group names explicitly denied login access."
+  },
+  "accept_env": {
+    "type": "list",
+    "default": [
+      "LANG",
+      "LC_*"
+    ],
+    "description": "List of environment variable patterns accepted from the client (supports wildcards like LC_*)."
+  },
+  "banner_path": {
+    "type": "string",
+    "default": "/etc/issue.net",
+    "description": "Path to the banner file displayed before authentication. Set to empty string '' to disable."
+  },
+  "permit_tunnel": {
+    "type": "string",
+    "default": "no",
+    "description": "Allow tunnel (TUN/TAP) device creation ('yes', 'point-to-point', 'ethernet')."
+  },
+  "x11_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X11 forwarding for GUI applications over SSH."
+  },
+  "x11_display_offset": {
+    "type": "number",
+    "default": 10,
+    "description": "First X11 display number reserved for SSH (10 + session number)."
+  },
+  "x11_use_localhost": {
+    "type": "bool",
+    "default": true,
+    "description": "Bind X11 forwarding to localhost only (security best practice)."
+  },
+  "allow_tcp_forwarding": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow TCP port forwarding (local, remote, dynamic)."
+  },
+  "allow_agent_forwarding": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow SSH agent forwarding (use with caution for security)."
+  },
+  "gateway_ports": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow remote hosts to connect to forwarded ports (dangerous if not needed)."
+  },
+  "client_alive_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds between keep-alive messages (0 = disabled). Helps detect dead clients."
+  },
+  "client_alive_count_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of keep-alive messages without reply before disconnecting."
+  },
+  "compression": {
+    "type": "string",
+    "default": "delayed",
+    "description": "Compression algorithm: 'yes', 'delayed', or 'no'. 'delayed' compresses only after auth."
+  },
+  "gssapi_authentication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GSSAPI authentication (for Kerberos environments). Disable otherwise."
+  },
+  "gssapi_cleanup_credentials": {
+    "type": "bool",
+    "default": true,
+    "description": "Clean up GSSAPI credentials after authentication."
+  },
+  "sftp_subsystem": {
+    "type": "string",
+    "default": "internal-sftp",
+    "description": "SFTP subsystem to use: 'internal-sftp' (built-in, chroot-friendly) or path to sftp-server binary."
+  },
+  "sftp_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of SFTP-only users with chrooted environments. Each item is an object with fields: username, chroot_path, allow_tcp_forwards, disable_x11.",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username to match in Match block."
+      },
+      "chroot_path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to chroot directory (must be owned by root, not writable by user)."
+      },
+      "allow_tcp_forwards": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow TCP forwarding for this user."
+      },
+      "disable_x11": {
+        "type": "bool",
+        "default": true,
+        "description": "Disable X11 forwarding for this user (recommended for security)."
+      }
+    }
+  },
+  "extra_match_blocks": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom Match blocks for fine-grained access control. Each item has: condition (e.g., 'User alice'), optional comment, and settings (key-value pairs).",
+    "items": {
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable note for the match block."
+      },
+      "condition": {
+        "type": "string",
+        "default": "",
+        "description": "Match condition (e.g., 'User alice', 'Host 192.168.1.%')."
+      },
+      "settings": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value settings (keys are lowercase with underscores, e.g., 'permit_tunnel') \u2014 converted to sshd-style camelCase internally.",
+        "items": {
+          "key": {
+            "type": "string",
+            "description": "Option name (e.g., 'permit_tunnel')"
+          },
+          "value": {
+            "type": "string|number|bool",
+            "description": "Value to assign (converted appropriately)"
+          }
+        }
+      }
+    }
+  }
+}

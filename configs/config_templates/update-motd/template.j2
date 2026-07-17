@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Dynamically generates the MOTD (Message of the Day) by executing scripts in /etc/update-motd.d/
+# Scripts are run in lexicographic order (via run-parts --lsbsysinit), with output appended to /run/motd.dynamic
+# This script is invoked by pam_motd(8) on user login
+
+# Ensure /run directory exists (in case of early boot or minimal env)
+mkdir -p /run
+
+# Temporary file to accumulate MOTD output
+MOTD_TMP="/run/motd.dynamic"
+
+# Clear previous dynamic MOTD content (to avoid stale or duplicated output)
+> "$MOTD_TMP"
+
+# Iterate through executable scripts in /etc/update-motd.d in order
+# run-parts --lsbsysinit ensures scripts are sorted like: 00-foo, 01-bar, ..., 99-baz
+# We skip scripts that are not executable or do not match NN-* pattern (run-parts requirement)
+for script in $(run-parts --test --lsbsysinit /etc/update-motd.d 2>/dev/null); do
+  # Skip non-executable scripts (defensive)
+  [ -x "$script" ] || continue
+
+  # Append a blank line before each script's output (per best practices)
+  echo >> "$MOTD_TMP"
+
+  # Execute the script as root, capturing stdout; stderr is discarded
+  "$script" >> "$MOTD_TMP" 2>/dev/null
+done
+
+# Symlink /etc/motd → /run/motd.dynamic (if not already), so pam_motd(8) picks it up
+# This symlink is typically created by the distribution; we ensure it here for robustness
+if [ -e /etc/motd ] && [ "$(readlink -f /etc/motd)" != "$MOTD_TMP" ]; then
+  rm -f /etc/motd
+fi
+if [ ! -e /etc/motd ]; then
+  ln -sf "$MOTD_TMP" /etc/motd
+fi
