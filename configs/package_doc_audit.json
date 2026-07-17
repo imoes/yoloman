@@ -1,0 +1,488 @@
+{
+  "apache2": {
+    "missing_directives": [
+      {
+        "name": "ServerName",
+        "why": "Critical for identifying the server in virtual host resolution and avoiding hostname-related errors/warnings. While listed as optional in docs, it's effectively essential in production (especially with multiple vhosts)."
+      },
+      {
+        "name": "ServerAdmin",
+        "why": "Recommended for providing contact info in error pages; commonly expected in production configurations."
+      },
+      {
+        "name": "ErrorLog",
+        "why": "No explicit error logging path configured \u2014 Apache falls back to `logs/error_log` (often relative to `server_root`), but this may be misdirected or not conform to standard Ubuntu log layout (`/var/log/apache2/`). Critical for observability and debugging."
+      },
+      {
+        "name": "CustomLog",
+        "why": "No access logging configured \u2014 defaults may use `combined` format but often go to incorrect or non-standard paths (e.g., `logs/access_log`). Standard Ubuntu expects `/var/log/apache2/access.log`. Logging is essential for monitoring, security auditing, and troubleshooting."
+      },
+      {
+        "name": "DocumentRoot",
+        "why": "Required for serving content. While often set *inside* `<VirtualHost>` blocks, if `virtual_hosts` is the only exposed vhost directive, the role does *not* ensure `DocumentRoot` is defined anywhere. A default without `DocumentRoot` is broken."
+      },
+      {
+        "name": "Options",
+        "why": "Security-sensitive. Without explicit `Options` (e.g., `Indexes`, `FollowSymLinks`, `ExecCGI`), defaults may leak directory listings or enable dangerous behaviors depending on distro/package defaults. Explicit `Options -Indexes` is a common security hardening step."
+      },
+      {
+        "name": "Require",
+        "why": "Access control is incomplete without `Require` directives (e.g., `Require all granted`, `Require all denied`). Apache 2.4+ uses `Require`, but role template does *not* expose this \u2014 vhosts would likely be non-functional or insecure."
+      },
+      {
+        "name": "IncludeOptional",
+        "why": "Not exposed for modular config (e.g., `IncludeOptional sites-available/*.conf`). While `virtual_hosts` might imply this, the runbook does *not* enable modules (e.g., `mod_authz_core`) or include the standard Ubuntu snippet directories \u2014 config may silently fail or be incomplete."
+      },
+      {
+        "name": "Modules to load (e.g., `LoadModule authz_core`)",
+        "why": "The role does *not* ensure required core modules are loaded. Apache 2.4 relies heavily on `mod_authz_core`, `mod_alias`, `mod_dir`, etc. Ubuntu\u2019s `apache2` package auto-loads many, but not all \u2014 and if the role overrides `apache2.conf` completely without enabling modules, it may break."
+      },
+      {
+        "name": "mpm_* directive (e.g., `StartServers`, `MaxRequestWorkers`) \u2014 typically in `mpm_prefork.conf`, `mpm_worker.conf`, etc.",
+        "why": "Performance-critical and defaults are often too low for production. No control over concurrency model (prefork, worker, event) or sizing. Could cause under/over-provisioning."
+      }
+    ],
+    "missing_steps": [
+      "Enable required modules (e.g., `a2enmod rewrite`, `a2enmod headers`, `a2enmod ssl`, `a2enmod proxy`) \u2014 role does *not* ensure modules needed for common features are loaded.",
+      "Enable site configuration (e.g., `a2ensite 000-default` or custom site) \u2014 role only renders config file but does *not* symlink it into `sites-enabled/`, so it won\u2019t be used.",
+      "Restart/reload only if config changed \u2014 role blindly restarts, which is inefficient and may disrupt traffic unnecessarily.",
+      "No handling of `ports.conf` when `listen_port` is customized \u2014 the role sets `listen_port` but may not update `Listen` in `ports.conf` (Ubuntu-specific structure).",
+      "No TLS/SSL setup \u2014 if `Listen 443` or virtual hosts with SSL are desired, no directives or steps for `SSLEngine on`, certificate paths, or enabling `ssl` module are provided.",
+      "No `Directory` block for `DocumentRoot` \u2014 without explicit `<Directory /var/www/html>` with `Require` and `Options`, even correct `DocumentRoot` won\u2019t serve content due to permission defaults."
+    ],
+    "notes": "While the role exposes `virtual_hosts`, it does *not* expose any directives *within* those vhosts (e.g., `DocumentRoot`, `Require`, `ErrorLog`, etc.). This means the role likely renders empty or incomplete `<VirtualHost>` blocks. Apache on Ubuntu uses split config (`/etc/apache2/apache2.conf`, `ports.conf`, `sites-available/`, `mods-available/`, etc.). The role must ensure proper integration with this layout \u2014 especially `IncludeOptional` directives and enabling sites/modules via symlinks. Security: missing `Options -Indexes` and `Require` rules is a major risk.",
+    "schema_hash": "f093aa14a9d58fe4",
+    "sources": [
+      "https://httpd.apache.org/docs/2.4/sections.html",
+      "https://ubuntu.com/server/docs/how-to/web-services/configure-apache2-settings/",
+      "https://httpd.apache.org/docs/current/configuring.html"
+    ],
+    "template": "apache2",
+    "verdict": "incomplete"
+  },
+  "bind9": {
+    "missing_directives": [
+      {
+        "name": "recursion",
+        "why": "Explicitly listed in Oracle's compatibility table as a critical `options`-level directive in BIND 9; absence may cause unexpected recursion behavior (especially since default changed to `no` in BIND 9 vs `yes` in BIND 8). Although `allow_recursion` is exposed, `recursion` controls whether recursion is enabled at all \u2014 not just who can use it."
+      },
+      {
+        "name": "allow_transfer",
+        "why": "Critical security directive to restrict zone transfers; missing exposes zones to unauthorized zone data leakage. While `allow_query` and `allow_recursion` are exposed, transfer restrictions are not."
+      },
+      {
+        "name": "dnssec-validation",
+        "why": "Already exposed, but **note**: if `dnssec-validation auto;` is used (default), it relies on the system trust anchor. Explicitly setting `dnssec-validation yes;` with valid trust anchors (e.g., via `trust-anchors`) or using `dnssec-policy` blocks is recommended for production \u2014 but `dnssec-validation` *itself* is exposed, so not strictly missing. However, the role doesn\u2019t expose *trust anchors* or *dnssec-policy*, which are essential for proper DNSSEC operation if validation is enabled."
+      },
+      {
+        "name": "dnssec-policy",
+        "why": "Modern (BIND 9.16+) way to automate KSK/ZSK lifecycle management \u2014 replaces `managed-keys` and static `trust-anchors`. Without it, DNSSEC key rollovers must be manual. For secure, production DNSSEC deployments, this is essential."
+      },
+      {
+        "name": "trust-anchors",
+        "why": "Required if using static (non-policy) DNSSEC trust anchors. `dnssec-validation yes;` is useless without either `trust-anchors` or `dnssec-policy`. Missing = DNSSEC validation may fail silently or revert to insecure behavior."
+      },
+      {
+        "name": "logging",
+        "why": "Essential for operational visibility and debugging. While `querylog` and `stats_file` are exposed, they\u2019re just convenience wrappers. Full control over log channels (file paths, severity levels, categories like `security`, `queries`, `client`, `network`) is not exposed \u2014 critical for compliance and incident response."
+      },
+      {
+        "name": "rate-limit",
+        "why": "Key mitigation against DNS amplification/DDoS attacks. Not exposed \u2014 the role defaults to no rate limiting, leaving the server vulnerable."
+      },
+      {
+        "name": "additional-from-auth",
+        "why": "Controls whether glue records are fetched only from the authority section (safer), or also from cache (faster but slightly riskier). Not exposed \u2014 could affect resolution behavior and security posture."
+      },
+      {
+        "name": "additional-from-cache",
+        "why": "Related to above \u2014 controls cache usage for additional section records. Missing = non-default (and potentially suboptimal or inconsistent) behavior."
+      }
+    ],
+    "missing_steps": [
+      "create `/var/log/named/` or equivalent log directory with proper ownership (`root:bind` or `named:named`) and permissions (e.g., `drwxr-x---`) before service start \u2014 otherwise logging will fail or log to `/var/log/messages` unpredictably",
+      "create `/run/named/` (or `pid_file` parent) with correct permissions (e.g., `drwxr-xr-x`, owned by `bind`) to avoid startup failures due to PID file creation issues",
+      "set SELinux/AppArmor policies for BIND (e.g., `setsebool -P named_write_zones 1` on RHEL if dynamic updates are used; ensure `/etc/bind`, `/var/lib/bind`, `/var/log/named` are properly labeled)",
+      "enable and configure `rndc` control channel \u2014 currently the runbook assumes localhost-only `rndc`, but for remote management or diagnostics, the `controls {}` block and `/etc/rndc.conf` need explicit setup (even if just for `rndc reload` locally)",
+      "post-install verification: run `dig @127.0.0.1 example.com` and `dig @127.0.0.1 . SOA` to test basic resolution, and `rndc status` to confirm control channel is working \u2014 the current runbook only validates config syntax, not operational correctness"
+    ],
+    "notes": "The exposed directives like `doh_endpoint` (DNS over HTTPS) and `querylog` are useful but not core to basic secure operation. The biggest gaps are in security hardening (`allow_transfer`, `rate-limit`, `recursion`), DNSSEC production readiness (`dnssec-policy`, `trust-anchors`), logging (`logging` block), and operational lifecycle (log directories, permissions, SELinux, verification checks).",
+    "schema_hash": "9bb86b2aa5a15502",
+    "sources": [
+      "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/4/html/reference_guide/s1-bind-namedconf",
+      "https://bind9.readthedocs.io/en/latest/reference.html",
+      "https://docs.oracle.com/cd/E18752_01/html/816-4556/dnsref-13.html"
+    ],
+    "template": "bind9",
+    "verdict": "incomplete"
+  },
+  "chrony": {
+    "missing_directives": [
+      {
+        "name": "pool",
+        "why": "The `pool` directive is essential for using NTP server pools (e.g., `pool pool.ntp.org iburst`) \u2014 far more common than specifying individual `server` entries for public NTP. Missing it forces users to manually list multiple servers, increasing config fragility."
+      },
+      {
+        "name": "rtcsync",
+        "why": "Synchronizes the kernel\u2019s RTC (real-time clock) with system time, critical for persistent timekeeping across reboots. Frequently recommended in best practices and examples."
+      },
+      {
+        "name": "log",
+        "why": "Controls which types of data are logged (e.g., `log measurements statistics tracking`), important for debugging and monitoring. Without explicit control, logging defaults may be insufficient for auditing or troubleshooting."
+      },
+      {
+        "name": "bindcmdaddress",
+        "why": "Restricts `chronyc` command access (e.g., `bindcmdaddress 127.0.0.1`) \u2014 a critical security hardening step to prevent remote command injection. Often omitted in basic configs but vital for production security."
+      },
+      {
+        "name": "cmdport",
+        "why": "Allows changing the default port (default 323) used by `chronyc`. Useful for security hardening via non-default ports or firewalling."
+      },
+      {
+        "name": "allow",
+        "why": "Needed if configuring chrony as an NTP *server* for other hosts (e.g., `allow 192.168.1.0/24`). Without it, the daemon won\u2019t serve time to clients \u2014 a major gap if the role ever supports server-mode use cases."
+      },
+      {
+        "name": "deny",
+        "why": "Complement to `allow`, used to deny specific subnets. Part of defense-in-depth in server-mode deployments."
+      },
+      {
+        "name": "local",
+        "why": "Enables the system to act as an NTP server even when unsynchronized (e.g., in isolated networks). Critical for fallback or reference-clock scenarios."
+      },
+      {
+        "name": "leapfile",
+        "why": "Required for leap second handling. Without it, chrony cannot properly apply leap smearing or announce leap seconds, potentially causing time jumps."
+      },
+      {
+        "name": "maxsources",
+        "why": "Caps the number of active time sources chrony will track. Helps prevent resource exhaustion in misconfigured environments."
+      }
+    ],
+    "missing_steps": [
+      "Ensure directory ownership/permissions for `driftfile`, `logdir`, `ntsdumpdir`, and `keyfile` are correctly set (e.g., `/var/lib/chrony` owned by `chrony:chrony`).",
+      "Reload or restart `systemd-resolved` or ensure DNS is stable before first `chronyd` start (since `server`/`pool` resolution happens at startup), especially if `iburst` is used.",
+      "Verify firewall rules allow outbound NTP (UDP/123) traffic \u2014 or inbound if acting as server \u2014 especially in hardened environments.",
+      "Post-start health check: include `chronyc sources -v` or `chronyc tracking` in a post-install validation step to confirm sync is working.",
+      "Handle NTS-specific setup (if `nts` is used): install CA certs, configure `ntstrustedcerts`, and ensure TLS connectivity \u2014 none of which are covered by current `nts` exposure in `servers`."
+    ],
+    "notes": "The `servers` directive already supports per-server options (e.g., `iburst`, `nts`, `maxdelay`), but lacks abstraction for `pool`, which is a common and recommended pattern. Similarly, missing core logging, security (`bindcmdaddress`, `cmdport`), and NTS-related config exposes users to avoidable risks or misconfigurations in production.",
+    "schema_hash": "8ef3996962657940",
+    "sources": [
+      "https://chrony-project.org/doc/latest/chrony.conf.html",
+      "https://chrony-project.org/doc/3.4/chrony.conf.html",
+      "https://codelucky.com/chrony-linux-ntp/"
+    ],
+    "template": "chrony",
+    "verdict": "incomplete"
+  },
+  "dnsmasq": {
+    "missing_directives": [
+      {
+        "name": "domain-needed",
+        "why": "Critical security and performance directive \u2014 prevents forwarding plain names (without domain) to upstream DNS, reducing unnecessary queries and potential information leakage."
+      },
+      {
+        "name": "bogus-priv",
+        "why": "Security best practice \u2014 prevents forwarding private IP ranges (e.g., 127.0.0.0/8, 10.0.0.0/8, etc.) to upstream resolvers, avoiding leaks and load on root servers."
+      },
+      {
+        "name": "no-poll",
+        "why": "Important for stability \u2014 avoids unnecessary reloading of resolv.conf on change (unless dynamic upstream DNS is explicitly required). Often misconfigured otherwise."
+      },
+      {
+        "name": "user",
+        "why": "Security hardening \u2014 running as non-root user (e.g., `nobody` or `dnsmasq`) is strongly recommended. Missing here means it likely defaults to `root`, which is insecure."
+      },
+      {
+        "name": "group",
+        "why": "Complements `user`; sets group context after privilege drop. Omission may cause inconsistent permissions."
+      },
+      {
+        "name": "port",
+        "why": "If only DHCP or TFTP is needed (not DNS), setting `port=0` disables DNS service explicitly \u2014 avoids accidental DNS exposure and conflicts (e.g., with systemd-resolved)."
+      },
+      {
+        "name": "conf-file",
+        "why": "Required for including external config fragments (e.g., `conf-file=/etc/dnsmasq.d/*.conf`), which is standard practice for maintainability and separation of concerns. Not exposed in current list."
+      },
+      {
+        "name": "addn-hosts",
+        "why": "Useful for adding additional static host entries beyond `/etc/hosts`. Often used in multi-environment setups or for DHCP override files."
+      },
+      {
+        "name": "dhcp-authoritative",
+        "why": "Important for DHCP behavior \u2014 tells dnsmasq it is the *only* DHCP server on the network, reducing probe delays. Omitting it may cause slow DHCP handshakes in some clients (especially Windows)."
+      },
+      {
+        "name": "dhcp-option",
+        "why": "Not all environments use defaults (e.g., custom gateway, NTP, DNS servers). Exposing `dhcp-option` in the template is good, but `dhcp-option=3,1.2.3.4` (router override) is commonly missed despite being critical in non-default topologies."
+      },
+      {
+        "name": "tftp-no-root-secure",
+        "why": "Security hardening for TFTP \u2014 prevents directory traversal attacks by restricting access to files under TFTP root. Critical if TFTP is enabled."
+      },
+      {
+        "name": "dhcp-range (implicit default)",
+        "why": "While `dhcp_pools` may cover this, if DHCP is enabled without *any* explicit `dhcp-range`, dnsmasq *may* still attempt to serve DHCP (dangerous if unintended). A warning or guard is missing."
+      },
+      {
+        "name": "no-dhcp-serial",
+        "why": "Prevents exposing DHCP lease assignment order via serial numbers in logs \u2014 useful for privacy if `log_dhcp` is enabled."
+      }
+    ],
+    "missing_steps": [
+      "Post-config reload/restart hook to ensure `systemctl daemon-reload` (only needed if `dnsmasq.service` unit is modified), though not always required if using default unit.",
+      "Ensure `/etc/resolv.conf` is correctly updated to point to `127.0.0.1`/`::1`, especially if dnsmasq is used as local resolver \u2014 but this is often environment-managed (e.g., NetworkManager/openresolv), so not strictly part of *dnsmasq role* unless the role is meant to manage `/etc/resolv.conf` too.",
+      "No mention of enabling `dnsmasq.service` to start *after* network is ready (e.g., via `After=network-online.target`) \u2014 may cause startup failure on fast-boot systems or dynamic interfaces."
+    ],
+    "notes": "The role currently does not expose `user`, `group`, `domain-needed`, `bogus-priv`, `conf-file`, or `no-poll`, all of which are commonly configured in production and appear in official docs and ArchWiki. Security posture is weakened without `user`/`group`. Missing `conf-file` makes it hard to modularize configs. Omission of `domain-needed` and `bogus-priv` is a common anti-pattern and violates best practices for public-facing or multi-tenant DNS. `dhcp-authoritative` is a frequent cause of slow DHCP in mixed environments if omitted.",
+    "schema_hash": "88fb922854e30e42",
+    "sources": [
+      "https://oss.segetech.com/intra/srv/dnsmasq.conf",
+      "https://dnsmasq.org/docs/dnsmasq-man.html",
+      "https://wiki.archlinux.org/title/Dnsmasq"
+    ],
+    "template": "dnsmasq",
+    "verdict": "incomplete"
+  },
+  "docker-daemon": {
+    "missing_directives": [
+      {
+        "name": "registry-mirrors",
+        "why": "Critical for production performance and air-gapped environments; widely used but not exposed by the role."
+      },
+      {
+        "name": "exec-opts",
+        "why": "Required for Kubernetes compatibility (`native.cgroupdriver=systemd`); omission breaks Docker on K8s nodes."
+      },
+      {
+        "name": "log-opts.max-size / max-file",
+        "why": "Prevents disk exhaustion from unbounded container logs \u2014 a common failure in production; role exposes `log_driver` but not rotation."
+      },
+      {
+        "name": "live-restore",
+        "why": "Essential for zero-downtime daemon upgrades; role exposes `live_restore` (\u2713), but note: misspelled in list \u2014 should match `live-restore` (kebab-case in JSON)."
+      },
+      {
+        "name": "default-ulimits",
+        "why": "Security/stability best practice \u2014 avoids `EMFILE`/`EAGAIN` failures from runaway containers; missing despite being standard."
+      },
+      {
+        "name": "userns-remap",
+        "why": "Critical security hardening (drop privileges); omission leaves rootful daemon by default."
+      },
+      {
+        "name": "no-new-privileges",
+        "why": "Hardening against privilege escalation (e.g., CVEs in containers); increasingly expected in secure deployments."
+      },
+      {
+        "name": "debug / log-level",
+        "why": "Debugging and auditability \u2014 `log-level` is often set to `"
+      }
+    ],
+    "missing_steps": [
+      "Reload daemon configuration without full restart (`systemctl reload docker` or `dockerd --reload`)",
+      "Validate config via `dockerd --config-file /etc/docker/daemon.json --dry-run` (available in newer Docker versions)",
+      "Ensure directory permissions (e.g., `data_root`, `log-driver` destinations) are owned by root/root or correct user \u2014 especially important for `data-root` on dedicated volume",
+      "Handle cgroup v2 detection (`native.cgroupdriver=systemd` only when cgroups v2 enabled; auto-detection recommended)",
+      "Graceful fallback if config validation fails (e.g., rollback, systemd unit backup, alerting)"
+    ],
+    "notes": "The role already exposes `live_restore`, but Docker expects `live-restore` in `daemon.json`. Confirm templating uses the correct kebab-case key. Also, ensure `storage_driver` and `storage_opts` are used consistently \u2014 `storage-driver` is correct in JSON, but some templates mistakenly use snake_case. The role should validate JSON syntax with `jq` or similar *before* rendering to avoid daemon startup failure.",
+    "schema_hash": "04b01ba85bb24b76",
+    "sources": [
+      "https://docs.docker.com/engine/daemon/",
+      "https://tutorials.technology/tutorials/docker-daemon-json-configuration.html",
+      "https://docs.docker.com/engine/daemon.md"
+    ],
+    "template": "docker-daemon",
+    "verdict": "incomplete"
+  },
+  "fail2ban": {
+    "missing_directives": [
+      {
+        "name": "ignoreip",
+        "why": "Critical for preventing lockout\u2014explicitly excludes trusted IPs (including admin\u2019s own IP) from being banned. Not exposed, and the warning in official docs explicitly stresses this as a *required* first step before enabling jails."
+      },
+      {
+        "name": "backend",
+        "why": "While exposed, the default value `auto` may not always pick the right backend (e.g., `systemd` vs `polling`). Admins often need to override it explicitly (e.g., `backend = systemd`) for reliability\u2014especially on modern distros using systemd-journald logging."
+      },
+      {
+        "name": "destemail + sendername + sender",
+        "why": "The role exposes `destemail`, `sender`, and `sendername`, but fails to expose the critical `mta` (Mail Transfer Agent). Without `mta = mail` (or `mta = sendmail`), email actions (like `action_mwl`) may silently fail. This is required for email notifications to work."
+      },
+      {
+        "name": "action",
+        "why": "The role exposes `defaction`, but doesn\u2019t expose the ability to specify `action` per jail (e.g., `action = %(action_mw)s` or custom actions like `action_iptables`). Default `iptables-multiport` may not align with firewalld/nftables backends\u2014especially if `fail2ban` is used with UFW or firewalld."
+      },
+      {
+        "name": "port",
+        "why": "For `sshd`, `sshd_port` is exposed, but the generic `port` directive (which applies to jails that don\u2019t have a dedicated port override) is missing. If other jails (e.g., `sshd-ddos`, `sshd-recurse`, or non-SSH jails) are enabled, they\u2019ll fall back to defaults incorrectly if `port` isn\u2019t configurable globally or per-jail."
+      },
+      {
+        "name": "filter",
+        "why": "Exposed implicitly via `sshd_logpath`, but `filter` itself is not exposed. Critical for custom jails\u2014e.g., if someone wants to use `sshd[filter = sshd-ddos]` or a custom filter like `apache-auth`. Without exposing `filter`, custom jails are impossible."
+      },
+      {
+        "name": "findtime",
+        "why": "While exposed for SSH (`sshd_findtime`), the generic `[DEFAULT] findtime` is missing. Without it, SSH findtime may work, but any *new* jail (e.g., Apache/Nginx) will default to 600s unexpectedly\u2014or may not inherit correctly depending on how the template renders `[DEFAULT]`."
+      },
+      {
+        "name": "bantime",
+        "why": "Same as above: `sshd_bantime` is exposed, but `[DEFAULT] bantime` isn\u2019t. This can cause inconsistent behavior if multiple jails are added later or if `fail2ban-client status sshd` shows inconsistent timing if `bantime` isn\u2019t unified under `[DEFAULT]`."
+      }
+    ],
+    "missing_steps": [
+      "Add trusted IP(s) to `ignoreip` *before* enabling any jail\u2014currently no step enforces this, despite being explicitly warned as critical in official docs to avoid self-lockout.",
+      "Verify active jails with `fail2ban-client status` or `fail2ban-client status sshd` post-deployment (the runbook only validates config syntax, not runtime state).",
+      "Unban mechanism: no support for *programmatically unbanning* trusted IPs if accidentally banned (i.e., no `fail2ban-client set <jail> unbanip <ip>` step or handler for recovery).",
+      "Firewall backend validation: the docs mention `iptables`, `nftables`, `ufw`, `firewalld`. The role doesn\u2019t verify or configure which backend is actually in use\u2014e.g., if `firewalld` is active but `backend = iptables` is default, bans won\u2019t apply.",
+      "No handling of `dbpurgeage` (database retention) for persistent banning across restarts\u2014critical for long-term ban integrity, especially if `bantime > 0` and service restarts occur."
+    ],
+    "notes": "The role is SSH-centric, but fails to support generic Fail2Ban best practices: layered config (`[DEFAULT]` + per-jail overrides), `ignoreip`, firewall backend alignment, and post-deployment validation steps. Without these, the setup is fragile and insecure by default.",
+    "schema_hash": "027af9d8d8661882",
+    "sources": [
+      "https://truehost.com/support/knowledge-base/fail2ban-configuration-documentation-jail-local-and-fail2ban-local/",
+      "https://www.hostinger.com/tutorials/fail2ban-configuration",
+      "https://deepwiki.com/fail2ban/fail2ban/3.2-jail-configuration"
+    ],
+    "template": "fail2ban",
+    "verdict": "incomplete"
+  },
+  "haproxy": {
+    "missing_directives": [
+      {
+        "name": "option httpchk",
+        "why": "Critical for HTTP health checks \u2014 without it, backends are assumed always healthy unless using TCP checks, which may mask application failures. Default TCP-only checks are insufficient for most HTTP services."
+      },
+      {
+        "name": "option forwardfor",
+        "why": "Essential for preserving client IP in HTTP headers; missing this breaks logging, geoIP, rate-limiting, and security logic at backends that rely on X-Forwarded-For."
+      },
+      {
+        "name": "bind :<port> options (e.g., `bind *:443 ssl crt ...`)",
+        "why": "The template only exposes `http_port`, but does *not* expose SSL/TLS termination (required for HTTPS), which needs explicit `bind ... ssl crt ...` directive \u2014 a core production use case."
+      },
+      {
+        "name": "stats enable / stats uri",
+        "why": "Vital for monitoring and operational visibility; HAProxy\u2019s built-in stats page (`/stats`) is commonly used for health monitoring, but not configurable via current template."
+      },
+      {
+        "name": "log",
+        "why": "Though `log_level` is exposed, the actual `log global` (or `log <ip> <facility>`) directive is missing \u2014 without it, logs won\u2019t be sent to rsyslog or journal as expected in production."
+      },
+      {
+        "name": "server <name> <ip>:<port> check",
+        "why": "Servers in backends must explicitly include `check` for health monitoring; current `backend_servers` likely defines IP:port but omits `check` unless the role hardcodes it \u2014 not exposed as a configurable."
+      },
+      {
+        "name": "timeout http-keep-alive",
+        "why": "Default HAProxy timeout is 10s; omitting this can cause stale keep-alive connections and resource exhaustion under high concurrency \u2014 especially important for long-polling/WebSocket-like traffic."
+      }
+    ],
+    "missing_steps": [
+      "Create log directory/files and configure rsyslog (if using syslog logging)",
+      "Ensure SELinux/apparmor permissions allow HAProxy to bind to ports and write logs (especially on RHEL/CentOS)",
+      "Reload systemd daemon (`systemctl daemon-reload`) after config/service changes (often omitted, causing stale units)",
+      "Verify service is actually `enabled` at boot (`systemctl is-enabled haproxy`) \u2014 not just `enabled` and `restarted` now",
+      "Run post-deployment health check (e.g., curl on frontend port + `/healthz`) to confirm service is responding"
+    ],
+    "notes": "The role as specified is minimal and suitable only for trivial TCP-only demos. Production deployments *require* health checks, client IP forwarding, logging, SSL termination, and stats \u2014 all missing in current expose/implementation. Also, 'user' is exposed but 'group' is not \u2014 while `user haproxy` is typical, `group` may matter for permission-sensitive setups (e.g., cert file access).",
+    "schema_hash": "0fba6b1d6426ff53",
+    "sources": [
+      "https://www.haproxy.com/blog/haproxy-configuration-basics-load-balance-your-servers",
+      "https://github.com/HAProxy-Documentation/",
+      "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/load_balancer_administration/ch-haproxy-setup-vsa"
+    ],
+    "template": "haproxy",
+    "verdict": "incomplete"
+  },
+  "mariadb": {
+    "missing_directives": [
+      {
+        "name": "log_error",
+        "why": "Critical for diagnostics and security auditing. The role does not expose control over where the error log is written \u2014 essential for log centralization and compliance. Default location varies by distro but is unreliable in production without explicit path."
+      },
+      {
+        "name": "expire_logs_days",
+        "why": "Controls binary log retention. Without it, binary logs accumulate indefinitely, risking disk exhaustion \u2014 especially dangerous in replication or point-in-time recovery setups."
+      },
+      {
+        "name": "binlog_format",
+        "why": "Defaults to `STATEMENT`, which can cause non-deterministic replication issues. Most production setups require `ROW` (or `MIXED`) for correctness. Explicitly setting it is a best practice."
+      },
+      {
+        "name": "relay_log",
+        "why": "Needed for replication slaves to control relay log location. If not set explicitly, relay logs may land in `datadir`, which can cause I/O contention and complicate disk management."
+      },
+      {
+        "name": "skip_name_resolve",
+        "why": "Defaults to OFF. Leaving DNS lookups enabled can cause login delays and failures if DNS is slow/unreliable. Setting to ON improves reliability and startup consistency."
+      },
+      {
+        "name": "local_infile",
+        "why": "Defaults to ON in many packages. Enables potential data exfiltration via `LOAD DATA LOCAL INFILE`. Should be set to OFF unless explicitly required."
+      },
+      {
+        "name": "secure_file_priv",
+        "why": "Limits the directory from which `LOAD DATA`/`SELECT ... INTO OUTFILE` can read/write. If left unset (empty), may default to insecure system paths or no restriction \u2014 a security risk."
+      },
+      {
+        "name": "sql_mode",
+        "why": "Critical for behavior consistency, especially migration from older MySQL/MariaDB versions or cross-platform deployments. Default may allow unsafe operations (e.g., `NO_ZERO_DATE`, `STRICT_TRANS_TABLES`)."
+      },
+      {
+        "name": "default_authentication_plugin",
+        "why": "Affects authentication plugin used for new users (e.g., `mysql_native_password` vs `auth_pam`). Inconsistent defaults across versions/platforms can break client compatibility."
+      },
+      {
+        "name": "innodb_flush_method",
+        "why": "Controls how InnoDB flushes data to disk (e.g., `fsync`, `O_DIRECT`). Suboptimal setting (e.g., default `fsync` on Linux) can cause severe performance degradation. Should be tuned per storage tier."
+      },
+      {
+        "name": "performance_schema",
+        "why": "Defaults to ON, but if disabled (e.g., for marginal memory savings), monitoring and diagnostics break. Should be explicitly declared \u2014 especially if tuning `performance_schema` memory size."
+      },
+      {
+        "name": "performance_schema_max_table_instances",
+        "why": "Only meaningful when performance_schema is ON, but without tuning, large databases may hit internal limits silently, causing missing stats."
+      },
+      {
+        "name": "table_open_cache",
+        "why": "Defaults are often too low for busy servers. Causes excessive `open_tables`/`opened_tables` and metadata lock contention. Must scale with `max_connections` and table count."
+      }
+    ],
+    "missing_steps": [
+      "Create and manage log rotation for error and slow query logs (e.g., via `logrotate`).",
+      "Verify and apply `chmod`/`chown` on config and log directories to ensure only `mysql` user can read sensitive files (e.g., `my.cnf` containing passwords or `log_error` in world-readable location).",
+      "Ensure `sql_mode` is validated post-restart \u2014 particularly if `STRICT_ALL_TABLES` or `ERROR_FOR_DIVISION_BY_ZERO` needed for data integrity.",
+      "Check for and remove deprecated/removed directives (e.g., `query_cache_size`, `query_cache_type` are deprecated in MariaDB 10.11+ and MySQL 8.0+), as they may cause startup warnings/failures.",
+      "Validate that `innodb_log_file_size` + `innodb_buffer_pool_size` are compatible with `innodb_flush_log_at_trx_commit=1` (i.e., sufficient I/O capacity), especially on SSD vs HDD.",
+      "For replication: explicitly set `log_slave_updates` on replicas if they act as masters in topologies (e.g., circular, multi-tier).",
+      "Post-deployment: verify that `max_connections` + per-thread buffers (`sort_buffer_size`, `read_buffer_size`, etc.) don\u2019t exceed system memory limits (via `ulimit` or `memory_limit` in systemd unit)."
+    ],
+    "notes": "The role exposes `log_bin_enabled`, but does not expose `log_bin`, `log_bin_basename`, or `binlog_expire_logs_seconds`, which are required for explicit binary logging control. Also missing are key security hardening directives like `local_infile`, `skip_name_resolve`, and `secure_file_priv`. While many directives are covered, the missing ones are high-impact for production reliability and security.",
+    "schema_hash": "70e2013645cf5d94",
+    "sources": [
+      "https://mariadb.com/docs/server/server-management/install-and-upgrade-mariadb/configuring-mariadb/configuring-mariadb-with-option-files",
+      "https://mariadb.com/docs/server/server-management/install-and-upgrade-mariadb/configuring-mariadb",
+      "https://www.simplified.guide/mysql-mariadb/configuration-files-locate-modify"
+    ],
+    "template": "mariadb",
+    "verdict": "incomplete"
+  },
+  "nginx": {
+    "missing_directives": [],
+    "missing_steps": [],
+    "notes": "The role already exposes the core directives required for basic operation: `pid`, `worker_processes`, `worker_connections`, `server_blocks`, and `upstreams`. The install-runbook covers all essential lifecycle steps: install, render config, validate, enable, restart. All critical defaults (e.g., `listen 80`, `server_name _`, `root` fallback, logging, error handling) are either inherited or handled implicitly by NGINX defaults \u2014 and not exposed in the minimal config template, which is appropriate for a baseline role. No common, high-impact directives (e.g., `error_log`, `access_log`, `server_tokens`, `keepalive_timeout`, `gzip`, SSL context) are *required* for a minimal functional web server to start and serve traffic. While these are often recommended in production, they are not *essential* to the core function of 'NGINX web server running and serving requests'. Thus, the role is functionally complete for its stated scope.",
+    "schema_hash": "0eee814ea7e2ac8e",
+    "sources": [
+      "https://docs.nginx.com/nginx/admin-guide/web-server/web-server/",
+      "https://nginx.org/en/docs/",
+      "https://nginx.org/en/docs/beginners_guide.html"
+    ],
+    "template": "nginx",
+    "verdict": "complete"
+  }
+}

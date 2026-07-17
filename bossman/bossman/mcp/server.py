@@ -17,6 +17,8 @@ in this project already follows.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -731,12 +733,19 @@ def build_mcp_server(
         return checks_library.checks_status(settings.checks_dir, _check_source_names())
 
     @mcp.tool()
-    async def run_runbook(runbook: str, host: str) -> dict[str, Any]:
-        """DRY-RUN a stored runbook against a host by name — a check_mode
-        preview of every step (nothing is mutated). "Preview runbook X on host
-        Y." Applying for real is human-only (via the REST API / UI), matching
-        the AI-proposes-human-confirms posture — this tool cannot mutate.
-        Returns the per-step result (ok/changed/skipped/failed)."""
+    async def run_runbook(
+        runbook: str, host: str, variables: dict[str, Any] | None = None, apply: bool = False,
+    ) -> dict[str, Any]:
+        """Run a stored runbook against a host by name — e.g. an install-<pkg>
+        wizard runbook to install AND configure a server role. `variables` fills
+        the runbook's typed `parameters` (see list_runbooks/get_runbook for the
+        input mask); anything you omit uses its default.
+
+        By default this is a DRY-RUN (check_mode): every step is previewed,
+        nothing on the host changes. A real apply (apply=true) mutates the host
+        and is gated by the global YOLO-MAN switch — with it off, apply raises
+        and you must have a human confirm via the UI/REST API (the
+        AI-proposes-human-confirms posture). Returns the per-step result."""
         from bossman.db.models import Agent, Runbook, RunbookRun
         from bossman.services import nt_convert, nt_engine, nt_runbook
 
@@ -750,6 +759,14 @@ def build_mcp_server(
             if not agent.address:
                 raise ValueError(f"host {host!r} has no reachable address")
 
+            check_mode = not apply
+            if apply and not await is_yolo_mode(session):
+                raise ValueError(
+                    "real apply is gated: the YOLO-MAN switch is off, so this tool can only "
+                    "dry-run. Re-run with apply=false to preview, or have a human apply it "
+                    "via the UI / REST API."
+                )
+
             doc = nt_runbook.parse_document(nt_convert.doc_to_nt(rb.doc))
             if not isinstance(doc, nt_runbook.Runbook):
                 raise ValueError(f"{runbook!r} is a role, not a runbook — bind it in OU/Policy")
@@ -762,16 +779,17 @@ def build_mcp_server(
                     magic.update(facts["data"])
             except Exception:  # noqa: BLE001
                 pass
-            variables = {**magic, **(load_host_vars(settings.plans_dir, agent.name) or {})}
-            result = await nt_engine.run_runbook(doc, client, variables, check_mode=True)
+            # Precedence: magic facts < host vars < caller-supplied parameters.
+            merged = {**magic, **(load_host_vars(settings.plans_dir, agent.name) or {}), **(variables or {})}
+            result = await nt_engine.run_runbook(doc, client, merged, check_mode=check_mode)
             rr = result.to_dict()
             session.add(RunbookRun(
                 tenant_id=DEFAULT_TENANT_ID, runbook_name=doc.name, agent_id=agent.id,
-                dry_run=True, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
+                dry_run=check_mode, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
                 changed=result.changed, result=rr, requested_by=(current_identity.get() or "mcp-facade"),
             ))
             await session.commit()
-        return {"runbook": doc.name, "host": host, "dry_run": True, **rr}
+        return {"runbook": doc.name, "host": host, "dry_run": check_mode, **rr}
 
     @mcp.tool()
     async def list_runbooks(folder: str | None = None) -> list[dict[str, Any]]:
@@ -805,6 +823,131 @@ def build_mcp_server(
             hits = [r for r in rows if ql in r.name.lower() or ql in (r.folder or "").lower()]
             return [{"name": r.name, "kind": r.kind, "folder": r.folder or "",
                      "parameters": (r.doc or {}).get("parameters", {})} for r in hits[:top_k]]
+
+    @mcp.tool()
+    async def get_runbook(runbook: str) -> dict[str, Any]:
+        """Read one runbook in full: its NestedText source (author/inspect it),
+        typed `parameters` input mask, and steps. Pair with run_runbook."""
+        from bossman.db.models import Runbook
+        from bossman.services import nt_convert
+
+        async with session_factory() as session:
+            rb = await session.scalar(
+                select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID, Runbook.name == runbook)
+            )
+            if rb is None:
+                raise ValueError(f"no such runbook {runbook!r}")
+            return {
+                "name": rb.name, "kind": rb.kind, "folder": rb.folder or "",
+                "parameters": (rb.doc or {}).get("parameters", {}),
+                "steps": (rb.doc or {}).get("steps", []),
+                "nt": nt_convert.doc_to_nt(rb.doc),
+            }
+
+    # ── Config roles & templates (installation-wizard lifecycle) ─────────
+    # The catalog + templates that drive Roles & Features / the install wizard.
+    # Together with run_runbook(install-<pkg>) this lets you discover a role,
+    # read its config template + parameter schema, install and configure it,
+    # then verify — the whole role lifecycle over MCP.
+
+    def _catalog_dict() -> dict[str, Any]:
+        path = Path(settings.config_templates_dir).parent / "package_catalog.json"
+        try:
+            return json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {}
+
+    @mcp.tool()
+    async def list_roles(installable_only: bool = True) -> list[dict[str, Any]]:
+        """List server roles from the package catalog (the Roles & Features
+        surface): name, label, category, config template, and the package names
+        per OS family. installable_only=true hides base-system config files
+        (kind=config) and returns only real roles (kind=role). Install one with
+        run_runbook("install-<name>", host, variables=…)."""
+        cat = _catalog_dict()
+        out = []
+        for name, e in sorted(cat.items()):
+            if installable_only and e.get("kind") == "config":
+                continue
+            out.append({"name": name, "label": e.get("label", name), "category": e.get("category", ""),
+                        "kind": e.get("kind", ""), "template": e.get("template"),
+                        "families": e.get("families", {})})
+        return out
+
+    @mcp.tool()
+    async def get_role(name: str) -> dict[str, Any]:
+        """Full catalog entry for one role + its config template (Jinja2) and
+        values schema (the wizard's parameter mask). Everything needed to render
+        or reason about the role's config."""
+        cat = _catalog_dict()
+        entry = cat.get(name)
+        if entry is None:
+            raise ValueError(f"no such role {name!r}")
+        result = dict(entry)
+        tname = entry.get("template")
+        if tname:
+            tdir = Path(settings.config_templates_dir) / tname
+            for fname, key in (("template.j2", "template"), ("schema.json", "schema"), ("sample.json", "sample")):
+                fp = tdir / fname
+                if fp.is_file():
+                    try:
+                        result[key] = json.loads(fp.read_text()) if fname.endswith(".json") else fp.read_text()
+                    except (OSError, ValueError):
+                        pass
+        return result
+
+    @mcp.tool()
+    async def list_config_templates() -> list[str]:
+        """List the names of all available config templates (each is a Jinja2
+        template + values schema under config_templates/). Read one with
+        get_config_template."""
+        tdir = Path(settings.config_templates_dir)
+        if not tdir.is_dir():
+            return []
+        return sorted(d.name for d in tdir.iterdir() if d.is_dir() and (d / "template.j2").is_file())
+
+    @mcp.tool()
+    async def get_config_template(name: str) -> dict[str, Any]:
+        """Read a config template: its Jinja2 body, values schema (each var ->
+        type/default/description; list-of-object vars carry an `items` shape),
+        and sample values. This is the source of a role's parameter mask."""
+        tdir = Path(settings.config_templates_dir) / name
+        if not tdir.is_dir():
+            raise ValueError(f"no such config template {name!r}")
+        out: dict[str, Any] = {"name": name}
+        for fname, key, is_json in (("template.j2", "template", False),
+                                    ("schema.json", "schema", True),
+                                    ("sample.json", "sample", True)):
+            fp = tdir / fname
+            if fp.is_file():
+                try:
+                    out[key] = json.loads(fp.read_text()) if is_json else fp.read_text()
+                except (OSError, ValueError):
+                    pass
+        return out
+
+    @mcp.tool()
+    async def get_doc_audit(role: str | None = None) -> dict[str, Any]:
+        """Read the package-doc completeness audit (qwen vs. official docs via
+        SearXNG). Without `role`, returns a summary of which roles are complete
+        vs. incomplete; with `role`, the detailed findings (missing directives,
+        missing lifecycle steps, sources). Use it to know what a template/runbook
+        still lacks before refining it."""
+        path = Path(settings.config_templates_dir).parent / "package_doc_audit.json"
+        try:
+            audit = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {"audited": 0, "note": "no audit has run yet"}
+        if role is not None:
+            entry = audit.get(role)
+            if entry is None:
+                raise ValueError(f"role {role!r} has not been audited")
+            return entry
+        return {
+            "audited": len(audit),
+            "incomplete": sorted(k for k, v in audit.items() if v.get("verdict") == "incomplete"),
+            "complete": sorted(k for k, v in audit.items() if v.get("verdict") == "complete"),
+        }
 
     # ── Policy & Orchestration (Block L2) ────────────────────────────────
     # Read-only + a safe dry-run preview + ONE gated write tool for the

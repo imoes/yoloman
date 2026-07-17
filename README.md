@@ -170,7 +170,14 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   shown with its description **and default value**), preview as a dry run, then install — all in
   the console. Each configurable package ships a seeded `install-<pkg>` runbook (install → render
   config from its template → validate → enable/restart service) with a typed parameter schema;
-  works across Debian and RedHat via a per-family package catalog.
+  works across Debian and RedHat via a per-family package catalog. Repeated config (DNS zone
+  records, nginx/apache vhosts + upstreams, …) is just a list-of-objects template variable the mask
+  renders as an inline table editor — **no bespoke agent code per role**, since a zone file or vhost
+  is only a Jinja2 template. Templates are grown two ways by `qwen79b`: generated from man pages,
+  and **translated from battle-tested Ansible roles** (geerlingguy.\*, bertvv.bind, …) found via
+  web search. A background pass then has qwen **audit every role against its official documentation**
+  (fetched via SearXNG) and record which template directives or runbook steps are still missing
+  (`configs/package_doc_audit.json`).
 - **Config management with drift enforcement** — a gpedit-style editor (categories → files →
   settings) authored from the codec registry; a key with no policy is **host based** (the host's own
   value stands). Managed files are **auto-enforced every poll**: an out-of-band change is overwritten
@@ -193,6 +200,14 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
 - **The translator** — pulls Ansible collections and Checkmk checks through an LLM
   (`llamacpp03/qwen79b`) into the agent's Starlark runtime, validated by the same `starlark-check`
   gate the agent uses.
+- **A lifecycle-complete MCP surface** — the whole of Bossman is driveable over MCP, so a model
+  (via the AI console's self-hosted `qwen79b`, or any MCP client) can run the entire loop:
+  **discover** (`list_hosts`, `host_status`, `list_roles`, `get_doc_audit`), **research**
+  (`web_search`, `fetch_url` — backed by the internal SearXNG), **read** the building blocks
+  (`get_role`, `list/get_config_template`, `list/search/get_runbook`), **install & configure**
+  (`run_runbook` with a role's typed parameters), and **verify** (dry-run + `get_host_desired_state`).
+  Writes keep the AI-proposes-human-confirms posture: `run_runbook` and orchestration links preview
+  in `check_mode` and only mutate for real once the global YOLO-MAN switch is on.
 
 **Try the whole stack locally** — Postgres/TimescaleDB, migrations, an `admin`/`admin123` seed user,
 the FastAPI backend, and the Angular frontend behind nginx:

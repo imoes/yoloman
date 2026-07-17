@@ -1,0 +1,21 @@
+; Zone file for {{ origin }}
+$ORIGIN {{ origin }}.
+$TTL {{ ttl }}
+
+; SOA Record
+@ IN SOA {{ primary_ns }}.{{ origin }}. {{ admin_email }}. (
+  {{ serial }}
+  {{ refresh }}
+  {{ retry }}
+  {{ expire }}
+  {{ minimum }} )
+
+; NS Records
+{% for ns in name_servers %}
+@ IN NS {{ ns }}.{{ origin }}.
+{% endfor %}
+
+{% for r in records %}
+; {{ r.type }} Record
+{% if r.name != '@' and r.name != '' %}{{ r.name }}{% else %}@{% endif %} {% if r.ttl %}{{ r.ttl }}{% else %}{{ ttl }}{% endif %} IN {{ r.type }} {{ r.value }}
+{% endfor %}
