@@ -12,8 +12,10 @@ re-seeded only when its inputs changed. Callable from a CLI script or app startu
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -141,5 +143,30 @@ async def seed_wizard_runbooks(session: AsyncSession, settings: Settings) -> int
 def _dir_key(entry: dict) -> str:
     """config_directives.json is keyed by config-file basename — derive it from
     the debian config_path (e.g. /etc/ssh/sshd_config → sshd_config)."""
-    path = entry.get("families", {}).get("debian", {}).get("config_path", "")
+    fams = entry.get("families", {})
+    fam = fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
+    path = fam.get("config_path", "")
     return Path(path).name if path else ""
+
+
+logger = logging.getLogger(__name__)
+
+
+async def wizard_reseed_loop(session_factory, settings: Settings, stop_event: asyncio.Event,
+                             interval: float = 900.0) -> None:
+    """Periodically re-seed wizard runbooks so packages whose template the batch
+    just generated become installable roles without a bossman restart.
+    Idempotent hash-upsert; best-effort."""
+    while not stop_event.is_set():
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            return  # stop requested
+        except asyncio.TimeoutError:
+            pass
+        try:
+            async with session_factory() as session:
+                n = await seed_wizard_runbooks(session, settings)
+                if n:
+                    logger.info("wizard reseed: %d runbook(s) added/updated", n)
+        except Exception:  # noqa: BLE001 — never let reseed crash the loop
+            logger.warning("wizard reseed failed", exc_info=True)

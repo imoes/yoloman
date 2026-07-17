@@ -28,7 +28,7 @@ from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
 from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import mark_poller_agent, seed_default_check_rules
-from bossman.services.wizard_seed import seed_wizard_runbooks
+from bossman.services.wizard_seed import seed_wizard_runbooks, wizard_reseed_loop
 from bossman.services.poller import PollerStats, poller_loop
 from bossman.services.reconciler import ReconcileStats, reconciler_loop
 
@@ -161,6 +161,8 @@ async def lifespan(app: FastAPI):
     cve_feed_task = asyncio.create_task(
         cve_feed_loop(app.state.cve_feed, settings, stop_event, after_refresh=_collect_cves)
     )
+    # Re-seed wizard runbooks as the template batch grows the catalog.
+    wizard_task = asyncio.create_task(wizard_reseed_loop(app.state.session_factory, settings, stop_event))
     try:
         async with mcp_server.session_manager.run():
             yield
@@ -175,6 +177,7 @@ async def lifespan(app: FastAPI):
         housekeeping_task.cancel()
         reconciler_task.cancel()
         cve_feed_task.cancel()
+        wizard_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
@@ -183,6 +186,8 @@ async def lifespan(app: FastAPI):
             await reconciler_task
         with contextlib.suppress(asyncio.CancelledError):
             await cve_feed_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await wizard_task
         await engine.dispose()
 
 
