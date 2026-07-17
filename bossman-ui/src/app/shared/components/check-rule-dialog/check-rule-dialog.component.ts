@@ -74,7 +74,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Scope</mat-label>
         <mat-select formControlName="scope_type">
-          <mat-option value="global">Global (every host)</mat-option>
+          <mat-option value="global">Default policy (every host)</mat-option>
           <mat-option value="group">Group</mat-option>
           <mat-option value="host">Host (overrides group/global)</mat-option>
         </mat-select>

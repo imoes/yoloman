@@ -346,7 +346,9 @@ async def resolve_host_thresholds(
         elif rule.scope_type in ("group", "host"):
             source = f"{rule.scope_type}:{rule.scope_value}"
         else:
-            source = "global"
+            # Fleet-wide rules are presented as the auto-created "Default Policy"
+            # rather than a nameless "global" scope (the seed IS that policy).
+            source = "Default Policy"
         thresholds[metric] = {
             "warn": rule.warn_threshold,
             "crit": rule.crit_threshold,
