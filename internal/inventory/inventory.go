@@ -81,6 +81,7 @@ type OS struct {
 	Distribution string `json:"distribution,omitempty"` // os-release NAME
 	Version      string `json:"version,omitempty"`      // os-release VERSION_ID
 	ID           string `json:"id,omitempty"`           // os-release ID
+	IDLike       string `json:"id_like,omitempty"`      // os-release ID_LIKE (family hint)
 	PrettyName   string `json:"pretty_name,omitempty"`
 	Codename     string `json:"codename,omitempty"` // os-release VERSION_CODENAME
 	Kernel       string `json:"kernel,omitempty"`
@@ -279,6 +280,7 @@ func (c *Collector) collectOS(inv *Inventory) {
 	inv.OS.Distribution = kv["NAME"]
 	inv.OS.Version = kv["VERSION_ID"]
 	inv.OS.ID = kv["ID"]
+	inv.OS.IDLike = kv["ID_LIKE"]
 	inv.OS.PrettyName = kv["PRETTY_NAME"]
 	inv.OS.Codename = kv["VERSION_CODENAME"]
 }

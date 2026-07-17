@@ -24,9 +24,8 @@ func (m *PackageFacts) Name() string { return "package_facts" }
 
 func (m *PackageFacts) Description() string {
 	return "" +
-		"Enumerate every package installed on the host via dpkg (name, version, architecture). " +
-		"Debian/Ubuntu only in v1 — the agent's primary packaging target; other package " +
-		"managers (rpm/dnf, apk, ...) are not yet supported. Takes no parameters — it always " +
+		"Enumerate every package installed on the host (name, version, architecture). Uses dpkg " +
+		"on Debian/Ubuntu and falls back to rpm on RHEL/Fedora-family systems. Takes no parameters — it always " +
 		"returns the full list; filter client-side for a specific package. Use this to check " +
 		"whether a desired package is already at the right version before deciding to call the " +
 		"write-gated `apt`/`package` module.\n\n" +
@@ -47,11 +46,16 @@ func (m *PackageFacts) InputSchema() map[string]any {
 func (m *PackageFacts) Writes() bool { return false }
 
 func (m *PackageFacts) Run(ctx context.Context, params map[string]any, dryRun bool) (Result, error) {
+	// Debian/Ubuntu via dpkg; fall back to rpm on RHEL/Fedora-family hosts.
 	out, err := m.Runner(ctx, "dpkg-query", "-W", "-f", "${Package}\t${Version}\t${Architecture}\n")
-	if err != nil {
-		return Result{}, fmt.Errorf("package_facts: running dpkg-query: %w", err)
+	if err == nil {
+		return Result{Changed: false, Data: parseDpkgQuery(out)}, nil
 	}
-	return Result{Changed: false, Data: parseDpkgQuery(out)}, nil
+	rpmOut, rpmErr := m.Runner(ctx, "rpm", "-qa", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n")
+	if rpmErr != nil {
+		return Result{}, fmt.Errorf("package_facts: neither dpkg-query (%v) nor rpm (%v) succeeded", err, rpmErr)
+	}
+	return Result{Changed: false, Data: parseDpkgQuery(rpmOut)}, nil
 }
 
 // parseDpkgQuery parses tab-separated "name\tversion\tarch" lines as

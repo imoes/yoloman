@@ -106,6 +106,10 @@ func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Re
 	if osrel, err := parseOSRelease(s.OSReleasePath); err == nil {
 		facts["ansible_distribution"] = osrel["NAME"]
 		facts["ansible_distribution_version"] = osrel["VERSION_ID"]
+		// os_family — normalise ID/ID_LIKE into debian|redhat|... so runbook
+		// `when:` clauses can branch on the package family without string-matching
+		// the pretty NAME.
+		facts["ansible_os_family"] = osFamilyFromRelease(osrel["ID"], osrel["ID_LIKE"])
 	}
 
 	if f, err := os.Open(filepath.Join(s.ProcRoot, "meminfo")); err == nil {
@@ -179,6 +183,25 @@ func readFirstLine(path string) (string, error) {
 		return "", err
 	}
 	return "", nil
+}
+
+// osFamilyFromRelease maps an os-release ID / ID_LIKE into a coarse package
+// family (debian | redhat | suse | arch | alpine), or "" when unknown.
+func osFamilyFromRelease(id, idLike string) string {
+	tokens := strings.Fields(strings.ToLower(id + " " + idLike))
+	fam := map[string]string{
+		"debian": "debian", "ubuntu": "debian", "mint": "debian", "raspbian": "debian", "pop": "debian",
+		"rhel": "redhat", "centos": "redhat", "fedora": "redhat", "rocky": "redhat", "almalinux": "redhat",
+		"ol": "redhat", "oracle": "redhat",
+		"suse": "suse", "opensuse": "suse", "sles": "suse",
+		"arch": "arch", "alpine": "alpine",
+	}
+	for _, t := range tokens {
+		if f, ok := fam[t]; ok {
+			return f
+		}
+	}
+	return ""
 }
 
 // parseOSRelease parses a /etc/os-release-style file (KEY=VALUE per line,
