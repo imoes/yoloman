@@ -248,6 +248,7 @@ export class AddRolesWizardComponent {
     const q = this.roleQuery().trim().toLowerCase();
     const groups = new Map<string, (CatalogPackage & { name: string })[]>();
     for (const [name, entry] of Object.entries(this.data.catalog)) {
+      if (entry.kind === 'config') continue; // base-system files aren't installable roles
       if (q && !name.toLowerCase().includes(q) && !entry.label.toLowerCase().includes(q)
           && !(entry.description || '').toLowerCase().includes(q)) continue;
       const cat = entry.category || 'other';

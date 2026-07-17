@@ -28,22 +28,20 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
 
     @if (!ready()) {
       <p class="bm-dim">Loading catalog…</p>
+    } @else if (!hasInstalled()) {
+      <p class="bm-dim">No configurable roles are installed yet. Use <strong>Add roles and features</strong> to install one.</p>
     } @else {
-      <input class="bm-rf-search" placeholder="Search roles…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+      <input class="bm-rf-search" placeholder="Search installed roles…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
       <table class="bm-rf-tbl">
-        <thead><tr><th>Role</th><th>Category</th><th>Status</th><th>Version</th><th></th></tr></thead>
+        <thead><tr><th>Role</th><th>Category</th><th>Version</th><th></th></tr></thead>
         <tbody>
           @for (r of rows(); track r.name) {
             <tr>
               <td><mat-icon class="bm-rf-ic">{{ r.icon }}</mat-icon> {{ r.label }}</td>
               <td class="bm-dim">{{ r.category }}</td>
-              <td>
-                @if (r.installed) { <span class="bm-rf-badge bm-rf-on">Installed</span> }
-                @else { <span class="bm-rf-badge">Not installed</span> }
-              </td>
               <td class="bm-mono">{{ r.version || '—' }}</td>
               <td>
-                @if (r.installed && r.template) {
+                @if (r.template) {
                   <button mat-stroked-button (click)="configure(r.name)"><mat-icon>tune</mat-icon> Configure</button>
                 }
               </td>
@@ -77,19 +75,27 @@ export class RolesFeaturesComponent implements OnInit {
   private catalog = signal<Record<string, CatalogPackage>>({});
   private context = signal<WizardContext | null>(null);
   ready = computed(() => Object.keys(this.catalog()).length > 0 && this.context() !== null);
+  hasInstalled = computed(() => {
+    const inst = this.context()?.installed ?? {};
+    return Object.entries(this.catalog()).some(([n, e]) => e.kind !== 'config' && n in inst);
+  });
   query = signal('');
 
+  // Only INSTALLED roles are listed — not-installed packages are discovered via
+  // "Add roles and features", so showing all 80 here was just noise.
   rows = computed(() => {
     const ctx = this.context();
     const q = this.query().trim().toLowerCase();
     return Object.entries(this.catalog())
+      .filter(([, e]) => e.kind !== 'config') // base-system config files live in the Configuration tab
       .map(([name, e]) => ({
         name, label: e.label, category: e.category, icon: e.icon, template: e.template,
         installed: !!ctx && name in ctx.installed,
         version: ctx?.installed[name] ?? '',
       }))
+      .filter((r) => r.installed)
       .filter((r) => !q || r.name.toLowerCase().includes(q) || r.label.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
-      .sort((a, b) => Number(b.installed) - Number(a.installed) || a.label.localeCompare(b.label));
+      .sort((a, b) => a.label.localeCompare(b.label));
   });
 
   ngOnInit(): void { this.reload(); }
@@ -105,7 +111,7 @@ export class RolesFeaturesComponent implements OnInit {
     const ctx = this.context();
     if (!ctx) return;
     const data: AddRolesWizardData = {
-      agentId: this.agentId(), hostName: this.agentId(), catalog: this.catalog(), context: ctx, preselect,
+      agentId: this.agentId(), hostName: ctx.host || this.agentId(), catalog: this.catalog(), context: ctx, preselect,
     };
     this.dialog.open(AddRolesWizardComponent, { data, width: 'min(1080px, 94vw)', maxWidth: '94vw' })
       .afterClosed().subscribe((changed) => { if (changed) this.reload(true); });

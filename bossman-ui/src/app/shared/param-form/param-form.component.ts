@@ -1,11 +1,6 @@
 import { Component, OnInit, computed, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ParamSchema, ParamSpec } from './param-form.types';
 
@@ -19,7 +14,7 @@ interface Field { key: string; spec: ParamSpec; }
 @Component({
   selector: 'app-param-form',
   standalone: true,
-  imports: [NgTemplateOutlet, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatButtonModule, MatIconModule],
+  imports: [NgTemplateOutlet, FormsModule, MatIconModule],
   template: `
     @for (f of essential(); track f.key) {
       <ng-container [ngTemplateOutlet]="field" [ngTemplateOutletContext]="{ $implicit: f }" />
@@ -38,83 +33,82 @@ interface Field { key: string; spec: ParamSpec; }
 
     <ng-template #field let-f>
       <div class="bm-pf-field">
-        <label class="bm-pf-label">{{ label(f.key) }}@if (f.spec.required) { <span class="bm-pf-req">*</span> }</label>
-
-        @switch (control(f.spec)) {
-          @case ('bool') {
-            <mat-slide-toggle [ngModel]="asBool(values()[f.key])" (ngModelChange)="set(f.key, $event)">{{ asBool(values()[f.key]) ? 'yes' : 'no' }}</mat-slide-toggle>
+        <label class="bm-pf-label" [title]="f.spec.description || ''">{{ label(f.key) }}@if (f.spec.required) { <span class="bm-pf-req">*</span> }</label>
+        <div class="bm-pf-control">
+          @switch (control(f.spec)) {
+            @case ('bool') {
+              <label class="bm-pf-switch"><input type="checkbox" [checked]="asBool(values()[f.key])" (change)="set(f.key, $any($event.target).checked)" /> <span>{{ asBool(values()[f.key]) ? 'yes' : 'no' }}</span></label>
+            }
+            @case ('enum') {
+              <select class="bm-pf-in" [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)">
+                @for (o of f.spec.enum; track o) { <option [value]="o">{{ o }}</option> }
+              </select>
+            }
+            @case ('number') {
+              <input class="bm-pf-in" type="number" [value]="values()[f.key] ?? ''" (input)="set(f.key, num($any($event.target).value))" />
+            }
+            @case ('secret') {
+              <input class="bm-pf-in" type="password" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
+            }
+            @case ('stringlist') {
+              <textarea class="bm-pf-in" rows="2" [value]="joinList(values()[f.key])" (input)="set(f.key, splitList($any($event.target).value))" placeholder="one per line"></textarea>
+            }
+            @case ('objlist') {
+              <div class="bm-pf-tbl">
+                <table>
+                  <thead><tr>@for (c of itemCols(f.spec); track c) { <th>{{ c }}</th> }<th></th></tr></thead>
+                  <tbody>
+                    @for (row of rows(f.key); let ri = $index; track ri) {
+                      <tr>
+                        @for (c of itemCols(f.spec); track c) {
+                          <!-- ri aliases the ROW index: inside this nested for-loop
+                               the implicit index is the COLUMN index (it silently
+                               wrote every edit into row 0). One-way value + input,
+                               NOT ngModel, so recycled inputs don't get clobbered. -->
+                          <td><input class="bm-pf-cell" [value]="row[c] ?? ''" (input)="setRow(f.key, ri, c, $any($event.target).value)" /></td>
+                        }
+                        <td><button type="button" class="bm-pf-x" (click)="delRow(f.key, ri)"><mat-icon>close</mat-icon></button></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                <button type="button" class="bm-pf-addrow" (click)="addRow(f.key, f.spec)"><mat-icon>add</mat-icon> Add row</button>
+              </div>
+            }
+            @default {
+              <input class="bm-pf-in" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
+            }
           }
-          @case ('enum') {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-pf-ctl">
-              <mat-select [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)">
-                @for (o of f.spec.enum; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
-              </mat-select>
-            </mat-form-field>
-          }
-          @case ('number') {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-pf-ctl">
-              <input matInput type="number" [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, num($event))" />
-            </mat-form-field>
-          }
-          @case ('secret') {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-pf-ctl">
-              <input matInput type="password" [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)" />
-            </mat-form-field>
-          }
-          @case ('stringlist') {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-pf-ctl">
-              <textarea matInput rows="2" [ngModel]="joinList(values()[f.key])" (ngModelChange)="set(f.key, splitList($event))" placeholder="one per line"></textarea>
-            </mat-form-field>
-          }
-          @case ('objlist') {
-            <div class="bm-pf-tbl">
-              <table>
-                <thead><tr>@for (c of itemCols(f.spec); track c) { <th>{{ c }}</th> }<th></th></tr></thead>
-                <tbody>
-                  @for (row of rows(f.key); let ri = $index; track ri) {
-                    <tr>
-                      @for (c of itemCols(f.spec); track c) {
-                        <!-- ri aliases the ROW index: inside this nested for-loop
-                             the implicit index is the COLUMN index (it silently
-                             wrote every edit into row 0). One-way value + input,
-                             NOT ngModel, so recycled inputs don't get clobbered. -->
-                        <td><input class="bm-pf-cell" [value]="row[c] ?? ''" (input)="setRow(f.key, ri, c, $any($event.target).value)" /></td>
-                      }
-                      <td><button type="button" class="bm-pf-x" (click)="delRow(f.key, ri)"><mat-icon>close</mat-icon></button></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-              <button type="button" mat-stroked-button class="bm-pf-addrow" (click)="addRow(f.key, f.spec)"><mat-icon>add</mat-icon> Add row</button>
-            </div>
-          }
-          @default {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bm-pf-ctl">
-              <input matInput [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)" />
-            </mat-form-field>
-          }
-        }
+        </div>
         @if (f.spec.description) { <div class="bm-pf-desc">{{ f.spec.description }}</div> }
-        @if (defaultHint(f.spec)) { <div class="bm-pf-default">Default: <code>{{ defaultHint(f.spec) }}</code></div> }
       </div>
     </ng-template>
   `,
   styles: [`
-    :host { display: block; max-width: 640px; }
-    .bm-pf-field { margin-bottom: 14px; }
-    .bm-pf-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-    .bm-pf-req { color: var(--bm-red, #c62828); margin-left: 3px; }
-    .bm-pf-ctl { width: 100%; }
-    .bm-pf-desc { font-size: 12px; opacity: 0.62; line-height: 1.4; margin-top: 3px; }
-    .bm-pf-default { font-size: 11.5px; opacity: 0.5; margin-top: 2px; }
-    .bm-pf-default code { font-family: ui-monospace, monospace; }
-    .bm-pf-adv { background: none; border: none; color: var(--mat-sys-primary); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px; margin: 6px 0 12px; }
-    .bm-pf-tbl table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .bm-pf-tbl th { text-align: left; opacity: 0.6; padding: 3px 6px; font-weight: 500; }
-    .bm-pf-tbl td { padding: 2px 4px; border-top: 1px solid var(--mat-sys-outline-variant); }
-    .bm-pf-cell { width: 100%; background: transparent; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; color: inherit; padding: 4px 6px; box-sizing: border-box; }
-    .bm-pf-x { background: none; border: none; color: var(--bm-red, #c62828); cursor: pointer; }
-    .bm-pf-addrow { margin-top: 6px; }
+    :host { display: block; max-width: 620px; }
+    /* Compact two-column rows: label | control, description under, no Material
+       outline chrome (that ate far too much vertical space). */
+    .bm-pf-field { display: grid; grid-template-columns: 190px 1fr; column-gap: 14px; row-gap: 2px; align-items: center; padding: 3px 0; }
+    .bm-pf-label { font-size: 12.5px; font-weight: 500; opacity: 0.85; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bm-pf-req { color: var(--bm-red, #c62828); margin-left: 2px; }
+    .bm-pf-control { min-width: 0; }
+    .bm-pf-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 4px 7px; border-radius: 5px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
+    .bm-pf-in:focus { outline: none; border-color: var(--mat-sys-primary); }
+    textarea.bm-pf-in { resize: vertical; line-height: 1.4; }
+    .bm-pf-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+    .bm-pf-switch input { accent-color: var(--mat-sys-primary); width: 15px; height: 15px; }
+    .bm-pf-desc { grid-column: 2; font-size: 11.5px; opacity: 0.55; line-height: 1.35; }
+    .bm-pf-adv { background: none; border: none; color: var(--mat-sys-primary); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 12.5px; margin: 8px 0 8px 204px; }
+    .bm-pf-tbl table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .bm-pf-tbl th { text-align: left; opacity: 0.6; padding: 2px 6px; font-weight: 500; }
+    .bm-pf-tbl td { padding: 1px 4px; border-top: 1px solid var(--mat-sys-outline-variant); }
+    .bm-pf-cell { width: 100%; background: transparent; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; color: inherit; padding: 3px 6px; box-sizing: border-box; font: inherit; font-size: 12px; }
+    .bm-pf-x { background: none; border: none; color: var(--bm-red, #c62828); cursor: pointer; display: inline-flex; }
+    .bm-pf-x mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .bm-pf-addrow { margin-top: 5px; display: inline-flex; align-items: center; gap: 3px; font: inherit; font-size: 12px; background: none;
+      border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; padding: 3px 9px; color: inherit; cursor: pointer; }
+    .bm-pf-addrow mat-icon { font-size: 15px; width: 15px; height: 15px; }
   `],
 })
 export class ParamFormComponent implements OnInit {

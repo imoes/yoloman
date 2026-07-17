@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 
 export interface WizardContext {
+  host: string; // DNS name of the agent (for display)
   family: string;
   installed: Record<string, string>; // catalog pkg -> installed version
   catalog_resolved: Record<string, { packages: string[]; service: string; config_path: string }>;

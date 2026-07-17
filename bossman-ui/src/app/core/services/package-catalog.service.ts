@@ -17,6 +17,7 @@ export interface CatalogPackage {
   icon: string;
   description: string;
   template: string | null; // config template name, or null if none yet
+  kind?: 'role' | 'config'; // role = installable server role; config = base-system file (gpedit only)
   validate_cmd?: string;
   families: { debian?: PackageFamily; redhat?: PackageFamily };
 }

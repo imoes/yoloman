@@ -97,4 +97,4 @@ async def wizard_context(
                 installed[pkg] = inv[name]
                 break
 
-    return {"family": family, "installed": installed, "catalog_resolved": resolved}
+    return {"host": agent.name, "family": family, "installed": installed, "catalog_resolved": resolved}

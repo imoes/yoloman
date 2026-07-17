@@ -1,146 +1,146 @@
-# apt.conf — Konfigurationsdatei für APT (APT.CONF(5))
+# apt.conf — configuration file for APT (APT.CONF(5))
 #
-# Diese Datei enthält systemweite Einstellungen für APT-Werkzeuge.
-# Jede Anweisung hat die Form <Gruppe>::<Option> "<Wert>";
-# Optionen können auch in geschweiften Klammern organisiert werden.
+# This file holds system-wide settings for APT tools.
+# Each directive has the form <group>::<option> "<value>";
+# Options may also be grouped inside curly braces.
 
-# APT::Architecture: Legt die Systemarchitektur fest, die beim Herunterladen und Parsen verwendet wird.
+# APT::Architecture: sets the system architecture used when downloading and parsing packages.
 APT::Architecture "{{ architecture }}";
 
-# APT::Architectures: Liste aller unterstützten Architekturen; native + fremde (z. B. via dpkg --print-foreign-architectures).
+# APT::Architectures: list of all supported architectures; native + foreign (e.g. via dpkg --print-foreign-architectures).
 APT::Architectures {
   {% for arch in architectures %}
   "{{ arch }}";
   {% endfor %}
 };
 
-# APT::Default-Release: Standard-Release, aus der Pakete installiert werden, wenn mehrere verfügbar sind.
+# APT::Default-Release: default release packages are installed from when several are available.
 APT::Default-Release "{{ default_release }}";
 
-# APT::Snapshot: Snapshot-Name für Repositories mit Snapshot: yes in sources.list.
+# APT::Snapshot: snapshot name for repositories with Snapshot: yes in sources.list.
 APT::Snapshot "{{ snapshot }}";
 
-# APT::Ignore-Hold: Wenn aktiviert, ignoriert APT gehaltene Pakete bei Auflösung von Abhängigkeiten.
+# APT::Ignore-Hold: when enabled, APT ignores packages on hold during dependency resolution.
 APT::Ignore-Hold "{{ ignore_hold }}";
 
-# APT::Clean-Installed: Steuert, ob installierte Pakete bei apt-get clean ausgeschlossen werden.
+# APT::Clean-Installed: controls whether installed packages are excluded from apt-get clean.
 APT::Clean-Installed "{{ clean_installed }}";
 
-# APT::Immediate-Configure: Wenn aktiviert, werden essentielle/wichtige Pakete sofort nach dem Entpacken konfiguriert.
+# APT::Immediate-Configure: when enabled, essential/important packages are configured immediately after unpacking.
 APT::Immediate-Configure "{{ immediate_configure }}";
 
-# APT::Force-LoopBreak: Ermöglicht das temporäre Entfernen essenzieller Pakete zur Durchbruch von Konfliktschleifen (NICHT empfohlen).
+# APT::Force-LoopBreak: allows temporary removal of essential packages to break conflict loops (NOT recommended).
 APT::Force-LoopBreak "{{ force_loop_break }}";
 
-# APT::Cache-Start: Größe des initial reservierten Cache im Speicher (in Bytes).
+# APT::Cache-Start: size of the initially reserved in-memory cache (in bytes).
 APT::Cache-Start "{{ cache_start }}";
 
-# APT::Cache-Grow: Schrittgröße für automatisches Wachsen des Caches (in Bytes), falls Cache-Start nicht ausreicht.
+# APT::Cache-Grow: step size for growing the cache automatically (in bytes) if Cache-Start is too small.
 APT::Cache-Grow "{{ cache_grow }}";
 
-# APT::Cache-Limit: Maximalgröße des Caches (in Bytes); 0 = kein Limit.
+# APT::Cache-Limit: maximum cache size (in bytes); 0 = no limit.
 APT::Cache-Limit "{{ cache_limit }}";
 
-# APT::Build-Essential: Liste von Paketen, die als essenzielle Build-Abhängigkeiten gelten.
+# APT::Build-Essential: list of packages treated as essential build dependencies.
 APT::Build-Essential {
   {% for pkg in build_essential %}
   "{{ pkg }}";
   {% endfor %}
 };
 
-# APT::NeverAutoRemove: Reguläre Ausdrücke für Pakete, die niemals per apt autoremove entfernt werden.
+# APT::NeverAutoRemove: regular expressions for packages that are never removed by apt autoremove.
 APT::NeverAutoRemove {
   {% for regex in never_auto_remove %}
   "{{ regex }}";
   {% endfor %}
 };
 
-# APT::Protect-Kernels: Legt fest, ob Kernel-Pakete vor automatischem Entfernen geschützt sind.
+# APT::Protect-Kernels: whether kernel packages are protected from automatic removal.
 APT::Protect-Kernels "{{ protect_kernels }}";
 
-# APT::VersionedKernelPackages: Reguläre Ausdrücke zur Identifikation versionsbasierten Kernel-Paketen.
+# APT::VersionedKernelPackages: regular expressions identifying versioned kernel packages.
 APT::VersionedKernelPackages {
   {% for regex in versioned_kernel_packages %}
   "{{ regex }}";
   {% endfor %}
 };
 
-# APT::NeverAutoRemove::KernelCount: Anzahl der Kernel, die bei autoremove beibehalten werden (mindestens 2).
+# APT::NeverAutoRemove::KernelCount: number of kernels kept on autoremove (at least 2).
 APT::NeverAutoRemove::KernelCount "{{ kernel_count }}";
 
-# DPkg::Pre-Install-Pkgs: Liste von Skripten, die vor der Installation von Paketen durch dpkg ausgeführt werden.
+# DPkg::Pre-Install-Pkgs: list of scripts run by dpkg before installing packages.
 DPkg::Pre-Install-Pkgs {
   {% for script in pre_install_pkgs %}
   "{{ script }}";
   {% endfor %}
 };
 
-# DPkg::Pre-Install-Recommends: (Optional) Skripte, die vor der Konfiguration von empfohlenen Paketen laufen.
+# DPkg::Pre-Install-Recommends: (optional) scripts run before configuring recommended packages.
 # DPkg::Pre-Install-Recommends {
 #   {% for script in pre_install_recommends %}
 #   "{{ script }}";
 #   {% endfor %}
 # };
 
-# DPkg::Options::: Legt Optionen für dpkg-Aufrufe fest (z. B. --force-...).
+# DPkg::Options::: sets options for dpkg invocations (e.g. --force-...).
 {% for opt in dpkg_options %}
 # DPkg::Options:: "{{ opt }}";
 {% endfor %}
 
-# APT::Acquire::Retries: Anzahl der Wiederholungsversuche bei Netzwerkfehlern (falls nicht durch Methode überschrieben).
+# APT::Acquire::Retries: number of retries on network errors (unless overridden by the method).
 APT::Acquire::Retries "{{ acquire_retries }}";
 
-# APT::Acquire::Timeout: Standard-Zeitlimit (in Sekunden) für einzelne Downloads.
+# APT::Acquire::Timeout: default time limit (in seconds) for a single download.
 APT::Acquire::Timeout "{{ acquire_timeout }}";
 
-# APT::Acquire::MaxTime: Maximale Gesamtzeit (in Sekunden) für alle Download-Versuche.
+# APT::Acquire::MaxTime: maximum total time (in seconds) for all download attempts.
 APT::Acquire::MaxTime "{{ acquire_max_time }}";
 
-# APT::Acquire::Languages: Liste der bevorzugten Sprachen für Übersetzungen (z. B. "none" für keine).
+# APT::Acquire::Languages: list of preferred languages for translations (e.g. "none" for none).
 APT::Acquire::Languages {
   {% for lang in acquire_languages %}
   "{{ lang }}";
   {% endfor %}
 };
 
-# APT::Acquire::Check-Valid-Until: Sicherheitscheck auf Ablaufdatum in Release-Dateien (true/false).
+# APT::Acquire::Check-Valid-Until: security check on the expiry date in Release files (true/false).
 APT::Acquire::Check-Valid-Until "{{ acquire_check_valid_until }}";
 
-# APT::Acquire::Check-Date: Prüft die Systemuhr für Sicherheitschecks; true = vertraut der Uhr.
+# APT::Acquire::Check-Date: checks the system clock for security checks; true = trust the clock.
 APT::Acquire::Check-Date "{{ acquire_check_date }}";
 
-# APT::Acquire::Max-FutureTime: Max. Zeit (in Sekunden), die eine Release-Datei vor Erstellungsdatum gültig ist.
+# APT::Acquire::Max-FutureTime: max time (in seconds) a Release file may be dated before its creation date.
 APT::Acquire::Max-FutureTime "{{ acquire_max_future_time }}";
 
-# APT::Acquire::Max-ValidTime: Max. Gültigkeitsdauer (in Sekunden) nach Erstellung einer Release-Datei.
+# APT::Acquire::Max-ValidTime: max validity period (in seconds) after a Release file is created.
 APT::Acquire::Max-ValidTime "{{ acquire_max_valid_time }}";
 
-# APT::Acquire::Min-ValidTime: Min. Zeit (in Sekunden) nach Erstellung, bevor eine Release-Datei als gültig gilt.
+# APT::Acquire::Min-ValidTime: min time (in seconds) after creation before a Release file is considered valid.
 APT::Acquire::Min-ValidTime "{{ acquire_min_valid_time }}";
 
-# APT::Periodic::Update-Package-Lists: Intervall (in Tagen) für automatische Aktualisierung der Paketlisten.
+# APT::Periodic::Update-Package-Lists: interval (in days) for automatically updating package lists.
 APT::Periodic::Update-Package-Lists "{{ periodic_update_pkg_lists }}";
 
-# APT::Periodic::Download-Upgradeable-Packages: Intervall (in Tagen) für automatisches Herunterladen aktualisierbarer Pakete.
+# APT::Periodic::Download-Upgradeable-Packages: interval (in days) for automatically downloading upgradeable packages.
 APT::Periodic::Download-Upgradeable-Packages "{{ periodic_download_upgradeable }}";
 
-# APT::Periodic::AutocleanInterval: Intervall (in Tagen) für automatische Ausführung von apt-get autoclean.
+# APT::Periodic::AutocleanInterval: interval (in days) for automatically running apt-get autoclean.
 APT::Periodic::AutocleanInterval "{{ periodic_autoclean }}";
 
-# APT::Periodic::Verbose: Log-Level für periodische Aktionen (0=still, 1=normal, 2=debug).
+# APT::Periodic::Verbose: log level for periodic actions (0=quiet, 1=normal, 2=debug).
 APT::Periodic::Verbose "{{ periodic_verbose }}";
 
-# APT::Get::Assume-Yes: Wenn wahr, wird apt-get ohne Interaktion fortgesetzt (entspricht -y).
+# APT::Get::Assume-Yes: when true, apt-get proceeds without interaction (equivalent to -y).
 APT::Get::Assume-Yes "{{ apt_get_assume_yes }}";
 
-# APT::Get::Fix-Broken: Wenn wahr, versucht apt-get fehlerhafte Abhängigkeiten zu reparieren (entspricht -f).
+# APT::Get::Fix-Broken: when true, apt-get tries to repair broken dependencies (equivalent to -f).
 APT::Get::Fix-Broken "{{ apt_get_fix_broken }}";
 
-# APT::Get::Show-Upgraded: Zeigt aktualisierte Pakete vor der Installation an.
+# APT::Get::Show-Upgraded: shows upgraded packages before installation.
 APT::Get::Show-Upgraded "{{ apt_get_show_upgraded }}";
 
-# APT::Get::AllowRemove: Ermöglicht das Entfernen essentieller Pakete, wenn nötig (nur mit Vorsicht nutzen).
+# APT::Get::AllowRemove: allows removing essential packages when necessary (use with caution).
 APT::Get::AllowRemove "{{ apt_get_allow_remove }}";
 
-# APT::Get::AllowDowngrade: Ermöglicht das Downgraden von Paketen (nur mit Vorsicht nutzen).
+# APT::Get::AllowDowngrade: allows downgrading packages (use with caution).
 APT::Get::AllowDowngrade "{{ apt_get_allow_downgrade }}";

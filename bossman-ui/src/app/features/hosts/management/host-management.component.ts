@@ -32,7 +32,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostVirtComponent, RolesFeaturesComponent,
   ],
   template: `
-    <div class="bm-mmc" [class.bm-mmc--noactions]="!actionsOpen()">
+    <div class="bm-mmc">
       <!-- Console tree -->
       <aside class="bm-mmc-tree">
         @for (grp of tree(); track grp.category) {
@@ -47,6 +47,10 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
 
       <!-- Detail (selected snap-in) — panels instantiate on first open, stay alive -->
       <section class="bm-mmc-detail">
+        <div class="bm-mmc-detailhead">
+          <span class="bm-mmc-detailtitle">{{ selectedLabel() }}</span>
+          <button type="button" class="bm-mmc-refresh" (click)="refreshSelected()" title="Refresh"><mat-icon>refresh</mat-icon> Refresh</button>
+        </div>
         @if (visited().has('roles')) { <div [style.display]="show('roles')"><app-roles-features [agentId]="agentId()" /></div> }
         @if (visited().has('services')) { <div [style.display]="show('services')"><app-host-services [agentId]="agentId()" /></div> }
         @if (visited().has('updates')) { <div [style.display]="show('updates')"><app-host-updates [agentId]="agentId()" /></div> }
@@ -58,31 +62,23 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
       </section>
-
-      <!-- Actions pane -->
-      <aside class="bm-mmc-actions">
-        <div class="bm-mmc-ah">
-          <span>Actions</span>
-          <button type="button" class="bm-mmc-collapse" (click)="actionsOpen.set(!actionsOpen())" title="Toggle actions">
-            <mat-icon>{{ actionsOpen() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-          </button>
-        </div>
-        <div class="bm-mmc-asub">{{ selectedLabel() }}</div>
-        <button mat-stroked-button class="bm-mmc-action" (click)="refreshSelected()"><mat-icon>refresh</mat-icon> Refresh</button>
-      </aside>
     </div>
   `,
   styles: [`
-    .bm-mmc { display: grid; grid-template-columns: 280px 1fr 240px; gap: 16px; align-items: start; }
-    .bm-mmc--noactions { grid-template-columns: 280px 1fr; }
-    .bm-mmc-tree, .bm-mmc-detail, .bm-mmc-actions {
+    .bm-mmc { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+    .bm-mmc-tree, .bm-mmc-detail {
       border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px;
       background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.04));
     }
     .bm-mmc-tree { padding: 8px 6px; min-height: 420px; }
     .bm-mmc-detail { padding: 14px 16px; min-width: 0; min-height: 420px; }
-    .bm-mmc-actions { padding: 12px 12px; }
-    .bm-mmc--noactions .bm-mmc-actions { position: relative; }
+    .bm-mmc-detailhead { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .bm-mmc-detailtitle { font-weight: 700; font-size: 15px; }
+    .bm-mmc-refresh { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 12.5px; cursor: pointer;
+      background: none; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; padding: 4px 11px; color: inherit; }
+    .bm-mmc-refresh:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-mmc-refresh mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .bm-mmc-cat { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: 0.55; padding: 10px 10px 4px; }
     .bm-mmc-node {
       display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
@@ -92,11 +88,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     .bm-mmc-node:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
     .bm-mmc-node mat-icon { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; }
     .bm-mmc-sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); font-weight: 600; }
-    .bm-mmc-ah { display: flex; align-items: center; justify-content: space-between; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
-    .bm-mmc-collapse { background: none; border: none; color: inherit; cursor: pointer; opacity: 0.7; }
-    .bm-mmc-asub { font-size: 12px; opacity: 0.6; margin: 8px 0; }
-    .bm-mmc-action { width: 100%; justify-content: flex-start; margin-bottom: 6px; }
-    @media (max-width: 1280px) { .bm-mmc { grid-template-columns: 240px 1fr; } .bm-mmc-actions { display: none; } }
+    @media (max-width: 1280px) { .bm-mmc { grid-template-columns: 240px 1fr; } }
   `],
 })
 export class HostManagementComponent implements OnInit {
@@ -108,7 +100,6 @@ export class HostManagementComponent implements OnInit {
   ngOnInit(): void { this.activate(); }
 
   firewallAvailable = signal(true);
-  actionsOpen = signal(true);
   selected = signal<string>('network');
   visited = signal<Set<string>>(new Set());
 
