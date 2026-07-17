@@ -69,7 +69,8 @@ def _build_parameters(schema: dict, directives: dict, entry: dict) -> dict[str, 
                 p["description"] = d["description"]
         params[var] = p
     # Hidden runtime variables — Debian defaults (the wizard overrides per family).
-    fam = entry.get("families", {}).get("debian", {})
+    fams = entry.get("families", {})
+    fam = fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
     params["_packages"] = {"type": "list", "hidden": True, "default": fam.get("packages", [])}
     params["_dest"] = {"type": "string", "hidden": True, "default": fam.get("config_path", "")}
     params["_service"] = {"type": "string", "hidden": True, "default": fam.get("service", "")}

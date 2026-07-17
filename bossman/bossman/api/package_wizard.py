@@ -23,19 +23,21 @@ router = APIRouter()
 
 # os-release ID / ID_LIKE token -> family.
 _REDHAT = {"rhel", "centos", "rocky", "almalinux", "alma", "fedora", "ol", "oraclelinux", "redhat"}
-_DEBIAN = {"debian", "ubuntu", "mint", "linuxmint", "raspbian", "pop"}
+_SUSE = {"suse", "opensuse", "sles", "sled", "opensuse-leap", "opensuse-tumbleweed"}
 
 
 def _family(facts: dict) -> str:
     """Best-effort OS family from the stored facts. Prefers an explicit
     os_family fact (agent Block 7); falls back to the os-release id/id_like."""
     fam = str(facts.get("os_family") or "").lower()
-    if fam in ("debian", "redhat"):
+    if fam in ("debian", "redhat", "suse"):
         return fam
     os = facts.get("os") or {}
     tokens = f"{os.get('id', '')} {os.get('id_like', '')} {os.get('distribution', '')}".lower()
     if any(t in tokens for t in _REDHAT):
         return "redhat"
+    if any(t in tokens for t in _SUSE):
+        return "suse"
     return "debian"
 
 
@@ -67,7 +69,8 @@ async def wizard_context(
     installed: dict[str, str] = {}
     resolved: dict[str, dict] = {}
     for pkg, entry in catalog.items():
-        fam = (entry.get("families") or {}).get(family) or (entry.get("families") or {}).get("debian") or {}
+        fams = entry.get("families") or {}
+        fam = fams.get(family) or fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
         resolved[pkg] = {"packages": fam.get("packages", []), "service": fam.get("service", ""),
                          "config_path": fam.get("config_path", "")}
         # Installed if ANY of the family's package names is present in inventory.
