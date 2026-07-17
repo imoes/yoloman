@@ -621,7 +621,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             @for (row of filteredSettingRows(r); track row.key) {
                               <tr (click)="openSetting(r, row)" [class.bm-row-sel]="settingKey() === row.key">
                                 <td class="bm-gpo-key">{{ row.key }}</td>
-                                <td [class.bm-dim]="row.state === 'Not configured'">{{ row.state }}</td>
+                                <td [class.bm-dim]="row.state === 'Host based'">{{ row.state }}</td>
                                 <td>
                                   @if (row.state === 'Configured') { {{ row.desired }} }
                                   @else if (row.state === 'Removed') { <s>{{ row.live || '—' }}</s> }
@@ -638,7 +638,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             @if (directiveSpec(r); as ds) {
                               @if (ds.description) { <p class="bm-dim bm-directive-desc">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
                             }
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Not configured — stop managing (file keeps its live value)</label>
+                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Host based — no policy; the file keeps its own value</label>
                             <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
                             @if (settingMode() === 'configured') {
                               @if (valueOptions(r); as opts) {
@@ -2213,7 +2213,7 @@ export class HostDetailComponent implements OnInit {
       const dv = des.get(key);
       return {
         key,
-        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Not configured',
+        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
         desired: dv === null || dv === undefined ? '' : this.scalarStr(dv),
         live: live.has(key) ? this.scalarStr(live.get(key)) : '',
         source: managed ? (srcs[key] ?? null) : null,

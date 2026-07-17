@@ -21,7 +21,7 @@ interface ScopePolicy {
 
 interface SettingRow {
   key: string;
-  state: 'Configured' | 'Removed' | 'Not configured';
+  state: 'Configured' | 'Removed' | 'Host based';
   policy: string;
   live: string;
 }
@@ -84,7 +84,7 @@ export interface EditorScope {
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
                 @for (row of rows(); track row.key) {
-                  <tr (click)="openRow(row)" [class.bm-oce-row-sel]="editKey() === row.key" [class.bm-oce-managed]="row.state !== 'Not configured'">
+                  <tr (click)="openRow(row)" [class.bm-oce-row-sel]="editKey() === row.key" [class.bm-oce-managed]="row.state !== 'Host based'">
                     <td class="bm-oce-key">{{ row.key }}</td>
                     <td>{{ row.state }}</td>
                     <td>{{ row.state === 'Configured' ? row.policy : row.state === 'Removed' ? '(absent)' : '' }}</td>
@@ -101,7 +101,7 @@ export interface EditorScope {
                 @if (directiveSpec(); as ds) {
                   @if (ds.description) { <p class="bm-oce-src">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
                 }
-                <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Not configured — no policy at this {{ scopeWord }}</label>
+                <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Host based — no policy at this {{ scopeWord }} (the host's own value applies)</label>
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'configured'" (change)="mode.set('configured')" /> Configured</label>
                 @if (mode() === 'configured') {
                   @if (valueOptions(); as opts) {
@@ -298,7 +298,7 @@ export class OuConfigEditorComponent implements OnChanges {
       const dv = des.get(key);
       return {
         key,
-        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Not configured',
+        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
         policy: dv === null || dv === undefined ? '' : this.scalar(dv),
         // No live host value here — show the directive default as a reference.
         live: this.scalar(specs[key]?.default ?? ''),
@@ -323,7 +323,7 @@ export class OuConfigEditorComponent implements OnChanges {
     const k = this.newKey().trim();
     if (!k) return;
     this.newKey.set('');
-    this.openRow({ key: k, state: 'Not configured', policy: '', live: '' });
+    this.openRow({ key: k, state: 'Host based', policy: '', live: '' });
   }
 
   /** ADMX spec for the setting being edited (by file basename + key). */
