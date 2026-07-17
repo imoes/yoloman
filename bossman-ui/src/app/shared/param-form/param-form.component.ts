@@ -53,6 +53,13 @@ interface Field { key: string; spec: ParamSpec; }
             @case ('stringlist') {
               <textarea class="bm-pf-in" rows="2" [value]="joinList(values()[f.key])" (input)="set(f.key, splitList($any($event.target).value))" placeholder="one per line"></textarea>
             }
+            @case ('objmap') {
+              <textarea class="bm-pf-in bm-pf-json" [class.bm-pf-jsonerr]="jsonErr()[f.key]" rows="3"
+                [value]="jsonDraft()[f.key] ?? objJson(values()[f.key])"
+                (input)="setJson(f.key, $any($event.target).value)"
+                spellcheck="false" placeholder="{ }"></textarea>
+              @if (jsonErr()[f.key]) { <div class="bm-pf-jsonmsg">Invalid JSON — not saved</div> }
+            }
             @case ('objlist') {
               <div class="bm-pf-tbl">
                 <table>
@@ -96,6 +103,9 @@ interface Field { key: string; spec: ParamSpec; }
       border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
     .bm-pf-in:focus { outline: none; border-color: var(--mat-sys-primary); }
     textarea.bm-pf-in { resize: vertical; line-height: 1.4; }
+    .bm-pf-json { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+    .bm-pf-jsonerr { border-color: var(--bm-red, #c62828); }
+    .bm-pf-jsonmsg { grid-column: 2; font-size: 11px; color: var(--bm-red, #c62828); }
     .bm-pf-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
     .bm-pf-switch input { accent-color: var(--mat-sys-primary); width: 15px; height: 15px; }
     .bm-pf-desc { grid-column: 2; font-size: 11.5px; opacity: 0.55; line-height: 1.35; }
@@ -152,12 +162,14 @@ export class ParamFormComponent implements OnInit {
     if (spec.type === 'bool') return 'bool';
     if (spec.type === 'number') return 'number';
     if (spec.type === 'list') return spec.items ? 'objlist' : 'stringlist';
+    if (spec.type === 'object') return 'objmap';
     return 'text';
   }
 
   private blank(spec: ParamSpec): unknown {
     if (spec.type === 'bool') return false;
     if (spec.type === 'list') return [];
+    if (spec.type === 'object') return {};
     if (spec.type === 'number') return null;
     return '';
   }
@@ -167,7 +179,29 @@ export class ParamFormComponent implements OnInit {
   }
   defaultHint(spec: ParamSpec): string {
     if (spec.default === undefined || spec.default === null || spec.default === '') return '';
-    return Array.isArray(spec.default) ? spec.default.join(', ') : String(spec.default);
+    if (Array.isArray(spec.default)) return spec.default.join(', ');
+    // Objects are edited inline as JSON (the field already shows the value), and
+    // String({}) would print "[object Object]" — so no separate default hint.
+    if (typeof spec.default === 'object') return '';
+    return String(spec.default);
+  }
+
+  // --- object (map) fields: edited as JSON so nested config sections work ---
+  jsonDraft = signal<Record<string, string>>({});
+  jsonErr = signal<Record<string, boolean>>({});
+  objJson(v: unknown): string {
+    if (v === undefined || v === null) return '{}';
+    try { return JSON.stringify(v, null, 2); } catch { return '{}'; }
+  }
+  setJson(key: string, raw: string): void {
+    this.jsonDraft.update((d) => ({ ...d, [key]: raw }));
+    try {
+      const parsed = JSON.parse(raw);
+      this.jsonErr.update((e) => ({ ...e, [key]: false }));
+      this.set(key, parsed);
+    } catch {
+      this.jsonErr.update((e) => ({ ...e, [key]: true }));
+    }
   }
   asBool(v: unknown): boolean { return v === true || v === 'true' || v === 'yes' || v === 1; }
   num(v: unknown): number | null { const n = Number(v); return isNaN(n) ? null : n; }
