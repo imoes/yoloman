@@ -12,9 +12,12 @@ import { SequentialWorkflowDesignerModule } from 'sequential-workflow-designer-a
 import { Definition, Step, StepsConfiguration, ToolboxConfiguration, DefinitionChangedEvent } from 'sequential-workflow-designer';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
+import { ModuleOptionSpec } from '../../core/models/module.model';
 import { AgentService } from '../../core/services/agent.service';
 import { ModuleService } from '../../core/services/module.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
+import { ParamFormComponent } from '../../shared/param-form/param-form.component';
+import { ParamSchema } from '../../shared/param-form/param-form.types';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -30,9 +33,12 @@ interface RunResult {
   runbook?: string; check_mode?: boolean; ok?: boolean; changed?: boolean; aborted?: boolean;
   facts_gathered?: number; steps?: StepResult[];
 }
-interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number; error?: string; line?: number; }
+interface DocStep { name?: string; module: string; args?: Record<string, unknown>; when?: string; loop?: unknown; register?: string; ignore_errors?: boolean; }
+interface RunbookDoc { kind: string; name: string; targets?: string | null; parameters?: ParamSchema; steps?: DocStep[]; }
+interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number; error?: string; line?: number; parameters?: ParamSchema; doc?: RunbookDoc; }
 interface RunRow { id: string; runbook: string; status: string; dry_run: boolean; created_at: string; }
-interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string }; }
+interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string } }
+interface ArgField { key: string; spec: ModuleOptionSpec; }
 
 // F-10 visual builder helpers. A toolbox step is a plain SWD task; each maps
 // 1:1 to a fleet NestedText runbook step on serialize.
@@ -102,17 +108,19 @@ const MAGIC_VARS = [
 ];
 
 /**
- * Block G11 — Runbook editor. Monaco (local, no CDN) editing a NestedText
- * runbook with YAML highlighting; server-side lint (/runbooks/lint) surfaces
- * errors as Monaco markers at their line. Pick a host, dry-run (check_mode
- * preview) then apply. Magic variables (agent facts, incl. motherboard) are
- * listed for reference. Mirrors the ansible-manager YamlEditor solution:
- * value + server lintErrors→setModelMarkers.
+ * Block G11 — the Workflow designer. Two synced views of one runbook:
+ * Monaco (NestedText, YAML-highlighted, server-side lint markers) and a
+ * drag-and-drop canvas (sequential-workflow-designer). The round-trip is real:
+ * text→visual parses via /runbooks/lint (which returns the canonical doc),
+ * visual→text serialises to NestedText. A step's args are edited through a
+ * form generated from the module's argspec (choices→select, description under
+ * each field, defaults as placeholders) — raw JSON only as a fallback. A
+ * runbook's typed `parameters` render as an input mask before dry-run/apply.
  */
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule, ParamFormComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -143,7 +151,7 @@ const MAGIC_VARS = [
         </aside>
         <div class="bm-left">
           <div class="bm-toolbar">
-            <mat-form-field appearance="outline" class="bm-host">
+            <mat-form-field appearance="outline" class="bm-host" subscriptSizing="dynamic">
               <mat-label>Folder</mat-label>
               <input matInput [(ngModel)]="moveFolder" placeholder="linux/base (empty = root)" />
             </mat-form-field>
@@ -170,52 +178,132 @@ const MAGIC_VARS = [
                 <mat-label>Targets</mat-label>
                 <input matInput [(ngModel)]="visualTargets" (ngModelChange)="syncVisual()" placeholder="group:web-servers" />
               </mat-form-field>
-              <span class="bm-dim">Drag steps onto the canvas; the NestedText below is generated for lint/dry-run/apply.</span>
+              <span class="bm-dim">Search the toolbox for a module and drag it onto the canvas; click a step to configure it with its real options.</span>
             </div>
-            <sqd-designer class="bm-designer"
-              theme="light"
-              [definition]="definition"
-              [toolboxConfiguration]="toolbox"
-              [stepsConfiguration]="stepsConfig"
-              [controlBar]="true"
-              [rootEditor]="rootEditor"
-              [stepEditor]="stepEditor"
-              (onDefinitionChanged)="onVisualChanged($event)"
-            ></sqd-designer>
+            <div class="bm-canvas-row">
+              <!-- Blockly-style module palette: search, click to place — no drag needed -->
+              <aside class="bm-palette">
+                <input class="bm-palette-search" placeholder="Search modules…"
+                       [ngModel]="paletteQuery()" (ngModelChange)="paletteQuery.set($event)" />
+                <div class="bm-palette-list">
+                  @for (m of paletteHits(); track m.ref) {
+                    <button type="button" class="bm-palette-item" (click)="addModuleStep(m)" [title]="m.desc">
+                      <span class="bm-mono">{{ m.name }}</span>
+                      @if (m.desc) { <span class="bm-palette-desc">{{ m.desc }}</span> }
+                    </button>
+                  } @empty {
+                    <p class="bm-dim" style="padding:8px">No module matches.</p>
+                  }
+                </div>
+                <p class="bm-dim bm-palette-hint">Click a module to append it as a step, then click the step on the canvas to fill in its parameters.</p>
+              </aside>
+              @if (visualReady()) {
+                <sqd-designer class="bm-designer"
+                  theme="dark"
+                  [definition]="definition"
+                  [toolboxConfiguration]="toolbox"
+                  [stepsConfiguration]="stepsConfig"
+                  [controlBar]="true"
+                  [rootEditor]="rootEditor"
+                  [stepEditor]="stepEditor"
+                  (onDefinitionChanged)="onVisualChanged($event)"
+                ></sqd-designer>
+              } @else {
+                <div class="bm-designer bm-designer-loading"><span class="bm-dim">Preparing canvas…</span></div>
+              }
+            </div>
 
             <ng-template #rootEditor>
               <div class="bm-veditor">
                 <h4>Runbook</h4>
-                <p class="bm-dim">Drag steps from the left onto the canvas, then click a step to set its
-                  module, args, when/register. The NestedText below regenerates as you edit.</p>
+                <p class="bm-dim">Drag steps from the toolbox onto the canvas, then click a step to configure it.
+                  The NestedText regenerates as you edit — switch to Text any time; both views stay in sync.</p>
               </div>
             </ng-template>
 
             <ng-template #stepEditor let-editor>
               <div class="bm-veditor">
-                <h4>{{ editor.step.type }}</h4>
-                <label>Name <input [(ngModel)]="editor.step.name" (ngModelChange)="editor.context.notifyNameChanged(); syncVisual()" /></label>
+                <h4 class="bm-mono">{{ editor.step.properties['module'] || editor.step.type }}</h4>
+                @if (moduleDesc(argModule(editor.step)); as md) { <p class="bm-arg-desc">{{ md }}</p> }
+                <label>Step name
+                  <input [(ngModel)]="editor.step.name" (ngModelChange)="editor.context.notifyNameChanged(); syncVisual()" />
+                </label>
                 @switch (editor.step.type) {
-                  @case ('module') {
-                    <label>Module <input [(ngModel)]="editor.step.properties['module']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="apt, service, file…" /></label>
-                    <label>Args (JSON) <textarea rows="6" [(ngModel)]="editor.step.properties['args']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"name":"nginx","state":"present"}'></textarea></label>
-                  }
                   @case ('set_fact') {
-                    <label>Facts (JSON) <textarea rows="5" [(ngModel)]="editor.step.properties['facts']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"web_pkg":"nginx"}'></textarea></label>
+                    <label>Facts (JSON)
+                      <textarea rows="5" [(ngModel)]="editor.step.properties['facts']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"web_pkg":"nginx"}'></textarea>
+                    </label>
                   }
                   @case ('debug') {
-                    <label>Message <input [(ngModel)]="editor.step.properties['msg']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="installing &#36;&#123;web_pkg&#125;" /></label>
+                    <label>Message
+                      <input [(ngModel)]="editor.step.properties['msg']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="installing &#36;&#123;web_pkg&#125;" />
+                    </label>
+                  }
+                  @default {
+                    <label>Module
+                      <input list="bm-mod-list" [(ngModel)]="editor.step.properties['module']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="apt, service, file…" />
+                    </label>
+                    <datalist id="bm-mod-list">
+                      @for (m of moduleNames(); track m) { <option [value]="m"></option> }
+                    </datalist>
+
+                    <!-- The module's real options, as a form -->
+                    @if (argFields(argModule(editor.step)); as fields) {
+                      @if (fields.length) { <div class="bm-arg-h">Options</div> }
+                      @for (f of fields; track f.key) {
+                        <label>{{ f.key }}@if (f.spec.required) { <span class="bm-req">*</span> }
+                          @if (f.spec.choices?.length) {
+                            <select [ngModel]="argValue(editor.step, f.key)" (ngModelChange)="setArg(editor.step, f.key, $event, editor)">
+                              <option value=""></option>
+                              @for (c of f.spec.choices; track c) { <option [value]="c">{{ c }}</option> }
+                            </select>
+                          } @else {
+                            <input [ngModel]="argValue(editor.step, f.key)" (ngModelChange)="setArg(editor.step, f.key, $event, editor)"
+                                   [placeholder]="argPlaceholder(f.spec)" />
+                          }
+                          @if (f.spec.description) { <span class="bm-arg-desc">{{ descText(f.spec.description) }}</span> }
+                        </label>
+                      }
+                      @if (argModule(editor.step) && !fields.length && argspecLoaded(argModule(editor.step))) {
+                        <p class="bm-dim">No declared options — set args below.</p>
+                      }
+                    }
+                    <details class="bm-arg-raw">
+                      <summary>Raw args (JSON)</summary>
+                      <textarea rows="4" [ngModel]="argJson(editor.step)" (ngModelChange)="setArgJson(editor.step, $event, editor)"></textarea>
+                    </details>
                   }
                 }
-                <label>when: <input [(ngModel)]="editor.step.properties['when']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="optional condition" /></label>
-                <label>register: <input [(ngModel)]="editor.step.properties['register']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="optional var name" /></label>
+                <div class="bm-arg-h">Flow</div>
+                <label>when — run only if
+                  <input [(ngModel)]="editor.step.properties['when']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="e.g. result.changed" />
+                </label>
+                <label>loop — repeat per item
+                  <input [(ngModel)]="editor.step.properties['loop']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='&#36;&#123;list_var&#125; or ["a","b"]' />
+                </label>
+                <label>register — save result as
+                  <input [(ngModel)]="editor.step.properties['register']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="variable name" />
+                </label>
+                <label class="bm-arg-check">
+                  <input type="checkbox" [(ngModel)]="editor.step.properties['ignore_errors']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" />
+                  ignore errors (continue on failure)
+                </label>
               </div>
             </ng-template>
           }
           <div #editor class="bm-editor" [style.display]="mode() === 'text' ? 'block' : 'none'"></div>
+
+          @if (paramMask(); as pm) {
+            <div class="bm-params">
+              <div class="bm-panel-title">Runbook parameters</div>
+              <p class="bm-dim">This runbook declares typed parameters — fill them in (defaults shown), they are passed as variables on dry-run/apply.</p>
+              <app-param-form [params]="pm" (valuesChange)="runVars = $event" />
+            </div>
+          }
+
           <div class="bm-toolbar">
             <button mat-stroked-button (click)="doLint()"><mat-icon>check_circle</mat-icon> Lint</button>
-            <mat-form-field appearance="outline" class="bm-host">
+            <mat-form-field appearance="outline" class="bm-host" subscriptSizing="dynamic">
               <mat-label>Host</mat-label>
               <mat-select [ngModel]="hostId()" (ngModelChange)="onHostChange($event)">
                 @for (h of hosts(); track h.id) { <mat-option [value]="h.id">{{ h.name }}</mat-option> }
@@ -258,7 +346,9 @@ const MAGIC_VARS = [
           }
         </div>
 
-        <div class="bm-right">
+        <!-- Hidden in visual mode: the canvas needs the width (a squeezed
+             designer falls into its cramped mobile layout). -->
+        <div class="bm-right" [style.display]="mode() === 'visual' ? 'none' : 'block'">
           <div class="bm-panel-title">Magic variables</div>
           <p class="bm-dim">Agent facts, available as <code>&#36;&#123;var&#125;</code> in args/when — no declaration:</p>
           <ul class="bm-vars">
@@ -288,7 +378,7 @@ const MAGIC_VARS = [
       .bm-header-row { display: flex; align-items: baseline; gap: 14px; }
       .bm-subtitle { opacity: 0.7; }
       .bm-split { display: flex; gap: 16px; margin-top: 12px; align-items: flex-start; }
-      .bm-tree { flex: 0 0 220px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: auto; max-height: 560px; }
+      .bm-tree { flex: 0 0 220px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: auto; max-height: 620px; }
       .bm-tree-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-tree ul { list-style: none; margin: 0; padding: 4px 0; }
       .bm-tree li { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; font-size: 13px; }
@@ -298,15 +388,47 @@ const MAGIC_VARS = [
       .bm-rb.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
       .bm-left { flex: 1 1 60%; min-width: 0; }
       .bm-right { flex: 1 1 30%; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
-      .bm-editor { height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; }
+      .bm-editor { height: 520px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; }
       .bm-mode { display: inline-flex; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; margin-left: auto; }
       .bm-mode button { border-radius: 0; }
       .bm-mode-on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); font-weight: 600; }
       .bm-vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
-      .bm-designer { display: block; height: 460px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
-      .bm-veditor { padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 260px; }
+      .bm-canvas-row { display: grid; grid-template-columns: 280px 1fr; gap: 10px; margin-bottom: 10px; }
+      .bm-palette { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; height: 560px; display: flex; flex-direction: column; }
+      .bm-palette-search { margin: 8px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
+      .bm-palette-list { flex: 1; overflow-y: auto; padding: 0 4px; }
+      .bm-palette-item { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left;
+        background: none; border: none; border-left: 3px solid transparent; color: inherit; cursor: pointer; padding: 5px 8px; border-radius: 0 6px 6px 0; }
+      .bm-palette-item:hover { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); border-left-color: var(--mat-sys-primary); }
+      .bm-palette-item .bm-mono { font-size: 12.5px; }
+      .bm-palette-desc { font-size: 11px; opacity: 0.55; line-height: 1.25; }
+      .bm-palette-hint { padding: 6px 8px; margin: 0; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-designer { display: block; height: 560px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; min-width: 0; }
+      .bm-designer-loading { display: flex; align-items: center; justify-content: center; }
+      /* The Angular wrapper nests <div class="sqd-designer-angular"><div
+         class="sqd-designer"> with no height of their own — without both at
+         100% the workspace collapses to a ~107px strip hidden behind the
+         toolbox and steps look invisible/unclickable. */
+      .bm-designer ::ng-deep .sqd-designer-angular { height: 100%; }
+      .bm-designer ::ng-deep .sqd-designer { height: 100%; }
+      /* Our own palette replaces the built-in toolbox (which overlaid the steps
+         and duplicated the module list). */
+      .bm-designer ::ng-deep .sqd-toolbox { display: none; }
+      .bm-veditor { padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 320px; max-height: 520px; overflow-y: auto; }
+      .bm-veditor h4 { margin: 0 0 2px; }
       .bm-veditor label { display: flex; flex-direction: column; font-size: 12px; gap: 3px; }
-      .bm-veditor input, .bm-veditor textarea { padding: 4px 6px; font-family: monospace; }
+      .bm-veditor input, .bm-veditor textarea, .bm-veditor select {
+        padding: 4px 6px; font-family: monospace; font-size: 12px;
+        background: var(--mat-sys-surface); color: var(--mat-sys-on-surface);
+        border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px;
+      }
+      .bm-arg-h { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: 0.55; margin-top: 6px; }
+      .bm-arg-desc { font-size: 11px; opacity: 0.6; font-family: system-ui, sans-serif; line-height: 1.35; }
+      .bm-req { color: var(--bm-red, #c62828); }
+      .bm-arg-raw summary { font-size: 12px; opacity: 0.7; cursor: pointer; }
+      .bm-arg-raw textarea { width: 100%; box-sizing: border-box; margin-top: 4px; }
+      .bm-arg-check { flex-direction: row !important; align-items: center; gap: 6px !important; }
+      .bm-params { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
       .bm-toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
       .bm-host { width: 220px; }
       .bm-lint { padding: 8px 12px; border-radius: 6px; font-size: 13px; }
@@ -356,50 +478,222 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   expanded = signal<Set<string>>(new Set(['']));
   moveFolder = ''; // folder the current runbook is saved into
 
-  // F-10: visual authoring mode. Visual edits serialize into Monaco (the single
-  // source lint/dry-run/apply read), so the designer is an authoring overlay,
-  // not a second format. text→visual is not reverse-parsed (one-way).
+  // The runbook's typed parameter mask (visible params only) — filled from the
+  // lint response; the form's values are passed as run variables.
+  runVars: Record<string, unknown> = {};
+  paramMask = computed<ParamSchema | null>(() => {
+    const p = this.lint()?.parameters ?? null;
+    if (!p) return null;
+    const visible = Object.fromEntries(Object.entries(p).filter(([, s]) => s && typeof s === 'object' && 'type' in s && !s.hidden));
+    return Object.keys(visible).length ? (visible as ParamSchema) : null;
+  });
+
+  // F-10: visual authoring mode, now ROUND-TRIP: text→visual parses the current
+  // NestedText via /runbooks/lint (which returns the canonical doc); visual→text
+  // serialises back into Monaco (the single source lint/dry-run/apply read).
   mode = signal<'text' | 'visual'>('text');
+  // The designer measures its workspace at init — instantiate it one tick AFTER
+  // the visual layout settles, or it caches a tiny pre-layout size (steps end up
+  // in a 180px strip behind the toolbox).
+  visualReady = signal(false);
   visualName = 'my-runbook';
   visualTargets = '';
   definition: Definition = { sequence: [], properties: {} };
-  // The toolbox: a Flow group + one draggable step per catalog module. The SWD
-  // toolbox has a built-in search box, so populating it with the real modules is
-  // what makes it searchable ("apt", "service", "docker_container", …).
   toolbox: ToolboxConfiguration = {
     groups: [{
       name: 'Flow',
       steps: [
-        vtask('module', 'module (any)', { module: '', args: '{}' }),
+        vtask('module', 'module (any)', { module: '', args: {} }),
+        vtask('module', 'shell command', { module: 'shell', args: { cmd: '' } }),
+        vtask('module', 'config template', { module: 'config_template', args: { template: '', dest: '' } }),
         vtask('set_fact', 'set_fact', { facts: '{}' }),
         vtask('debug', 'debug', { msg: '' }),
       ],
     }],
   };
-
-  /** Populate the toolbox from the module catalog so each module is a draggable,
-   * searchable step (type 'module' with its name pre-filled → serialises 1:1). */
-  private buildToolbox(): void {
-    this.moduleService.catalog().subscribe((cat) => {
-      const byCollection = new Map<string, Step[]>();
-      for (const m of cat.modules) {
-        if (m.fqcn.startsWith('checkmk.')) continue; // checks, not runbook modules
-        const coll = m.collection === 'ansible.builtin' ? 'built-in' : m.collection;
-        const step = vtask('module', m.name, { module: m.name, args: '{}' });
-        (byCollection.get(coll) ?? byCollection.set(coll, []).get(coll)!).push(step);
-      }
-      const moduleGroups = [...byCollection.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([name, steps]) => ({ name, steps: steps.sort((a, b) => a.name.localeCompare(b.name)) }));
-      this.toolbox = { groups: [this.toolbox.groups[0], ...moduleGroups] };
-    });
-  }
   stepsConfig: StepsConfiguration = { iconUrlProvider: () => null };
 
+  // ---- module catalog: the palette, fqcn lookup, argspec cache ----
+  private fqcnByName = new Map<string, string>();
+  private descByModule = new Map<string, string>();
+  moduleNames = signal<string[]>([]);
+  private argspecCache = signal<Record<string, ArgField[]>>({});
+  private argspecPending = new Set<string>();
+
+  // Blockly-style palette: search over the whole catalog, click to place.
+  // The Flow entries (shell/config template/set_fact/debug) sit on top.
+  private static readonly FLOW_ITEMS = [
+    { ref: 'shell', name: 'shell command', desc: 'Run a shell command on the host', collection: 'flow', kind: 'module' as const },
+    { ref: 'config_template', name: 'config template', desc: 'Render a config template to a file', collection: 'flow', kind: 'module' as const },
+    { ref: 'set_fact', name: 'set_fact', desc: 'Set variables for later steps', collection: 'flow', kind: 'set_fact' as const },
+    { ref: 'debug', name: 'debug', desc: 'Print a message (with variables)', collection: 'flow', kind: 'debug' as const },
+  ];
+  paletteQuery = signal('');
+  private paletteAll = signal<{ ref: string; name: string; desc: string; collection: string; kind?: 'module' | 'set_fact' | 'debug' }[]>([]);
+  paletteHits = computed(() => {
+    const q = this.paletteQuery().trim().toLowerCase();
+    const all = [...RunbookEditorComponent.FLOW_ITEMS, ...this.paletteAll()];
+    const hits = q
+      ? all.filter((m) => m.name.toLowerCase().includes(q) || m.ref.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q))
+      : all;
+    return hits.slice(0, 60);
+  });
+
+  /** Load the module catalog into the click-to-place palette (searchable across
+   * ALL modules) and the fqcn/description lookups. The SWD toolbox keeps only
+   * the small Flow group — dragging 2000 modules was unusable. */
+  private buildToolbox(): void {
+    this.moduleService.catalog().subscribe((cat) => {
+      const palette: { ref: string; name: string; desc: string; collection: string }[] = [];
+      const names: string[] = [];
+      for (const m of cat.modules) {
+        if (m.fqcn.startsWith('checkmk.')) continue; // checks, not runbook modules
+        const builtin = m.collection === 'ansible.builtin' || m.collection === 'built-in';
+        const moduleRef = builtin ? m.name : m.fqcn;
+        this.fqcnByName.set(m.name, m.fqcn);
+        if (m.short_description) this.descByModule.set(moduleRef, m.short_description);
+        names.push(moduleRef);
+        palette.push({ ref: moduleRef, name: m.name, desc: m.short_description ?? '', collection: m.collection });
+      }
+      palette.sort((a, b) => a.name.localeCompare(b.name));
+      this.paletteAll.set(palette);
+      this.moduleNames.set(names.sort());
+    });
+  }
+
+  /** Click-to-place: append the module as a new step and sync the text. The
+   * user then clicks the step on the canvas to fill in its parameters. */
+  addModuleStep(m: { ref: string; name: string; kind?: 'module' | 'set_fact' | 'debug' }): void {
+    let step: Step;
+    if (m.kind === 'set_fact') step = vtask('set_fact', 'set_fact', { facts: '{}' });
+    else if (m.kind === 'debug') step = vtask('debug', 'debug', { msg: '' });
+    else step = vtask('module', m.name, { module: m.ref, args: {} });
+    this.definition = { sequence: [...(this.definition.sequence as Step[]), step], properties: this.definition.properties };
+    this.syncVisual();
+  }
+
+  // ---- per-step argspec form ----
+  argModule(step: Step): string {
+    return String((step.properties as Record<string, unknown>)['module'] ?? '');
+  }
+  moduleDesc(module: string): string {
+    return this.descByModule.get(module) ?? '';
+  }
+  argspecLoaded(module: string): boolean {
+    return module in this.argspecCache();
+  }
+  /** The module's declared options (cached; fetched lazily on first render). */
+  argFields(module: string): ArgField[] {
+    if (!module) return [];
+    const cached = this.argspecCache()[module];
+    if (cached) return cached;
+    if (!this.argspecPending.has(module)) {
+      this.argspecPending.add(module);
+      const fqcn = module.includes('.') ? module : (this.fqcnByName.get(module) ?? module);
+      this.moduleService.detail(fqcn).subscribe({
+        next: (d) => {
+          const fields = Object.entries(d.metadata.options ?? {}).map(([key, spec]) => ({ key, spec }));
+          // Required options first, then alphabetical — the form reads top-down.
+          fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
+          if (d.metadata.short_description) this.descByModule.set(module, d.metadata.short_description);
+          this.argspecCache.update((m) => ({ ...m, [module]: fields }));
+        },
+        error: () => this.argspecCache.update((m) => ({ ...m, [module]: [] })),
+      });
+    }
+    return [];
+  }
+  private stepArgs(step: Step): Record<string, unknown> {
+    const p = step.properties as Record<string, unknown>;
+    const raw = p['args'];
+    if (typeof raw === 'string') { p['args'] = safeJson(raw); return p['args'] as Record<string, unknown>; }
+    if (!raw || typeof raw !== 'object') { p['args'] = {}; }
+    return p['args'] as Record<string, unknown>;
+  }
+  argValue(step: Step, key: string): string {
+    const v = this.stepArgs(step)[key];
+    return v === undefined || v === null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+  }
+  setArg(step: Step, key: string, value: string, editor: { context: { notifyPropertiesChanged(): void } }): void {
+    const args = this.stepArgs(step);
+    if (value === '') delete args[key];
+    else args[key] = value;
+    editor.context.notifyPropertiesChanged();
+    this.syncVisual();
+  }
+  argJson(step: Step): string {
+    return JSON.stringify(this.stepArgs(step), null, 1);
+  }
+  setArgJson(step: Step, value: string, editor: { context: { notifyPropertiesChanged(): void } }): void {
+    try {
+      const v = JSON.parse(value);
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        (step.properties as Record<string, unknown>)['args'] = v;
+        editor.context.notifyPropertiesChanged();
+        this.syncVisual();
+      }
+    } catch { /* ignore until the JSON is valid */ }
+  }
+  argPlaceholder(spec: ModuleOptionSpec): string {
+    const parts: string[] = [];
+    if (spec.type) parts.push(String(spec.type));
+    if (spec.default !== undefined && spec.default !== null) parts.push(`default: ${spec.default}`);
+    return parts.join(' · ');
+  }
+  descText(d: unknown): string {
+    return Array.isArray(d) ? d.join(' ') : String(d ?? '');
+  }
+
+  /** Switch views. text→visual round-trips through the linter (canonical doc);
+   * an invalid document keeps you in text mode with the error marked. */
   setMode(m: 'text' | 'visual'): void {
+    if (m === 'visual') {
+      this.http.post<LintResult>(`${this.base}/runbooks/lint`, { nt: this.source() }).subscribe({
+        next: (r) => {
+          this.lint.set(r);
+          this.setMarkers(r);
+          if (!r.ok) return; // stay in text mode; the error is marked
+          if (r.doc?.kind === 'role') { this.lint.set({ ok: false, error: 'roles are edited as text (visual mode covers runbooks)' }); return; }
+          if (r.doc) this.visualFromDoc(r.doc);
+          this.mode.set('visual');
+          this.visualReady.set(false);
+          setTimeout(() => this.visualReady.set(true), 60);
+        },
+        error: () => { this.lint.set({ ok: false, error: 'lint failed' }); },
+      });
+      return;
+    }
     this.mode.set(m);
     // Monaco mis-measures while display:none; relayout once it's visible again.
-    if (m === 'text') setTimeout(() => this.ed?.layout(), 0);
+    setTimeout(() => this.ed?.layout(), 0);
+  }
+
+  /** Build the visual canvas from the canonical parsed doc (text→visual). */
+  private visualFromDoc(doc: RunbookDoc): void {
+    this.visualName = doc.name || 'my-runbook';
+    this.visualTargets = doc.targets || '';
+    const seq: Step[] = [];
+    for (const st of doc.steps ?? []) {
+      const props: Record<string, unknown> = {};
+      if (st.when) props['when'] = st.when;
+      if (st.register) props['register'] = st.register;
+      if (st.loop !== undefined && st.loop !== null) {
+        props['loop'] = typeof st.loop === 'string' ? st.loop : JSON.stringify(st.loop);
+      }
+      if (st.ignore_errors) props['ignore_errors'] = true;
+      if (st.module === 'set_fact') {
+        props['facts'] = JSON.stringify(st.args ?? {});
+        seq.push(vtask('set_fact', st.name || 'set_fact', props));
+      } else if (st.module === 'debug') {
+        props['msg'] = String((st.args ?? {})['msg'] ?? '');
+        seq.push(vtask('debug', st.name || 'debug', props));
+      } else {
+        props['module'] = st.module;
+        props['args'] = st.args ?? {};
+        seq.push(vtask('module', st.name || st.module, props));
+      }
+    }
+    this.definition = { sequence: seq, properties: {} };
   }
 
   onVisualChanged(e: DefinitionChangedEvent): void {
@@ -414,19 +708,36 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.visualTargets.trim()) lines.push(`targets: ${this.visualTargets.trim()}`);
     lines.push('steps:');
     for (const s of this.definition.sequence as Step[]) {
-      const p = s.properties as Record<string, string>;
+      const p = s.properties as Record<string, unknown>;
       let module = '';
       let args: Record<string, unknown> = {};
       switch (s.type) {
-        case 'module': module = p['module'] || ''; args = safeJson(p['args']); break;
-        case 'set_fact': module = 'set_fact'; args = safeJson(p['facts']); break;
+        case 'set_fact': module = 'set_fact'; args = safeJson(String(p['facts'] ?? '')); break;
         case 'debug': module = 'debug'; args = { msg: p['msg'] || '' }; break;
+        default: {
+          module = String(p['module'] || '');
+          const raw = p['args'];
+          args = typeof raw === 'string' ? safeJson(raw) : ((raw && typeof raw === 'object') ? raw as Record<string, unknown> : {});
+        }
       }
       lines.push('  -');
-      lines.push(`    name: ${s.name}`);
+      if (s.name) lines.push(`    name: ${s.name}`);
       lines.push(`    module: ${module}`);
       if (p['when']) lines.push(`    when: ${p['when']}`);
+      const loop = String(p['loop'] ?? '').trim();
+      if (loop) {
+        if (loop.startsWith('[')) {
+          try {
+            const items = JSON.parse(loop) as unknown[];
+            lines.push('    loop:');
+            for (const it of items) lines.push(`      - ${it}`);
+          } catch { lines.push(`    loop: ${loop}`); }
+        } else {
+          lines.push(`    loop: ${loop}`);
+        }
+      }
       if (p['register']) lines.push(`    register: ${p['register']}`);
+      if (p['ignore_errors']) lines.push('    ignore_errors: true');
       const argBlock = ntBlock(args, 6);
       if (argBlock) { lines.push('    args:'); lines.push(argBlock); }
     }
@@ -502,6 +813,9 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.http.get<{ nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
       this.ed?.setValue(r.nt || '');
       this.moveFolder = r.folder || '';
+      // Lint right away: shows validity, fills the parameter mask, and keeps
+      // the visual canvas in sync when it's the active view.
+      this.doLint(this.mode() === 'visual');
     });
   }
 
@@ -510,6 +824,8 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.saveMsg.set('');
     this.moveFolder = '';
     this.ed?.setValue(STARTER);
+    this.lint.set(null);
+    if (this.mode() === 'visual') this.doLint(true);
   }
 
   save(): void {
@@ -561,9 +877,13 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     monaco.editor.setModelMarkers(model, 'runbook-lint', markers);
   }
 
-  doLint(): void {
+  doLint(rebuildVisual = false): void {
     this.http.post<LintResult>(`${this.base}/runbooks/lint`, { nt: this.source() }).subscribe({
-      next: (r) => { this.lint.set(r); this.setMarkers(r); },
+      next: (r) => {
+        this.lint.set(r);
+        this.setMarkers(r);
+        if (rebuildVisual && r.ok && r.doc && r.doc.kind !== 'role') this.visualFromDoc(r.doc);
+      },
       error: (e) => { const l = { ok: false, error: e?.error?.detail ?? 'lint failed' }; this.lint.set(l); this.setMarkers(l); },
     });
   }
@@ -571,7 +891,8 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   run(dryRun: boolean): void {
     this.running.set(true);
     this.result.set(null);
-    this.http.post<RunResult>(`${this.base}/agents/${this.hostId()}/runbook/run`, { nt: this.source(), dry_run: dryRun }).subscribe({
+    this.http.post<RunResult>(`${this.base}/agents/${this.hostId()}/runbook/run`,
+      { nt: this.source(), variables: this.runVars, dry_run: dryRun }).subscribe({
       next: (r) => { this.result.set(r); this.running.set(false); this.loadRuns(); },
       error: (e) => {
         this.result.set({ ok: false, steps: [{ name: 'error', module: '', status: 'failed', changed: null, error: e?.error?.detail ?? 'run failed' }] });

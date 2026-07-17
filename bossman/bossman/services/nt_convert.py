@@ -70,6 +70,10 @@ def _authoring_dict(doc: dict[str, Any]) -> dict[str, Any]:
         out["name"] = doc.get("name", "")
         if doc.get("targets"):
             out["targets"] = doc["targets"]
+        # Typed input-mask schema — must survive the doc→NT round-trip, else a
+        # loaded runbook silently loses its parameters on the next save.
+        if doc.get("parameters"):
+            out["parameters"] = doc["parameters"]
         out["steps"] = doc.get("steps", [])
     return out
 

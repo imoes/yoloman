@@ -150,8 +150,10 @@ async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) ->
         doc = nt_runbook.parse_document(body.nt)
     except nt_runbook.NTRunbookError as exc:
         return {"ok": False, "error": str(exc), "line": getattr(exc, "line", None)}
+    # `doc` (the canonical dict) lets the editor rebuild its visual canvas from
+    # the text — the round-trip that makes text→visual editing possible.
     return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps),
-            "parameters": getattr(doc, "parameters", {})}
+            "parameters": getattr(doc, "parameters", {}), "doc": doc.to_dict()}
 
 
 class RunBody(BaseModel):
