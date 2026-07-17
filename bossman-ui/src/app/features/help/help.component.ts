@@ -53,7 +53,10 @@ export class HelpComponent implements OnInit {
   ngOnInit(): void {
     this.http.get<{ markdown: string }>(`${environment.apiUrl}/help`).subscribe({
       next: (r) => {
-        const md = r.markdown || '';
+        // The README uses GitHub-relative image paths (docs/assets/…) that don't
+        // resolve in the app; the UI serves those images from /assets/, so
+        // rewrite the prefix before rendering (fixes the missing yolo-man logo).
+        const md = (r.markdown || '').replace(/docs\/assets\//g, 'assets/');
         this.html.set(md ? this.sanitizer.bypassSecurityTrustHtml(marked.parse(md) as string) : null);
         this.loading.set(false);
       },
