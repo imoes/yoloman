@@ -28,6 +28,7 @@ from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
 from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import mark_poller_agent, seed_default_check_rules
+from bossman.services.wizard_seed import seed_wizard_runbooks
 from bossman.services.poller import PollerStats, poller_loop
 from bossman.services.reconciler import ReconcileStats, reconciler_loop
 
@@ -102,6 +103,17 @@ async def lifespan(app: FastAPI):
         except Exception:  # noqa: BLE001 — never let plan import break startup
             await session.rollback()
             logger.warning("plans_dir → store import failed at startup", exc_info=True)
+
+    # Installation-wizard runbooks (folder "wizards"): one install-<pkg> per
+    # catalog package with a template. Idempotent hash-upsert; best-effort.
+    async with app.state.session_factory() as session:
+        try:
+            n = await seed_wizard_runbooks(session, settings)
+            if n:
+                logger.info("seeded wizard runbooks", extra={"changed": n})
+        except Exception:  # noqa: BLE001 — never let wizard seeding break startup
+            await session.rollback()
+            logger.warning("wizard runbook seeding failed at startup", exc_info=True)
 
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)
