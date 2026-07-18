@@ -111,25 +111,20 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
             short_description=c.get("short_description", ""),
             needs_params=_needs_params(c.get("options", {})),
         )
+        # DISCOVERY-FIRST, exactly like Checkmk: a check's discovery_function
+        # parses the host's section data and YIELDS one Service per item it
+        # finds (each filesystem, NIC, sensor, pool). We mirror that by running
+        # the check's `_discover` mode — 1141 of the translated checks implement
+        # it for real (e.g. df runs `df -PT` and enumerates every mount). A check
+        # is RELEVANT iff its discovery finds ≥1 item; that is the only signal
+        # needed and the only one that scales to multi-item checks.
+        #
+        # (The old code instead ran a whole-host relevance probe with empty
+        # params and kept the check only if it returned OK/WARN/CRIT. That
+        # DROPPED every per-item check — df with no item returns UNKNOWN — so
+        # discovery found none of the 10 filesystems. Discovery-first fixes it.)
+        discovered = False
         try:
-            # RELEVANCE PROBE (Checkmk: only a check whose section/data is
-            # present applies). The translated `_discover` mode is unreliable —
-            # it returns a hardcoded placeholder item without touching the host,
-            # so it can't tell relevant from irrelevant. Instead run the check
-            # FOR REAL (normal mode) and keep it only if it produced actual
-            # data: state OK/WARN/CRIT. UNKNOWN means its data source isn't here
-            # (e.g. acme_sbc's "show health" fails on a Linux box) → not
-            # applicable; skip it. This is what stops discovery listing the
-            # whole library.
-            probe = await client.call_tool(fqcn, {})
-            pdata = (probe or {}).get("data") if isinstance(probe, dict) else None
-            state = str((pdata or {}).get("state", "")).upper() if isinstance(pdata, dict) else ""
-            if state not in ("OK", "WARN", "CRIT"):
-                continue  # data source absent on this host — not relevant
-
-            # Relevant → enumerate its item(s) via _discover for the metric/param
-            # metadata (still the check's own shape), falling back to one default
-            # item when discovery yields nothing concrete.
             result = await client.call_tool(fqcn, {"_discover": True})
             data = (result or {}).get("data") if isinstance(result, dict) else None
             discovery = (data or {}).get("discovery") if isinstance(data, dict) else None
@@ -143,12 +138,26 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
                         metrics=[str(m) for m in (entry.get("metrics") or [])],
                     )
                 )
-            if not prop.items:
-                prop.items.append(DiscoveredItem(item=""))
-        except Exception as exc:  # noqa: BLE001 — one bad check must not sink the run
-            # An exception in the probe means it didn't cleanly return data →
-            # treat as not-applicable rather than surfacing a traceback.
-            continue
+            discovered = bool(prop.items)
+        except Exception:  # noqa: BLE001 — a broken _discover falls through to the probe
+            pass
+
+        if not discovered:
+            # No items from discovery. Either a single-instance check (uptime,
+            # memory — one whole-host service, no items) or its section isn't
+            # present. Distinguish with a normal probe: OK/WARN/CRIT means the
+            # data source IS here → one item-less service; anything else (UNKNOWN
+            # / error) means not applicable → skip.
+            try:
+                probe = await client.call_tool(fqcn, {})
+                pdata = (probe or {}).get("data") if isinstance(probe, dict) else None
+                state = str((pdata or {}).get("state", "")).upper() if isinstance(pdata, dict) else ""
+            except Exception:  # noqa: BLE001
+                state = ""
+            if state not in ("OK", "WARN", "CRIT"):
+                continue  # not applicable on this host
+            prop.items.append(DiscoveredItem(item=""))
+
         proposals.append(prop)
 
     return proposals

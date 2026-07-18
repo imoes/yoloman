@@ -57,9 +57,12 @@ async def test_discovery_keeps_only_hosts_with_real_data():
     assert set(by_name) == {"df", "uptime"}          # apache probed UNKNOWN -> not applicable
     assert [i.item for i in by_name["df"].items] == ["/", "/data"]
     assert by_name["df"].items[0].metrics == ["used_percent"]
-    # relevant checks are probed normally AND enumerated with _discover
-    assert ("checks.apache", {}) in client.calls
-    assert ("checks.apache", {"_discover": True}) not in client.calls  # skipped after UNKNOWN probe
+    # Discovery-first (Checkmk model): _discover runs first; apache finds no
+    # items, so it falls back to a normal probe, which returns UNKNOWN -> dropped.
+    assert ("checks.apache", {"_discover": True}) in client.calls
+    assert ("checks.apache", {}) in client.calls  # empty-discovery fallback probe
+    # df found items via _discover, so it needs no fallback probe.
+    assert ("checks.df", {}) not in client.calls
 
 
 async def test_relevant_check_with_empty_discovery_gets_a_default_item():
