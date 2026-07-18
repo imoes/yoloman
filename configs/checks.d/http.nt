@@ -1,0 +1,112 @@
+name: http
+fqcn: checkmk.http
+collection: checkmk
+short_description: HTTP service
+description:
+    > ## Overview
+    > Active HTTP(S) service check — the Checkmk "Check HTTP service" (check_http) equivalent.
+    > Fetches a URL from this agent and grades status code, response time, page content,
+    > page size and TLS-certificate age against the configured thresholds.
+    >
+    > ## How it works
+    > Uses the agent's native http probe (ctx.probe) — a client-side request; nothing is
+    > installed or changed on the target. Assign it to the host that should RUN the probe
+    > (any agent can check any reachable URL). Several instances per host are supported —
+    > each assignment's `service_name` becomes its own service.
+    >
+    > ## States
+    > - **OK**: status/content/time/cert all within bounds.
+    > - **WARN**: status 4xx (without expect_status), response time over warn, cert near expiry.
+    > - **CRIT**: connection error, unexpected status, content mismatch, response time over crit, cert expiring.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Name of the resulting service (e.g. "Health Qwen7b").
+    url:
+        type: string
+        description: Full URL to fetch (https://host:port/path). Leave empty to build it from host/port/uri below.
+    host:
+        type: string
+        description: Hostname or IP (used when url is empty; defaults to localhost).
+    port:
+        type: number
+        description: TCP port (used when url is empty).
+    uri:
+        type: string
+        default: /
+        description: URI/path to fetch (used when url is empty).
+    ssl:
+        type: bool
+        default: false
+        description: Use SSL/HTTPS for the connection (used when url is empty).
+    virtual_host:
+        type: string
+        description: Host header / virtual host to send (SNI + Host header).
+    method:
+        type: string
+        default: GET
+        enum:
+            - GET
+            - POST
+            - HEAD
+            - PUT
+            - DELETE
+            - OPTIONS
+        description: HTTP method.
+    expect_status:
+        type: list
+        description: Acceptable HTTP status codes (e.g. 200, 301). Empty = any non-4xx/5xx is OK.
+    expect_string:
+        type: string
+        description: String that must appear in the response body (CRIT when missing).
+    invert_match:
+        type: bool
+        default: false
+        description: Return CRIT if the expected string IS found (invert the content match).
+    response_time_warn_ms:
+        type: number
+        description: WARN when the response takes at least this many milliseconds.
+    response_time_crit_ms:
+        type: number
+        description: CRIT when the response takes at least this many milliseconds.
+    cert_warn_days:
+        type: number
+        description: WARN when the TLS certificate expires within this many days.
+    cert_crit_days:
+        type: number
+        description: CRIT when the TLS certificate expires within this many days.
+    min_size_bytes:
+        type: number
+        description: CRIT when the response body is smaller than this many bytes.
+    timeout_s:
+        type: number
+        default: 10
+        description: Seconds before the connection times out.
+    follow_redirects:
+        type: bool
+        default: true
+        description: Follow HTTP redirects to the final page.
+    verify_tls:
+        type: bool
+        default: true
+        description: Verify the TLS certificate chain (disable for self-signed).
+    auth_user:
+        type: string
+        description: Username for HTTP basic authentication.
+    auth_password:
+        type: string
+        secret: true
+        description: Password for HTTP basic authentication.
+    user_agent:
+        type: string
+        default: bossman-check/1.0
+        description: User-Agent header to send.
+    post_data:
+        type: string
+        description: Request body to send (for POST/PUT).
+writes: False
+runtime: starlark
+source: builtin
+kind: check
+category: Service checks

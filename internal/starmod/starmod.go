@@ -365,6 +365,13 @@ type Capabilities interface {
 	// Stat returns the stat attribute dict, or nil for a missing path.
 	Stat(path string) (map[string]any, error)
 	Facts() (map[string]any, error)
+	// Probe performs a client-side network probe — the primitive behind
+	// active service checks (kind "http" | "tcp" | "dns"). Read-only by
+	// nature (a network CLIENT call), so it is not write-gated. params and
+	// the result dict are kind-specific; a transport failure is reported
+	// INSIDE the result (an "error" key), not as a Go error, so the check
+	// grades it CRIT instead of aborting.
+	Probe(kind string, params map[string]any) (map[string]any, error)
 }
 
 // buildCtx assembles the ctx struct from a Capabilities backend — the single
@@ -455,6 +462,35 @@ func buildCtx(caps Capabilities, rec *Recorder) *starlarkstruct.Struct {
 			}
 			return goToStarlark(m)
 		}),
+		// ctx.probe(kind, params) — client-side network probe for active
+		// service checks: kind "http" (request + timing + TLS cert facts),
+		// "tcp" (connect / optional send-expect banner), "dns" (resolve).
+		// Returns a dict of raw facts; the check grades them OK/WARN/CRIT.
+		"probe": starlark.NewBuiltin("probe", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var kind string
+			var params starlark.Value = starlark.None
+			if err := starlark.UnpackArgs(b.Name(), args, kwargs, "kind", &kind, "params?", &params); err != nil {
+				return nil, err
+			}
+			rec.record("probe(%q)", kind)
+			var pm map[string]any
+			if params != starlark.None {
+				goVal, err := starlarkToGo(params)
+				if err != nil {
+					return nil, err
+				}
+				m, ok := goVal.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("probe: params must be a dict")
+				}
+				pm = m
+			}
+			res, err := caps.Probe(kind, pm)
+			if err != nil {
+				return nil, err
+			}
+			return goToStarlark(res)
+		}),
 	}
 	return starlarkstruct.FromStringDict(starlark.String("ctx"), members)
 }
@@ -479,6 +515,14 @@ func (s stubCaps) FileRead(string) (string, error)                { return "", n
 func (s stubCaps) FileWrite(string, string, string) (bool, error) { return true, nil }
 func (s stubCaps) FileExists(string) (bool, error)                { return false, nil }
 func (s stubCaps) Stat(string) (map[string]any, error)            { return nil, nil }
+func (s stubCaps) Probe(kind string, _ map[string]any) (map[string]any, error) {
+	// Inert validator backend: no network I/O. Shape mirrors the real
+	// probes' common keys so a check's field access validates.
+	return map[string]any{"kind": kind, "error": "", "stub": true,
+		"status_code": 200, "response_ms": 1.0, "body": "", "connected": true,
+		"connect_ms": 1.0, "received": "", "records": []any{}, "resolve_ms": 1.0,
+		"cert_days_left": 365, "cert_subject": "stub"}, nil
+}
 func (s stubCaps) Facts() (map[string]any, error) {
 	return map[string]any{
 		"os_family":    "debian",
@@ -701,6 +745,14 @@ func goToStarlark(v any) (starlark.Value, error) {
 			return starlark.MakeInt64(int64(x)), nil
 		}
 		return starlark.Float(x), nil
+	// Native Go numerics — probe results (and any other Go-built map) carry
+	// real ints, unlike the JSON-decoded facts path which only sees float64.
+	case int:
+		return starlark.MakeInt(x), nil
+	case int64:
+		return starlark.MakeInt64(x), nil
+	case float32:
+		return starlark.Float(float64(x)), nil
 	case []any:
 		elems := make([]starlark.Value, 0, len(x))
 		for _, e := range x {

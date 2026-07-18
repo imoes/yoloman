@@ -736,8 +736,12 @@ async def evaluate_assigned_checks(
                             break
         except Exception:  # noqa: BLE001 — one bad check must not sink the cycle
             output = "check execution failed"
+        # Active service checks (http/tcp/dns…) carry their display name in
+        # params.service_name ("Health Qwen7b"), allowing several instances of
+        # one check per host; plain checks keep the check name.
+        svc_name = str((getattr(ec, "parameters", {}) or {}).get("service_name") or "").strip() or ec.check_name
         svc = await _upsert_service_state(
-            session, agent.id, ec.check_name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
+            session, agent.id, svc_name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
             metric=ec.check_name, rule_id=None, agent_name=agent.name, agent_tags=agent.tags,
         )
         updated.append(svc)

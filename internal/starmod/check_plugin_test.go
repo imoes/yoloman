@@ -22,6 +22,9 @@ func (m mockCaps) FileWrite(string, string, string) (bool, error) { return false
 func (m mockCaps) FileExists(string) (bool, error)                { return false, nil }
 func (m mockCaps) Stat(string) (map[string]any, error)            { return nil, nil }
 func (m mockCaps) Facts() (map[string]any, error)                 { return map[string]any{}, nil }
+func (m mockCaps) Probe(string, map[string]any) (map[string]any, error) {
+	return map[string]any{"error": ""}, nil
+}
 
 func loadCheckPlugin(t *testing.T) []byte {
 	t.Helper()
