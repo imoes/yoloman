@@ -127,6 +127,9 @@ class Settings(BaseSettings):
     # with that fixed, letting the poller touch the DB for real during
     # every API test was needless concurrency the tests never asked for.
     poll_enabled: bool = True
+    # Master switch for the recurring-runbook scheduler loop (off in tests, like
+    # poll_enabled — a real scheduler tick would run runbooks against hosts).
+    scheduler_enabled: bool = True
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

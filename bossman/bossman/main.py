@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chat, checks, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, auth, chat, checks, scheduler as scheduler_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -30,6 +30,7 @@ from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
 from bossman.services.monitoring import mark_poller_agent, seed_default_check_rules
 from bossman.services.wizard_seed import seed_wizard_runbooks, wizard_reseed_loop
 from bossman.services.poller import PollerStats, poller_loop
+from bossman.services.scheduler import scheduler_loop
 from bossman.services.reconciler import ReconcileStats, reconciler_loop
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,8 @@ async def lifespan(app: FastAPI):
     )
     # Re-seed wizard runbooks as the template batch grows the catalog.
     wizard_task = asyncio.create_task(wizard_reseed_loop(app.state.session_factory, settings, stop_event))
+    # Recurring-runbook scheduler (gap #7): fire ScheduledJobs on their cron.
+    scheduler_task = asyncio.create_task(scheduler_loop(app.state.session_factory, settings, stop_event))
     try:
         async with mcp_server.session_manager.run():
             yield
@@ -178,6 +181,9 @@ async def lifespan(app: FastAPI):
         reconciler_task.cancel()
         cve_feed_task.cancel()
         wizard_task.cancel()
+        scheduler_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await scheduler_task
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
@@ -236,6 +242,7 @@ def create_app() -> FastAPI:
     app.include_router(runbooks.router, tags=["runbooks"])
     app.include_router(deployments.router, tags=["deployments"])
     app.include_router(notifications.router, tags=["notifications"])
+    app.include_router(scheduler_api.router, tags=["scheduler"])
     app.include_router(admin.router, tags=["admin"])
     app.include_router(value_maps.router, tags=["value-maps"])
     app.include_router(config_templates.router, tags=["config-templates"])

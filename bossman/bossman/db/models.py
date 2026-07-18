@@ -1459,6 +1459,40 @@ class Notification(Base):
     __table_args__ = (Index("idx_notifications_created", "created_at"),)
 
 
+class ScheduledJob(Base):
+    """A recurring runbook run on a cron schedule (fleet-wide automation): "run
+    <runbook> against <scope> every <cron>" — patch nights, weekly hygiene,
+    scheduled maintenance. The scheduler_loop fires jobs whose cron matches the
+    current minute; each run executes the runbook against every host in scope
+    (host/group/OU), honouring dry_run. Mirrors the CheckAssignment scope
+    columns."""
+
+    __tablename__ = "scheduled_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    cron: Mapped[str] = mapped_column(String, nullable=False)  # 5-field cron
+    runbook_name: Mapped[str] = mapped_column(String, nullable=False)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False)  # host | group | ou
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    variables: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_run_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    last_status: Mapped[str | None] = mapped_column(String)  # ok | failed | partial | no-hosts
+    last_detail: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('host', 'group', 'ou')", name="ck_scheduled_jobs_scope_type"),
+        Index("idx_scheduled_jobs_enabled", "enabled"),
+    )
+
+
 class Downtime(Base):
     """A scheduled maintenance window (see docs/plan.md's monitoring Block
     E2) — `service_name=NULL` means the whole host, matching CheckMK's own

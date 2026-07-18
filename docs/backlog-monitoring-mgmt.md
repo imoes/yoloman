@@ -8,7 +8,7 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
 - [x] **#1 Notification channels + escalation** — Slack/Teams/Telegram/PagerDuty/
       Discord senders + `escalate_after_minutes` on-call chains (dispatch_escalations
       runs each poll cycle).
-- [ ] **#7 Scheduler** — recurring runbooks/maintenance (RRULE/cron, fleet-wide).
+- [x] **#7 Scheduler** — recurring runbooks/maintenance (RRULE/cron, fleet-wide).
 - [ ] **#2 Event Console** — passive SNMP-trap + syslog receipt.
 - [ ] **#8 Patch/reboot orchestration** — canary→ring waves, health-gate between.
 - [ ] **#9 Software compliance** — required/forbidden packages per OU + drift alarm.

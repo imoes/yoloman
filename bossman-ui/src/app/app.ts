@@ -41,6 +41,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
   { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
   { path: '/runbooks', label: 'Workflow designer', icon: 'account_tree' },
+  { path: '/scheduler', label: 'Scheduler', icon: 'schedule' },
   { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/help', label: 'Help', icon: 'help_outline' },
