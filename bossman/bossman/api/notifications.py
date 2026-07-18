@@ -19,7 +19,7 @@ from bossman.db.session import get_session
 
 router = APIRouter()
 
-_CHANNELS = ("email", "webhook")
+_CHANNELS = ("email", "webhook", "slack", "teams", "telegram", "pagerduty", "discord")
 _STATES = ("WARN", "CRIT", "UNKNOWN")
 _SCOPES = ("global", "ou", "group", "host", "service", "policy")
 
@@ -34,6 +34,9 @@ class NotificationRuleIn(BaseModel):
     service_filter: str | None = None
     channel: str
     target: str
+    # On-call escalation: fire only once a hard problem is still unacked this
+    # many minutes (None = immediate). A chain = several rules at 0/15/60.
+    escalate_after_minutes: int | None = None
     # Block K7: subset match against the problem host's Agent.tags — every
     # key:value pair here must be present (empty-string value = name-only,
     # matches any value for that key). None = no tag condition.
@@ -70,6 +73,7 @@ class NotificationRuleOut(NotificationRuleIn):
             service_filter=r.service_filter,
             channel=r.channel,
             target=r.target,
+            escalate_after_minutes=r.escalate_after_minutes,
             created_at=r.created_at,
             tag_filter=r.tag_filter,
             ou_id=r.ou_id,

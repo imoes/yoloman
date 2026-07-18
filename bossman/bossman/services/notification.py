@@ -127,6 +127,58 @@ def send_webhook(settings: Settings, url: str, ev: NotifyEvent, subject: str, bo
         resp.raise_for_status()
 
 
+def _emoji(ev: "NotifyEvent") -> str:
+    if ev.event == "recovery":
+        return "✅"
+    return {"CRIT": "🔴", "WARN": "🟡", "UNKNOWN": "⚪"}.get(ev.state, "🔔")
+
+
+def send_chat(settings: Settings, channel: str, target: str, ev: "NotifyEvent", subject: str, body: str) -> None:
+    """Send to a chat/paging channel. `target` is the channel-specific address:
+      slack/teams/discord → the incoming-webhook URL
+      telegram            → "<bot_token>:<chat_id>"
+      pagerduty           → the Events API v2 routing key
+    Each maps our event onto the provider's minimal payload. Raises on non-2xx."""
+    text = f"{_emoji(ev)} {subject}\n{ev.agent_name} / {ev.service_name}: {ev.output}".strip()
+    with httpx.Client(timeout=settings.notify_timeout_seconds) as client:
+        if channel == "slack":
+            resp = client.post(target, json={"text": text})
+        elif channel == "discord":
+            resp = client.post(target, json={"content": text[:1900]})
+        elif channel == "teams":
+            # Legacy MessageCard (Office365 connector) — widest compatibility.
+            color = {"CRIT": "D93F3C", "WARN": "E0A030", "UNKNOWN": "888888"}.get(ev.state, "2E7D32")
+            resp = client.post(target, json={
+                "@type": "MessageCard", "@context": "http://schema.org/extensions",
+                "themeColor": color, "summary": subject, "title": subject,
+                "text": f"**{ev.agent_name} / {ev.service_name}**\n\n{ev.output}",
+            })
+        elif channel == "telegram":
+            token, _, chat_id = target.partition(":")
+            if not token or not chat_id:
+                raise RuntimeError("telegram target must be '<bot_token>:<chat_id>'")
+            resp = client.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                               json={"chat_id": chat_id, "text": text})
+        elif channel == "pagerduty":
+            # Events API v2: a problem triggers, a recovery resolves. Dedup key
+            # ties the resolve to the trigger (one incident per host+service).
+            action = "resolve" if ev.event == "recovery" else "trigger"
+            sev = {"CRIT": "critical", "WARN": "warning", "UNKNOWN": "warning"}.get(ev.state, "error")
+            resp = client.post("https://events.pagerduty.com/v2/enqueue", json={
+                "routing_key": target, "event_action": action,
+                "dedup_key": f"{ev.agent_name}/{ev.service_name}",
+                "payload": {"summary": subject, "source": ev.agent_name,
+                            "severity": sev, "component": ev.service_name, "custom_details": {"output": ev.output}},
+            })
+        else:
+            raise RuntimeError(f"unknown chat channel {channel!r}")
+        resp.raise_for_status()
+
+
+# Chat/paging channels routed through send_chat (vs email/webhook, which have
+# their own senders).
+_CHAT_CHANNELS = frozenset({"slack", "teams", "telegram", "pagerduty", "discord"})
+
 # Injectable senders (tests pass fakes; production uses the real ones).
 EmailSender = None
 WebhookSender = None
@@ -169,6 +221,23 @@ async def _event_context(
     return host_ctx, ServiceCtx(service_name=ev.service_name, policy_ids=policy_ids)
 
 
+def _send_rule(settings: Settings, rule: NotificationRule, ev: NotifyEvent, subject: str, body: str,
+               email_sender, webhook_sender, chat_sender) -> tuple[str, str | None]:
+    """Send one rule's notification; returns (status, error). Never raises."""
+    try:
+        if rule.channel == "email":
+            email_sender(settings, rule.target, subject, body)
+        elif rule.channel == "webhook":
+            webhook_sender(settings, rule.target, ev, subject, body)
+        elif rule.channel in _CHAT_CHANNELS:
+            chat_sender(settings, rule.channel, rule.target, ev, subject, body)
+        else:
+            return "failed", f"unknown channel {rule.channel!r}"
+        return "sent", None
+    except Exception as exc:  # noqa: BLE001 — any send failure is logged, never propagated
+        return "failed", str(exc)[:2000]
+
+
 async def dispatch(
     session: AsyncSession,
     settings: Settings,
@@ -176,6 +245,7 @@ async def dispatch(
     *,
     email_sender=send_email,
     webhook_sender=send_webhook,
+    chat_sender=send_chat,
 ) -> list[Notification]:
     """Evaluates every notification rule against one event, sends to each
     matching rule's channel, and logs the outcome. Never raises — a broken
@@ -198,18 +268,16 @@ async def dispatch(
     subject, body = render(ev)
     logs: list[Notification] = []
     for rule in rules:
+        # Escalation rules (escalate_after_minutes set) do NOT fire on the
+        # immediate state-change event — dispatch_escalations fires them later,
+        # once the problem is still unacked past their delay.
+        if rule.escalate_after_minutes:
+            continue
         if not rule_matches(rule, ev):
             continue
         if not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
             continue
-        status, error = "sent", None
-        try:
-            if rule.channel == "email":
-                email_sender(settings, rule.target, subject, body)
-            elif rule.channel == "webhook":
-                webhook_sender(settings, rule.target, ev, subject, body)
-        except Exception as exc:  # noqa: BLE001 — any send failure is logged, never propagated
-            status, error = "failed", str(exc)[:2000]
+        status, error = _send_rule(settings, rule, ev, subject, body, email_sender, webhook_sender, chat_sender)
         note = Notification(
             rule_id=rule.id,
             agent_name=ev.agent_name,
@@ -284,3 +352,75 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
         await dispatch(session, settings, ev, **senders)
         dispatched += 1
     return dispatched
+
+
+async def dispatch_escalations(
+    session: AsyncSession, settings: Settings, *,
+    email_sender=send_email, webhook_sender=send_webhook, chat_sender=send_chat,
+) -> int:
+    """On-call escalation: for every service that is a confirmed (hard) non-OK
+    problem, still unacknowledged and not in downtime, fire any escalation rule
+    (escalate_after_minutes set) whose delay has elapsed since the problem went
+    hard AND that hasn't already fired for THIS episode. Called once per poll
+    cycle. Dedup: a rule fires at most once per (agent, service, episode) — a
+    Notification row for it after last_state_change means "already escalated".
+    Returns the count sent."""
+    if not settings.notifications_enabled:
+        return 0
+    from datetime import datetime, timezone
+    from bossman.services.monitoring import is_in_downtime
+
+    esc_rules = (await session.scalars(
+        select(NotificationRule).where(
+            NotificationRule.enabled.is_(True), NotificationRule.escalate_after_minutes.isnot(None)
+        )
+    )).all()
+    if not esc_rules:
+        return 0
+
+    now = datetime.now(timezone.utc)
+    # Candidate problems: hard, non-OK, unacked.
+    problems = (await session.scalars(
+        select(Service).where(
+            Service.state != "OK", Service.state_type == "hard", Service.acknowledged.is_(False),
+        )
+    )).all()
+    if not problems:
+        return 0
+
+    agents = {a.id: a for a in (await session.scalars(select(Agent))).all()}
+    sent = 0
+    for svc in problems:
+        agent = agents.get(svc.agent_id)
+        if agent is None:
+            continue
+        if await is_in_downtime(session, svc.agent_id, svc.name, now):
+            continue
+        mins_open = (now - svc.last_state_change).total_seconds() / 60.0
+        ev = NotifyEvent(agent_name=agent.name, service_name=svc.name, state=svc.state,
+                         event="problem", output=svc.output or "", agent_tags=agent.agent_metadata or {})
+        host_ctx, svc_ctx = await _event_context(session, ev, esc_rules)
+        subject, body = render(ev)
+        for rule in esc_rules:
+            if mins_open < rule.escalate_after_minutes:
+                continue
+            if not rule_matches(rule, ev) or not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
+                continue
+            # Already escalated this episode? (a send for this rule after the
+            # problem went hard).
+            prior = await session.scalar(
+                select(Notification.id).where(
+                    Notification.rule_id == rule.id, Notification.agent_name == agent.name,
+                    Notification.service_name == svc.name, Notification.event == "problem",
+                    Notification.created_at >= svc.last_state_change,
+                ).limit(1)
+            )
+            if prior is not None:
+                continue
+            status, error = _send_rule(settings, rule, ev, subject, body, email_sender, webhook_sender, chat_sender)
+            session.add(Notification(
+                rule_id=rule.id, agent_name=agent.name, service_name=svc.name, event="problem",
+                state=svc.state, channel=rule.channel, target=rule.target, status=status, error=error,
+            ))
+            sent += 1
+    return sent

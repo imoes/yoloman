@@ -544,9 +544,21 @@ async def poll_once(
         return []
 
     semaphore = asyncio.Semaphore(settings.poll_concurrency)
-    return await asyncio.gather(
+    results = await asyncio.gather(
         *(poll_agent(session_factory, aid, settings, semaphore, client_factory) for aid in agent_ids)
     )
+
+    # On-call escalation runs ONCE per cycle (not per agent): fire delayed
+    # notification rules for problems that are still unacked past their delay.
+    try:
+        async with session_factory() as session:
+            escalated = await notification.dispatch_escalations(session, settings)
+            if escalated:
+                await session.commit()
+    except Exception:  # noqa: BLE001 — escalation must never crash the poll cycle
+        logger.exception("escalation dispatch failed")
+
+    return list(results)
 
 
 @dataclass

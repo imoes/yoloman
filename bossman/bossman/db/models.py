@@ -1391,8 +1391,12 @@ class NotificationRule(Base):
     min_state: Mapped[str] = mapped_column(String, nullable=False, default="WARN")
     host_filter: Mapped[str | None] = mapped_column(String)
     service_filter: Mapped[str | None] = mapped_column(String)
-    channel: Mapped[str] = mapped_column(String, nullable=False)  # email | webhook
+    channel: Mapped[str] = mapped_column(String, nullable=False)  # email|webhook|slack|teams|telegram|pagerduty|discord
     target: Mapped[str] = mapped_column(String, nullable=False)
+    # On-call escalation: fire this rule only once a hard problem has stayed
+    # unacknowledged this many minutes. NULL = fire immediately on the event
+    # (level 0). A chain is several rules with increasing values (0/15/60).
+    escalate_after_minutes: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     # Block K7: optional subset match against the problem's host's
     # Agent.tags — every key:value pair here must be present on the host
@@ -1420,7 +1424,10 @@ class NotificationRule(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("channel IN ('email', 'webhook')", name="ck_notification_rules_channel"),
+        CheckConstraint(
+            "channel IN ('email', 'webhook', 'slack', 'teams', 'telegram', 'pagerduty', 'discord')",
+            name="ck_notification_rules_channel",
+        ),
         CheckConstraint("min_state IN ('WARN', 'CRIT', 'UNKNOWN')", name="ck_notification_rules_min_state"),
         CheckConstraint(
             "scope_type IN ('global', 'ou', 'group', 'host', 'service', 'policy')",

@@ -1,6 +1,6 @@
 /** Matches bossman/api/notifications.py (Block H8). */
 
-export type NotificationChannel = 'email' | 'webhook';
+export type NotificationChannel = 'email' | 'webhook' | 'slack' | 'teams' | 'telegram' | 'pagerduty' | 'discord';
 
 export interface NotificationRule {
   id: string;
@@ -13,6 +13,9 @@ export interface NotificationRule {
   service_filter: string | null;
   channel: NotificationChannel;
   target: string;
+  /** On-call escalation: fire only once a hard problem is unacked this many
+   * minutes (null = immediate). */
+  escalate_after_minutes?: number | null;
   created_at: string;
   /** Block L3a: OU binding + GPO precedence (optional; null ou_id = global). */
   ou_id?: string | null;

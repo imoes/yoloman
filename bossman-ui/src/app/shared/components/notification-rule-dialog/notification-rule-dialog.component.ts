@@ -37,12 +37,23 @@ export interface NotificationRuleDialogData {
         <mat-label>Channel</mat-label>
         <mat-select formControlName="channel">
           <mat-option value="email">Email (SMTP)</mat-option>
-          <mat-option value="webhook">Webhook (Slack/Mattermost/generic)</mat-option>
+          <mat-option value="webhook">Webhook (generic JSON)</mat-option>
+          <mat-option value="slack">Slack</mat-option>
+          <mat-option value="teams">Microsoft Teams</mat-option>
+          <mat-option value="discord">Discord</mat-option>
+          <mat-option value="telegram">Telegram</mat-option>
+          <mat-option value="pagerduty">PagerDuty</mat-option>
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" class="bm-full-width">
-        <mat-label>{{ form.value.channel === 'webhook' ? 'Webhook URL' : 'Email address(es)' }}</mat-label>
-        <input matInput formControlName="target" [placeholder]="form.value.channel === 'webhook' ? 'https://hooks.slack.com/…' : 'ops@example.com, oncall@example.com'" />
+        <mat-label>{{ targetLabel() }}</mat-label>
+        <input matInput formControlName="target" [placeholder]="targetPlaceholder()" />
+        <mat-hint>{{ targetHint() }}</mat-hint>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="bm-full-width">
+        <mat-label>Escalate after (minutes)</mat-label>
+        <input matInput type="number" formControlName="escalate_after_minutes" placeholder="empty = notify immediately" />
+        <mat-hint>On-call chain: leave empty for level 0; set 15/60 for later escalation tiers (fires only while still unacknowledged).</mat-hint>
       </mat-form-field>
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Notify from severity</mat-label>
@@ -96,6 +107,7 @@ export class NotificationRuleDialogComponent {
     on_recovery: new FormControl(true, { nonNullable: true }),
     host_filter: new FormControl<string | null>(null),
     service_filter: new FormControl<string | null>(null),
+    escalate_after_minutes: new FormControl<number | null>(null),
     enabled: new FormControl(true, { nonNullable: true }),
   });
 
@@ -105,12 +117,30 @@ export class NotificationRuleDialogComponent {
     }
   }
 
+  targetLabel(): string {
+    return { email: 'Email address(es)', webhook: 'Webhook URL', slack: 'Slack webhook URL',
+      teams: 'Teams webhook URL', discord: 'Discord webhook URL', telegram: 'Telegram bot token : chat id',
+      pagerduty: 'PagerDuty routing key' }[this.form.value.channel ?? 'email'] ?? 'Target';
+  }
+  targetPlaceholder(): string {
+    return { email: 'ops@example.com, oncall@example.com', webhook: 'https://…',
+      slack: 'https://hooks.slack.com/services/…', teams: 'https://outlook.office.com/webhook/…',
+      discord: 'https://discord.com/api/webhooks/…', telegram: '123456:ABC… : -1001234567890',
+      pagerduty: 'R0ABC… (Events API v2 integration key)' }[this.form.value.channel ?? 'email'] ?? '';
+  }
+  targetHint(): string {
+    return this.form.value.channel === 'telegram'
+      ? 'Format: <bot_token>:<chat_id>'
+      : (this.form.value.channel === 'pagerduty' ? 'The service’s Events API v2 integration/routing key.' : '');
+  }
+
   save(): void {
     const v = this.form.getRawValue();
     this.dialogRef.close({
       ...v,
       host_filter: v.host_filter?.trim() ? v.host_filter.trim() : null,
       service_filter: v.service_filter?.trim() ? v.service_filter.trim() : null,
+      escalate_after_minutes: v.escalate_after_minutes ? Number(v.escalate_after_minutes) : null,
     });
   }
 }
