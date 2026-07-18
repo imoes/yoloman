@@ -1,0 +1,36 @@
+name: service_health
+fqcn: checkmk.service_health
+collection: checkmk
+short_description: Service health
+description:
+    > ## Overview
+    > Generic role-health check: verifies a systemd unit is active (and, optionally,
+    > enabled to start on boot). The Roles & Features wizard assigns it automatically
+    > for a freshly installed role, filling `unit` from the role's own service.
+    >
+    > ## How it works
+    > Runs `systemctl is-active`/`is-enabled` on the host (read-only). No probes,
+    > nothing changed. `service_name` names the resulting service.
+    >
+    > ## States
+    > - **OK**: the unit is active.
+    > - **WARN**: activating/reloading, or (with require_enabled) active-but-not-enabled.
+    > - **CRIT**: inactive, failed or unknown.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Name of the resulting service (e.g. "NGINX health").
+    unit:
+        type: string
+        required: true
+        description: The systemd unit to check (e.g. "nginx", "postgresql").
+    require_enabled:
+        type: bool
+        default: false
+        description: Also WARN if the unit is not enabled to start on boot.
+writes: False
+runtime: starlark
+source: builtin
+kind: check
+category: Service checks

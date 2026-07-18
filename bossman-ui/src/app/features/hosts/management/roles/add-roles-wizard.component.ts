@@ -8,6 +8,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
 import { CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
+import { CheckService } from '../../../../core/services/check.service';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
 
 export interface AddRolesWizardData {
@@ -112,6 +113,11 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                 </div>
               }
 
+              <label class="bm-wz-mon">
+                <mat-checkbox [ngModel]="setupMonitoring()" (ngModelChange)="setupMonitoring.set($event)"></mat-checkbox>
+                <span>Set up a monitoring check for each role <span class="bm-wz-dim">— a service-health check configured from the role's service</span></span>
+              </label>
+
               <!-- Wizard = runbook: the composed runbook (role calls + your
                    variables), copyable, and savable as a reusable template
                    BEFORE installing — editable later in the Workflow designer. -->
@@ -202,6 +208,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-wz-dry, .bm-wz-result { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: 13px; }
     .bm-wz-dry-h, .bm-wz-result-h { font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .bm-wz-mon { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; }
     .bm-wz-tpl { margin-top: 14px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; }
     .bm-wz-tpl summary { cursor: pointer; font-weight: 600; font-size: 13px; }
     .bm-wz-tpl-bar { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
@@ -221,7 +228,9 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
 })
 export class AddRolesWizardComponent {
   private wizard = inject(WizardService);
+  private checkService = inject(CheckService);
   private dialogRef = inject(MatDialogRef<AddRolesWizardComponent>);
+  setupMonitoring = signal(true);
 
   step = signal(0);
   focus = signal<string>('');
@@ -389,6 +398,24 @@ export class AddRolesWizardComponent {
     });
   }
 
+  /** After a successful install, set up a monitoring check for each role,
+   * auto-configured from the role's own variables — a generic service_health
+   * check (systemd unit active + enabled) whose `unit` comes straight from the
+   * role's resolved service. Richer network checks (http/tcp/dns) can be added
+   * per host via the Service checks snap-in. */
+  private assignMonitoring(states: RunState[]): void {
+    for (const rs of states) {
+      if (rs.error || rs.result?.ok === false || rs.result?.aborted) continue;
+      const unit = (this.data.context.catalog_resolved[rs.pkg] || {}).service || '';
+      if (!unit) continue;
+      this.checkService.createAssignment({
+        check_name: 'service_health', scope_type: 'host', agent_id: this.data.agentId,
+        parameters: { service_name: `${this.catLabel(rs.pkg)} health`, unit, require_enabled: true },
+        source: 'wizard',
+      }).subscribe({ next: () => {}, error: () => {} });
+    }
+  }
+
   preview(): void { this.execute(true); }
   install(): void { this.step.set(this.stepLabels().length - 1); this.execute(false); }
 
@@ -416,7 +443,11 @@ export class AddRolesWizardComponent {
     ).subscribe((states) => {
       this.busy.set(false);
       if (dry) this.dryRun.set(states);
-      else { this.runStates.set(states); this.finished.set(true); }
+      else {
+        this.runStates.set(states);
+        this.finished.set(true);
+        if (this.setupMonitoring()) this.assignMonitoring(states);
+      }
     });
   }
 
