@@ -1,0 +1,49 @@
+name: mailboxes
+fqcn: checkmk.mailboxes
+collection: checkmk
+short_description: Mailbox server reachability
+description: Connects to an IMAP or POP3 mailbox server via TCP (TLS by default) and verifies it is reachable, enforcing connect-time warn/crit thresholds and, for TLS, monitoring certificate expiry days. This on-agent probe covers connectivity and certificate health; full message count/age inspection requires the mailbox credentials handled off-agent.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Service name for this mailbox check
+    server:
+        type: string
+        required: true
+        description: DNS hostname or IP address of the mailbox (IMAP/POP3) server
+    protocol:
+        type: string
+        default: IMAP
+        enum:
+            - IMAP
+            - POP3
+        description: Mailbox retrieval protocol
+    tls:
+        type: bool
+        default: true
+        description: Use TLS for the connection (IMAPS/POP3S)
+    port:
+        type: number
+        description: TCP port (defaults by protocol/TLS — IMAP 143/993, POP3 110/995)
+    timeout_s:
+        type: number
+        default: 10
+        description: Connection timeout in seconds
+    cert_days_warn:
+        type: number
+        description: Warn when the TLS certificate expires within this many days
+    cert_days_crit:
+        type: number
+        description: Critical when the TLS certificate expires within this many days
+    response_time_warn_ms:
+        type: number
+        description: Warn if the connection takes longer than this many milliseconds
+    response_time_crit_ms:
+        type: number
+        description: Critical if the connection takes longer than this many milliseconds
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

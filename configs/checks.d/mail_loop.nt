@@ -1,0 +1,55 @@
+name: mail_loop
+fqcn: checkmk.mail_loop
+collection: checkmk
+short_description: Mail round-trip reachability
+description: Verifies the two endpoints of a mail loop are reachable — the SMTP server a test mail would be sent through, and the IMAP/POP3 mailbox it should loop back into — via TCP probes (TLS optional), and monitors the fetch server's TLS certificate expiry. This on-agent probe covers both legs' connectivity; the actual send-and-await-delivery round trip requires mail credentials handled off-agent.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Service name for this mail-loop check
+    send_server:
+        type: string
+        required: true
+        description: DNS hostname or IP of the SMTP server the loop mail is sent through
+    send_port:
+        type: number
+        default: 25
+        description: TCP port of the SMTP server (25=SMTP, 465=SMTPS, 587=submission)
+    send_tls:
+        type: bool
+        default: false
+        description: Use TLS when connecting to the SMTP server
+    fetch_server:
+        type: string
+        required: true
+        description: DNS hostname or IP of the IMAP/POP3 server the mail loops back into
+    fetch_protocol:
+        type: string
+        default: IMAP
+        enum:
+            - IMAP
+            - POP3
+        description: Mailbox retrieval protocol for the fetch leg
+    fetch_tls:
+        type: bool
+        default: true
+        description: Use TLS for the fetch connection (IMAPS/POP3S)
+    fetch_port:
+        type: number
+        description: TCP port for the fetch leg (defaults by protocol/TLS — IMAP 143/993, POP3 110/995)
+    timeout_s:
+        type: number
+        default: 10
+        description: Connection timeout in seconds for each leg
+    cert_days_warn:
+        type: number
+        description: Warn when the fetch server's TLS certificate expires within this many days
+    cert_days_crit:
+        type: number
+        description: Critical when the fetch server's TLS certificate expires within this many days
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks
