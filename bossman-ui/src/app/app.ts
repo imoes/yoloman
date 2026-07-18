@@ -42,6 +42,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
   { path: '/runbooks', label: 'Workflow designer', icon: 'account_tree' },
   { path: '/scheduler', label: 'Scheduler', icon: 'schedule' },
+  { path: '/rollouts', label: 'Rollouts', icon: 'waves' },
   { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
   { path: '/runs', label: 'Runs', icon: 'history' },
   { path: '/help', label: 'Help', icon: 'help_outline' },

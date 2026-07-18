@@ -1459,6 +1459,40 @@ class Notification(Base):
     __table_args__ = (Index("idx_notifications_created", "created_at"),)
 
 
+class Rollout(Base):
+    """A staged runbook rollout across the fleet in ordered WAVES with a health
+    gate between them (gap #8): canary -> ring 1 -> ring 2, and stop if a wave
+    goes unhealthy. `waves` is an ordered list [{name, agent_ids:[...]}]; the
+    driver runs one wave, waits health_gate.wait_seconds, checks the wave's
+    hosts for hard CRIT, and only proceeds if the failure fraction is within
+    health_gate.max_fail_pct. `progress` accumulates per-wave results."""
+
+    __tablename__ = "rollouts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    runbook_name: Mapped[str] = mapped_column(String, nullable=False)
+    variables: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    waves: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    health_gate: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending|running|paused|done|failed|aborted
+    current_wave: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    progress: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    started_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    finished_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'paused', 'done', 'failed', 'aborted')",
+            name="ck_rollouts_status",
+        ),
+    )
+
+
 class Event(Base):
     """A passively-received event — a syslog message or an SNMP trap (gap #2,
     the Event Console). Unlike checks (which we poll), these arrive unsolicited

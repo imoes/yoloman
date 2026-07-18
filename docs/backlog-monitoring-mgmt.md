@@ -10,7 +10,10 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       runs each poll cycle).
 - [x] **#7 Scheduler** — recurring runbooks/maintenance (RRULE/cron, fleet-wide).
 - [x] **#2 Event Console** — passive SNMP-trap + syslog receipt.
-- [ ] **#8 Patch/reboot orchestration** — canary→ring waves, health-gate between.
+- [x] **#8 Patch/reboot orchestration** — canary→ring waves (`plan_waves`), health-gate
+      between waves (only NEW hard-CRIT counts vs a pre-wave baseline), fire-and-forget
+      `execute_rollout` driver, `/api/v1/rollouts` CRUD+start/abort, Rollouts UI with live
+      per-wave progress.
 - [ ] **#9 Software compliance** — required/forbidden packages per OU + drift alarm.
 - [ ] **#10 Certificate/expiry inventory** — fleet-wide TLS/cert/licence expiry board.
 - [ ] **#13 Audit-log UI** — searchable change tracking (audit already in DB).

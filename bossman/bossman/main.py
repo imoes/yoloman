@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chat, checks, scheduler as scheduler_api, events as events_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, auth, chat, checks, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -250,6 +250,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router, tags=["notifications"])
     app.include_router(scheduler_api.router, tags=["scheduler"])
     app.include_router(events_api.router, tags=["events"])
+    app.include_router(rollouts_api.router, tags=["rollouts"])
     app.include_router(admin.router, tags=["admin"])
     app.include_router(value_maps.router, tags=["value-maps"])
     app.include_router(config_templates.router, tags=["config-templates"])
