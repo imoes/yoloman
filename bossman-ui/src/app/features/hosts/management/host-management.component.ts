@@ -12,6 +12,7 @@ import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
 import { RolesFeaturesComponent } from './roles/roles-features.component';
+import { ServiceChecksComponent } from './service-checks/service-checks.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -29,7 +30,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent,
+    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -52,6 +53,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
           <button type="button" class="bm-mmc-refresh" (click)="refreshSelected()" title="Refresh"><mat-icon>refresh</mat-icon> Refresh</button>
         </div>
         @if (visited().has('roles')) { <div [style.display]="show('roles')"><app-roles-features [agentId]="agentId()" /></div> }
+        @if (visited().has('servicechecks')) { <div [style.display]="show('servicechecks')"><app-service-checks [agentId]="agentId()" /></div> }
         @if (visited().has('services')) { <div [style.display]="show('services')"><app-host-services [agentId]="agentId()" /></div> }
         @if (visited().has('updates')) { <div [style.display]="show('updates')"><app-host-updates [agentId]="agentId()" /></div> }
         @if (visited().has('logs')) { <div [style.display]="show('logs')"><app-host-logs [agentId]="agentId()" /></div> }
@@ -108,6 +110,7 @@ export class HostManagementComponent implements OnInit {
 
   private readonly snapins: SnapIn[] = [
     { id: 'roles', label: 'Roles & Features', icon: 'widgets', category: 'Server' },
+    { id: 'servicechecks', label: 'Service checks', icon: 'network_check', category: 'Monitoring' },
     { id: 'services', label: 'Services', icon: 'settings_applications', category: 'Server' },
     { id: 'updates', label: 'Updates', icon: 'system_update_alt', category: 'Server' },
     { id: 'logs', label: 'Logs', icon: 'article', category: 'Server' },
