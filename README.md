@@ -177,7 +177,20 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   and **translated from battle-tested Ansible roles** (geerlingguy.\*, bertvv.bind, …) found via
   web search. A background pass then has qwen **audit every role against its official documentation**
   (fetched via SearXNG) and record which template directives or runbook steps are still missing
-  (`configs/package_doc_audit.json`).
+  (`configs/package_doc_audit.json`). Ticking **"Set up a monitoring check"** on the final step
+  auto-assigns a `service_health` check for each installed role (configured from the role's own
+  service). And a wizard *is* just a runbook: the Confirmation step shows the composed runbook — one
+  `runbook: install-<pkg>` role call carrying your variables — which you can **copy or Save as a
+  template** before installing, then edit/re-run it in the Workflow designer.
+- **A runbook can call a role as a task** — Ansible `import_role`-style: `- runbook: install-nginx` /
+  `vars: {…}` inlines that stored runbook's steps (with its defaults + your vars) at run time. So
+  roles/wizards compose as one-line plaintext tasks, self-correctable in the editor.
+- **Active service checks** — the Checkmk "Services" rules (HTTP, TCP, DNS, cert, …) as plaintext
+  Starlark checks: the agent gained a native `ctx.probe(http|tcp|dns)` (status/timing/TLS-cert/
+  banner/records), and a background batch translates each Checkmk active check into a check + typed
+  options schema. Configure them per host in the **Service checks** MMC snap-in — pick a check, fill
+  the same param-form the roles wizard uses, assign; several instances per host (each its own named
+  service).
 - **Config management with drift enforcement** — a gpedit-style editor (categories → files →
   settings) authored from the codec registry; a key with no policy is **host based** (the host's own
   value stands). Managed files are **auto-enforced every poll**: an out-of-band change is overwritten
@@ -190,7 +203,8 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   host/group/OU with per-scope thresholds, with auto-discovery and credential provisioning. State
   checks (a service is running or not) drop the meaningless comparison/warn-crit inputs.
 - **Agent-less devices** — SNMP gear and SSH-only hosts monitored via a co-located poller, presented
-  as monitored hosts.
+  as monitored hosts; the "what to monitor" picker labels **and explains** each check (a one-paragraph
+  summary from its description), not just a bare name.
 - **Visual workflow designer** — a drag-and-drop runbook builder whose toolbox is searchable across
   the whole module catalog.
 - **Users & Access** — human users (admin/operator), machine API tokens, and per-host/group
