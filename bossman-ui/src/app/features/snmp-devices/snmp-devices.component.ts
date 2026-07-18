@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AgentService } from '../../core/services/agent.service';
 import { CheckService } from '../../core/services/check.service';
 import { Device } from '../../core/models/agent.model';
@@ -25,7 +26,7 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
 @Component({
   selector: 'app-snmp-devices',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [DatePipe, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule],
   template: `
     <div class="bm-page">
       <header class="bm-head">
@@ -78,8 +79,11 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
             <mat-select [(ngModel)]="checkNames" multiple [placeholder]="kind === 'snmp' ? 'pick SNMP checks' : 'pick SSH checks'">
               <mat-select-trigger>{{ selectedLabels() }}</mat-select-trigger>
               @for (c of kindChecks(); track c.name) {
-                <mat-option [value]="c.name">
-                  {{ checkLabel(c) }}<span class="bm-opt-key"> · {{ c.name }}</span>
+                <mat-option [value]="c.name" [matTooltip]="c.summary || ''" matTooltipPosition="right" matTooltipClass="bm-check-tip">
+                  <span class="bm-opt-main">
+                    <span class="bm-opt-label">{{ checkLabel(c) }}<span class="bm-opt-key"> · {{ c.name }}</span></span>
+                    @if (c.summary) { <span class="bm-opt-desc">{{ c.summary }}</span> }
+                  </span>
                 </mat-option>
               }
             </mat-select>
@@ -156,6 +160,9 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
     .bm-add-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
     .bm-note { opacity: 0.6; font-size: 13px; }
     .bm-opt-key { opacity: 0.5; font-size: 12px; }
+    .bm-opt-main { display: flex; flex-direction: column; line-height: 1.3; padding: 3px 0; }
+    .bm-opt-desc { font-size: 11.5px; opacity: 0.6; white-space: normal; max-width: 560px; margin-top: 1px; }
+    ::ng-deep mat-option:has(.bm-opt-desc) { height: auto !important; min-height: 48px; }
     .bm-err { color: var(--bm-red, #c62828); margin: 10px 0 0; }
 
     .bm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }

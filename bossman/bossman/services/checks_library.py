@@ -86,6 +86,30 @@ def submit_check(
     return {"stored": True, "paths": {"metadata": str(nt_path), "star": str(star_path)}, "validation": result.to_dict()}
 
 
+def _summary(description: str, limit: int = 240) -> str:
+    """First prose sentence(s) of a markdown check description — skip headings,
+    blockquote/`>` markers and blank lines; stop at the next heading. Used as the
+    catalog/device-picker explanation."""
+    if not description:
+        return ""
+    lines = []
+    for raw in description.splitlines():
+        s = raw.strip().lstrip(">").strip()
+        if not s:
+            if lines:
+                break
+            continue
+        if s.startswith("#"):
+            if lines:
+                break
+            continue  # skip the "## Overview" heading, keep reading
+        lines.append(s)
+        if sum(len(x) for x in lines) >= limit:
+            break
+    text = " ".join(lines).strip()
+    return (text[:limit] + "…") if len(text) > limit else text
+
+
 def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
     """Catalog listing: one entry per stored check (a <name>.star with a
     matching <name>.nt), enriched from the small NestedText metadata."""
@@ -105,6 +129,12 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
             entry["source"] = meta.get("source", "translated")
             entry["options"] = meta.get("options", {}) or {}
             entry["category"] = meta.get("category", "") or "Other"
+            # A one-paragraph plain-text summary so a picker (the SNMP/SSH device
+            # editor, the check catalog) can EXPLAIN what a script does without a
+            # second round-trip to GET /checks/{name}. Derived from the markdown
+            # description's Overview: the first real prose line, headers/blockquote
+            # markers stripped.
+            entry["summary"] = _summary(meta.get("description", ""))
         except (OSError, ModuleLibraryError):
             entry["options"] = {}
         try:
