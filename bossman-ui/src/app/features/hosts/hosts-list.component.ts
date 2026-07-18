@@ -80,6 +80,15 @@ interface HostRow extends FleetHost {
                   <button
                     type="button"
                     class="bm-icon-btn"
+                    title="Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick"
+                    [disabled]="polling() === host.id"
+                    (click)="pollHost(host, $event)"
+                  >
+                    <mat-icon [class.bm-spin]="polling() === host.id">{{ polling() === host.id ? 'sync' : 'refresh' }}</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="bm-icon-btn"
                     title="Update agent — push a new .deb; the agent installs it and restarts"
                     [disabled]="updating() === host.id"
                     (click)="onUpdateClick(host, fileInput, $event)"
@@ -193,6 +202,17 @@ interface HostRow extends FleetHost {
         display: inline-flex;
         align-items: center;
       }
+      .bm-icon-btn:hover {
+        opacity: 0.9;
+      }
+      .bm-spin {
+        animation: bm-spin 1s linear infinite;
+      }
+      @keyframes bm-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
       .bm-delete-btn mat-icon,
       .bm-icon-btn mat-icon {
         font-size: 19px;
@@ -227,6 +247,7 @@ export class HostsListComponent implements OnInit {
   /** The id currently being deleted, so its button disables (prevents a
    * double-submit); null when idle. */
   deleting = signal<string | null>(null);
+  polling = signal<string | null>(null);
   /** The id currently being updated (agent .deb push in flight). */
   updating = signal<string | null>(null);
   /** The host whose Update button was clicked, awaiting the file pick. */
@@ -266,6 +287,19 @@ export class HostsListComponent implements OnInit {
   addHost(): void {
     this.matDialog.open(AddHostDialogComponent, { width: '560px', maxWidth: '92vw' })
       .afterClosed().subscribe((deployed) => { if (deployed) this.reload(); });
+  }
+
+  /** Poll one host immediately (the row is a routerLink, so swallow the click),
+   * then refresh the list so its state/counts update. */
+  pollHost(host: FleetHost, event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (this.polling()) return;
+    this.polling.set(host.id);
+    this.agentService.pollNow(host.id).subscribe({
+      next: () => { this.polling.set(null); this.reload(); },
+      error: () => this.polling.set(null),
+    });
   }
 
   private reload(): void {

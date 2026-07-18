@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Availability, CheckRule, CheckRuleInput, Downtime, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
@@ -35,8 +36,21 @@ export class MonitoringService {
     return this.http.get<ServiceState[]>(`${this.base}/problems`, { params });
   }
 
+  // Stale-while-revalidate cache: emit the last known value immediately (so the
+  // view paints instantly on revisit) then the fresh network value. The
+  // subscriber's handler runs once per emission, so a signal set() shows cached
+  // data then updates in place — no spinner on navigation.
+  private fleetCache: FleetHost[] | null = null;
+  private servicesCache = new Map<string, ServiceState[]>();
+
+  private cacheFirst<T>(cached: T | undefined, net: Observable<T>): Observable<T> {
+    return cached !== undefined ? concat(of(cached), net) : net;
+  }
+
   agentServices(agentId: string) {
-    return this.http.get<ServiceState[]>(`${this.base}/agents/${agentId}/services`);
+    const net = this.http.get<ServiceState[]>(`${this.base}/agents/${agentId}/services`)
+      .pipe(tap((s) => this.servicesCache.set(agentId, s)));
+    return this.cacheFirst(this.servicesCache.get(agentId), net);
   }
 
   serviceHistory(agentId: string, serviceName: string, limit = 200) {
@@ -124,7 +138,9 @@ export class MonitoringService {
   }
 
   fleetHosts() {
-    return this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`);
+    const net = this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`)
+      .pipe(tap((h) => (this.fleetCache = h)));
+    return this.cacheFirst(this.fleetCache ?? undefined, net);
   }
 
   /** Block L3c: distinct fleet metrics + human-readable names for the

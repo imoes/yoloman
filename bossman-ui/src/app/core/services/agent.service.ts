@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
 import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
@@ -16,8 +17,14 @@ export class AgentService {
     return this.http.get<Agent[]>(this.base);
   }
 
-  get(id: string) {
-    return this.http.get<Agent>(`${this.base}/${id}`);
+  // Stale-while-revalidate: the host-properties header paints from cache
+  // instantly on revisit, then refreshes from the network in place.
+  private agentCache = new Map<string, Agent>();
+
+  get(id: string): Observable<Agent> {
+    const net = this.http.get<Agent>(`${this.base}/${id}`).pipe(tap((a) => this.agentCache.set(id, a)));
+    const cached = this.agentCache.get(id);
+    return cached !== undefined ? concat(of(cached), net) : net;
   }
 
   /** Catalog discovery: every metric name recorded for this agent. */

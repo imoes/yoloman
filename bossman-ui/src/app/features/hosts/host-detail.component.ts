@@ -249,6 +249,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           }
                         </td>
                         <td class="bm-actions">
+                          <button mat-icon-button (click)="pollService(svc, $event)" [disabled]="polling()"
+                            title="Poll now — re-collect this host's metrics and checks">
+                            <mat-icon [class.bm-spin]="pollingService() === svc.name">{{ pollingService() === svc.name ? 'sync' : 'refresh' }}</mat-icon>
+                          </button>
                           @if (!svc.acknowledged) {
                             <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
                           } @else {
@@ -1454,6 +1458,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         font-size: 12px;
         opacity: 0.7;
       }
+      .bm-spin {
+        animation: bm-spin 1s linear infinite;
+      }
+      @keyframes bm-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
       .bm-flag {
         margin-left: 6px;
         font-size: 12px;
@@ -1930,6 +1942,27 @@ export class HostDetailComponent implements OnInit {
 
   polling = signal(false);
   pollMsg = signal('');
+  pollingService = signal<string | null>(null);
+
+  /** Poll now scoped to one service row. Checks run together on the agent, so
+   * this triggers the same full poll but shows a spinner on that row and
+   * refreshes the table afterwards. */
+  pollService(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    const agent = this.agent();
+    if (!agent || this.polling()) return;
+    this.polling.set(true);
+    this.pollingService.set(svc.name);
+    this.agentService.pollNow(agent.id).subscribe({
+      next: () => {
+        this.polling.set(false);
+        this.pollingService.set(null);
+        this.reloadServices(agent.id);
+        this.agentService.metricsLatest(agent.id).subscribe((res) => this.latestMetrics.set(res.metrics));
+      },
+      error: () => { this.polling.set(false); this.pollingService.set(null); },
+    });
+  }
 
   /** Poll this host immediately (metrics + state + assigned checks), then
    * refresh the services table — instead of waiting for the next poll tick. */
