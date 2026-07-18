@@ -86,6 +86,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/rollouts/rollouts.component').then((m) => m.RolloutsComponent),
   },
   {
+    path: 'compliance',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/compliance/compliance.component').then((m) => m.ComplianceComponent),
+  },
+  {
     path: 'deploy',
     canActivate: [authGuard],
     loadComponent: () => import('./features/deploy/deploy.component').then((m) => m.DeployComponent),

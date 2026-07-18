@@ -1520,6 +1520,60 @@ class Event(Base):
     )
 
 
+class ComplianceRule(Base):
+    """A software-compliance policy (gap #9): the set of packages that MUST be
+    installed (`required`) and MUST NOT be installed (`forbidden`) on the hosts
+    in a scope. Each entry is a spec string — a bare name (`nginx`) or a name
+    with a version constraint (`openssl>=3.0`, `log4j<2.17`, `docker==24.0.7`).
+    Evaluated periodically against `Agent.facts["installed_packages"]`; a host
+    that drifts out of policy raises an alert at `severity` and is recorded in
+    ComplianceResult. Scope mirrors the Rollout/ScheduledJob shape."""
+
+    __tablename__ = "compliance_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False)  # global|host|group|ou
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    required: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    forbidden: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    severity: Mapped[str] = mapped_column(String, nullable=False, default="CRIT")  # WARN|CRIT
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('global', 'host', 'group', 'ou')", name="ck_compliance_scope"),
+        CheckConstraint("severity IN ('WARN', 'CRIT')", name="ck_compliance_severity"),
+    )
+
+
+class ComplianceResult(Base):
+    """The last compliance evaluation of one host against one rule (gap #9).
+    Replace-on-evaluate, unique per (rule, agent). `violations` is a list of
+    {kind: 'missing'|'forbidden'|'version', package, detail}. `status` is OK
+    when empty, else the rule's severity."""
+
+    __tablename__ = "compliance_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    rule_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compliance_rules.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="OK")  # OK|WARN|CRIT
+    violations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    evaluated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("rule_id", "agent_id", name="uq_compliance_result"),
+        Index("idx_compliance_result_agent", "agent_id"),
+    )
+
+
 class ScheduledJob(Base):
     """A recurring runbook run on a cron schedule (fleet-wide automation): "run
     <runbook> against <scope> every <cron>" — patch nights, weekly hygiene,

@@ -14,7 +14,11 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       between waves (only NEW hard-CRIT counts vs a pre-wave baseline), fire-and-forget
       `execute_rollout` driver, `/api/v1/rollouts` CRUD+start/abort, Rollouts UI with live
       per-wave progress.
-- [ ] **#9 Software compliance** — required/forbidden packages per OU + drift alarm.
+- [x] **#9 Software compliance** — required/forbidden package specs (with version
+      constraints `openssl>=3.0`, `log4j<2.17`) per host/group/OU/fleet, evaluated
+      against `Agent.facts["installed_packages"]` by a `compliance_loop`; per-host
+      ComplianceResult + a NotifyEvent on drift; `/api/v1/compliance-rules` CRUD +
+      evaluate/results; Compliance UI (rules + per-host drift, evaluate-now).
 - [ ] **#10 Certificate/expiry inventory** — fleet-wide TLS/cert/licence expiry board.
 - [ ] **#13 Audit-log UI** — searchable change tracking (audit already in DB).
 - [ ] **#14 Custom dashboards** — drag-drop dashlets, NOC view.

@@ -137,6 +137,11 @@ class Settings(BaseSettings):
     syslog_listen_port: int = 1514
     snmptrap_listen_port: int = 1162
     event_console_host: str = "0.0.0.0"
+    # Software-compliance evaluation (gap #9): required/forbidden packages per
+    # scope, alert on drift. Reads Agent.facts["installed_packages"]; off in
+    # tests. See services/compliance.py.
+    compliance_enabled: bool = True
+    compliance_interval_seconds: int = 3600
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

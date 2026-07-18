@@ -53,6 +53,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/ou', label: 'OU / Policy', icon: 'domain' },
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
+  { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
   { path: '/snmp-devices', label: 'Devices', icon: 'router' },
   { path: '/events', label: 'Event Console', icon: 'inbox' },
   { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
