@@ -13,6 +13,11 @@ export function formatMetricValue(value: number | null | undefined, metric = '',
   if (m === 'uptime' || m.endsWith('_seconds') || m.endsWith('_secs') || n === 'uptime') {
     return formatDuration(value);
   }
+  // CPU load is a load average (a float), NOT a percentage — despite the
+  // agent's misleading `cpu_pct` metric name. Show it rounded to 2 decimals.
+  if (m === 'cpu_pct' || m.startsWith('cpu_load') || n === 'cpu load') {
+    return round(value, 2).toString();
+  }
   if (m.endsWith('_pct') || m.includes('percent') || m.endsWith('_usage') || m.endsWith('_used_pct')) {
     return `${round(value, 1)} %`;
   }
