@@ -443,9 +443,15 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				Value:     collect.StatusValue(c.Status),
 			})
 		}
-		// cpu_pct: only once the meter has two readings to rate against.
-		if pct, ok := cpuMeter.Sample("/proc"); ok {
+		// cpu_pct: only once the meter has two readings to rate against. The
+		// aggregate stays label-less (a single "CPU utilization" series that
+		// check_rules grade); each core is emitted as cpu_core_pct{core=N} so
+		// the graph can draw one line per core.
+		if pct, perCore, ok := cpuMeter.Sample("/proc"); ok {
 			points = append(points, store.Point{Metric: "cpu_pct", Timestamp: now, Value: pct})
+			for core, cpct := range perCore {
+				points = append(points, store.Point{Metric: "cpu_core_pct", Timestamp: now, Value: cpct, Labels: map[string]string{"core": core}})
+			}
 		}
 		// disk_iops: consumed I/O operations per second — per server (no label)
 		// plus a per-device breakdown. Primed on the first tick like cpu_pct.

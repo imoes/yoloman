@@ -21,7 +21,7 @@ func TestCPUMeter_FirstSamplePrimesReturnsNotOK(t *testing.T) {
 	dir := t.TempDir()
 	writeStat(t, dir, 100, 0, 50, 800, 50) // total=1000, idle=850
 	m := &CPUMeter{}
-	if _, ok := m.Sample(dir); ok {
+	if _, _, ok := m.Sample(dir); ok {
 		t.Fatal("first Sample must return ok=false (no prior reading to rate against)")
 	}
 }
@@ -36,7 +36,7 @@ func TestCPUMeter_ComputesBusyPercentOverInterval(t *testing.T) {
 	// t1: user +25 (busy), idle +50, iowait +25 → total=1100 (+100),
 	// idle=925 (+75). busy delta = 100-75 = 25 → 25%.
 	writeStat(t, dir, 125, 0, 50, 850, 75)
-	pct, ok := m.Sample(dir)
+	pct, _, ok := m.Sample(dir)
 	if !ok {
 		t.Fatal("second Sample must return ok=true")
 	}
@@ -51,14 +51,14 @@ func TestCPUMeter_ZeroIntervalNotOK(t *testing.T) {
 	m := &CPUMeter{}
 	m.Sample(dir)
 	// Identical stat → zero delta → no rate.
-	if _, ok := m.Sample(dir); ok {
+	if _, _, ok := m.Sample(dir); ok {
 		t.Fatal("a zero-length interval must return ok=false, not divide by zero")
 	}
 }
 
 func TestCPUMeter_MissingStatNotOK(t *testing.T) {
 	m := &CPUMeter{}
-	if _, ok := m.Sample(t.TempDir()); ok { // no stat file
+	if _, _, ok := m.Sample(t.TempDir()); ok { // no stat file
 		t.Fatal("a missing /proc/stat must return ok=false, not panic")
 	}
 }

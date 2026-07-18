@@ -90,7 +90,10 @@ function familyMembers(metric: string): string[] {
  * name onto the real telemetry metric(s) it grades — otherwise the service
  * detail chart has nothing to plot ("no data"). Disk checks additionally pin
  * a mount, since all mounts share the one `disk_used_pct` series. */
-function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string } | null {
+function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string; perLabel?: string; fallback?: string } | null {
+  // CPU utilization: one line PER CORE (cpu_core_pct{core=N}), falling back to
+  // the aggregate cpu_pct on a single-core host / older agent.
+  if (name === 'CPU load' || metric === 'cpu_pct') return { members: ['cpu_core_pct'], perLabel: 'core', fallback: 'cpu_pct' };
   if (metric) return { members: [metric] };
   if (name === 'CPU load') return { members: ['cpu_load1', 'cpu_load5', 'cpu_load15'] };
   if (name === 'Memory') return { members: ['mem_used_pct'] };
@@ -2001,6 +2004,9 @@ export class HostDetailComponent implements OnInit {
   /** True when the service grades a percentage metric — those rows get a
    * CheckMK Perf-O-Meter instead of a bare number. */
   serviceIsPct(svc: ServiceState): boolean {
+    // CPU load is a float value (shown as a number, not a % Perf-O-Meter) even
+    // though its per-core series metric ends in _pct.
+    if (svc.name === 'CPU load' || svc.metric === 'cpu_pct') return false;
     const spec = serviceMetricSpec(svc.name, svc.metric);
     return !!spec && spec.members[0].endsWith('_pct');
   }
@@ -2041,6 +2047,32 @@ export class HostDetailComponent implements OnInit {
     const start = end - this.availabilityHours() * 3_600_000;
     this.serviceChartWindow.set({ start, end });
     const since = new Date(start).toISOString();
+
+    // Per-label fan-out (CPU cores): fetch one metric, split its points into one
+    // series per distinct label value ("core 0", "core 1", …). Falls back to the
+    // aggregate series when the per-core metric has no data.
+    if (spec.perLabel) {
+      const key = spec.perLabel;
+      this.agentService.metricSeries(agent.id, spec.members[0], since).subscribe((res) => {
+        const byLabel = new Map<string, typeof res.points>();
+        for (const p of res.points) {
+          const v = String(p.labels?.[key] ?? '');
+          if (!byLabel.has(v)) byLabel.set(v, []);
+          byLabel.get(v)!.push(p);
+        }
+        if (byLabel.size) {
+          const series = [...byLabel.entries()]
+            .sort((a, b) => Number(a[0]) - Number(b[0]) || a[0].localeCompare(b[0]))
+            .map(([v, points]) => ({ name: `${key} ${v}`, points }));
+          this.serviceChartSeries.set(series);
+        } else if (spec.fallback) {
+          this.agentService.metricSeries(agent.id, spec.fallback, since)
+            .subscribe((r2) => this.serviceChartSeries.set([{ name: spec.fallback!, points: r2.points }]));
+        }
+      });
+      return;
+    }
+
     forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, since))).subscribe((results) => {
       const series = results.map((res, i) => ({
         name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
