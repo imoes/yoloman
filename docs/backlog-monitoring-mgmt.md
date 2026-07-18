@@ -19,7 +19,12 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       against `Agent.facts["installed_packages"]` by a `compliance_loop`; per-host
       ComplianceResult + a NotifyEvent on drift; `/api/v1/compliance-rules` CRUD +
       evaluate/results; Compliance UI (rules + per-host drift, evaluate-now).
-- [ ] **#10 Certificate/expiry inventory** — fleet-wide TLS/cert/licence expiry board.
+- [x] **#10 Certificate/expiry inventory** — fleet-wide board of TLS certs (probed
+      from Bossman via unverified handshake → leaf notAfter/subject/issuer/SANs) plus
+      manual licence/domain expiries, sorted by soonest expiry, warn/crit-day thresholds
+      with drift alerting (`cert_inventory_loop`); `/api/v1/cert-targets` CRUD +
+      check-now + summary; Certificates UI board. (Complements the per-endpoint `cert`
+      active check, which monitors one cert as a service.)
 - [ ] **#13 Audit-log UI** — searchable change tracking (audit already in DB).
 - [ ] **#14 Custom dashboards** — drag-drop dashlets, NOC view.
 - [ ] **#4 BI / service aggregation** — logical service = A AND B AND C across hosts.

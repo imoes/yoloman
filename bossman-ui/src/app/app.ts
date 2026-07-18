@@ -54,6 +54,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
+  { path: '/certificates', label: 'Certificates', icon: 'workspace_premium' },
   { path: '/snmp-devices', label: 'Devices', icon: 'router' },
   { path: '/events', label: 'Event Console', icon: 'inbox' },
   { path: '/config-templates', label: 'Config templates', icon: 'dataset' },

@@ -1574,6 +1574,47 @@ class ComplianceResult(Base):
     )
 
 
+class CertTarget(Base):
+    """A certificate/expiry inventory entry (gap #10). `kind='tls'` is probed by
+    Bossman (a TLS handshake to `endpoint`, reading the leaf cert's notAfter and
+    metadata); `kind='manual'` just tracks a hand-entered expiry date (software
+    licences, domain registrations, non-TLS things). The last observation is
+    stored inline so the dashboard sorts the whole fleet by soonest expiry.
+    Crossing `warn_days` / `crit_days` raises a notification."""
+
+    __tablename__ = "cert_targets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False, default="tls")  # tls | manual
+    endpoint: Mapped[str] = mapped_column(String, nullable=False, default="")  # host:port / https URL (tls)
+    warn_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    crit_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
+    # Last observation.
+    subject: Mapped[str | None] = mapped_column(String)
+    issuer: Mapped[str | None] = mapped_column(String)
+    serial: Mapped[str | None] = mapped_column(String)
+    not_before: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    not_after: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    sans: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    days_left: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="unknown")  # ok|warning|critical|expired|error|unknown
+    last_error: Mapped[str | None] = mapped_column(String)
+    last_checked_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('tls', 'manual')", name="ck_cert_kind"),
+        CheckConstraint(
+            "status IN ('ok', 'warning', 'critical', 'expired', 'error', 'unknown')", name="ck_cert_status"
+        ),
+    )
+
+
 class ScheduledJob(Base):
     """A recurring runbook run on a cron schedule (fleet-wide automation): "run
     <runbook> against <scope> every <cron>" — patch nights, weekly hygiene,
