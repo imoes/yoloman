@@ -50,6 +50,12 @@ services:
       # BOSSMAN_PUBLIC_URL set to a reachable address, which is host-specific
       # and belongs in docker-compose.override.yml.
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
+    # Privileged 514/162 on the host map to the unprivileged in-container ports;
+    # point devices' syslog/trap sinks at this host.
+    ports:
+      - "514:1514/udp"
+      - "162:1162/udp"
     volumes:
       - ./bossman/plans:/app/plans:ro
       - ./configs/config_templates:/app/config-templates:ro

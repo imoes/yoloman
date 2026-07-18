@@ -130,6 +130,13 @@ class Settings(BaseSettings):
     # Master switch for the recurring-runbook scheduler loop (off in tests, like
     # poll_enabled — a real scheduler tick would run runbooks against hosts).
     scheduler_enabled: bool = True
+    # Event Console (gap #2): passive receipt of syslog + SNMP traps. Ports are
+    # high by default (privileged 514/162 need a container port-map or CAP_
+    # NET_BIND_SERVICE); off in tests. See services/event_console.py.
+    event_console_enabled: bool = True
+    syslog_listen_port: int = 1514
+    snmptrap_listen_port: int = 1162
+    event_console_host: str = "0.0.0.0"
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

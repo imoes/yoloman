@@ -53,6 +53,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/modules', label: 'Modules', icon: 'extension' },
   { path: '/checks', label: 'Checks', icon: 'fact_check' },
   { path: '/snmp-devices', label: 'Devices', icon: 'router' },
+  { path: '/events', label: 'Event Console', icon: 'inbox' },
   { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
   { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },

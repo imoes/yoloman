@@ -1459,6 +1459,33 @@ class Notification(Base):
     __table_args__ = (Index("idx_notifications_created", "created_at"),)
 
 
+class Event(Base):
+    """A passively-received event — a syslog message or an SNMP trap (gap #2,
+    the Event Console). Unlike checks (which we poll), these arrive unsolicited
+    from devices (switches, UPS, firewalls). `source_ip` is reverse-mapped to a
+    known host when possible. severity/facility follow the syslog model
+    (0=emerg..7=debug); a trap maps its own severity heuristically."""
+
+    __tablename__ = "events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    received_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # syslog | snmptrap
+    source_ip: Mapped[str] = mapped_column(String, nullable=False)
+    host_name: Mapped[str | None] = mapped_column(String)  # resolved agent name, if known
+    severity: Mapped[int] = mapped_column(Integer, nullable=False, default=6)  # syslog 0..7
+    facility: Mapped[int | None] = mapped_column(Integer)
+    app: Mapped[str | None] = mapped_column(String)   # syslog tag / trap OID
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    raw: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (
+        Index("idx_events_received", "received_at"),
+        Index("idx_events_host", "host_name"),
+    )
+
+
 class ScheduledJob(Base):
     """A recurring runbook run on a cron schedule (fleet-wide automation): "run
     <runbook> against <scope> every <cron>" — patch nights, weekly hygiene,
