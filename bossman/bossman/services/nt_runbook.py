@@ -59,7 +59,20 @@ class Step:
     ignore_errors: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {"name": self.name, "module": self.module, "args": self.args}
+        # A role call round-trips as the readable `runbook:`/`vars:` form, not
+        # module: runbook + args, so the plaintext stays self-explanatory.
+        if self.module == "runbook":
+            d: dict[str, Any] = {"name": self.name, "runbook": self.args.get("name", "")}
+            if self.args.get("vars"):
+                d["vars"] = self.args["vars"]
+            if self.when is not None:
+                d["when"] = self.when
+            if self.register is not None:
+                d["register"] = self.register
+            if self.ignore_errors:
+                d["ignore_errors"] = True
+            return d
+        d = {"name": self.name, "module": self.module, "args": self.args}
         if self.when is not None:
             d["when"] = self.when
         if self.loop is not None:
@@ -108,7 +121,7 @@ class Role:
                 "notifications": {"routes": self.notification_routes}}
 
 
-_STEP_KEYS = {"name", "module", "args", "run", "when", "loop", "register", "ignore_errors"}
+_STEP_KEYS = {"name", "module", "args", "run", "runbook", "vars", "when", "loop", "register", "ignore_errors"}
 
 _PARAM_TYPES = {"string", "number", "bool", "list", "object"}
 
@@ -150,11 +163,26 @@ def _parse_step(raw: Any, idx: int) -> Step:
         raise NTRunbookError(f"step {idx + 1}: unknown key(s): {', '.join(sorted(unknown))}")
 
     name = raw.get("name", "")
-    if "run" in raw:
+    if "runbook" in raw:
+        # `runbook: install-nginx` (+ optional `vars:`) — call another stored
+        # runbook/role AS A TASK, Ansible import_role-style. Expanded (inlined)
+        # before execution by runbook_exec; the agent never sees a "runbook"
+        # module. Kept in the doc as module="runbook" so the editor round-trips it.
+        if "module" in raw or "args" in raw or "run" in raw:
+            raise NTRunbookError(f"step {idx + 1} ({name!r}): 'runbook' is a role call — don't also set module/args/run")
+        ref = raw["runbook"]
+        if not isinstance(ref, str) or not ref:
+            raise NTRunbookError(f"step {idx + 1} ({name!r}): 'runbook' must be a runbook name")
+        rvars = raw.get("vars") or {}
+        if not isinstance(rvars, dict):
+            raise NTRunbookError(f"step {idx + 1} ({name!r}): 'vars' must be a mapping")
+        module = "runbook"
+        args: dict[str, Any] = {"name": ref, "vars": rvars}
+    elif "run" in raw:
         if "module" in raw or "args" in raw:
             raise NTRunbookError(f"step {idx + 1} ({name!r}): 'run' is shorthand for module: shell — don't also set module/args")
         module = "shell"
-        args: dict[str, Any] = {"cmd": raw["run"]}
+        args = {"cmd": raw["run"]}
     else:
         module = raw.get("module")
         if not module:

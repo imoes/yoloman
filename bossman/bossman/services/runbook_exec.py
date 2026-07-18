@@ -73,6 +73,50 @@ async def resolve_run_variables(
     return {k: (vault.decrypt(v) if Vault.is_encrypted(v) else v) for k, v in merged.items()}
 
 
+async def _expand_role_calls(
+    session: AsyncSession, steps: list[nt_runbook.Step], seen: tuple[str, ...] = (), depth: int = 0,
+) -> tuple[list[nt_runbook.Step], dict[str, Any]]:
+    """Inline every `runbook:` step (a role call) with the referenced runbook's
+    steps — the Ansible import_role-as-task equivalent. Returns the flattened
+    step list plus the variables the calls contribute (the callee's parameter
+    defaults, then its explicit `vars`), which the caller layers weakly so an
+    unset field still gets the role's default. Recursive with cycle + depth
+    guards; the agent never sees a "runbook" module. v1: contributed vars share
+    the flat run scope (fine for the wizard's single-role calls)."""
+    from bossman.db.models import Runbook
+    from bossman.services import nt_convert
+    from sqlalchemy import select
+
+    if depth > 8:
+        raise nt_runbook.NTRunbookError("runbook includes nested too deep (>8) — cycle?")
+    out: list[nt_runbook.Step] = []
+    collected: dict[str, Any] = {}
+    for step in steps:
+        if step.module != "runbook":
+            out.append(step)
+            continue
+        ref = step.args.get("name")
+        if ref in seen:
+            raise nt_runbook.NTRunbookError(f"runbook include cycle: {' -> '.join((*seen, ref))}")
+        row = await session.scalar(
+            select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID, Runbook.name == ref)
+        )
+        if row is None:
+            raise nt_runbook.NTRunbookError(f"runbook step: no such runbook {ref!r}")
+        sub = nt_runbook.parse_document(nt_convert.doc_to_nt(row.doc))
+        if not isinstance(sub, nt_runbook.Runbook):
+            raise nt_runbook.NTRunbookError(f"runbook step: {ref!r} is a role, not a runbook")
+        # Callee parameter defaults (weakest), then the call's explicit vars.
+        for pname, spec in (sub.parameters or {}).items():
+            if isinstance(spec, dict) and spec.get("default") is not None:
+                collected[pname] = spec["default"]
+        collected.update(step.args.get("vars") or {})
+        sub_steps, sub_vars = await _expand_role_calls(session, sub.steps, (*seen, ref), depth + 1)
+        collected.update(sub_vars)
+        out.extend(sub_steps)
+    return out, collected
+
+
 async def execute_runbook(
     session: AsyncSession,
     agent: Agent,
@@ -87,8 +131,20 @@ async def execute_runbook(
 ) -> tuple[RunbookRun, dict[str, Any]]:
     """Run `doc` against `agent`, persisting a RunbookRun. Returns the audit
     row plus the engine result dict (with `facts_gathered`)."""
+    # Inline any `runbook:` role calls first, so the engine sees one flat step
+    # list (it has no DB access). The calls contribute their callees' defaults +
+    # vars as a weak variable layer.
+    include_vars: dict[str, Any] = {}
+    if any(s.module == "runbook" for s in doc.steps):
+        flat_steps, include_vars = await _expand_role_calls(session, doc.steps)
+        doc = nt_runbook.Runbook(
+            name=doc.name, targets=doc.targets, parameters=getattr(doc, "parameters", {}) or {}, steps=flat_steps,
+        )
+
     magic = await gather_magic_vars(client, agent)
     variables = await resolve_run_variables(session, agent, settings, magic, request_vars or {})
+    if include_vars:
+        variables = {**include_vars, **variables}
     # A runbook's typed parameter defaults are the WEAKEST layer — they fill in
     # anything the caller/facts/scope-vars didn't supply (so the wizard's install
     # runbooks work even when a field is left at its default and omitted).
