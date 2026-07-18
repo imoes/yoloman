@@ -60,4 +60,10 @@ export class WizardService {
       `${this.base}/agents/${agentId}/runbook/run`, { nt, variables, dry_run: dryRun },
     );
   }
+
+  /** Save a runbook (NestedText) to the library — the wizard's "Save as
+   * template" (folder "templates"). 409 if the name is taken. */
+  saveRunbook(nt: string, folder = 'templates') {
+    return this.http.post<{ id: string; name: string }>(`${this.base}/runbooks`, { nt, folder });
+  }
 }

@@ -111,6 +111,20 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                   }
                 </div>
               }
+
+              <!-- Wizard = runbook: the composed runbook (role calls + your
+                   variables), copyable, and savable as a reusable template
+                   BEFORE installing — editable later in the Workflow designer. -->
+              <details class="bm-wz-tpl">
+                <summary>Runbook &amp; invocation <span class="bm-wz-dim">— this is what runs; save or copy it</span></summary>
+                <div class="bm-wz-tpl-bar">
+                  <input class="bm-wz-tpl-name" placeholder="template name (optional)" [ngModel]="templateName()" (ngModelChange)="templateName.set($event)" />
+                  <button mat-stroked-button (click)="copyTemplate()"><mat-icon>content_copy</mat-icon> Copy</button>
+                  <button mat-stroked-button (click)="saveAsTemplate()"><mat-icon>save</mat-icon> Save as template</button>
+                  @if (savedMsg()) { <span class="bm-wz-saved">{{ savedMsg() }}</span> }
+                </div>
+                <pre class="bm-wz-nt">{{ templateNt() }}</pre>
+              </details>
             }
             @case ('results') {
               <h2>Results</h2>
@@ -188,6 +202,14 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-wz-dry, .bm-wz-result { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: 13px; }
     .bm-wz-dry-h, .bm-wz-result-h { font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .bm-wz-tpl { margin-top: 14px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; }
+    .bm-wz-tpl summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+    .bm-wz-tpl-bar { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+    .bm-wz-tpl-name { flex: 1; min-width: 160px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant);
+      background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
+    .bm-wz-saved { font-size: 12px; color: var(--bm-green, #2e7d32); }
+    .bm-wz-nt { background: var(--mat-sys-surface-container-high, rgba(127,127,127,0.12)); border-radius: 6px; padding: 10px 12px;
+      font-family: ui-monospace, monospace; font-size: 12px; white-space: pre; overflow-x: auto; margin: 0; max-height: 320px; overflow-y: auto; }
     .bm-wz-stepr { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 1px 0; }
     .bm-wz-stepr-s { opacity: 0.55; margin-left: auto; }
     .bm-wz-err { color: var(--bm-red, #c62828); font-size: 12px; font-family: ui-monospace, monospace; white-space: pre-wrap; margin: 2px 0 6px 22px; }
@@ -301,6 +323,70 @@ export class AddRolesWizardComponent {
       ...(this.values()[pkg] || {}),
       _packages: res.packages ?? [], _dest: res.config_path ?? '', _service: res.service ?? '',
     };
+  }
+
+  // --- Wizard = runbook: show the composed runbook + save it as a template ---
+  templateName = signal('');
+  savedMsg = signal('');
+
+  /** The wizard as a plaintext runbook: one `runbook:` role call per selected
+   * package, carrying the configured variables — exactly what runs, editable
+   * later in the Workflow editor. This IS the template you save. */
+  templateNt(): string {
+    const pkgs = this.toInstall();
+    const lines = [`name: ${this.templateName().trim() || 'install ' + pkgs.join(' ')}`, `targets: host:${this.data.hostName}`, 'steps:'];
+    for (const p of pkgs) {
+      lines.push('    -');
+      lines.push(`        name: ${this.catLabel(p)}`);
+      lines.push(`        runbook: install-${p}`);
+      const vars = this.values()[p] || {};
+      const keys = Object.keys(vars).filter((k) => !k.startsWith('_') && vars[k] !== undefined && vars[k] !== '');
+      if (keys.length) {
+        lines.push('        vars:');
+        for (const k of keys) lines.push(...this.ntValue(k, vars[k], 12));
+      }
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  /** Serialise one variable to NestedText at the given indent (scalars inline,
+   * lists as `- item`, dicts nested). */
+  private ntValue(key: string, v: unknown, indent: number): string[] {
+    const pad = ' '.repeat(indent);
+    if (Array.isArray(v)) {
+      if (!v.length) return [`${pad}${key}: []`];
+      const out = [`${pad}${key}:`];
+      for (const el of v) {
+        if (el !== null && typeof el === 'object') {
+          out.push(`${pad}    -`);
+          for (const [ek, ev] of Object.entries(el)) out.push(...this.ntValue(ek, ev, indent + 8));
+        } else {
+          out.push(`${pad}    - ${el}`);
+        }
+      }
+      return out;
+    }
+    if (v !== null && typeof v === 'object') {
+      const out = [`${pad}${key}:`];
+      for (const [ek, ev] of Object.entries(v as Record<string, unknown>)) out.push(...this.ntValue(ek, ev, indent + 4));
+      return out;
+    }
+    return [`${pad}${key}: ${v}`];
+  }
+
+  copyTemplate(): void {
+    navigator.clipboard?.writeText(this.templateNt()).then(
+      () => { this.savedMsg.set('Copied to clipboard'); setTimeout(() => this.savedMsg.set(''), 2500); },
+      () => {},
+    );
+  }
+
+  saveAsTemplate(): void {
+    this.savedMsg.set('');
+    this.wizard.saveRunbook(this.templateNt(), 'templates').subscribe({
+      next: (r) => this.savedMsg.set(`Saved as template "${r.name}" — editable in the Workflow designer`),
+      error: (e: { error?: { detail?: string } }) => this.savedMsg.set(e?.error?.detail || 'save failed (name may already exist)'),
+    });
   }
 
   preview(): void { this.execute(true); }
