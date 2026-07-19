@@ -130,15 +130,51 @@ def _apt_security_count(ctx):
     return -1  # unknown
 
 
+# The binary package names whose pending upgrade comes from a security archive
+# (the same signal that flags each row "security" in the list view).
+def _apt_security_packages(ctx):
+    res = ctx.run(["apt-get", "--just-print", "upgrade"], mutates=False)
+    names = []
+    for u in _parse_apt_upgrade(res.stdout):
+        if u["security"]:
+            names.append(u["name"])
+    return names
+
+
 def _apt_apply(ctx, params):
     security_only = params.get("security_only", False)
-    if security_only and _cmd_exists(ctx, "unattended-upgrade"):
-        res = ctx.run(["unattended-upgrade", "-v"], mutates=True)
-        ok = res.rc == 0
+    reboot = ctx.file_exists("/var/run/reboot-required")
+    if security_only:
+        # Canonical path: unattended-upgrade applies ONLY the security archive.
+        if _cmd_exists(ctx, "unattended-upgrade"):
+            res = ctx.run(["unattended-upgrade", "-v"], mutates=True)
+            ok = res.rc == 0
+            return {
+                "changed": ok and not res.skipped,
+                "msg": "applied security updates via unattended-upgrade" if ok else "unattended-upgrade failed",
+                "data": {"manager": "apt", "security_only": True, "rc": res.rc, "reboot_required": ctx.file_exists("/var/run/reboot-required")},
+            }
+        # Fallback WITHOUT unattended-upgrades installed: upgrade ONLY the
+        # packages coming from a security archive — never fall through to a full
+        # upgrade (that was the bug: "security only" upgraded everything).
+        names = _apt_security_packages(ctx)
+        if not names:
+            return {
+                "changed": False,
+                "msg": "no security updates to apply",
+                "data": {"manager": "apt", "security_only": True, "rc": 0, "count": 0, "reboot_required": reboot},
+            }
+        cmd = ("DEBIAN_FRONTEND=noninteractive apt-get -y " +
+               "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold " +
+               "install --only-upgrade " + " ".join(names))
+        res = ctx.run(["sh", "-c", cmd], mutates=True)
+        if res.rc != 0 and not res.skipped:
+            fail("apt-get security upgrade failed: %s" % (res.stderr or res.stdout))
         return {
-            "changed": ok and not res.skipped,
-            "msg": "applied security updates via unattended-upgrade" if ok else "unattended-upgrade failed",
-            "data": {"manager": "apt", "security_only": True, "rc": res.rc, "reboot_required": ctx.file_exists("/var/run/reboot-required")},
+            "changed": not res.skipped,
+            "msg": "applied %d security update(s) via apt-get install --only-upgrade" % len(names),
+            "data": {"manager": "apt", "security_only": True, "rc": res.rc, "count": len(names),
+                     "reboot_required": ctx.file_exists("/var/run/reboot-required")},
         }
     # full upgrade (DEBIAN_FRONTEND noninteractive so it never blocks on prompts)
     res = ctx.run(
