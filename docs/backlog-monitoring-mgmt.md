@@ -25,7 +25,12 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       with drift alerting (`cert_inventory_loop`); `/api/v1/cert-targets` CRUD +
       check-now + summary; Certificates UI board. (Complements the per-endpoint `cert`
       active check, which monitors one cert as a service.)
-- [ ] **#13 Audit-log UI** — searchable change tracking (audit already in DB).
+- [x] **#13 Audit-log UI** — unified `audit_log` table + `record_audit` helper;
+      an HTTP middleware records every authenticated mutating call (actor from the
+      bearer, target from the path, outcome from the status) and login success/
+      failure is logged explicitly; admin-gated `/api/v1/audit` (filters
+      actor/category/status/q/since) + `/stats`; searchable Audit UI. (The prior
+      "audit in DB" was only fragmented run tables — this adds the real unified trail.)
 - [ ] **#14 Custom dashboards** — drag-drop dashlets, NOC view.
 - [ ] **#4 BI / service aggregation** — logical service = A AND B AND C across hosts.
 - [ ] **#3 Trending/forecasting/capacity** — adaptive thresholds, "disk full in N days".

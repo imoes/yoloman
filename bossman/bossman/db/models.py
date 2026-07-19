@@ -1574,6 +1574,38 @@ class ComplianceResult(Base):
     )
 
 
+class AuditLog(Base):
+    """A unified who-did-what-when audit trail (gap #13). Most rows are written
+    automatically by the audit middleware for every authenticated mutating API
+    call (POST/PUT/PATCH/DELETE); logins are recorded explicitly. `action` is a
+    stable verb (`auth.login`, `POST /api/v1/compliance-rules`), `category`
+    groups them (auth|config|policy|execution|access|monitoring|other), and
+    `detail` carries anything extra. Append-only; high-volume, so a BigInteger PK."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    actor: Mapped[str] = mapped_column(String, nullable=False, default="anonymous")
+    actor_kind: Mapped[str | None] = mapped_column(String)  # user | api_token
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str] = mapped_column(String, nullable=False, default="other")
+    method: Mapped[str | None] = mapped_column(String)
+    path: Mapped[str | None] = mapped_column(String)
+    target: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="ok")  # ok | failed
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    source_ip: Mapped[str | None] = mapped_column(String)
+    detail: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    __table_args__ = (
+        Index("idx_audit_at", "at"),
+        Index("idx_audit_actor", "actor"),
+        Index("idx_audit_category", "category"),
+    )
+
+
 class CertTarget(Base):
     """A certificate/expiry inventory entry (gap #10). `kind='tls'` is probed by
     Bossman (a TLS handshake to `endpoint`, reading the leaf cert's notAfter and

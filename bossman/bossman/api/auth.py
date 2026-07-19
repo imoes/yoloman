@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
+from bossman.services.audit import record_audit
 from bossman.services.auth import (
     AuthError,
     Identity,
@@ -42,13 +43,27 @@ class LoginResponse(BaseModel):
 @router.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(
     body: LoginRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> LoginResponse:
+    ip = request.client.host if request.client else None
     try:
         user = await authenticate_user(session, body.username, body.password)
     except AuthError:
+        if settings.audit_enabled:
+            await record_audit(
+                session, actor=body.username, action="auth.login_failed", category="auth",
+                actor_kind="user", method="POST", path="/api/v1/auth/login",
+                status="failed", status_code=401, source_ip=ip,
+            )
         raise HTTPException(status_code=401, detail="invalid username or password") from None
+    if settings.audit_enabled:
+        await record_audit(
+            session, actor=user.username, action="auth.login", category="auth",
+            actor_kind="user", method="POST", path="/api/v1/auth/login",
+            status="ok", status_code=200, source_ip=ip,
+        )
     return LoginResponse(access_token=create_access_token(user, settings))
 
 

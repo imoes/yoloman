@@ -147,6 +147,9 @@ class Settings(BaseSettings):
     # 12h re-probe. See services/cert_inventory.py.
     cert_inventory_enabled: bool = True
     cert_inventory_interval_seconds: int = 43200
+    # Audit trail (gap #13): record authenticated mutating API calls + logins.
+    # Off in tests (keeps the test DB's mutations out of the trail).
+    audit_enabled: bool = True
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 
