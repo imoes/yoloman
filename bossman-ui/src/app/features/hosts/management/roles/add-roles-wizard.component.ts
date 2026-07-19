@@ -9,7 +9,25 @@ import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
 import { CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
 import { CheckService } from '../../../../core/services/check.service';
+import { AgentService } from '../../../../core/services/agent.service';
+import { ObservedResource } from '../../../../core/models/agent.model';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
+
+// Category column ordering + display for the role browser (Miller column 1).
+const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
+const CAT_META: Record<string, { label: string; icon: string }> = {
+  web: { label: 'Web', icon: 'language' },
+  database: { label: 'Database', icon: 'storage' },
+  services: { label: 'Services', icon: 'apps' },
+  network: { label: 'Network', icon: 'lan' },
+  security: { label: 'Security', icon: 'security' },
+  storage: { label: 'Storage', icon: 'save' },
+  virtualization: { label: 'Virtualization', icon: 'dns' },
+  logging: { label: 'Logging', icon: 'article' },
+  time: { label: 'Time', icon: 'schedule' },
+  system: { label: 'System', icon: 'settings' },
+  other: { label: 'Other', icon: 'folder' },
+};
 
 export interface AddRolesWizardData {
   agentId: string;
@@ -54,35 +72,49 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
             }
             @case ('select') {
               <h2>Select roles</h2>
-              <p class="bm-wz-lead">Pick the roles to install on this host.</p>
+              <p class="bm-wz-lead">Pick the roles to install on this host — browse by category.</p>
               <input class="bm-wz-search" placeholder="Search roles…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
-              <div class="bm-wz-select">
-                <div class="bm-wz-roles">
-                  @for (grp of grouped(); track grp.category) {
-                    <div class="bm-wz-cat">{{ grp.category }}</div>
-                    @for (r of grp.items; track r.name) {
-                      <label class="bm-wz-role" [class.bm-wz-role--focus]="focus() === r.name" (mouseenter)="focus.set(r.name)">
-                        <mat-checkbox [checked]="picked().has(r.name)" [disabled]="isInstalled(r.name)" (change)="toggle(r.name)" />
-                        <mat-icon class="bm-wz-role-ic">{{ r.icon }}</mat-icon>
-                        <span class="bm-wz-role-lbl">{{ r.label }}</span>
-                        @if (isInstalled(r.name)) { <span class="bm-wz-badge">Installed</span> }
-                      </label>
-                    }
-                  }
+              <!-- Miller columns: category → packages (with description) → detail -->
+              <div class="bm-wz-miller">
+                <div class="bm-wz-mcol bm-wz-mcol--cats">
+                  @for (c of catsOrdered(); track c.category) {
+                    <div class="bm-wz-mcat" [class.bm-wz-msel]="effectiveCat() === c.category" (click)="activeCat.set(c.category)">
+                      <mat-icon class="bm-wz-mcat-ic">{{ catIcon(c.category) }}</mat-icon>
+                      <span class="bm-wz-mcat-lbl">{{ catName(c.category) }}</span>
+                      <span class="bm-wz-mcount">{{ c.items.length }}</span>
+                    </div>
+                  } @empty { <div class="bm-wz-dim bm-wz-mpad">No roles match.</div> }
                 </div>
-                <aside class="bm-wz-desc">
+                <div class="bm-wz-mcol bm-wz-mcol--pkgs">
+                  @for (r of catItems(); track r.name) {
+                    <div class="bm-wz-mrole" [class.bm-wz-msel]="focus() === r.name" (click)="focus.set(r.name)">
+                      <mat-checkbox [checked]="picked().has(r.name)" [disabled]="isInstalled(r.name)"
+                        (change)="toggle(r.name)" (click)="$event.stopPropagation()" />
+                      <mat-icon class="bm-wz-role-ic">{{ r.icon }}</mat-icon>
+                      <div class="bm-wz-mrole-txt">
+                        <div class="bm-wz-mrole-lbl">{{ r.label }}@if (isInstalled(r.name)) { <span class="bm-wz-badge">Installed</span> }</div>
+                        <div class="bm-wz-mrole-desc">{{ r.description }}</div>
+                      </div>
+                    </div>
+                  } @empty { <div class="bm-wz-dim bm-wz-mpad">Pick a category.</div> }
+                </div>
+                <aside class="bm-wz-mcol bm-wz-desc">
                   @if (focused(); as r) {
                     <div class="bm-wz-desc-lbl">{{ r.label }}</div>
                     <p>{{ r.description }}</p>
                     <div class="bm-wz-desc-pkg">Package: <code>{{ resolvedPackages(r.name) }}</code></div>
+                    @if (isInstalled(r.name)) { <div class="bm-wz-desc-pkg">Status: <strong>installed</strong> — "Configure" reloads its current settings.</div> }
                     @if (!r.template) { <div class="bm-wz-warn">No configuration template yet — installs with defaults, no Configure step.</div> }
-                  } @else { <p class="bm-wz-dim">Hover a role to see what it does.</p> }
+                  } @else { <p class="bm-wz-dim">Select a role to see what it does.</p> }
                 </aside>
               </div>
             }
             @case ('cfg') {
               <h2>Configure {{ cfgLabel() }}</h2>
               <p class="bm-wz-lead">Set the configuration for {{ cfgLabel() }}. Defaults are shown for every setting.</p>
+              @if (prefilled(cfgPkg())) {
+                <p class="bm-wz-prefill"><mat-icon>download_done</mat-icon> Current settings read from {{ data.hostName }} and pre-filled below — edit to change.</p>
+              }
               @if (rb(cfgPkg()); as r) {
                 <app-param-form [params]="r.parameters" [initial]="initialFor(cfgPkg())" (valuesChange)="setValues(cfgPkg(), $event)" />
               } @else {
@@ -188,14 +220,29 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-wz-lead { opacity: 0.7; margin: 0 0 16px; line-height: 1.5; }
     .bm-wz-search { display: block; width: 100%; max-width: 360px; margin: 0 0 12px; padding: 7px 11px; border-radius: 6px;
       border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
-    .bm-wz-select { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
-    .bm-wz-cat { font-size: 11px; text-transform: uppercase; opacity: 0.55; margin: 12px 0 4px; }
-    .bm-wz-role { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
-    .bm-wz-role--focus { background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
-    .bm-wz-role-ic { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; }
-    .bm-wz-role-lbl { flex: 1; }
-    .bm-wz-badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); }
-    .bm-wz-desc { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 14px; align-self: start; }
+    /* Miller-columns role browser: categories | packages | detail */
+    .bm-wz-miller { display: grid; grid-template-columns: 190px 1fr 300px; gap: 12px; height: 440px; }
+    .bm-wz-mcol { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow-y: auto; padding: 6px; min-width: 0; }
+    .bm-wz-mpad { padding: 10px; }
+    .bm-wz-mcat { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .bm-wz-mcat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-wz-mcat-ic { font-size: 18px; width: 18px; height: 18px; opacity: 0.75; }
+    .bm-wz-mcat-lbl { flex: 1; }
+    .bm-wz-mcount { font-size: 11px; opacity: 0.5; font-variant-numeric: tabular-nums; }
+    .bm-wz-msel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+    .bm-wz-mrole { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; border-radius: 6px; cursor: pointer; }
+    .bm-wz-mrole:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-wz-mrole-txt { min-width: 0; flex: 1; }
+    .bm-wz-mrole-lbl { font-size: 13px; font-weight: 600; }
+    .bm-wz-mrole-desc { font-size: 12px; opacity: 0.62; line-height: 1.4; margin-top: 1px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .bm-wz-role-ic { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; margin-top: 2px; }
+    .bm-wz-badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle;
+      background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); }
+    .bm-wz-desc { padding: 14px; }
+    .bm-wz-prefill { display: flex; align-items: center; gap: 7px; font-size: 13px; margin: -6px 0 14px; padding: 7px 11px; border-radius: 6px;
+      background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); }
+    .bm-wz-prefill mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--bm-green, #2e7d32); }
     .bm-wz-desc-lbl { font-weight: 700; margin-bottom: 6px; }
     .bm-wz-desc p { opacity: 0.8; line-height: 1.5; margin: 0 0 8px; }
     .bm-wz-desc-pkg { font-size: 12px; opacity: 0.7; }
@@ -229,8 +276,12 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
 export class AddRolesWizardComponent {
   private wizard = inject(WizardService);
   private checkService = inject(CheckService);
+  private agents = inject(AgentService);
   private dialogRef = inject(MatDialogRef<AddRolesWizardComponent>);
   setupMonitoring = signal(true);
+  activeCat = signal<string>('');
+  /** Host's current on-host config (per file) — for pre-filling installed roles. */
+  private observed = signal<ObservedResource[]>([]);
 
   step = signal(0);
   focus = signal<string>('');
@@ -244,6 +295,12 @@ export class AddRolesWizardComponent {
   forms = viewChildren(ParamFormComponent);
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: AddRolesWizardData) {
+    // Read the host's current config once (gpedit-style): lets Configure show
+    // the existing on-host settings for already-installed roles. Best-effort.
+    this.agents.observedState(data.agentId).subscribe({
+      next: (r) => this.observed.set(r.observed?.config ?? []),
+      error: () => {},
+    });
     if (data.preselect) {
       this.picked.set(new Set([data.preselect]));
       this.loadRunbooks([data.preselect]);
@@ -289,6 +346,25 @@ export class AddRolesWizardComponent {
   });
   focused = computed(() => { const n = this.focus(); const e = this.data.catalog[n]; return e ? { ...e, name: n } : null; });
 
+  // Miller column 1: categories in a defined order (grouped() is already query-filtered).
+  catsOrdered = computed(() =>
+    [...this.grouped()].sort((a, b) => {
+      const ia = CAT_ORDER.indexOf(a.category), ib = CAT_ORDER.indexOf(b.category);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.category.localeCompare(b.category);
+    }),
+  );
+  /** The selected category, falling back to the first when the current one is
+   * filtered away (or nothing picked yet). */
+  effectiveCat = computed(() => {
+    const cats = this.catsOrdered();
+    const cur = this.activeCat();
+    return cats.some((c) => c.category === cur) ? cur : (cats[0]?.category ?? '');
+  });
+  // Miller column 2: packages in the active category.
+  catItems = computed(() => this.catsOrdered().find((c) => c.category === this.effectiveCat())?.items ?? []);
+  catIcon(c: string): string { return CAT_META[c]?.icon ?? 'folder'; }
+  catName(c: string): string { return CAT_META[c]?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
+
   catLabel(p: string): string { return this.data.catalog[p]?.label ?? p; }
   isInstalled(p: string): boolean { return p in this.data.context.installed; }
   resolvedPackages(p: string): string { return (this.data.context.catalog_resolved[p]?.packages || []).join(', '); }
@@ -301,11 +377,26 @@ export class AddRolesWizardComponent {
   }
   canNext(): boolean { return this.stepKind() !== 'select' || this.toInstall().length > 0; }
 
-  /** Prefill a Configure form: installed → schema default (handled by ParamForm). */
+  /** Prefill a Configure form. For an already-installed role we merge the host's
+   * CURRENT on-host config (read via state/observed, matched by config_path) over
+   * the schema defaults — gpedit-style. Fresh installs have no observed file at
+   * that path, so they fall back to defaults. */
   initialFor(pkg: string): Record<string, unknown> {
     const res = this.data.context.catalog_resolved[pkg];
-    return { _packages: res?.packages ?? [], _dest: res?.config_path ?? '', _service: res?.service ?? '' };
+    const base = { _packages: res?.packages ?? [], _dest: res?.config_path ?? '', _service: res?.service ?? '' };
+    const cur = this.currentValues(pkg);
+    return cur ? { ...base, ...cur } : base;
   }
+
+  /** The host's current parsed config values for this role's config file, or
+   * null if the file isn't present/parsed on the host yet. */
+  private currentValues(pkg: string): Record<string, unknown> | null {
+    const path = this.data.context.catalog_resolved[pkg]?.config_path;
+    if (!path) return null;
+    const obs = this.observed().find((o) => o.path === path && o.values && Object.keys(o.values).length > 0);
+    return obs?.values ?? null;
+  }
+  prefilled(pkg: string): boolean { return this.currentValues(pkg) !== null; }
   setValues(pkg: string, v: Record<string, unknown>): void {
     this.values.update((m) => ({ ...m, [pkg]: v }));
   }
