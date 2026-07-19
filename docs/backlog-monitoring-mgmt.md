@@ -42,7 +42,12 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       rolled-up status + per-member summary recomputed by `business_service_loop`,
       NotifyEvent on transition; `/api/v1/business-services` CRUD + evaluate; UI with
       status dots + component breakdown.
-- [ ] **#3 Trending/forecasting/capacity** — adaptive thresholds, "disk full in N days".
+- [x] **#3 Trending/forecasting/capacity** — on-demand least-squares (hand-rolled
+      OLS, no numpy) over each metric's history (`query_series`), projecting
+      time-to-threshold per filesystem ("disk full in N days"); `/api/v1/forecast/
+      capacity` fleet board (soonest-first, warn/crit-day status) +
+      `/api/v1/agents/{id}/forecast`; Capacity UI with growth/day + projected date.
+      (Adaptive thresholds deferred — would rework the CheckRule engine.)
 - [ ] **#15 Agent config distribution** — provide an automation (mostly policy-solved).
 
 ## Deferred (remembered)

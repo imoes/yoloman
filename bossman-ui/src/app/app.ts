@@ -38,6 +38,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/business-services', label: 'Business services', icon: 'hub' },
+  { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
   { path: '/security', label: 'Security', icon: 'security' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },
