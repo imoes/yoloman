@@ -247,6 +247,13 @@ export class AgentService {
     return this.http.post<{ agent_id: string; result: unknown }>(`${this.base}/${id}/update`, form);
   }
 
+  /** Push the package Bossman ships (no file pick) — the server picks .deb vs
+   * .rpm by the host's OS family. */
+  updateBundled(id: string) {
+    return this.http.post<{ agent_id: string; family: string; package: string; result: unknown }>(
+      `${this.base}/${id}/update-bundled`, {});
+  }
+
   /** Block J2/J4a: restart/stop/start a systemd unit's running state, or
    * enable/disable its start-at-boot state, through the agent's write-gated
    * + audited `systemd` module. No raw PID-kill. */

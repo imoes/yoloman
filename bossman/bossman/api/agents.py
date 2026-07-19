@@ -312,6 +312,39 @@ async def update_agent(
     return {"agent_id": str(agent.id), "result": result}
 
 
+@router.post("/api/v1/agents/{agent_id}/update-bundled")
+async def update_agent_bundled(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Push the package Bossman ships to an enrolled host — no upload needed. The
+    right one is chosen by the host's OS family: RHEL/Fedora/SUSE get the .rpm
+    (BOSSMAN_AGENT_RPM_PATH), everything else the .deb (BOSSMAN_AGENT_DEB_PATH).
+    The agent installs whichever it receives (dpkg / rpm)."""
+    from bossman.api.package_wizard import _family
+
+    agent = await _get_agent_or_404(session, agent_id)
+    if not agent.address:
+        raise HTTPException(status_code=409, detail="agent has no direct address — cannot push an update to it directly")
+    family = _family(agent.facts or {})
+    path = settings.agent_rpm_path if family in ("redhat", "suse") else settings.agent_deb_path
+    kind = "rpm" if family in ("redhat", "suse") else "deb"
+    if not path:
+        raise HTTPException(status_code=409, detail=f"no bundled {kind} configured (set BOSSMAN_AGENT_{kind.upper()}_PATH)")
+    if not Path(path).is_file():
+        raise HTTPException(status_code=409, detail=f"bundled {kind} not found at {path}")
+    data = Path(path).read_bytes()
+    client = client_factory(agent, settings)
+    try:
+        result = await client.self_update(data)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "family": family, "package": kind, "result": result}
+
+
 _SERVICE_ACTION_STATE = {"restart": "restarted", "stop": "stopped", "start": "started"}
 # Block J4a — boot-state actions map to the systemd module's `enabled` param
 # (no running-state change), so they can be issued independently of start/stop.

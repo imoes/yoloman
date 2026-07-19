@@ -8,8 +8,12 @@ import (
 	"os/exec"
 )
 
-// debMagic is the leading magic of a Debian .deb (an ar archive).
+// debMagic is the leading magic of a Debian .deb (an ar archive); rpmMagic is
+// the RPM lead (0xED 0xAB 0xEE 0xDB). The self-update accepts either so a
+// RHEL/Fedora/SUSE host upgrades from the .rpm and a Debian/Ubuntu host from
+// the .deb — Bossman pushes whichever matches the host's OS family.
 var debMagic = []byte("!<arch>\n")
+var rpmMagic = []byte{0xED, 0xAB, 0xEE, 0xDB}
 
 // handleSelfUpdate receives a new agent .deb pushed by Bossman over the
 // existing mTLS channel and installs it (dpkg -i), which — via the package's
@@ -58,19 +62,29 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("receiving update: %w", err))
 		return
 	}
-	// Reject anything that isn't a .deb before handing it to dpkg.
-	if !hasDebMagic(tmp.Name()) {
+	// Pick the installer from the package's magic bytes; reject anything else.
+	kind := packageKind(tmp.Name())
+	var installCmd string
+	switch kind {
+	case "deb":
+		installCmd = fmt.Sprintf("dpkg -i %q", tmp.Name())
+	case "rpm":
+		// -U upgrades (installs if absent); --force lets a same/older version
+		// replace the running one (e.g. a rebuild of the current version).
+		// Works across dnf/yum/zypper distros since it's plain rpm.
+		installCmd = fmt.Sprintf("rpm -U --force %q", tmp.Name())
+	default:
 		os.Remove(tmp.Name())
-		writeError(w, http.StatusBadRequest, fmt.Errorf("uploaded file is not a .deb package"))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("uploaded file is not a .deb or .rpm package"))
 		return
 	}
 
 	// Run the install in a TRANSIENT systemd unit (not our cgroup): the
 	// package's postinst restarts agentic-mcp.service, which would otherwise
-	// kill the dpkg child mid-install (default KillMode=control-group). A
+	// kill the install child mid-run (default KillMode=control-group). A
 	// systemd-run unit survives our restart. Fire-and-forget; the short sleep
 	// lets this HTTP response flush before the restart lands.
-	script := fmt.Sprintf("sleep 1; dpkg -i %q >> /var/log/agentic-mcp/self-update.log 2>&1; rm -f %q", tmp.Name(), tmp.Name())
+	script := fmt.Sprintf("sleep 1; %s >> /var/log/agentic-mcp/self-update.log 2>&1; rm -f %q", installCmd, tmp.Name())
 	cmd := exec.Command("systemd-run", "--collect", "--unit=agentic-mcp-selfupdate", "/bin/sh", "-c", script)
 	if err := cmd.Start(); err != nil {
 		os.Remove(tmp.Name())
@@ -78,22 +92,33 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		return
 	}
 
+	tool := "dpkg"
+	if kind == "rpm" {
+		tool = "rpm"
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "accepted",
 		"bytes":  n,
-		"detail": "installing via dpkg; the service will restart onto the new version",
+		"detail": fmt.Sprintf("installing via %s; the service will restart onto the new version", tool),
 	})
 }
 
-func hasDebMagic(path string) bool {
+// packageKind sniffs the leading magic bytes: "deb", "rpm", or "" (unknown).
+func packageKind(path string) string {
 	f, err := os.Open(path)
 	if err != nil {
-		return false
+		return ""
 	}
 	defer f.Close()
 	buf := make([]byte, len(debMagic))
 	if _, err := io.ReadFull(f, buf); err != nil {
-		return false
+		return ""
 	}
-	return string(buf) == string(debMagic)
+	if string(buf) == string(debMagic) {
+		return "deb"
+	}
+	if len(buf) >= len(rpmMagic) && string(buf[:len(rpmMagic)]) == string(rpmMagic) {
+		return "rpm"
+	}
+	return ""
 }

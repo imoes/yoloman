@@ -89,11 +89,20 @@ interface HostRow extends FleetHost {
                   <button
                     type="button"
                     class="bm-icon-btn"
-                    title="Update agent — push a new .deb; the agent installs it and restarts"
+                    title="Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts"
+                    [disabled]="updating() === host.id"
+                    (click)="onUpdateBundled(host, $event)"
+                  >
+                    <mat-icon>{{ updating() === host.id ? 'hourglass_empty' : 'system_update_alt' }}</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="bm-icon-btn"
+                    title="Upload a specific agent package (.deb/.rpm) to this host"
                     [disabled]="updating() === host.id"
                     (click)="onUpdateClick(host, fileInput, $event)"
                   >
-                    <mat-icon>{{ updating() === host.id ? 'hourglass_empty' : 'system_update_alt' }}</mat-icon>
+                    <mat-icon>upload_file</mat-icon>
                   </button>
                   <button
                     type="button"
@@ -119,7 +128,7 @@ interface HostRow extends FleetHost {
       </mat-card>
       <!-- Hidden picker shared by every row's Update button (Block N-deploy):
            the clicked row is remembered in pendingUpdateId. -->
-      <input #fileInput type="file" accept=".deb" hidden (change)="onFileChosen($event)" />
+      <input #fileInput type="file" accept=".deb,.rpm" hidden (change)="onFileChosen($event)" />
     </div>
   `,
   styles: [
@@ -310,7 +319,25 @@ export class HostsListComponent implements OnInit {
     return serviceStateBadge(host.state_rollup);
   }
 
-  /** Update button: remember the host, then open the shared file picker.
+  /** Update button: Bossman pushes the bundled package it ships, choosing
+   * .deb vs .rpm by the host's OS family. No file pick needed. */
+  onUpdateBundled(host: FleetHost, event: Event): void {
+    event.stopPropagation();
+    if (this.updating()) return;
+    this.updating.set(host.id);
+    this.agentService.updateBundled(host.id).subscribe({
+      next: (r) => {
+        this.updating.set(null);
+        this.dialog.notify(`Agent update pushed (${r.package}) — the host is installing it and will restart onto the new version.`);
+      },
+      error: (e) => {
+        this.updating.set(null);
+        this.dialog.notify(e?.error?.detail ?? 'agent update failed', 'error');
+      },
+    });
+  }
+
+  /** Upload button: remember the host, then open the shared file picker.
    * stopPropagation so the row's routerLink doesn't fire. */
   onUpdateClick(host: FleetHost, input: HTMLInputElement, event: Event): void {
     event.stopPropagation();

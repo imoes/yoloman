@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Path (inside the Bossman container/host) to the agent .deb that gets
     # copied to and installed on each freshly-deployed host.
     agent_deb_path: str = ""
+    # The matching RPM for RHEL/Fedora/SUSE hosts — the bundled self-update
+    # picks .deb vs .rpm by the target's OS family.
+    agent_rpm_path: str = ""
     # The address:port the deployed agent listens on (0.0.0.0 so Bossman can
     # reach it) and the value stored as the Agent row's address (host:port).
     agent_listen_port: int = 18051
