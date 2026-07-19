@@ -116,6 +116,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/audit/audit.component').then((m) => m.AuditComponent),
   },
   {
+    path: 'config-sync',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/config-sync/config-sync.component').then((m) => m.ConfigSyncComponent),
+  },
+  {
     path: 'deploy',
     canActivate: [authGuard],
     loadComponent: () => import('./features/deploy/deploy.component').then((m) => m.DeployComponent),

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
@@ -255,4 +255,90 @@ async def reconciler_loop(
             pass
 
 
-__all__ = ["enqueue_policy_event", "process_outbox_once", "reconciler_loop", "ReconcileStats"]
+@dataclass
+class ConvergeStats:
+    last_run_at: datetime | None = None
+    checked: int = 0
+    pushed: int = 0
+    failed: int = 0
+
+
+async def _last_acked_generation(session: AsyncSession, agent_id: UUID) -> int:
+    """The newest generation this agent has actually ACKed (0 if never)."""
+    g = await session.scalar(
+        select(func.max(AgentConfigDelivery.generation)).where(
+            AgentConfigDelivery.agent_id == agent_id, AgentConfigDelivery.status == "acked"
+        )
+    )
+    return int(g or 0)
+
+
+async def converge_once(
+    session: AsyncSession, settings: Settings, *, client_factory: ClientFactory = client_for
+) -> ConvergeStats:
+    """Convergence sweep (gap #15): the safety net that makes config distribution
+    eventually-consistent regardless of what triggered — or failed to trigger — a
+    push. For every agent it (re)compiles the desired state and, whenever the
+    compiled generation is ahead of what the agent last ACKed, PUSHES it. This
+    catches: hosts that were unreachable when the event-driven reconciler fired,
+    freshly-enrolled hosts (no delivery yet), and mutations whose endpoint never
+    enqueued a PolicyEvent. Idempotent — an up-to-date, acked host is skipped."""
+    stats = ConvergeStats(last_run_at=datetime.now(timezone.utc))
+    agents = (await session.scalars(select(Agent).where(Agent.address.isnot(None)))).all()
+    for agent in agents:
+        stats.checked += 1
+        try:
+            result = await compile_host_desired_state(session, agent.id)
+            if result is None:
+                continue
+            acked = await _last_acked_generation(session, agent.id)
+            if result.generation <= acked:
+                continue  # host already has (and acked) the current generation
+            ok = await _push_to_agent(session, agent, result, client_factory, settings)
+            stats.pushed += 1 if ok else 0
+            stats.failed += 0 if ok else 1
+            await session.commit()
+        except Exception:  # noqa: BLE001 — one bad host must not stall the sweep
+            await session.rollback()
+            stats.failed += 1
+    return stats
+
+
+async def converge_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    stop_event,
+    stats: ConvergeStats | None = None,
+    client_factory: ClientFactory = client_for,
+) -> None:
+    """Periodic convergence sweep. Slower cadence than the event-driven
+    reconciler (it recompiles every host) — it's the backstop, not the fast
+    path. Gated by settings.config_sync_enabled / config_sync_interval_seconds."""
+    import asyncio
+
+    if not settings.config_sync_enabled:
+        return
+    interval = max(60, settings.config_sync_interval_seconds)
+    while not stop_event.is_set():
+        try:
+            async with session_factory() as session:
+                run = await converge_once(session, settings, client_factory=client_factory)
+            if stats is not None:
+                stats.last_run_at = run.last_run_at
+                stats.checked += run.checked
+                stats.pushed += run.pushed
+                stats.failed += run.failed
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except (asyncio.TimeoutError, TimeoutError):
+            pass
+
+
+__all__ = [
+    "enqueue_policy_event", "process_outbox_once", "reconciler_loop", "ReconcileStats",
+    "converge_once", "converge_loop", "ConvergeStats",
+]

@@ -281,6 +281,12 @@ class Settings(BaseSettings):
     # background loop doesn't race per-test DB state.
     reconcile_enabled: bool = True
     reconcile_interval_seconds: int = 15
+    # Config-distribution convergence sweep (gap #15): the backstop that pushes
+    # any host whose compiled generation is ahead of what it last ACKed — catches
+    # hosts down at push time, newly-enrolled hosts, and un-enqueued mutations.
+    # Slower than the event-driven reconciler (recompiles every host). Off in tests.
+    config_sync_enabled: bool = True
+    config_sync_interval_seconds: int = 600
 
     # metrics/connection_events/service_state_history are TimescaleDB
     # hypertables with their OWN native add_retention_policy(...) background

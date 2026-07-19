@@ -48,7 +48,12 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       capacity` fleet board (soonest-first, warn/crit-day status) +
       `/api/v1/agents/{id}/forecast`; Capacity UI with growth/day + projected date.
       (Adaptive thresholds deferred — would rework the CheckRule engine.)
-- [ ] **#15 Agent config distribution** — provide an automation (mostly policy-solved).
+- [x] **#15 Agent config distribution** — the push pipeline (outbox→reconciler→mTLS
+      push→acks/retry) was already automatic but only triggered by check-rule edits;
+      added a periodic **convergence sweep** (`converge_loop`/`converge_once`) that
+      re-pushes to any host whose compiled generation is ahead of its last ACK —
+      self-heals hosts that were offline, freshly enrolled, or missed an event;
+      `/api/v1/config-sync/status` + `/run` (admin) and a Config-distribution UI.
 
 ## Deferred (remembered)
 - #5 Scheduled/exportable fleet reports (PDF/CSV, emailed SLA/inventory).

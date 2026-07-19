@@ -62,6 +62,7 @@ const SETUP_NAV: NavItem[] = [
   { path: '/events', label: 'Event Console', icon: 'inbox' },
   { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
   { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
+  { path: '/config-sync', label: 'Config distribution', icon: 'sync' },
   { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
   { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
   { path: '/settings', label: 'Settings', icon: 'settings' },

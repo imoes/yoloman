@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, auth, chat, checks, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, certs as certs_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, auth, chat, checks, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, certs as certs_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -36,7 +36,7 @@ from bossman.services.compliance import compliance_loop
 from bossman.services.cert_inventory import cert_inventory_loop
 from bossman.services.audit import audit_middleware
 from bossman.services.business_service import business_service_loop
-from bossman.services.reconciler import ReconcileStats, reconciler_loop
+from bossman.services.reconciler import ConvergeStats, ReconcileStats, converge_loop, reconciler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,10 @@ async def lifespan(app: FastAPI):
     reconciler_task = asyncio.create_task(
         reconciler_loop(app.state.session_factory, settings, stop_event, app.state.reconcile_stats)
     )
+    app.state.converge_stats = ConvergeStats()
+    converge_task = asyncio.create_task(
+        converge_loop(app.state.session_factory, settings, stop_event, app.state.converge_stats)
+    )
     async def _collect_cves() -> None:
         await collect_all_hosts(app.state.session_factory, settings, app.state.cve_feed)
 
@@ -192,6 +196,9 @@ async def lifespan(app: FastAPI):
         poller_task.cancel()
         housekeeping_task.cancel()
         reconciler_task.cancel()
+        converge_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await converge_task
         cve_feed_task.cancel()
         wizard_task.cancel()
         scheduler_task.cancel()
@@ -277,6 +284,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_api.router, tags=["audit"])
     app.include_router(business_services_api.router, tags=["business-services"])
     app.include_router(forecast_api.router, tags=["forecast"])
+    app.include_router(config_sync_api.router, tags=["config-sync"])
     app.include_router(admin.router, tags=["admin"])
     app.include_router(value_maps.router, tags=["value-maps"])
     app.include_router(config_templates.router, tags=["config-templates"])
