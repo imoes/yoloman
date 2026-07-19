@@ -222,6 +222,18 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   (`run_runbook` with a role's typed parameters), and **verify** (dry-run + `get_host_desired_state`).
   Writes keep the AI-proposes-human-confirms posture: `run_runbook` and orchestration links preview
   in `check_mode` and only mutate for real once the global YOLO-MAN switch is on.
+- **A new role or module is no problem** — because that MCP surface is *full-managed*, adding one is
+  a first-class operation, not a code change. A **new module** is translated into the agent's Starlark
+  runtime through the LLM and admitted by the same `starlark-check` gate — `submit_module` lands it in
+  the library and it's immediately an executable tool fleet-wide. A **new role** needs only that its
+  package be known: the `config_pipeline_generate` MCP tool runs all three generation steps for it in
+  one call — **codec** (classify the config file + mine its per-directive ADMX value catalog),
+  **template** (whole-file template + typed schema), and **enum enrichment** (doc-grounded dropdowns) —
+  then rebuilds the catalog so the package shows up as an installable role in the wizard, dropdowns and
+  all. No bespoke per-role agent code: a role is a package name + a Jinja2 template + a schema, and the
+  model produces those itself. The generated catalog also ships **inside the agent package**
+  (`/usr/share/agentic-mcp/configs/`), so the Server Manager keeps offering those roles even
+  **standalone**, with no Bossman attached.
 
 **Try the whole stack locally** — Postgres/TimescaleDB, migrations, an `admin`/`admin123` seed user,
 the FastAPI backend, and the Angular frontend behind nginx:
