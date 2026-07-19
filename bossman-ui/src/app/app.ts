@@ -34,6 +34,7 @@ interface NavItem {
 // so the old Runbooks + Plans + Plan library trio collapses to just "Roles".
 const MAIN_NAV: NavItem[] = [
   { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
+  { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },

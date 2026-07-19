@@ -20,6 +20,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/ai-dashboard/ai-dashboard.component').then((m) => m.AiDashboardComponent),
   },
   {
+    path: 'noc',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/noc/noc.component').then((m) => m.NocComponent),
+  },
+  {
     path: 'hosts',
     canActivate: [authGuard],
     loadComponent: () => import('./features/hosts/hosts-list.component').then((m) => m.HostsListComponent),

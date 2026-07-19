@@ -31,7 +31,11 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       failure is logged explicitly; admin-gated `/api/v1/audit` (filters
       actor/category/status/q/since) + `/stats`; searchable Audit UI. (The prior
       "audit in DB" was only fragmented run tables — this adds the real unified trail.)
-- [ ] **#14 Custom dashboards** — drag-drop dashlets, NOC view.
+- [x] **#14 Custom dashboards** — core already existed (GridStack drag-drop, multi-
+      dashboard CRUD, per-user persistence, AI generation, ECharts, 14 widget types).
+      Added the missing **NOC view**: a chrome-less full-screen kiosk (`/noc`) that
+      renders any saved dashboard read-only with auto-refresh, rotation through all
+      dashboards, native fullscreen, and idle-hiding chrome; + a top-level nav entry.
 - [ ] **#4 BI / service aggregation** — logical service = A AND B AND C across hosts.
 - [ ] **#3 Trending/forecasting/capacity** — adaptive thresholds, "disk full in N days".
 - [ ] **#15 Agent config distribution** — provide an automation (mostly policy-solved).
