@@ -35,7 +35,7 @@ interface Field { key: string; spec: ParamSpec; }
       <div class="bm-pf-field">
         <label class="bm-pf-label" [title]="f.spec.description || ''">{{ label(f.key) }}@if (f.spec.required) { <span class="bm-pf-req">*</span> }</label>
         <div class="bm-pf-control">
-          @switch (control(f.spec)) {
+          @switch (control(f.spec, values()[f.key])) {
             @case ('bool') {
               <label class="bm-pf-switch"><input type="checkbox" [checked]="asBool(values()[f.key])" (change)="set(f.key, $any($event.target).checked)" /> <span>{{ asBool(values()[f.key]) ? 'yes' : 'no' }}</span></label>
             }
@@ -63,11 +63,11 @@ interface Field { key: string; spec: ParamSpec; }
             @case ('objlist') {
               <div class="bm-pf-tbl">
                 <table>
-                  <thead><tr>@for (c of itemCols(f.spec); track c) { <th>{{ c }}</th> }<th></th></tr></thead>
+                  <thead><tr>@for (c of colsFor(f.key, f.spec); track c) { <th>{{ c }}</th> }<th></th></tr></thead>
                   <tbody>
                     @for (row of rows(f.key); let ri = $index; track ri) {
                       <tr>
-                        @for (c of itemCols(f.spec); track c) {
+                        @for (c of colsFor(f.key, f.spec); track c) {
                           <!-- ri aliases the ROW index: inside this nested for-loop
                                the implicit index is the COLUMN index (it silently
                                wrote every edit into row 0). One-way value + input,
@@ -156,12 +156,19 @@ export class ParamFormComponent implements OnInit {
   essential = computed(() => this.fields().filter((f) => f.spec.required || f.spec.default === undefined));
   advanced = computed(() => this.fields().filter((f) => !(f.spec.required || f.spec.default === undefined)));
 
-  control(spec: ParamSpec): string {
+  control(spec: ParamSpec, value?: unknown): string {
     if (spec.secret) return 'secret';
     if (spec.enum?.length) return 'enum';
     if (spec.type === 'bool') return 'bool';
     if (spec.type === 'number') return 'number';
-    if (spec.type === 'list') return spec.items ? 'objlist' : 'stringlist';
+    if (spec.type === 'list') {
+      if (spec.items) return 'objlist';
+      // Infer a table editor when the value is a list of OBJECTS even though the
+      // schema didn't declare `items` (e.g. a pre-filled chrony `servers` list) —
+      // otherwise joinList() would render each element as "[object Object]".
+      if (Array.isArray(value) && value.some((e) => e !== null && typeof e === 'object' && !Array.isArray(e))) return 'objlist';
+      return 'stringlist';
+    }
     if (spec.type === 'object') return 'objmap';
     return 'text';
   }
@@ -218,6 +225,18 @@ export class ParamFormComponent implements OnInit {
     return items as Record<string, ParamSpec>;
   }
   itemCols(spec: ParamSpec): string[] { return Object.keys(this.itemSpec(spec)); }
+  /** Table columns for a list-of-objects: the declared item schema when present,
+   * otherwise the union of keys across the current rows (so a schema-less
+   * pre-filled object list still renders an editable table). */
+  colsFor(key: string, spec: ParamSpec): string[] {
+    const declared = this.itemCols(spec);
+    if (declared.length) return declared;
+    const cols: string[] = [];
+    for (const r of this.rows(key)) {
+      for (const k of Object.keys(r || {})) if (!cols.includes(k)) cols.push(k);
+    }
+    return cols;
+  }
   rows(key: string): Record<string, unknown>[] { const v = this.values()[key]; return Array.isArray(v) ? v as Record<string, unknown>[] : []; }
 
   set(key: string, value: unknown): void {
@@ -230,7 +249,8 @@ export class ParamFormComponent implements OnInit {
   }
   addRow(key: string, spec: ParamSpec): void {
     const blank: Record<string, unknown> = {};
-    for (const [c, s] of Object.entries(this.itemSpec(spec))) blank[c] = (s as ParamSpec).default ?? '';
+    const itemsSpec = this.itemSpec(spec);
+    for (const c of this.colsFor(key, spec)) blank[c] = (itemsSpec[c] as ParamSpec | undefined)?.default ?? '';
     this.setList(key, [...this.rows(key), blank]);
   }
   delRow(key: string, i: number): void { const list = [...this.rows(key)]; list.splice(i, 1); this.setList(key, list); }
