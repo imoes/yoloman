@@ -35,6 +35,12 @@ func loadCodecRegistry() map[string]codecSpec {
 // fragment — its parent service's entry (same resolution as the classifier).
 // Returns (format, separator, true) when found with a usable codec.
 func lookupCodec(path string) (string, string, bool) {
+	// Full-path key first: the canonical registry (shipped in the package) keys
+	// most entries by absolute path (the universe classifier's output); the
+	// basename/glob keys below remain for the man-page-derived entries.
+	if s, ok := codecRegistry[path]; ok && s.Codec != "" && s.Codec != "none" {
+		return s.Codec, s.Separator, true
+	}
 	if s, ok := codecRegistry[filepath.Dir(path)+"/*"]; ok && s.Codec != "" && s.Codec != "none" {
 		return s.Codec, s.Separator, true
 	}

@@ -21,10 +21,13 @@ CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o 
 
 mkdir -p deploy-artifacts
 # nfpm resolves the config's relative src paths (../agentic-mcpd, ../configs/…)
-# against the CWD, so run it from packaging/. Output to absolute paths.
+# against the CWD, so run it from packaging/. Output to absolute paths. We build
+# BOTH a .deb (Debian/Ubuntu) and a .rpm (RHEL/Fedora/SUSE) from the one config.
 ( cd packaging && nfpm package -f nfpm.yaml -p deb -t "${ROOT}/deploy-artifacts/agentic-mcp_${VERSION}_amd64.deb" )
+( cd packaging && nfpm package -f nfpm.yaml -p rpm -t "${ROOT}/deploy-artifacts/agentic-mcp_${VERSION}_amd64.rpm" )
 cp -f "${ROOT}/deploy-artifacts/agentic-mcp_${VERSION}_amd64.deb" "${ROOT}/deploy-artifacts/agent.deb"
+cp -f "${ROOT}/deploy-artifacts/agentic-mcp_${VERSION}_amd64.rpm" "${ROOT}/deploy-artifacts/agent.rpm"
 
 echo ">> built:"
-ls -la deploy-artifacts/*.deb
-echo ">> deploy-artifacts/agent.deb is what the UI Update button (BOSSMAN_AGENT_DEB_PATH) serves."
+ls -la deploy-artifacts/*.deb deploy-artifacts/*.rpm
+echo ">> deploy-artifacts/agent.deb (Debian) + agent.rpm (RHEL) are what the UI Update button serves."
