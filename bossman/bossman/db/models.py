@@ -1606,6 +1606,37 @@ class AuditLog(Base):
     )
 
 
+class BusinessService(Base):
+    """A logical/business service (gap #4): a state rolled up from many underlying
+    per-host services (e.g. "Webshop" = web AND db AND cache across hosts). `members`
+    is a JSONB list of selectors — each {scope_type (global|host|group|ou),
+    agent_id?/host_group_id?/ou_id?, service_name?} — that expand to a set of
+    Service rows. `logic` is 'all' (worst-of; every component must be OK — AND) or
+    'any' (best-of; at least one OK — OR/redundancy). The computed `status` and a
+    per-member `summary` are stored inline and refreshed by business_service_loop."""
+
+    __tablename__ = "business_services"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    logic: Mapped[str] = mapped_column(String, nullable=False, default="all")  # all (AND/worst) | any (OR/best)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="UNKNOWN")  # OK|WARN|CRIT|UNKNOWN
+    summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("logic IN ('all', 'any')", name="ck_business_service_logic"),
+        CheckConstraint("status IN ('OK', 'WARN', 'CRIT', 'UNKNOWN')", name="ck_business_service_status"),
+    )
+
+
 class CertTarget(Base):
     """A certificate/expiry inventory entry (gap #10). `kind='tls'` is probed by
     Bossman (a TLS handshake to `endpoint`, reading the leaf cert's notAfter and

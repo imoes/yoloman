@@ -150,6 +150,10 @@ class Settings(BaseSettings):
     # Audit trail (gap #13): record authenticated mutating API calls + logins.
     # Off in tests (keeps the test DB's mutations out of the trail).
     audit_enabled: bool = True
+    # Business/logical service aggregation (gap #4): roll a state up from many
+    # underlying services. Cheap (reads DB state); recompute ~every minute.
+    business_service_enabled: bool = True
+    business_service_interval_seconds: int = 60
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
 

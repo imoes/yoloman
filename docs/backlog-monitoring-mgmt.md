@@ -36,7 +36,12 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       Added the missing **NOC view**: a chrome-less full-screen kiosk (`/noc`) that
       renders any saved dashboard read-only with auto-refresh, rotation through all
       dashboards, native fullscreen, and idle-hiding chrome; + a top-level nav entry.
-- [ ] **#4 BI / service aggregation** — logical service = A AND B AND C across hosts.
+- [x] **#4 BI / service aggregation** — `BusinessService`: members = scope selectors
+      (host/group/ou/global + optional service-name filter) expanded via
+      `affected_agent_ids`; `logic` all (AND/worst-of) or any (OR/redundancy);
+      rolled-up status + per-member summary recomputed by `business_service_loop`,
+      NotifyEvent on transition; `/api/v1/business-services` CRUD + evaluate; UI with
+      status dots + component breakdown.
 - [ ] **#3 Trending/forecasting/capacity** — adaptive thresholds, "disk full in N days".
 - [ ] **#15 Agent config distribution** — provide an automation (mostly policy-solved).
 

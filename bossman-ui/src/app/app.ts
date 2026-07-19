@@ -37,6 +37,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
+  { path: '/business-services', label: 'Business services', icon: 'hub' },
   { path: '/topology', label: 'Topology', icon: 'account_tree' },
   { path: '/security', label: 'Security', icon: 'security' },
   { path: '/host-placement', label: 'Host placement', icon: 'lan' },

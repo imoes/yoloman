@@ -101,6 +101,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/certificates/certificates.component').then((m) => m.CertificatesComponent),
   },
   {
+    path: 'business-services',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/business-services/business-services.component').then((m) => m.BusinessServicesComponent),
+  },
+  {
     path: 'audit',
     canActivate: [adminGuard],
     loadComponent: () => import('./features/audit/audit.component').then((m) => m.AuditComponent),
