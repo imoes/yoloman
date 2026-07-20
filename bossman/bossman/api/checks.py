@@ -172,6 +172,33 @@ async def create_assignment(
     return _assignment_out(a)
 
 
+class UpdateAssignmentRequest(BaseModel):
+    parameters: dict[str, Any]
+
+
+@router.patch("/api/v1/check-assignments/{assignment_id}")
+async def update_assignment(
+    assignment_id: UUID,
+    body: UpdateAssignmentRequest,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Edit an existing assignment's parameters in place (same scope/check),
+    so a service check can be reconfigured without delete+recreate. Same ACL
+    as delete: host scope → manage that host; group/OU → admin."""
+    a = await session.get(CheckAssignment, assignment_id)
+    if a is None:
+        raise HTTPException(status_code=404, detail="no such assignment")
+    if a.scope_type == "host":
+        if not await user_can_manage_agent(session, identity, a.agent_id):
+            raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    elif not (identity.kind == "user" and identity.role == "admin"):
+        raise HTTPException(status_code=403, detail="group/OU assignments are admin-only")
+    a.parameters = body.parameters or {}
+    await session.commit()
+    return _assignment_out(a)
+
+
 @router.delete("/api/v1/check-assignments/{assignment_id}", status_code=204)
 async def delete_assignment(
     assignment_id: UUID,

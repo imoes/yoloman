@@ -41,7 +41,10 @@ import { AddServiceCheckDialogComponent } from './add-service-check-dialog.compo
               <td><span class="bm-scope">{{ c.source_scope }}</span></td>
               <td class="bm-sc-act">
                 @if (c.source_scope === 'host') {
+                  <button mat-stroked-button (click)="edit(c)"><mat-icon>edit</mat-icon> Edit</button>
                   <button mat-stroked-button (click)="remove(c)"><mat-icon>delete</mat-icon> Remove</button>
+                } @else {
+                  <span class="bm-dim">from {{ c.source_scope }}</span>
                 }
               </td>
             </tr>
@@ -111,6 +114,19 @@ export class ServiceChecksComponent {
       data: { agentId: this.agentId(), hostName: this.hostName() || this.agentId() },
       width: 'min(760px, 94vw)', maxWidth: '94vw',
     }).afterClosed().subscribe((created) => { if (created) this.reload(); });
+  }
+
+  /** Reconfigure a host-scoped check: reopen the param form pre-filled and
+   * PATCH the assignment (no delete+recreate). */
+  edit(c: EffectiveCheck): void {
+    this.dialog.open(AddServiceCheckDialogComponent, {
+      data: {
+        agentId: this.agentId(),
+        hostName: this.hostName() || this.agentId(),
+        edit: { assignmentId: c.assignment_id, checkName: c.check_name, parameters: { ...(c.parameters || {}) } },
+      },
+      width: 'min(760px, 94vw)', maxWidth: '94vw',
+    }).afterClosed().subscribe((saved) => { if (saved) this.reload(); });
   }
 
   remove(c: EffectiveCheck): void {

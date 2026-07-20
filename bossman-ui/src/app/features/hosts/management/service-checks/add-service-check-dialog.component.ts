@@ -8,7 +8,14 @@ import { CheckCatalogEntry, CheckOption } from '../../../../core/models/check.mo
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
 import { ParamSchema, ParamSpec } from '../../../../shared/param-form/param-form.types';
 
-export interface AddServiceCheckData { agentId: string; hostName: string; }
+export interface AddServiceCheckData {
+  agentId: string;
+  hostName: string;
+  /** When set, the dialog edits an existing assignment in place instead of
+   * adding a new one: it skips the catalog browser, pre-fills the param form
+   * from the current parameters, and saves via PATCH. */
+  edit?: { assignmentId: string; checkName: string; parameters: Record<string, unknown> };
+}
 
 // Category column order for the check browser (Service checks first).
 const CHECK_CAT_ORDER = [
@@ -31,7 +38,7 @@ const CHECK_CAT_ICON: Record<string, string> = {
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, ParamFormComponent],
   template: `
-    <h2 mat-dialog-title>Add a service check <span class="bm-dim">on {{ data.hostName }}</span></h2>
+    <h2 mat-dialog-title>{{ data.edit ? 'Edit service check' : 'Add a service check' }} <span class="bm-dim">on {{ data.hostName }}</span></h2>
     <mat-dialog-content class="bm-sc-body">
       @if (!picked()) {
         <input class="bm-sc-search" placeholder="Search checks…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
@@ -66,7 +73,9 @@ const CHECK_CAT_ICON: Record<string, string> = {
         </div>
       } @else {
         <div class="bm-sc-cfg-head">
-          <button type="button" class="bm-sc-back" (click)="picked.set(null)"><mat-icon>arrow_back</mat-icon></button>
+          @if (!data.edit) {
+            <button type="button" class="bm-sc-back" (click)="picked.set(null)"><mat-icon>arrow_back</mat-icon></button>
+          }
           <div>
             <div class="bm-sc-label">{{ label(picked()!) }}</div>
             @if (picked()!.summary) { <div class="bm-sc-desc">{{ picked()!.summary }}</div> }
@@ -79,7 +88,8 @@ const CHECK_CAT_ICON: Record<string, string> = {
       <button mat-button mat-dialog-close>Cancel</button>
       @if (picked()) {
         <button mat-flat-button color="primary" [disabled]="!canSave() || saving()" (click)="save()">
-          <mat-icon>add_task</mat-icon> {{ saving() ? 'Assigning…' : 'Add check' }}
+          <mat-icon>{{ data.edit ? 'save' : 'add_task' }}</mat-icon>
+          {{ saving() ? 'Saving…' : (data.edit ? 'Save changes' : 'Add check') }}
         </button>
       }
     </mat-dialog-actions>
@@ -174,16 +184,27 @@ export class AddServiceCheckDialogComponent {
     }
     return out;
   });
-  initial = computed<Record<string, unknown>>(() => ({ service_name: this.picked() ? this.label(this.picked()!) : '' }));
+  initial = computed<Record<string, unknown>>(() => {
+    const ed = this.data.edit;
+    if (ed && this.picked()?.name === ed.checkName) return { ...ed.parameters };
+    return { service_name: this.picked() ? this.label(this.picked()!) : '' };
+  });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: AddServiceCheckData) {
     // The host-assignable catalog, browsed by category in the Miller columns
     // ('Service checks' first). SNMP checks (datasource 'snmp') are excluded —
     // those are configured against a monitored device in the SNMP Devices flow,
     // not per host. Grouping/sorting happens in `grouped()`.
-    this.checkService
-      .listChecks()
-      .subscribe((r) => this.catalog.set((r.checks || []).filter((c) => c.datasource !== 'snmp')));
+    this.checkService.listChecks().subscribe((r) => {
+      const checks = (r.checks || []).filter((c) => c.datasource !== 'snmp');
+      this.catalog.set(checks);
+      // Edit mode: jump straight to the pre-filled form for the edited check.
+      const ed = this.data.edit;
+      if (ed) {
+        const c = checks.find((x) => x.name === ed.checkName);
+        if (c) this.picked.set(c);
+      }
+    });
   }
 
   private toSpec(o: CheckOption): ParamSpec {
@@ -217,9 +238,13 @@ export class AddServiceCheckDialogComponent {
     if (!check || this.saving()) return;
     this.saving.set(true);
     const parameters = { ...this.initial(), ...this.values() };
-    this.checkService.createAssignment({
-      check_name: check.name, scope_type: 'host', agent_id: this.data.agentId, parameters, source: 'manual',
-    }).subscribe({
+    const ed = this.data.edit;
+    const req = ed
+      ? this.checkService.updateAssignment(ed.assignmentId, parameters)
+      : this.checkService.createAssignment({
+          check_name: check.name, scope_type: 'host', agent_id: this.data.agentId, parameters, source: 'manual',
+        });
+    req.subscribe({
       next: () => this.ref.close(true),
       error: () => this.saving.set(false),
     });

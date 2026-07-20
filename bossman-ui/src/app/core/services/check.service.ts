@@ -42,6 +42,10 @@ export class CheckService {
     return this.http.post<CheckAssignment>(`${this.base}/check-assignments`, body);
   }
 
+  updateAssignment(id: string, parameters: Record<string, unknown>) {
+    return this.http.patch<CheckAssignment>(`${this.base}/check-assignments/${id}`, { parameters });
+  }
+
   deleteAssignment(id: string) {
     return this.http.delete<void>(`${this.base}/check-assignments/${id}`);
   }

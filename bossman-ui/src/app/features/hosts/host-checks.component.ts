@@ -4,7 +4,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { Agent } from '../../core/models/agent.model';
@@ -24,22 +23,24 @@ import {
 /**
  * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
  * apply to this host (resolved GPO-style from OU/group/host assignments),
- * where each check's warn levels come from — and lets you add a check to
- * this host or override an inherited one's parameters right here (the "few
- * clicks, on the host page" model the user asked for). Group/OU-wide
- * assignment stays in OU/Policy; this tab is the host-centric view + host
- * overrides.
+ * where each check's warn levels come from, and lets you override an
+ * inherited check's parameters at host scope. Auto-discovery is the
+ * host-centric way to add checks; browsing the full catalog to add a
+ * service check by hand lives in Management ▸ Service checks (single source
+ * of truth — not duplicated here). Group/OU-wide assignment stays in OU/Policy.
  */
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, RouterLink, HostStatusBadgeComponent],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
 
-      <!-- Toolbar: auto-discovery is THE primary path (essential-only, §10);
-           the manual picker and variables are secondary/tertiary. -->
+      <!-- Toolbar: auto-discovery is THE host-centric path. Browsing the full
+           check catalog to add a service check by hand lives in the
+           Management ▸ Service checks snap-in (single source of truth), so it
+           is intentionally not duplicated here. -->
       <div class="bm-add">
         <button mat-flat-button color="primary" (click)="runDiscover()" [disabled]="discovering()">
           <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
@@ -48,14 +49,6 @@ import {
                 title="Run this host's checks now instead of waiting for the next poll">
           <mat-icon>refresh</mat-icon> {{ rechecking() ? 'Rechecking…' : 'Recheck now' }}
         </button>
-        <mat-form-field appearance="outline" class="bm-ff" subscriptSizing="dynamic">
-          <mat-label>Add a check manually</mat-label>
-          <mat-select [(ngModel)]="pickName" (ngModelChange)="onPick($event)">
-            @for (c of addable(); track c.name) {
-              <mat-option [value]="c.name">{{ c.name }}{{ c.short_description ? ' — ' + c.short_description : '' }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
         <button mat-button (click)="editHostVars()">
           <mat-icon>data_object</mat-icon> Variables…
         </button>
@@ -130,6 +123,9 @@ import {
         </div>
       }
 
+      <!-- Reached only via "Override here" on an inherited (OU/group) check —
+           set host-scoped parameters. Catalog browsing to ADD a new check
+           lives in Management ▸ Service checks, not here. -->
       @if (pickName()) {
         <div class="bm-form">
           <div class="bm-form-title">Configure <b>{{ pickName() }}</b> for {{ agent().name }}</div>
@@ -151,12 +147,12 @@ import {
       }
 
       <h3>Effective checks</h3>
-      @if (checks().length) {
+      @if (effectiveChecks().length) {
         <div class="bm-group">
         <table class="bm-table">
           <thead><tr><th>Check</th><th>From</th><th>Parameters</th><th></th></tr></thead>
           <tbody>
-            @for (c of checks(); track c.check_name) {
+            @for (c of effectiveChecks(); track c.check_name) {
               <tr [class.bm-orphan]="!c.in_library">
                 <td class="bm-mono">{{ c.check_name }}<div class="bm-dim bm-sd">{{ c.short_description }}</div></td>
                 <td><span class="bm-scope bm-scope-{{ c.source_scope }}">{{ scopeLabel(c) }}</span></td>
@@ -174,7 +170,7 @@ import {
         </table>
         </div>
       } @else {
-        <p class="bm-dim">No assigned checks on this host yet. Add one above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
+        <p class="bm-dim">No assigned checks on this host yet. Run <b>Auto-discover checks</b> above, add a service check in <b>Management&nbsp;▸&nbsp;Service checks</b>, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
       }
 
       <!-- F-4: the monitoring services actually running on this host, so the
@@ -325,10 +321,12 @@ export class HostChecksComponent {
   provInfo = signal<Record<string, { available: boolean; title?: string; admin_params?: { name: string; secret: boolean; description: string }[] }>>({});
   private adminCreds = signal<Record<string, Record<string, string>>>({});
 
-  /** Checks in the library not already effective on this host. */
-  addable = computed(() => {
-    const have = new Set(this.checks().map((c) => c.check_name));
-    return this.catalog().filter((c) => !have.has(c.name));
+  /** Effective checks minus the active "Service checks" (HTTP/TCP/DNS/…):
+   * those are managed in Management ▸ Service checks, so listing them here too
+   * would be redundant. Checks not in the library keep showing (orphan view). */
+  effectiveChecks = computed(() => {
+    const cat = new Map(this.catalog().map((c) => [c.name, c.category]));
+    return this.checks().filter((c) => cat.get(c.check_name) !== 'Service checks');
   });
 
   pickOptions = computed<{ key: string; spec: CheckOption }[]>(() => {
@@ -381,17 +379,6 @@ export class HostChecksComponent {
     const keys = Object.keys(params || {});
     if (!keys.length) return '(defaults)';
     return keys.map((k) => `${k}=${JSON.stringify(params[k])}`).join(', ');
-  }
-
-  onPick(name: string): void {
-    this.pickName.set(name);
-    // Seed the draft with each option's default (as a string for the input).
-    const c = this.catalog().find((x) => x.name === name);
-    const d: Record<string, string> = {};
-    for (const [k, spec] of Object.entries(c?.options || {})) {
-      if (spec.default !== undefined && spec.default !== null) d[k] = String(spec.default);
-    }
-    this.draft.set(d);
   }
 
   setDraft(key: string, value: string): void {
