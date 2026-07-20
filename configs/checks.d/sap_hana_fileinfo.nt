@@ -1,0 +1,40 @@
+name: sap_hana_fileinfo
+fqcn: checkmk.sap_hana_fileinfo
+collection: checkmk
+category: Database
+short_description: SAP HANA file age and size
+description: Monitor the age (mtime) and size of a single SAP HANA file (trace, backup, log) on the host, with optional thresholds — read-only on-host Starlark check.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Name of the resulting service (e.g. "HANA backup freshness").
+    path:
+        type: string
+        required: true
+        description: Absolute path of the SAP HANA file to monitor.
+    max_age:
+        type: number
+        description: WARN when the file's mtime is older than this many seconds.
+    max_age_crit:
+        type: number
+        description: CRIT when the file's mtime is older than this many seconds.
+    min_size:
+        type: number
+        description: WARN when the file is smaller than this many bytes.
+    max_size:
+        type: number
+        description: WARN when the file is larger than this many bytes.
+    state_missing:
+        type: string
+        default: CRIT
+        enum:
+            - OK
+            - WARN
+            - CRIT
+            - UNKNOWN
+        description: Service state to report when the file is missing.
+writes: False
+runtime: starlark
+source: translated
+kind: check
