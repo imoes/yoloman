@@ -11,6 +11,12 @@ import (
 	"strings"
 )
 
+// baselineConfigPaths are core system config files no long-running daemon
+// "owns" (so unit/man-page discovery misses them) but that operators still need
+// to manage — decoded via their codec like any other observed config. Kept
+// deliberately small; extend only for genuinely daemonless system files.
+var baselineConfigPaths = []string{"/etc/fstab"}
+
 // ConfigDiscover answers "which config files does this server actually use?"
 // without hardcoding paths per package — by reading each enabled service's
 // systemd unit (`systemctl cat`) and following the config files it really
@@ -101,6 +107,19 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 		}
 	}
 
+
+	// Core system config files that no long-running daemon "owns", so the
+	// unit/man-page discovery above never finds them, yet operators need to see
+	// and edit them — /etc/fstab (read by mount at boot) is the canonical case.
+	// Always included when present (and not filtered out by an explicit `only`).
+	for _, p := range baselineConfigPaths {
+		if len(only) > 0 && !only[p] {
+			continue
+		}
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			allPaths[p] = true
+		}
+	}
 
 	flat := make([]map[string]any, 0, len(allPaths))
 	paths := make([]string, 0, len(allPaths))

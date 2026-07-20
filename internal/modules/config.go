@@ -152,9 +152,115 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 		return &iniCodec{comment: com}, nil
 	case "xml":
 		return &xmlCodec{}, nil
+	case "fstab":
+		return &fstabCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab)", format)
 	}
+}
+
+// fstabCodec handles the columnar /etc/fstab table (and fstab-shaped files like
+// /etc/mtab): six whitespace-separated fields per line — device, mountpoint,
+// fstype, options, dump, pass. Unlike keyvalue/ini there is no unique scalar
+// key (swap entries repeat "none"/"swap"), so it parses to a LIST of records
+// under "entries" rather than a flat map — the config-value model allows a
+// nested/list shape. render() rewrites the whole table (comments in the leading
+// header are preserved; the entry block is regenerated, column-aligned).
+type fstabCodec struct{}
+
+func (c *fstabCodec) parse(data []byte) (map[string]any, error) {
+	entries := []any{}
+	for _, line := range strings.Split(string(data), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		f := strings.Fields(t)
+		if len(f) < 3 {
+			continue // not a valid mount entry
+		}
+		e := map[string]any{
+			"device": f[0], "mountpoint": f[1], "fstype": f[2],
+			"options": "defaults", "dump": "0", "pass": "0",
+		}
+		if len(f) >= 4 {
+			e["options"] = f[3]
+		}
+		if len(f) >= 5 {
+			e["dump"] = f[4]
+		}
+		if len(f) >= 6 {
+			e["pass"] = f[5]
+		}
+		entries = append(entries, e)
+	}
+	return map[string]any{"entries": entries}, nil
+}
+
+func (c *fstabCodec) render(existing []byte, values map[string]any, _ string) ([]byte, error) {
+	// Preserve the leading comment/blank header (the "# <file system> <mount
+	// point> ..." block people rely on) verbatim; regenerate the entry table.
+	var header []string
+	for _, line := range strings.Split(string(existing), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			header = append(header, line)
+		} else {
+			break
+		}
+	}
+
+	get := func(m map[string]any, k, def string) string {
+		if v, ok := m[k]; ok && v != nil {
+			s := fmt.Sprintf("%v", v)
+			if s != "" {
+				return s
+			}
+		}
+		return def
+	}
+	type row struct{ dev, mp, fs, opt, dump, pass string }
+	var rows []row
+	if raw, ok := values["entries"].([]any); ok {
+		for _, item := range raw {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			r := row{
+				dev: get(m, "device", ""), mp: get(m, "mountpoint", ""), fs: get(m, "fstype", ""),
+				opt: get(m, "options", "defaults"), dump: get(m, "dump", "0"), pass: get(m, "pass", "0"),
+			}
+			if r.dev == "" || r.mp == "" || r.fs == "" {
+				continue // skip incomplete rows rather than emit a broken fstab line
+			}
+			rows = append(rows, r)
+		}
+	}
+
+	// Column widths for readable alignment (device/mountpoint/fstype/options).
+	w := [4]int{}
+	upd := func(i, n int) {
+		if n > w[i] {
+			w[i] = n
+		}
+	}
+	for _, r := range rows {
+		upd(0, len(r.dev))
+		upd(1, len(r.mp))
+		upd(2, len(r.fs))
+		upd(3, len(r.opt))
+	}
+
+	var b strings.Builder
+	for _, h := range header {
+		b.WriteString(h)
+		b.WriteByte('\n')
+	}
+	for _, r := range rows {
+		fmt.Fprintf(&b, "%-*s  %-*s  %-*s  %-*s  %s  %s\n", w[0], r.dev, w[1], r.mp, w[2], r.fs, w[3], r.opt, r.dump, r.pass)
+	}
+	return []byte(b.String()), nil
 }
 
 // xmlCodec round-trips an XML config (e.g. a libvirt domain definition) to/from
@@ -239,8 +345,9 @@ func (c *iniCodec) parse(data []byte) (map[string]any, error) {
 }
 
 func (c *iniCodec) render(existing []byte, values map[string]any, manage string) ([]byte, error) {
-	// desired[section][key] = string
+	// desired[section][key] = string; a null value deletes that key (del).
 	desired := map[string]map[string]string{}
+	del := map[string]map[string]bool{}
 	sectionOrder := []string{}
 	for sec, kv := range values {
 		m, ok := kv.(map[string]any)
@@ -248,8 +355,13 @@ func (c *iniCodec) render(existing []byte, values map[string]any, manage string)
 			continue
 		}
 		desired[sec] = map[string]string{}
+		del[sec] = map[string]bool{}
 		sectionOrder = append(sectionOrder, sec)
 		for k, v := range m {
+			if v == nil {
+				del[sec][k] = true
+				continue
+			}
 			desired[sec][k] = fmt.Sprintf("%v", v)
 		}
 	}
@@ -283,6 +395,7 @@ func (c *iniCodec) render(existing []byte, values map[string]any, manage string)
 	cur := ""
 	// track the last line index within each section, to append new keys there
 	lastIdx := map[string]int{}
+	dropped := map[int]bool{} // lines removed because their key is null (delete)
 	for i, line := range lines {
 		if s, ok := c.sectionOf(line); ok {
 			cur = s
@@ -291,6 +404,10 @@ func (c *iniCodec) render(existing []byte, values map[string]any, manage string)
 		}
 		if key, _, ok := c.kv(line); ok {
 			lastIdx[cur] = i
+			if d, has := del[cur]; has && d[key] {
+				dropped[i] = true // null = delete: drop this key's line
+				continue
+			}
 			if want, has := desired[cur]; has {
 				if nv, present := want[key]; present && !seen[cur][key] {
 					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
@@ -317,7 +434,9 @@ func (c *iniCodec) render(existing []byte, values map[string]any, manage string)
 	}
 	var out []string
 	for i, line := range lines {
-		out = append(out, line)
+		if !dropped[i] {
+			out = append(out, line)
+		}
 		if add, ok := appendAfter[i]; ok {
 			out = append(out, add...)
 		}
