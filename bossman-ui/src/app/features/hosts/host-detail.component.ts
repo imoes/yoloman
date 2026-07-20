@@ -634,7 +634,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                                   @else if (row.state === 'Removed') { <s>{{ row.live || '—' }}</s> }
                                   @else { <span class="bm-dim">{{ row.live }}</span> }
                                 </td>
-                                <td>@if (row.source) { <span class="bm-tag">{{ row.source }}</span> }</td>
+                                <td>@if (row.source) { <span class="bm-tag" [class.bm-tag--baseline]="row.state === 'Host based'">{{ row.source }}</span> }</td>
                               </tr>
                             }
                           </tbody>
@@ -1151,6 +1151,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-drift-banner mat-icon { flex: 0 0 auto; }
       .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
+      /* Baseline "Host" (the host's own value) muted; policy sources keep the accent tag. */
+      .bm-tag--baseline { background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); opacity: 0.7; font-weight: 400; }
       .bm-drift-h { margin: 8px 0 2px; }
       .bm-scope { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0; opacity: 0.85; }
       .bm-gpo { display: flex; gap: 10px; align-items: stretch; }
@@ -2281,9 +2283,24 @@ export class HostDetailComponent implements OnInit {
         state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
         desired: dv === null || dv === undefined ? '' : this.scalarStr(dv),
         live: live.has(key) ? this.scalarStr(live.get(key)) : '',
-        source: managed ? (srcs[key] ?? null) : null,
+        // A managed key is sourced from the GPO scope it won at (Host/Group/OU/
+        // Default *policy*); an unmanaged key is just the host's own baseline
+        // value → "Host". So policy-set settings read as a policy, and the
+        // host's own values read as "Host".
+        source: managed ? this.sourceLabel(srcs[key]) : 'Host',
       };
     });
+  }
+
+  /** Human GPO-scope label for a config key's winning source. */
+  sourceLabel(scope: string | null | undefined): string {
+    switch (scope) {
+      case 'host': return 'Host policy';
+      case 'group': return 'Group policy';
+      case 'ou': return 'OU policy';
+      case 'global': return 'Default policy';
+      default: return scope || 'Policy';
+    }
   }
   private flatten(v: Record<string, unknown>, prefix = ''): [string, unknown][] {
     const out: [string, unknown][] = [];
