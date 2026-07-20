@@ -87,7 +87,7 @@ export interface EbpfTopTalker { comm: string; dst_addr: string; dst_port: numbe
 export interface EbpfDiskIO { comm: string; dev: number; latency_ns: number; rwbs: string; timestamp: string; error: number; }
 // BCC-inspired signals (oomkill/tcpretrans/killsnoop/runqlat).
 export interface EbpfOOMKill { pid: number; comm: string; timestamp: string; container_id?: string; }
-export interface EbpfTcpRetrans { pid: number; comm: string; src_addr: string; dst_addr: string; src_port: number; dst_port: number; timestamp: string; }
+export interface EbpfTcpRetrans { pid: number; comm: string; src_addr: string; dst_addr: string; src_port: number; dst_port: number; timestamp: string; src_host?: string; dst_host?: string; }
 export interface EbpfSignal { signal: string; pid: number; comm: string; target_pid: number; target_comm: string; timestamp: string; }
 export interface EbpfRunqBucket { latency_us: number; count: number; }
 export interface EbpfDetail {

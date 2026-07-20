@@ -946,7 +946,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       <thead><tr><th>Process</th><th>Connection</th></tr></thead>
                       <tbody>
                         @for (r of ebpf()!.tcp_retransmits!; track $index) {
-                          <tr><td class="bm-mono">{{ r.comm }}</td><td class="bm-mono">{{ r.src_addr }}:{{ r.src_port }} → {{ r.dst_addr }}:{{ r.dst_port }}</td></tr>
+                          <tr>
+                            <td class="bm-mono">{{ r.comm }}</td>
+                            <td class="bm-mono">
+                              {{ r.src_host || r.src_addr }}:{{ r.src_port }} → {{ r.dst_host || r.dst_addr }}:{{ r.dst_port }}
+                              @if (r.src_host || r.dst_host) {
+                                <div class="bm-dim bm-ebpf-ip">{{ r.src_addr }}:{{ r.src_port }} → {{ r.dst_addr }}:{{ r.dst_port }}</div>
+                              }
+                            </td>
+                          </tr>
                         }
                       </tbody>
                     </table>
