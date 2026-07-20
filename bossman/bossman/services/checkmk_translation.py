@@ -25,6 +25,7 @@ path without a new agent runtime.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import nestedtext
@@ -136,7 +137,35 @@ changed=True:
                 "data": {"state": state, "metrics": {"used_percent": used}, "details": ""}}
 
 Keep it focused (typically 50-160 lines). Reproduce the check's discovery +
-core threshold logic; skip clustering / SNMP-only / cluster-section paths.
+core threshold logic; skip only clustering / cluster-section paths.
+
+## GET THE DATA SOURCE RIGHT — never wrap Checkmk
+
+You are translating the plugin to run on OUR agent, which does NOT have Checkmk
+installed. NEVER run `cmk`, `checkmk`, `check_mk_agent`, read /var/lib/check_mk*
+or /omd/, or `echo` a fabricated `<<<section>>>` — a check that does any of
+these is worthless (it can never get data here) and will be rejected. Instead,
+read the SAME underlying source the Checkmk plugin/agent reads:
+
+- SNMP check (the source uses SNMPTree/OIDEnd/SimpleSNMPSection or literal OIDs
+  like ".1.3.6.1.4.1.…"): translate it as an SNMP check. Walk the OIDs from the
+  source with `ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+  "-On", params.get("host", "localhost"), "<base-OID>"], mutates=False)` (or
+  snmpget for a scalar), then parse `res.stdout` lines ("<OID> = <TYPE>: <value>")
+  exactly as the source maps them. Add `host` and `community` params.
+- Agent-section check (source parses `string_table` from an AgentSection): read
+  the REAL host source that the Checkmk agent plugin would run — the actual file
+  (/proc, /sys, a config) or CLI (ss, ps, systemctl, lsblk, ...). Look at the
+  agent plugin's shell if referenced; otherwise reproduce the same data with a
+  standard Linux command. Never assume a Checkmk agent is present.
+
+## MAKE IT CONFIGURABLE — expose params with Checkmk defaults
+
+The check MUST be configurable. Read `params.get(...)` for every operator knob:
+- per-item checks: `item = params.get("item", "")` (the instance to check).
+- thresholds: `params.get("warn", <default>)` / `params.get("crit", <default>)`
+  (or `params.get("levels", (<warn>, <crit>))`) using the Checkmk defaults from
+  the source. Grade OK/WARN/CRIT against them. Do not hardcode thresholds.
 
 ## STARLARK IS NOT PYTHON — these Python constructs DO NOT PARSE
 
@@ -236,7 +265,42 @@ def build_describe_messages(name: str, short_description: str, options: dict[str
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def build_checkmk_metadata_nt(record: dict[str, Any]) -> str:
+_PARAM_GET = re.compile(r'params\.get\(\s*["\']([a-zA-Z_][a-zA-Z0-9_]*)["\']\s*(?:,\s*([^)]*))?\)')
+
+
+def _derive_options_from_star(star: str) -> dict[str, Any]:
+    """Build a baseline options schema from a check's `params.get("k", default)`
+    calls, so a translated check is CONFIGURABLE even when the dumped Checkmk
+    ruleset carried no argspec (the common case — nearly all bulk checks). Type
+    is inferred from the default literal; the discovery-internal `_discover`
+    flag and the auto-populated `item` are skipped (item comes from discovery,
+    not an operator field)."""
+    opts: dict[str, Any] = {}
+    for m in _PARAM_GET.finditer(star):
+        key, default = m.group(1), (m.group(2) or "").strip()
+        if key in ("_discover", "item") or key in opts:
+            continue
+        typ, dflt = "string", None
+        if default:
+            if default in ("True", "False"):
+                typ, dflt = "bool", default == "True"
+            elif re.fullmatch(r"-?\d+", default):
+                typ, dflt = "number", int(default)
+            elif re.fullmatch(r"-?\d+\.\d+", default):
+                typ, dflt = "number", float(default)
+            elif default[:1] in "([":
+                typ = "list"  # e.g. levels=(80, 90) — a warn/crit pair
+            elif default[:1] in "\"'":
+                dflt = default.strip("\"'")
+        spec: dict[str, Any] = {"type": typ}
+        if dflt is not None:
+            spec["default"] = dflt
+        spec["description"] = f"{key} (from the check's parameters)."
+        opts[key] = spec
+    return opts
+
+
+def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> str:
     """Catalog metadata for a translated check module, as NestedText (project
     convention — no YAML). Always read-only (writes: false) and marked kind:
     check so the UI/agent treat its `data.state`/`data.metrics` as a
@@ -257,6 +321,12 @@ def build_checkmk_metadata_nt(record: dict[str, Any]) -> str:
         if desc:
             opt["description"] = str(desc)
         options[name] = opt
+
+    # The dumped Checkmk ruleset rarely carries an argspec, so fall back to the
+    # knobs the translated Starlark actually reads — otherwise the check ships
+    # non-configurable (empty options), the catalog-wide defect we're fixing.
+    if not options and star_code:
+        options = _derive_options_from_star(star_code)
 
     description = doc.get("description")
     if isinstance(description, list):
