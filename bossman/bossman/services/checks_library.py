@@ -26,6 +26,30 @@ from bossman.services.module_library import ModuleLibraryError, load_metadata, v
 _SNMP_CMD = re.compile(r'"(snmpwalk|snmpget|snmpbulkget|snmpbulkwalk|snmptable)"')
 _SSH_CMD = re.compile(r'"(sshpass|scp)"|\[\s*"ssh"')
 
+# A check is "unrunnable" here when its ONLY way to get data is a Checkmk
+# internal path or a Checkmk/cmk CLI invocation — i.e. the LLM translated the
+# plugin by wrapping Checkmk's own agent/SNMP collection instead of reading the
+# system directly, so it can never produce real data on our agent. Kept in sync
+# with the discovery pre-filter (bossman.api.checks imports check_runnable).
+_UNRUNNABLE_MARKERS = (
+    "/var/lib/check_mk", "/var/lib/checkmk", "check_mk_agent", "checkmk_agent",
+    "/opt/checkmk", "/omd/", "agent_output", "agent-output", "agent_raw",
+    '"cmk"', "'cmk'", '"checkmk"', "'checkmk'", "cmk -d", "cmk -j",
+    "--print-agent-table", "print-agent-table",
+)
+
+
+def check_runnable(star: str) -> bool:
+    """False if the check can only get data from a Checkmk-internal source /
+    the cmk CLI (or fabricated `echo '<<<section>>>'` output) — such checks are
+    mistranslations that never work on our agent, so the catalog + discovery
+    exclude them."""
+    if any(m in star for m in _UNRUNNABLE_MARKERS):
+        return False
+    if '"echo"' in star and "<<<" in star:
+        return False
+    return True
+
 
 def check_datasource(star: str) -> str:
     """Which data source a check needs, read straight from its Starlark: SNMP
@@ -138,9 +162,12 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
         except (OSError, ModuleLibraryError):
             entry["options"] = {}
         try:
-            entry["datasource"] = check_datasource(star.read_text(encoding="utf-8"))
+            src = star.read_text(encoding="utf-8")
+            entry["datasource"] = check_datasource(src)
+            entry["runnable"] = check_runnable(src)
         except OSError:
             entry["datasource"] = "agent"
+            entry["runnable"] = True
         out.append(entry)
     return out
 

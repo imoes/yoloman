@@ -14,6 +14,7 @@ export interface CheckCatalogEntry {
   kind: string;
   source: string;
   datasource?: string; // 'agent' | 'snmp' | 'ssh' — how the check gathers data
+  runnable?: boolean; // false = mistranslation that wraps Checkmk-internal data (never works here)
   short_description?: string;
   summary?: string; // one-paragraph plain-text explanation (from list_checks)
   category?: string;

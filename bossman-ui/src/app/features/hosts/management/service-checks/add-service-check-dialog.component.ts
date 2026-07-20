@@ -196,7 +196,10 @@ export class AddServiceCheckDialogComponent {
     // those are configured against a monitored device in the SNMP Devices flow,
     // not per host. Grouping/sorting happens in `grouped()`.
     this.checkService.listChecks().subscribe((r) => {
-      const checks = (r.checks || []).filter((c) => c.datasource !== 'snmp');
+      // Exclude SNMP checks (configured on a device, not a host) and unrunnable
+      // ones (mistranslations that wrap Checkmk-internal data — they can never
+      // produce results on this agent, so offering them is misleading).
+      const checks = (r.checks || []).filter((c) => c.datasource !== 'snmp' && c.runnable !== false);
       this.catalog.set(checks);
       // Edit mode: jump straight to the pre-filled form for the edited check.
       const ed = this.data.edit;

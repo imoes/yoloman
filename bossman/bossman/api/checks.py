@@ -235,25 +235,11 @@ def _check_datasource(star: str) -> str:
     return checks_library.check_datasource(star)
 
 
-# Data-source markers that only exist on a Checkmk site / a Checkmk agent — a
-# translated check that reads them (or fabricates a `<<<section>>>` via echo)
-# can never get real data from OUR agent, so it must never be a discovery
-# candidate (it would otherwise fake a placeholder item and surface everywhere).
-_CHECKMK_INTERNAL_MARKERS = (
-    "/var/lib/check_mk", "check_mk_agent", "/opt/checkmk", "/omd/", "agent_output",
-    '["cmk"', "['cmk'", '["cmk",', "cmk -d",
-)
-
-
 def _is_unrunnable_source(star: str) -> bool:
-    """True if the check's ONLY way to get data is a Checkmk-internal path or a
-    hardcoded echo-simulated section — i.e. it can't work on our agent."""
-    if any(m in star for m in _CHECKMK_INTERNAL_MARKERS):
-        return True
-    # `ctx.run(["echo", '... <<<section>>> ...'])` = fabricated agent output.
-    if '"echo"' in star and "<<<" in star:
-        return True
-    return False
+    """True if the check can't get real data from OUR agent (Checkmk-internal
+    path / cmk CLI / fabricated echo section). Shared with the catalog's
+    `runnable` flag so discovery and the picker agree on what to exclude."""
+    return not checks_library.check_runnable(star)
 
 
 def _load_candidate_checks(
