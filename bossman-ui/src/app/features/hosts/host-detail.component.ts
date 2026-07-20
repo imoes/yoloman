@@ -896,6 +896,71 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   } @else { <p class="bm-empty">No disk I/O observed in the eBPF window.</p> }
                 </div>
               </div>
+
+              <!-- BCC-inspired signals: runqlat, oomkill, tcpretrans, killsnoop -->
+              <div class="bm-ebpf-grid">
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">Run-queue latency <span class="bm-dim">(scheduler wait, cumulative)</span></div>
+                  @if (ebpf()?.runq_latency?.length) {
+                    <div class="bm-runq">
+                      @for (b of ebpf()!.runq_latency!; track $index) {
+                        <div class="bm-runq-row">
+                          <span class="bm-runq-le bm-mono">≤ {{ b.latency_us }} µs</span>
+                          <span class="bm-runq-bar"><span class="bm-runq-fill" [style.width.%]="runqPct(b.count)"></span></span>
+                          <span class="bm-runq-cnt bm-mono">{{ b.count }}</span>
+                        </div>
+                      }
+                    </div>
+                    <p class="bm-dim bm-runq-note">A tail into the millisecond buckets means tasks are waiting for CPU (saturation / contention).</p>
+                  } @else { <p class="bm-empty">No run-queue latency data (sched tracing unavailable or just started).</p> }
+                </div>
+
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">OOM kills <span class="bm-dim">(kernel out-of-memory killer)</span></div>
+                  @if (ebpf()?.oom_kills?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Process</th><th class="bm-num">PID</th></tr></thead>
+                      <tbody>
+                        @for (o of ebpf()!.oom_kills!; track $index) {
+                          <tr><td class="bm-mono">{{ o.comm }}</td><td class="bm-num bm-mono">{{ o.pid }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No OOM kills observed — nothing was killed for memory pressure.</p> }
+                </div>
+
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">TCP retransmits <span class="bm-dim">(network health)</span></div>
+                  @if (ebpf()?.tcp_retransmits?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Process</th><th>Connection</th></tr></thead>
+                      <tbody>
+                        @for (r of ebpf()!.tcp_retransmits!; track $index) {
+                          <tr><td class="bm-mono">{{ r.comm }}</td><td class="bm-mono">{{ r.src_addr }}:{{ r.src_port }} → {{ r.dst_addr }}:{{ r.dst_port }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No retransmits observed — no packet loss on watched connections.</p> }
+                </div>
+
+                <div class="bm-ebpf-panel">
+                  <div class="bm-ebpf-h">Signals <span class="bm-dim">(kill/term/abrt/segv — who killed what)</span></div>
+                  @if (ebpf()?.signals?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Signal</th><th>Target</th><th>From</th></tr></thead>
+                      <tbody>
+                        @for (s of ebpf()!.signals!; track $index) {
+                          <tr>
+                            <td class="bm-mono">{{ s.signal }}</td>
+                            <td class="bm-mono">{{ s.target_comm }} <span class="bm-dim">({{ s.target_pid }})</span></td>
+                            <td class="bm-mono">{{ s.comm }} <span class="bm-dim">({{ s.pid }})</span></td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No notable signals observed.</p> }
+                </div>
+              </div>
             </div>
           </ng-template></mat-tab>
 
@@ -1197,6 +1262,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-ebpf-tbl th.bm-num, .bm-ebpf-tbl td.bm-num { text-align: right; }
       .bm-ebpf-panel .bm-mono { font-family: var(--bm-mono, monospace); }
       .bm-ebpf-h .bm-dim { opacity: 0.6; font-weight: 400; font-size: 12px; }
+      .bm-runq { display: flex; flex-direction: column; gap: 3px; }
+      .bm-runq-row { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 8px; font-size: 12px; }
+      .bm-runq-le { opacity: 0.75; text-align: right; }
+      .bm-runq-bar { background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent); border-radius: 3px; height: 12px; overflow: hidden; }
+      .bm-runq-fill { display: block; height: 100%; background: var(--mat-sys-primary, #3f51b5); border-radius: 3px; }
+      .bm-runq-cnt { text-align: right; opacity: 0.8; }
+      .bm-runq-note { margin-top: 8px; font-size: 11.5px; }
       .bm-ebpf-row { cursor: pointer; }
       .bm-ebpf-row:hover { background: var(--bm-hover, rgba(127,127,127,0.12)); }
       .bm-ebpf-row-sel, .bm-ebpf-row-sel:hover { background: rgba(76,175,80,0.18); }
@@ -1795,6 +1867,15 @@ export class HostDetailComponent implements OnInit {
     const rows = this.ebpf()?.slowest_disk_io ?? [];
     return f ? rows.filter((d) => d.comm === f) : rows;
   });
+  // Largest run-queue-latency bucket count, for scaling the histogram bars.
+  private runqMax = computed(() => {
+    const h = this.ebpf()?.runq_latency ?? [];
+    return h.reduce((m, b) => (b.count > m ? b.count : m), 0);
+  });
+  runqPct(count: number): number {
+    const max = this.runqMax();
+    return max > 0 ? Math.max(2, Math.round((count / max) * 100)) : 0;
+  }
   // Block J2: service control state.
   svcName = signal('');
   svcBusy = signal(false);
