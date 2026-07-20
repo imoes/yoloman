@@ -75,6 +75,24 @@ func (s *ServiceCollector) sampleV2(now time.Time) []store.Point {
 				store.Point{Metric: "service_io_write_bytes_total", Timestamp: now, Value: float64(w), Labels: labels},
 			)
 		}
+		// PSI (pressure stall) + CPU throttling — coroot-style saturation signals.
+		// Best-effort (v2-only, needs PSI compiled in); skipped silently otherwise.
+		if some, full, ok := readPSI(filepath.Join(dir, "cpu.pressure")); ok {
+			points = append(points, psiPoints("service_cpu_pressure", labels, now, some, full)...)
+		}
+		if some, full, ok := readPSI(filepath.Join(dir, "memory.pressure")); ok {
+			points = append(points, psiPoints("service_memory_pressure", labels, now, some, full)...)
+		}
+		if some, full, ok := readPSI(filepath.Join(dir, "io.pressure")); ok {
+			points = append(points, psiPoints("service_io_pressure", labels, now, some, full)...)
+		}
+		if periods, throttled, usec, ok := readCPUThrottle(filepath.Join(dir, "cpu.stat")); ok {
+			points = append(points,
+				store.Point{Metric: "service_cpu_throttled_periods_total", Timestamp: now, Value: float64(throttled), Labels: labels},
+				store.Point{Metric: "service_cpu_throttled_seconds_total", Timestamp: now, Value: float64(usec) / 1e6, Labels: labels},
+				store.Point{Metric: "service_cpu_periods_total", Timestamp: now, Value: float64(periods), Labels: labels},
+			)
+		}
 		if running {
 			points = append(points, store.Point{Metric: "service_running", Timestamp: now, Value: 1, Labels: labels})
 		}
