@@ -458,12 +458,8 @@ export class HostChecksComponent {
       next: (r) => {
         this.proposals.set(r.proposals);
         this.discovering.set(false);
-        // Show each discovered check's description expanded by default, and
-        // preload them. Discovery is now data-gated (~dozens, not hundreds), so
-        // this is a handful of cheap GETs, not the N+1 flood the provisioning
-        // fetch would be (that stays lazy, loaded per check when selected).
-        this.expanded.set(new Set(r.proposals.map((p) => p.check_name)));
-        for (const p of r.proposals) this.loadDescription(p.check_name);
+        // Descriptions stay COLLAPSED by default; each expands (and lazy-loads)
+        // on click via toggleExpand. Provisioning info also stays lazy.
       },
       error: (e) => { this.fail(e); this.discovering.set(false); },
     });
