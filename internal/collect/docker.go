@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,17 +25,25 @@ const DefaultDockerSocket = "/var/run/docker.sock"
 // (Docker not installed), Sample returns no points and no error.
 type DockerCollector struct {
 	socket string
-	client *http.Client
+	// cgroupRoot is the cgroup mount used to read per-container PSI / throttle /
+	// disk-I/O straight from the filesystem (resolved via each container's
+	// init-PID). Empty → /sys/fs/cgroup.
+	cgroupRoot string
+	client     *http.Client
 }
 
 // NewDockerCollector builds a collector for the given socket ("" →
-// DefaultDockerSocket).
-func NewDockerCollector(socket string) *DockerCollector {
+// DefaultDockerSocket) and cgroup root ("" → /sys/fs/cgroup).
+func NewDockerCollector(socket, cgroupRoot string) *DockerCollector {
 	if socket == "" {
 		socket = DefaultDockerSocket
 	}
+	if cgroupRoot == "" {
+		cgroupRoot = "/sys/fs/cgroup"
+	}
 	return &DockerCollector{
-		socket: socket,
+		socket:     socket,
+		cgroupRoot: cgroupRoot,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -69,6 +78,23 @@ type dockerStats struct {
 		Limit uint64            `json:"limit"`
 		Stats map[string]uint64 `json:"stats"`
 	} `json:"memory_stats"`
+	// Per-interface network counters (summed across interfaces). Field layout
+	// verified against internal/piggyback/docker.go, which already parses the
+	// same /stats response.
+	Networks map[string]struct {
+		RxBytes uint64 `json:"rx_bytes"`
+		TxBytes uint64 `json:"tx_bytes"`
+	} `json:"networks"`
+}
+
+// dockerInspect carries the two fields the /containers/{id}/json endpoint gives
+// us that /stats does not: the restart count and the init process's host PID
+// (used to resolve the container's cgroup v2 path for PSI/throttle/disk reads).
+type dockerInspect struct {
+	RestartCount int `json:"RestartCount"`
+	State        struct {
+		Pid int `json:"Pid"`
+	} `json:"State"`
 }
 
 // Sample lists running containers and, for each, fetches a one-shot stats
@@ -94,6 +120,53 @@ func (d *DockerCollector) Sample(now time.Time) ([]store.Point, error) {
 			continue // a single container's stats failing must not drop the rest
 		}
 		points = append(points, containerStatPoints(name, st, now)...)
+
+		// Network I/O (summed across the container's interfaces) — straight
+		// from the same /stats snapshot, no extra call.
+		var rx, tx uint64
+		for _, n := range st.Networks {
+			rx += n.RxBytes
+			tx += n.TxBytes
+		}
+		points = append(points,
+			store.Point{Metric: "docker_container_net_rx_bytes", Timestamp: now, Value: float64(rx), Labels: labels},
+			store.Point{Metric: "docker_container_net_tx_bytes", Timestamp: now, Value: float64(tx), Labels: labels},
+		)
+
+		// One inspect call gives us RestartCount + the init PID, which unlocks
+		// the container's cgroup path for PSI / throttling / disk I/O reads.
+		insp, ierr := d.inspect(c.ID)
+		if ierr != nil {
+			continue // same "one container's extra data failing must not drop the rest"
+		}
+		points = append(points, store.Point{Metric: "docker_container_restart_count", Timestamp: now, Value: float64(insp.RestartCount), Labels: labels})
+		cgroupPath, ok := containerCgroupPath(d.cgroupRoot, insp.State.Pid)
+		if !ok {
+			continue // container not running / v1 host — PSI/throttle/disk unavailable
+		}
+		if some, full, ok := readPSI(filepath.Join(cgroupPath, "cpu.pressure")); ok {
+			points = append(points, psiPoints("docker_container_cpu_pressure", labels, now, some, full)...)
+		}
+		if some, full, ok := readPSI(filepath.Join(cgroupPath, "memory.pressure")); ok {
+			points = append(points, psiPoints("docker_container_memory_pressure", labels, now, some, full)...)
+		}
+		if some, full, ok := readPSI(filepath.Join(cgroupPath, "io.pressure")); ok {
+			points = append(points, psiPoints("docker_container_io_pressure", labels, now, some, full)...)
+		}
+		if _, throttled, usec, ok := readCPUThrottle(filepath.Join(cgroupPath, "cpu.stat")); ok {
+			points = append(points,
+				store.Point{Metric: "docker_container_cpu_throttled_periods_total", Timestamp: now, Value: float64(throttled), Labels: labels},
+				store.Point{Metric: "docker_container_cpu_throttled_seconds_total", Timestamp: now, Value: float64(usec) / 1e6, Labels: labels},
+			)
+		}
+		// Read io.stat directly rather than /stats' blkio_stats, which Moby
+		// leaves empty (or inconsistently capitalized) on cgroup-v2 hosts.
+		if r, w, ok := readIOStat(filepath.Join(cgroupPath, "io.stat")); ok {
+			points = append(points,
+				store.Point{Metric: "docker_container_disk_read_bytes_total", Timestamp: now, Value: float64(r), Labels: labels},
+				store.Point{Metric: "docker_container_disk_write_bytes_total", Timestamp: now, Value: float64(w), Labels: labels},
+			)
+		}
 	}
 	return points, nil
 }
@@ -110,6 +183,12 @@ func (d *DockerCollector) containerStats(id string) (dockerStats, error) {
 	var st dockerStats
 	err := d.getJSON("http://docker/containers/"+id+"/stats?stream=false", &st)
 	return st, err
+}
+
+func (d *DockerCollector) inspect(id string) (dockerInspect, error) {
+	var insp dockerInspect
+	err := d.getJSON("http://docker/containers/"+id+"/json", &insp)
+	return insp, err
 }
 
 func (d *DockerCollector) getJSON(url string, v any) error {

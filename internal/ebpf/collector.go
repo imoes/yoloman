@@ -188,6 +188,13 @@ type Collector struct {
 	connLatHist []uint64
 	diskLatHist []uint64
 
+	// Per-interval TCP-connect outcome + retransmit counters (reset each
+	// Snapshot, same pattern as the histograms above). Derived from the
+	// existing event stream — no BPF change.
+	connSuccess uint64 // SYN_SENT → ESTABLISHED
+	connFailed  uint64 // SYN_SENT → CLOSE (refused/reset/timed-out)
+	retransCount uint64 // tcp:tcp_retransmit_skb fires
+
 	edgeSink EdgeSink
 }
 
@@ -221,6 +228,18 @@ func (c *Collector) SnapshotLatencyHistograms() (conn, disk map[string]uint64) {
 	c.connLatHist = make([]uint64, len(LatencyBucketsMs)+1)
 	c.diskLatHist = make([]uint64, len(LatencyBucketsMs)+1)
 	return conn, disk
+}
+
+// SnapshotConnCounters returns the TCP-connect success/failure and retransmit
+// counts accumulated since the previous call, then resets them — the identical
+// "accumulate then snapshot-and-reset per tick" pattern SnapshotLatencyHistograms
+// uses for the histograms.
+func (c *Collector) SnapshotConnCounters() (success, failed, retrans uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	success, failed, retrans = c.connSuccess, c.connFailed, c.retransCount
+	c.connSuccess, c.connFailed, c.retransCount = 0, 0, 0
+	return
 }
 
 func histToMap(h []uint64) map[string]uint64 {
@@ -392,6 +411,19 @@ func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 		comm := commToString(ev.Comm[:])
 		dstAddr := ipFromRaw(ev.Daddr)
 		newState := tcpStateName(ev.Newstate)
+		// Outbound connect outcome: the kernel emits both the SYN_SENT→ESTABLISHED
+		// (success) and SYN_SENT→CLOSE (refused/reset/timed-out) transitions, so a
+		// pure Go-side tally suffices — no BPF change. Oldstate 2 == SYN_SENT.
+		if ev.Oldstate == 2 {
+			c.mu.Lock()
+			switch newState {
+			case "ESTABLISHED":
+				c.connSuccess++
+			case "CLOSE":
+				c.connFailed++
+			}
+			c.mu.Unlock()
+		}
 		c.appendConn(TCPConnEvent{
 			Timestamp:   time.Now(),
 			PID:         ev.Pid,
@@ -467,6 +499,9 @@ func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 			SrcPort:   ev.Sport,
 			DstPort:   ev.Dport,
 		})
+		c.mu.Lock()
+		c.retransCount++
+		c.mu.Unlock()
 	case eventTypeSignal:
 		c.appendSignal(SignalEvent{
 			Timestamp:  time.Now(),

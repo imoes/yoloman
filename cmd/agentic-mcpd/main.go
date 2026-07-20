@@ -416,7 +416,7 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	// disabled). Degrades silently when the socket is absent.
 	var dockerCollector *collect.DockerCollector
 	if cfg.Collect.Docker {
-		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket)
+		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket, cfg.Collect.CgroupRoot)
 	}
 	// Block J3b: per-systemd-service resource metrics from the cgroup fs (nil
 	// when disabled). No-op on hosts without a system.slice cgroup.
@@ -478,6 +478,15 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 			for le, n := range diskH {
 				points = append(points, store.Point{Metric: "disk_io_latency_bucket", Timestamp: now, Value: float64(n), Labels: map[string]string{"le": le}})
 			}
+			// TCP-connect outcome + retransmit counters — per-interval deltas
+			// (reset each snapshot, same as the histograms), NOT process-lifetime
+			// Prometheus counters, so graph the raw value (no rate()/increase()).
+			success, failed, retrans := collector.SnapshotConnCounters()
+			points = append(points,
+				store.Point{Metric: "tcp_connect_success_total", Timestamp: now, Value: float64(success)},
+				store.Point{Metric: "tcp_connect_failed_total", Timestamp: now, Value: float64(failed)},
+				store.Point{Metric: "tcp_retransmit_total", Timestamp: now, Value: float64(retrans)},
+			)
 		}
 		if dockerCollector != nil {
 			if dpts, derr := dockerCollector.Sample(now); derr != nil {

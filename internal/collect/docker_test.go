@@ -81,7 +81,7 @@ func TestContainerName_StripsSlash(t *testing.T) {
 }
 
 func TestDockerSample_NoSocketIsNoOp(t *testing.T) {
-	d := NewDockerCollector(t.TempDir() + "/nonexistent.sock")
+	d := NewDockerCollector(t.TempDir()+"/nonexistent.sock", "")
 	pts, err := d.Sample(time.Now())
 	if err != nil || pts != nil {
 		t.Errorf("absent socket should be a clean no-op, got pts=%v err=%v", pts, err)

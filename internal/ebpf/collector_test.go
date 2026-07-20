@@ -72,6 +72,29 @@ func TestHandleRecord_TCPConnEvent(t *testing.T) {
 	}
 }
 
+func TestSnapshotConnCounters(t *testing.T) {
+	c := &Collector{maxEvents: 100}
+	feed := func(old, new uint8) {
+		ev := collectorEvent{Type: eventTypeTCPConn, Oldstate: old, Newstate: new}
+		c.handleRecord(context.Background(), encodeEvent(t, ev))
+	}
+	feed(2, 1) // SYN_SENT → ESTABLISHED  (success)
+	feed(2, 1) // success
+	feed(2, 7) // SYN_SENT → CLOSE        (failure)
+	feed(1, 8) // ESTABLISHED → CLOSE_WAIT (neither — a normal close, not a connect outcome)
+	c.handleRecord(context.Background(), encodeEvent(t, collectorEvent{Type: eventTypeTCPRetrans}))
+	c.handleRecord(context.Background(), encodeEvent(t, collectorEvent{Type: eventTypeTCPRetrans}))
+
+	success, failed, retrans := c.SnapshotConnCounters()
+	if success != 2 || failed != 1 || retrans != 2 {
+		t.Errorf("got success=%d failed=%d retrans=%d, want 2/1/2", success, failed, retrans)
+	}
+	// Snapshot must reset — a second call with no new events reads zero.
+	if s, f, r := c.SnapshotConnCounters(); s != 0 || f != 0 || r != 0 {
+		t.Errorf("counters not reset: got %d/%d/%d", s, f, r)
+	}
+}
+
 func TestHandleRecord_ExecEvent(t *testing.T) {
 	c := &Collector{maxEvents: 100}
 	ev := collectorEvent{
