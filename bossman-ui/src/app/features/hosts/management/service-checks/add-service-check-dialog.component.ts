@@ -177,9 +177,13 @@ export class AddServiceCheckDialogComponent {
   initial = computed<Record<string, unknown>>(() => ({ service_name: this.picked() ? this.label(this.picked()!) : '' }));
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: AddServiceCheckData) {
-    // The whole assignable catalog, browsed by category in the Miller columns
-    // ('Service checks' first). Grouping/sorting happens in `grouped()`.
-    this.checkService.listChecks().subscribe((r) => this.catalog.set(r.checks || []));
+    // The host-assignable catalog, browsed by category in the Miller columns
+    // ('Service checks' first). SNMP checks (datasource 'snmp') are excluded —
+    // those are configured against a monitored device in the SNMP Devices flow,
+    // not per host. Grouping/sorting happens in `grouped()`.
+    this.checkService
+      .listChecks()
+      .subscribe((r) => this.catalog.set((r.checks || []).filter((c) => c.datasource !== 'snmp')));
   }
 
   private toSpec(o: CheckOption): ParamSpec {

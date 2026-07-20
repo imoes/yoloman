@@ -13,6 +13,7 @@ export interface CheckCatalogEntry {
   name: string;
   kind: string;
   source: string;
+  datasource?: string; // 'agent' | 'snmp' | 'ssh' — how the check gathers data
   short_description?: string;
   summary?: string; // one-paragraph plain-text explanation (from list_checks)
   category?: string;
