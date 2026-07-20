@@ -27,7 +27,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import Agent, HostEdge, Metric
+from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric
 from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks, is_infra_agent
@@ -309,6 +309,27 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
         agent.facts_updated_at = now
 
 
+# How stale the cached observed-state document may get before the poller
+# refreshes it. Config changes rarely, and the observed pull reads every config
+# file on the host, so refreshing it every poll tick would be wasteful.
+_OBSERVED_MAX_AGE = timedelta(minutes=15)
+
+
+async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
+    """Upsert AgentObservedState (the server-as-a-document read) when the cache
+    is missing or older than _OBSERVED_MAX_AGE, so GET /state/observed serves it
+    from Postgres instantly instead of live-polling the agent per view open."""
+    row = await session.get(AgentObservedState, agent.id)
+    if row is not None and row.updated_at is not None and (now - row.updated_at) < _OBSERVED_MAX_AGE:
+        return
+    observed = await client.state_observed()
+    if row is None:
+        session.add(AgentObservedState(agent_id=agent.id, observed=observed, updated_at=now))
+    else:
+        row.observed = observed
+        row.updated_at = now
+
+
 async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: AgentClient) -> None:
     """GPO-style config enforcement (auto, per poll): re-plan the host's managed
     desired config against its live state and, if a MANAGED file drifted (someone
@@ -509,6 +530,14 @@ async def poll_agent(
                     await _enforce_config_drift(session, agent, client)
                 except Exception:
                     logger.exception("config drift enforcement crashed for agent %s", agent.name)
+                # Cache the observed-state document (server-as-a-document) so the
+                # Configuration view loads from Postgres, not a slow live
+                # pass-through on every open. Throttled — config changes rarely,
+                # and the UI Reload button forces a fresh fetch on demand.
+                try:
+                    await _refresh_observed_cache(session, agent, client, now)
+                except Exception:
+                    logger.exception("observed-state cache refresh failed for agent %s", agent.name)
 
         await session.commit()
 

@@ -71,8 +71,11 @@ export class AgentService {
   /** Block F1 — the host as one JSON document: discovered services + each
    * config file read back structured via its codec (or a sha256 ref). Live
    * pass-through proxied to the agent's GET /api/v1/state/observed. */
-  observedState(id: string) {
-    return this.http.get<ObservedStateResponse>(`${this.base}/${id}/state/observed`);
+  observedState(id: string, refresh = false) {
+    // Default: served from Bossman's Postgres cache (fast). refresh=true forces
+    // a live fetch from the agent and updates the cache (the Reload button).
+    const q = refresh ? '?refresh=true' : '';
+    return this.http.get<ObservedStateResponse>(`${this.base}/${id}/state/observed${q}`);
   }
 
   /** Block F2 — the host's local desired-state generation history (newest

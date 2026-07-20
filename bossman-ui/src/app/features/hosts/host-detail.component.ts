@@ -486,8 +486,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <p class="bm-empty">{{ err }}</p>
               } @else if (observed(); as obs) {
                 <div class="bm-cfg-head">
-                  <span class="bm-dim">The host as one document — {{ obs.config.length }} config file(s), read {{ obs.generated_at | date: 'medium' }}.</span>
-                  <button mat-stroked-button (click)="loadObserved()"><mat-icon>refresh</mat-icon> Reload</button>
+                  <span class="bm-dim">The host as one document — {{ obs.config.length }} config file(s).
+                    @if (observedCachedAt()) { <em>cached {{ observedCachedAt() | date: 'short' }} — Reload for live.</em> }
+                  </span>
+                  <button mat-stroked-button (click)="loadObserved(true)"><mat-icon>refresh</mat-icon> Reload</button>
                 </div>
                 @if (drift().managed.length) {
                   <div class="bm-drift-banner" [class.bm-drift-on]="drift().drift.length">
@@ -1970,6 +1972,7 @@ export class HostDetailComponent implements OnInit {
   observed = signal<ObservedState | null>(null);
   observedLoading = signal(false);
   observedError = signal<string | null>(null);
+  observedCachedAt = signal<string | null>(null); // when the served cache was captured (null = just fetched live)
   // Block F2 — generation history + rollback (same tab).
   generations = signal<StateGeneration[]>([]);
   rollbackTarget = signal<number | null>(null); // generation being previewed
@@ -2218,16 +2221,18 @@ export class HostDetailComponent implements OnInit {
 
   /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
    * loaded lazily when the Configuration tab is first opened. */
-  loadObserved(): void {
+  loadObserved(refresh = false): void {
     const agent = this.agent();
     if (!agent) return;
     this.observedLoading.set(true);
     this.observedError.set(null);
     this.rollbackTarget.set(null);
     this.rollbackPlan.set(null);
-    this.agentService.observedState(agent.id).subscribe({
+    // Default open = the Postgres cache (instant); Reload = live re-fetch.
+    this.agentService.observedState(agent.id, refresh).subscribe({
       next: (res) => {
         this.observed.set(res.observed);
+        this.observedCachedAt.set((res as { cached_at?: string }).cached_at ?? null);
         this.observedLoading.set(false);
       },
       error: (e) => {

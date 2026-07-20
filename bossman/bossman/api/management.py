@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, ConfigPolicy, HostConfigResource, HostGroup, OUNode
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, AgentObservedState, ConfigPolicy, HostConfigResource, HostGroup, OUNode
 from bossman.services.compiler import affected_agent_ids
 from bossman.services.config_desired import effective_resources, resource_dict
 from bossman.db.session import get_session
@@ -108,22 +108,48 @@ async def call_agent_tool_route(
 @router.get("/api/v1/agents/{agent_id}/state/observed")
 async def get_agent_state_observed(
     agent_id: UUID,
+    refresh: bool = False,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     """The host as one JSON document (Block F1, the server-as-a-document read):
-    proxies the agent's GET /api/v1/state/observed — discovered services + each
-    config file read back structured via its codec (or a sha256 ref). Live
-    pass-through, never Bossman's Postgres."""
+    discovered services + each config file read back structured via its codec.
+
+    Served from Bossman's Postgres cache (refreshed by the background poller) so
+    the Configuration view opens instantly — NOT a live pass-through per open,
+    which was slow. Pass ?refresh=true (the UI's Reload button) to force a live
+    fetch from the agent and update the cache. If the cache is empty and no
+    refresh was asked, we do one live fetch and populate it."""
     agent = await _agent_with_address(session, agent_id)
+    cached = await session.get(AgentObservedState, agent.id)
+    if not refresh and cached is not None:
+        return {"agent_id": str(agent.id), "observed": cached.observed,
+                "cached_at": cached.updated_at.isoformat() if cached.updated_at else None}
+
     client = client_factory(agent, settings)
     try:
         observed = await client.state_observed()
     except AgentClientError as exc:
+        if cached is not None:  # live fetch failed — serve the last known cache
+            return {"agent_id": str(agent.id), "observed": cached.observed,
+                    "cached_at": cached.updated_at.isoformat() if cached.updated_at else None,
+                    "stale": True}
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"agent_id": str(agent.id), "observed": observed}
+    await _store_observed(session, agent.id, observed)
+    await session.commit()
+    return {"agent_id": str(agent.id), "observed": observed, "cached_at": None}
+
+
+async def _store_observed(session: AsyncSession, agent_id: UUID, observed: dict) -> None:
+    """Upsert the cached observed-state document for an agent."""
+    row = await session.get(AgentObservedState, agent_id)
+    if row is None:
+        session.add(AgentObservedState(agent_id=agent_id, observed=observed, updated_at=datetime.now(timezone.utc)))
+    else:
+        row.observed = observed
+        row.updated_at = datetime.now(timezone.utc)
 
 
 @router.get("/api/v1/agents/{agent_id}/state/generations")

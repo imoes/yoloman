@@ -1877,3 +1877,19 @@ class GeneratedDashboard(Base):
     prompt: Mapped[str] = mapped_column(String, nullable=False, default="")
     widgets: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class AgentObservedState(Base):
+    """Cached server-as-a-document observed state per agent, so the host
+    Configuration view loads instantly from Postgres instead of a slow live
+    pass-through to the agent on every open. Refreshed by the background poller
+    (throttled) and by an explicit reload; one row per agent, latest wins."""
+
+    __tablename__ = "agent_observed_state"
+
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    observed: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # the {observed:{...}} document
+    drift: Mapped[dict | None] = mapped_column(JSONB)  # optional cached config-drift result
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
