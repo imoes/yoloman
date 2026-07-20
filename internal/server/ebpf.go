@@ -59,6 +59,36 @@ type SlowDiskIOOutput struct {
 	DiskIO []ebpf.DiskIOEvent `json:"disk_io"`
 }
 
+// OOMKillsInput/Output — recent OOM-kill victims (BCC oomkill).
+type OOMKillsInput struct {
+	Limit int `json:"limit,omitempty"`
+}
+type OOMKillsOutput struct {
+	OOMKills []ebpf.OOMKillEvent `json:"oom_kills"`
+}
+
+// TCPRetransmitsInput/Output — recent TCP retransmissions (BCC tcpretrans).
+type TCPRetransmitsInput struct {
+	Limit int `json:"limit,omitempty"`
+}
+type TCPRetransmitsOutput struct {
+	Retransmits []ebpf.TCPRetransEvent `json:"retransmits"`
+}
+
+// SignalsInput/Output — recent notable signal deliveries (BCC killsnoop).
+type SignalsInput struct {
+	Limit int `json:"limit,omitempty"`
+}
+type SignalsOutput struct {
+	Signals []ebpf.SignalEvent `json:"signals"`
+}
+
+// RunqLatencyInput/Output — run-queue-latency histogram (BCC runqlat).
+type RunqLatencyInput struct{}
+type RunqLatencyOutput struct {
+	Histogram []ebpf.RunqBucket `json:"histogram"`
+}
+
 // RegisterEBPF exposes the eBPF collector's observability data as MCP
 // tools: net_connections (recent TCP state transitions), top_talkers
 // (aggregated by process+remote address), exec_events (recent process
@@ -161,6 +191,76 @@ func RegisterEBPF(s *mcp.Server, c *ebpf.Collector) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in SlowDiskIOInput) (*mcp.CallToolResult, SlowDiskIOOutput, error) {
 		return nil, SlowDiskIOOutput{DiskIO: c.SlowestDiskIO(in.Limit)}, nil
 	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "oom_kills",
+		Description: "" +
+			"List processes the kernel's OOM killer recently terminated on this host (pid + " +
+			"command of each victim), captured live via eBPF on the oom:mark_victim tracepoint " +
+			"— the direct answer to 'why did my service disappear?' when it was killed for memory " +
+			"pressure rather than crashing. Returns the most recent entries (newest last).",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"limit": map[string]any{"type": "integer", "description": "Max number of recent OOM kills to return (0 or omitted = all retained)."},
+			},
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in OOMKillsInput) (*mcp.CallToolResult, OOMKillsOutput, error) {
+		return nil, OOMKillsOutput{OOMKills: c.RecentOOMKills(in.Limit)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "tcp_retransmits",
+		Description: "" +
+			"List recent TCP retransmissions on this host (the affected connection's 4-tuple + " +
+			"issuing process), captured live via eBPF on the tcp:tcp_retransmit_skb tracepoint. A " +
+			"rising retransmit rate to a given peer is an early network-health signal (packet " +
+			"loss / congestion / a struggling remote) that surfaces before connection timeouts do. " +
+			"IPv4 only in v1. Returns the most recent entries (newest last).",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"limit": map[string]any{"type": "integer", "description": "Max number of recent retransmits to return (0 or omitted = all retained)."},
+			},
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in TCPRetransmitsInput) (*mcp.CallToolResult, TCPRetransmitsOutput, error) {
+		return nil, TCPRetransmitsOutput{Retransmits: c.RecentTCPRetransmits(in.Limit)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "signals",
+		Description: "" +
+			"List recent notable signal deliveries on this host — sender (pid/comm), target " +
+			"(pid/comm) and the signal (INT/QUIT/ABRT/KILL/SEGV/TERM only, filtered in-kernel to " +
+			"avoid SIGCHLD/timer noise), captured live via eBPF on signal:signal_generate. " +
+			"killsnoop-style: reveals who is killing a process — an external kill, an OOM handler, " +
+			"or a misbehaving watchdog. Returns the most recent entries (newest last).",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"limit": map[string]any{"type": "integer", "description": "Max number of recent signals to return (0 or omitted = all retained)."},
+			},
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in SignalsInput) (*mcp.CallToolResult, SignalsOutput, error) {
+		return nil, SignalsOutput{Signals: c.RecentSignals(in.Limit)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "runq_latency",
+		Description: "" +
+			"Run-queue latency histogram for this host (BCC runqlat): how long tasks sat runnable " +
+			"waiting for a CPU before being scheduled, as a log2-microsecond distribution measured " +
+			"in-kernel via eBPF on sched:sched_wakeup + sched:sched_switch. A tail extending into " +
+			"the milliseconds means CPU saturation / scheduler contention — a signal 'load average' " +
+			"alone doesn't give. Cumulative since the collector started.",
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in RunqLatencyInput) (*mcp.CallToolResult, RunqLatencyOutput, error) {
+		h, err := c.RunqLatency()
+		if err != nil {
+			return nil, RunqLatencyOutput{}, err
+		}
+		return nil, RunqLatencyOutput{Histogram: h}, nil
+	})
 }
 
 // RegisterEBPFRoutes adds the REST equivalents of RegisterEBPF's tools onto
@@ -186,6 +286,23 @@ func RegisterEBPFRoutes(mux *http.ServeMux, c *ebpf.Collector) {
 	})
 	mux.HandleFunc("GET /api/v1/disk-io/slowest", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"disk_io": c.SlowestDiskIO(limitParam(r))})
+	})
+	mux.HandleFunc("GET /api/v1/oom-kills", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"oom_kills": c.RecentOOMKills(limitParam(r))})
+	})
+	mux.HandleFunc("GET /api/v1/tcp-retransmits", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"retransmits": c.RecentTCPRetransmits(limitParam(r))})
+	})
+	mux.HandleFunc("GET /api/v1/signals", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"signals": c.RecentSignals(limitParam(r))})
+	})
+	mux.HandleFunc("GET /api/v1/runq-latency", func(w http.ResponseWriter, r *http.Request) {
+		h, err := c.RunqLatency()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"histogram": h})
 	})
 }
 

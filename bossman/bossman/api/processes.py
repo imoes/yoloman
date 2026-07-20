@@ -124,9 +124,28 @@ async def get_agent_ebpf(
     # Reverse-DNS the destination IPs (best-effort) so a connection reads as a
     # hostname, not a bare address — the "what am I talking to" question.
     await _enrich_rdns(top_talkers)
+
+    # BCC-inspired signals (oomkill/tcpretrans/killsnoop/runqlat). Each is
+    # best-effort and independent: an older agent without these endpoints (404)
+    # or a kernel where a probe didn't attach just yields an empty section, so
+    # the heatmaps/talkers above still render.
+    async def _soft(coro):
+        try:
+            return await coro
+        except AgentClientError:
+            return {}
+
+    oom = await _soft(client.ebpf_oom_kills(limit=limit))
+    retrans = await _soft(client.ebpf_tcp_retransmits(limit=limit))
+    sigs = await _soft(client.ebpf_signals(limit=limit))
+    runq = await _soft(client.ebpf_runq_latency())
     return {
         "top_talkers": top_talkers,
         "slowest_disk_io": disk.get("disk_io", []),
+        "oom_kills": oom.get("oom_kills", []),
+        "tcp_retransmits": retrans.get("retransmits", []),
+        "signals": sigs.get("signals", []),
+        "runq_latency": runq.get("histogram", []),
     }
 
 

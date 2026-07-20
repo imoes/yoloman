@@ -18,16 +18,34 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 )
 
 const (
-	eventTypeTCPConn uint32 = 1
-	eventTypeExec    uint32 = 2
-	eventTypeDiskIO  uint32 = 3
+	eventTypeTCPConn    uint32 = 1
+	eventTypeExec       uint32 = 2
+	eventTypeDiskIO     uint32 = 3
+	eventTypeOOMKill    uint32 = 4 // oom:mark_victim      (BCC oomkill)
+	eventTypeTCPRetrans uint32 = 5 // tcp:tcp_retransmit_skb (BCC tcpretrans)
+	eventTypeSignal     uint32 = 6 // signal:signal_generate (BCC killsnoop)
+
+	runqSlots = 27 // must match RUNQ_SLOTS in bpf/collector.c
 )
+
+// signalNames maps the notable signals the collector emits to their names.
+var signalNames = map[uint32]string{
+	2: "SIGINT", 3: "SIGQUIT", 6: "SIGABRT", 9: "SIGKILL", 11: "SIGSEGV", 15: "SIGTERM",
+}
+
+func signalName(s uint32) string {
+	if n, ok := signalNames[s]; ok {
+		return n
+	}
+	return fmt.Sprintf("SIG%d", s)
+}
 
 // tcpStateNames maps Linux's net/tcp_states.h enum values to their names.
 var tcpStateNames = map[uint8]string{
@@ -96,6 +114,48 @@ type DiskIOEvent struct {
 	ContainerID string        `json:"container_id,omitempty"`
 }
 
+// OOMKillEvent is one process the kernel OOM killer selected as a victim
+// (oom:mark_victim). PID/Comm are the victim; answers "what got OOM-killed".
+type OOMKillEvent struct {
+	Timestamp   time.Time `json:"timestamp"`
+	PID         uint32    `json:"pid"`
+	Comm        string    `json:"comm"`
+	ContainerID string    `json:"container_id,omitempty"`
+}
+
+// TCPRetransEvent is one TCP retransmission (tcp:tcp_retransmit_skb) — a
+// rising rate for a given peer is an early network-health warning. The
+// 4-tuple identifies the affected connection (IPv4 only in v1).
+type TCPRetransEvent struct {
+	Timestamp time.Time `json:"timestamp"`
+	PID       uint32    `json:"pid"`
+	Comm      string    `json:"comm"`
+	SrcAddr   string    `json:"src_addr"`
+	DstAddr   string    `json:"dst_addr"`
+	SrcPort   uint16    `json:"src_port"`
+	DstPort   uint16    `json:"dst_port"`
+}
+
+// SignalEvent is one notable signal delivery (signal:signal_generate,
+// filtered in-kernel to INT/QUIT/ABRT/KILL/SEGV/TERM). PID/Comm are the
+// sender; TargetPID/TargetComm the recipient — killsnoop-style "who killed
+// what".
+type SignalEvent struct {
+	Timestamp  time.Time `json:"timestamp"`
+	Signal     string    `json:"signal"`
+	PID        uint32    `json:"pid"`
+	Comm       string    `json:"comm"`
+	TargetPID  uint32    `json:"target_pid"`
+	TargetComm string    `json:"target_comm"`
+}
+
+// RunqBucket is one log2-microsecond run-queue-latency histogram bucket:
+// LatencyUs is the bucket's upper bound (2^i µs), Count the observations.
+type RunqBucket struct {
+	LatencyUs uint64 `json:"latency_us"`
+	Count     uint64 `json:"count"`
+}
+
 // EdgeSink receives observed connection edges for durable persistence — an
 // optional dependency (nil is a fully valid, working Collector, matching
 // every other dependency's graceful-degradation pattern in this project)
@@ -113,11 +173,14 @@ type Collector struct {
 	links  []link.Link
 	reader *ringbuf.Reader
 
-	mu        sync.Mutex
-	conns     []TCPConnEvent
-	execs     []ExecEvent
-	disks     []DiskIOEvent
-	maxEvents int
+	mu         sync.Mutex
+	conns      []TCPConnEvent
+	execs      []ExecEvent
+	disks      []DiskIOEvent
+	oomKills   []OOMKillEvent
+	tcpRetrans []TCPRetransEvent
+	signals    []SignalEvent
+	maxEvents  int
 
 	// Per-interval latency histograms (Coroot-style heatmap source): counts of
 	// events falling in each LatencyBucketsMs bucket since the last Snapshot.
@@ -244,19 +307,44 @@ func New(maxEvents int) (*Collector, error) {
 		return nil, fmt.Errorf("attaching block:block_rq_complete: %w", err)
 	}
 
+	links := []link.Link{tcpLink, execLink, blockIssueLink, blockCompleteLink}
+
+	// BCC-inspired extra signals. Unlike the four core tracepoints above, a
+	// failure to attach any of these is NON-fatal: it degrades that one signal
+	// (logged) but keeps the collector — a kernel missing, say, oom:mark_victim
+	// or with sched tracing restricted should not lose net/exec/disk too.
+	for _, opt := range []struct {
+		group, name string
+		prog        *ebpf.Program
+	}{
+		{"oom", "mark_victim", objs.TraceOomMarkVictim},
+		{"tcp", "tcp_retransmit_skb", objs.TraceTcpRetransmitSkb},
+		{"signal", "signal_generate", objs.TraceSignalGenerate},
+		{"sched", "sched_wakeup", objs.TraceSchedWakeup},
+		{"sched", "sched_wakeup_new", objs.TraceSchedWakeupNew},
+		{"sched", "sched_switch", objs.TraceSchedSwitch},
+	} {
+		l, aerr := link.Tracepoint(opt.group, opt.name, opt.prog, nil)
+		if aerr != nil {
+			slog.Warn("ebpf: optional tracepoint not attached (signal degraded)",
+				"tracepoint", opt.group+":"+opt.name, "error", aerr)
+			continue
+		}
+		links = append(links, l)
+	}
+
 	reader, err := ringbuf.NewReader(objs.Events)
 	if err != nil {
-		blockCompleteLink.Close()
-		blockIssueLink.Close()
-		execLink.Close()
-		tcpLink.Close()
+		for _, l := range links {
+			_ = l.Close()
+		}
 		objs.Close()
 		return nil, fmt.Errorf("opening ring buffer: %w", err)
 	}
 
 	return &Collector{
 		objs:      objs,
-		links:     []link.Link{tcpLink, execLink, blockIssueLink, blockCompleteLink},
+		links:     links,
 		reader:    reader,
 		maxEvents: maxEvents,
 	}, nil
@@ -362,6 +450,32 @@ func (c *Collector) handleRecord(ctx context.Context, raw []byte) {
 		c.mu.Lock()
 		c.recordLatency(&c.diskLatHist, float64(ev.DiskLatencyNs)/1e6)
 		c.mu.Unlock()
+	case eventTypeOOMKill:
+		c.appendOOMKill(OOMKillEvent{
+			Timestamp:   time.Now(),
+			PID:         ev.Pid,
+			Comm:        commToString(ev.Comm[:]),
+			ContainerID: containerIDForPID(ev.Pid),
+		})
+	case eventTypeTCPRetrans:
+		c.appendTCPRetrans(TCPRetransEvent{
+			Timestamp: time.Now(),
+			PID:       ev.Pid,
+			Comm:      commToString(ev.Comm[:]),
+			SrcAddr:   ipFromRaw(ev.Saddr),
+			DstAddr:   ipFromRaw(ev.Daddr),
+			SrcPort:   ev.Sport,
+			DstPort:   ev.Dport,
+		})
+	case eventTypeSignal:
+		c.appendSignal(SignalEvent{
+			Timestamp:  time.Now(),
+			Signal:     signalName(ev.Sig),
+			PID:        ev.Pid,
+			Comm:       commToString(ev.Comm[:]),
+			TargetPID:  ev.TargetPid,
+			TargetComm: commToString(ev.TargetComm[:]),
+		})
 	}
 }
 
@@ -412,6 +526,93 @@ func (c *Collector) appendDisk(e DiskIOEvent) {
 	if len(c.disks) > c.maxEvents {
 		c.disks = c.disks[len(c.disks)-c.maxEvents:]
 	}
+}
+
+func (c *Collector) appendOOMKill(e OOMKillEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.oomKills = append(c.oomKills, e)
+	if len(c.oomKills) > c.maxEvents {
+		c.oomKills = c.oomKills[len(c.oomKills)-c.maxEvents:]
+	}
+}
+
+func (c *Collector) appendTCPRetrans(e TCPRetransEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tcpRetrans = append(c.tcpRetrans, e)
+	if len(c.tcpRetrans) > c.maxEvents {
+		c.tcpRetrans = c.tcpRetrans[len(c.tcpRetrans)-c.maxEvents:]
+	}
+}
+
+func (c *Collector) appendSignal(e SignalEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.signals = append(c.signals, e)
+	if len(c.signals) > c.maxEvents {
+		c.signals = c.signals[len(c.signals)-c.maxEvents:]
+	}
+}
+
+// RecentOOMKills returns up to limit recent OOM-kill victims (newest last).
+func (c *Collector) RecentOOMKills(limit int) []OOMKillEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return lastN(c.oomKills, limit)
+}
+
+// RecentTCPRetransmits returns up to limit recent TCP retransmissions.
+func (c *Collector) RecentTCPRetransmits(limit int) []TCPRetransEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return lastN(c.tcpRetrans, limit)
+}
+
+// RecentSignals returns up to limit recent notable signal deliveries.
+func (c *Collector) RecentSignals(limit int) []SignalEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return lastN(c.signals, limit)
+}
+
+// RunqLatency reads the in-kernel run-queue-latency histogram (BCC runqlat):
+// a log2-microsecond distribution of how long tasks waited runnable before
+// getting the CPU, summed across CPUs. Cumulative since the collector started
+// (a distribution gauge, not a per-tick delta). Empty buckets are omitted.
+func (c *Collector) RunqLatency() ([]RunqBucket, error) {
+	m := c.objs.RunqHist
+	if m == nil {
+		return nil, nil
+	}
+	ncpu, err := ebpf.PossibleCPU()
+	if err != nil {
+		ncpu = 1
+	}
+	out := make([]RunqBucket, 0, runqSlots)
+	for slot := uint32(0); slot < runqSlots; slot++ {
+		perCPU := make([]uint64, ncpu)
+		if err := m.Lookup(slot, &perCPU); err != nil {
+			continue // slot never touched
+		}
+		var sum uint64
+		for _, v := range perCPU {
+			sum += v
+		}
+		if sum == 0 {
+			continue
+		}
+		// slot 0 = sub-µs; slot i (i>=1) upper bound = 2^(i-1) µs. Report the
+		// bucket's inclusive upper bound in µs.
+		var le uint64
+		if slot == 0 {
+			le = 1
+		} else {
+			le = uint64(1) << (slot - 1)
+		}
+		out = append(out, RunqBucket{LatencyUs: le, Count: sum})
+	}
+	return out, nil
 }
 
 // RecentConns returns up to limit of the most recently observed TCP state

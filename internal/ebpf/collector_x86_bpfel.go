@@ -35,6 +35,9 @@ type collectorEvent struct {
 	DiskLatencyNs uint64
 	DiskRwbs      [8]uint8
 	DiskError     int32
+	Sig           uint32
+	TargetPid     uint32
+	TargetComm    [16]uint8
 	_             [4]byte
 }
 
@@ -60,10 +63,18 @@ const (
 	collectorMapConnStart              = "conn_start"
 	collectorMapEvents                 = "events"
 	collectorMapIoStart                = "io_start"
+	collectorMapRunqEnqueued           = "runq_enqueued"
+	collectorMapRunqHist               = "runq_hist"
 	collectorProgTraceBlockRqComplete  = "trace_block_rq_complete"
 	collectorProgTraceBlockRqIssue     = "trace_block_rq_issue"
 	collectorProgTraceInetSockSetState = "trace_inet_sock_set_state"
+	collectorProgTraceOomMarkVictim    = "trace_oom_mark_victim"
 	collectorProgTraceSchedProcessExec = "trace_sched_process_exec"
+	collectorProgTraceSchedSwitch      = "trace_sched_switch"
+	collectorProgTraceSchedWakeup      = "trace_sched_wakeup"
+	collectorProgTraceSchedWakeupNew   = "trace_sched_wakeup_new"
+	collectorProgTraceSignalGenerate   = "trace_signal_generate"
+	collectorProgTraceTcpRetransmitSkb = "trace_tcp_retransmit_skb"
 	collectorVarUnusedEventBtfAnchor   = "unused_event_btf_anchor"
 )
 
@@ -112,16 +123,24 @@ type collectorProgramSpecs struct {
 	TraceBlockRqComplete  *ebpf.ProgramSpec `ebpf:"trace_block_rq_complete"`
 	TraceBlockRqIssue     *ebpf.ProgramSpec `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
+	TraceOomMarkVictim    *ebpf.ProgramSpec `ebpf:"trace_oom_mark_victim"`
 	TraceSchedProcessExec *ebpf.ProgramSpec `ebpf:"trace_sched_process_exec"`
+	TraceSchedSwitch      *ebpf.ProgramSpec `ebpf:"trace_sched_switch"`
+	TraceSchedWakeup      *ebpf.ProgramSpec `ebpf:"trace_sched_wakeup"`
+	TraceSchedWakeupNew   *ebpf.ProgramSpec `ebpf:"trace_sched_wakeup_new"`
+	TraceSignalGenerate   *ebpf.ProgramSpec `ebpf:"trace_signal_generate"`
+	TraceTcpRetransmitSkb *ebpf.ProgramSpec `ebpf:"trace_tcp_retransmit_skb"`
 }
 
 // collectorMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorMapSpecs struct {
-	ConnStart *ebpf.MapSpec `ebpf:"conn_start"`
-	Events    *ebpf.MapSpec `ebpf:"events"`
-	IoStart   *ebpf.MapSpec `ebpf:"io_start"`
+	ConnStart    *ebpf.MapSpec `ebpf:"conn_start"`
+	Events       *ebpf.MapSpec `ebpf:"events"`
+	IoStart      *ebpf.MapSpec `ebpf:"io_start"`
+	RunqEnqueued *ebpf.MapSpec `ebpf:"runq_enqueued"`
+	RunqHist     *ebpf.MapSpec `ebpf:"runq_hist"`
 }
 
 // collectorVariableSpecs contains global variables before they are loaded into the kernel.
@@ -151,9 +170,11 @@ func (o *collectorObjects) Close() error {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorMaps struct {
-	ConnStart *ebpf.Map `ebpf:"conn_start"`
-	Events    *ebpf.Map `ebpf:"events"`
-	IoStart   *ebpf.Map `ebpf:"io_start"`
+	ConnStart    *ebpf.Map `ebpf:"conn_start"`
+	Events       *ebpf.Map `ebpf:"events"`
+	IoStart      *ebpf.Map `ebpf:"io_start"`
+	RunqEnqueued *ebpf.Map `ebpf:"runq_enqueued"`
+	RunqHist     *ebpf.Map `ebpf:"runq_hist"`
 }
 
 func (m *collectorMaps) Close() error {
@@ -161,6 +182,8 @@ func (m *collectorMaps) Close() error {
 		m.ConnStart,
 		m.Events,
 		m.IoStart,
+		m.RunqEnqueued,
+		m.RunqHist,
 	)
 }
 
@@ -178,7 +201,13 @@ type collectorPrograms struct {
 	TraceBlockRqComplete  *ebpf.Program `ebpf:"trace_block_rq_complete"`
 	TraceBlockRqIssue     *ebpf.Program `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
+	TraceOomMarkVictim    *ebpf.Program `ebpf:"trace_oom_mark_victim"`
 	TraceSchedProcessExec *ebpf.Program `ebpf:"trace_sched_process_exec"`
+	TraceSchedSwitch      *ebpf.Program `ebpf:"trace_sched_switch"`
+	TraceSchedWakeup      *ebpf.Program `ebpf:"trace_sched_wakeup"`
+	TraceSchedWakeupNew   *ebpf.Program `ebpf:"trace_sched_wakeup_new"`
+	TraceSignalGenerate   *ebpf.Program `ebpf:"trace_signal_generate"`
+	TraceTcpRetransmitSkb *ebpf.Program `ebpf:"trace_tcp_retransmit_skb"`
 }
 
 func (p *collectorPrograms) Close() error {
@@ -186,7 +215,13 @@ func (p *collectorPrograms) Close() error {
 		p.TraceBlockRqComplete,
 		p.TraceBlockRqIssue,
 		p.TraceInetSockSetState,
+		p.TraceOomMarkVictim,
 		p.TraceSchedProcessExec,
+		p.TraceSchedSwitch,
+		p.TraceSchedWakeup,
+		p.TraceSchedWakeupNew,
+		p.TraceSignalGenerate,
+		p.TraceTcpRetransmitSkb,
 	)
 }
 

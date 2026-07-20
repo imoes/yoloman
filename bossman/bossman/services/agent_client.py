@@ -171,6 +171,26 @@ class AgentClient:
         the disk-I/O-latency heatmap."""
         return await self._get_json("/api/v1/disk-io/slowest", {"limit": str(limit)})
 
+    async def ebpf_oom_kills(self, limit: int = 20) -> dict[str, Any]:
+        """GET /api/v1/oom-kills — processes the kernel OOM killer terminated
+        (BCC oomkill). On-demand pass-through."""
+        return await self._get_json("/api/v1/oom-kills", {"limit": str(limit)})
+
+    async def ebpf_tcp_retransmits(self, limit: int = 20) -> dict[str, Any]:
+        """GET /api/v1/tcp-retransmits — recent TCP retransmissions per
+        connection (BCC tcpretrans). On-demand pass-through."""
+        return await self._get_json("/api/v1/tcp-retransmits", {"limit": str(limit)})
+
+    async def ebpf_signals(self, limit: int = 20) -> dict[str, Any]:
+        """GET /api/v1/signals — recent notable signal deliveries, sender →
+        target (BCC killsnoop). On-demand pass-through."""
+        return await self._get_json("/api/v1/signals", {"limit": str(limit)})
+
+    async def ebpf_runq_latency(self) -> dict[str, Any]:
+        """GET /api/v1/runq-latency — run-queue latency histogram, a CPU-
+        saturation signal (BCC runqlat). On-demand pass-through."""
+        return await self._get_json("/api/v1/runq-latency", {})
+
     async def list_tools(self) -> list[dict[str, Any]]:
         """GET /api/v1/tools — every module/task/pipeline tool this agent
         currently exposes: [{name, kind, writes}]. Write tools are only
