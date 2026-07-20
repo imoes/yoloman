@@ -284,16 +284,20 @@ export class HostChecksComponent {
     if (s.has(name)) { s.delete(name); this.expanded.set(s); return; }
     s.add(name);
     this.expanded.set(s);
-    if (this.descriptions()[name] === undefined) {
-      this.descriptions.update((m) => ({ ...m, [name]: '' })); // mark loading
-      this.checkService.getCheck(name).subscribe({
-        next: (c) => {
-          const desc = (c as { metadata?: { description?: string } })?.metadata?.description || 'No description available.';
-          this.descriptions.update((m) => ({ ...m, [name]: desc }));
-        },
-        error: () => this.descriptions.update((m) => ({ ...m, [name]: 'Could not load description.' })),
-      });
-    }
+    this.loadDescription(name);
+  }
+
+  /** Lazy-load a check's full description (once). */
+  private loadDescription(name: string): void {
+    if (this.descriptions()[name] !== undefined) return;
+    this.descriptions.update((m) => ({ ...m, [name]: '' })); // mark loading
+    this.checkService.getCheck(name).subscribe({
+      next: (c) => {
+        const desc = (c as { metadata?: { description?: string } })?.metadata?.description || 'No description available.';
+        this.descriptions.update((m) => ({ ...m, [name]: desc }));
+      },
+      error: () => this.descriptions.update((m) => ({ ...m, [name]: 'Could not load description.' })),
+    });
   }
 
   /** Host-scope runbook variables (strongest in the GPO merge). */
@@ -454,9 +458,12 @@ export class HostChecksComponent {
       next: (r) => {
         this.proposals.set(r.proposals);
         this.discovering.set(false);
-        // Provisioning info is loaded lazily per check when it's selected (see
-        // toggleSel) — fetching it for every proposal here was an N+1 flood
-        // (hundreds of GET /checks/{name}/provisioning on a big discovery).
+        // Show each discovered check's description expanded by default, and
+        // preload them. Discovery is now data-gated (~dozens, not hundreds), so
+        // this is a handful of cheap GETs, not the N+1 flood the provisioning
+        // fetch would be (that stays lazy, loaded per check when selected).
+        this.expanded.set(new Set(r.proposals.map((p) => p.check_name)));
+        for (const p of r.proposals) this.loadDescription(p.check_name);
       },
       error: (e) => { this.fail(e); this.discovering.set(false); },
     });
