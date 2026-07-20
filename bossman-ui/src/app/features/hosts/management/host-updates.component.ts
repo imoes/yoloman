@@ -211,7 +211,13 @@ export class HostUpdatesComponent {
         this.busy.set(false);
         const r = res.result as { msg?: string } | undefined;
         this.msg.set(`${r?.msg ?? 'ok'}${this.dryRun() ? ' (dry-run)' : ''}`);
-        if (!this.dryRun()) this.reload();
+        if (!this.dryRun()) {
+          this.reload();
+          // The install completed synchronously, so the pending upgrades — and
+          // the CVEs they closed — changed. Re-correlate so fixed CVEs drop off
+          // (previously only the updates list refreshed, leaving stale CVEs).
+          if (this.cveCount() >= 0) this.correlateCves();
+        }
       },
       error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail ?? 'apply failed'); },
     });
