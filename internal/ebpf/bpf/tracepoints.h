@@ -154,4 +154,50 @@ struct trace_event_raw_signal_generate {
 	char __data[0];
 };
 
+// ── syscall tracepoints for passive L7 capture (Tier-2) ───────────────────
+// The syscall enter/exit tracepoints share a fixed ABI: the 8-byte common
+// header, then `int __syscall_nr` padded to 8, then the syscall arguments each
+// at an 8-byte slot (offset 16, 24, 32, …). Rather than name the header/nr
+// fields (which the verifier rejects for direct access anyway, see collector.c)
+// we pad to offset 16 with two __u64 and expose only the argument slots we
+// read. Pointer arguments are carried as __u64 and dereferenced with
+// bpf_probe_read. This mirrors coroot-node-agent's sys_enter_rw stub.
+
+// read/write/readv/writev/connect: fd, buf/ptr, count/len at args[0..2].
+struct trace_event_raw_sys_enter_rw {
+	__u64 _pad_header;
+	__u64 _pad_nr;
+	__u64 fd;
+	__u64 buf;
+	__u64 count;
+};
+
+// sendto/recvfrom: args[0..5] = fd, buf, len, flags, sockaddr*, addrlen.
+struct trace_event_raw_sys_enter_sendrecv {
+	__u64 _pad_header;
+	__u64 _pad_nr;
+	__u64 fd;
+	__u64 buf;
+	__u64 len;
+	__u64 flags;
+	__u64 addr;
+	__u64 addr_len;
+};
+
+// Any sys_exit_*: the syscall return value at the first argument slot.
+struct trace_event_raw_sys_exit {
+	__u64 _pad_header;
+	__u64 _pad_nr;
+	__s64 ret;
+};
+
+// sockaddr_in as seen in a connect()/sendto() userspace pointer — only the
+// family, port and IPv4 address are read (IPv4-only, matching the rest of the
+// collector). sin_port/sin_addr are network byte order.
+struct sockaddr_in_stub {
+	__u16 sin_family;
+	__u16 sin_port;
+	__u32 sin_addr;
+};
+
 #endif

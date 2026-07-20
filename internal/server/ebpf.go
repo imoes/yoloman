@@ -89,6 +89,15 @@ type RunqLatencyOutput struct {
 	Histogram []ebpf.RunqBucket `json:"histogram"`
 }
 
+// L7RequestsInput/Output — recent passive L7 exchanges (Tier-2).
+type L7RequestsInput struct {
+	Protocol string `json:"protocol,omitempty"`
+	Limit    int    `json:"limit,omitempty"`
+}
+type L7RequestsOutput struct {
+	Events []ebpf.L7Event `json:"events"`
+}
+
 // RegisterEBPF exposes the eBPF collector's observability data as MCP
 // tools: net_connections (recent TCP state transitions), top_talkers
 // (aggregated by process+remote address), exec_events (recent process
@@ -261,6 +270,26 @@ func RegisterEBPF(s *mcp.Server, c *ebpf.Collector) {
 		}
 		return nil, RunqLatencyOutput{Histogram: h}, nil
 	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "l7_requests",
+		Description: "" +
+			"List recent application-layer (L7) request/response exchanges observed on this host, " +
+			"captured passively via eBPF on the read/write/sendto/recvfrom syscall tracepoints — no " +
+			"instrumentation, no ports assumed (protocol is detected by sniffing the payload). Each " +
+			"exchange carries protocol (http/dns/postgres/mysql), the request (HTTP method+path / DNS " +
+			"name+type / SQL text), a classified status (2xx…/5xx, ok/nxdomain/…), latency, and the " +
+			"destination addr:port. Plaintext only (no TLS). Optionally filter by protocol. Newest last.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"protocol": map[string]any{"type": "string", "description": "Filter to one of http|dns|postgres|mysql (omitted = all)."},
+				"limit":    map[string]any{"type": "integer", "description": "Max exchanges to return (0 or omitted = all retained)."},
+			},
+		},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in L7RequestsInput) (*mcp.CallToolResult, L7RequestsOutput, error) {
+		return nil, L7RequestsOutput{Events: c.RecentL7(in.Protocol, in.Limit)}, nil
+	})
 }
 
 // RegisterEBPFRoutes adds the REST equivalents of RegisterEBPF's tools onto
@@ -304,6 +333,17 @@ func RegisterEBPFRoutes(mux *http.ServeMux, c *ebpf.Collector) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"histogram": h})
 	})
+	// Passive L7 (Tier-2): recent exchanges per protocol. `?protocol=` also
+	// accepted on /api/v1/l7 for an all-protocols or single-protocol view.
+	mux.HandleFunc("GET /api/v1/l7", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"events": c.RecentL7(r.URL.Query().Get("protocol"), limitParam(r))})
+	})
+	for _, proto := range []string{"http", "dns", "postgres", "mysql"} {
+		p := proto
+		mux.HandleFunc("GET /api/v1/l7/"+p, func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, map[string]any{"events": c.RecentL7(p, limitParam(r))})
+		})
+	}
 }
 
 func limitParam(r *http.Request) int {

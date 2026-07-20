@@ -169,9 +169,10 @@ type EdgeSink interface {
 // Collector loads the eBPF programs, attaches them to their tracepoints,
 // and consumes the shared ring buffer into bounded in-memory event lists.
 type Collector struct {
-	objs   collectorObjects
-	links  []link.Link
-	reader *ringbuf.Reader
+	objs     collectorObjects
+	links    []link.Link
+	reader   *ringbuf.Reader
+	l7Reader *ringbuf.Reader // nil when L7 capture didn't attach (older kernel)
 
 	mu         sync.Mutex
 	conns      []TCPConnEvent
@@ -181,6 +182,13 @@ type Collector struct {
 	tcpRetrans []TCPRetransEvent
 	signals    []SignalEvent
 	maxEvents  int
+
+	// Passive L7 (Tier-2): a bounded recent-events window (rich text for the UI)
+	// plus per-interval RED counters. Cardinality-safe: keys carry only
+	// protocol/status/destination, never the request path/SQL/DNS name.
+	recentL7 []L7Event
+	l7Reqs   map[string]uint64   // "protocol|status|destination" → count this tick
+	l7Lat    map[string][]uint64 // "protocol|destination" → latency histogram this tick
 
 	// Per-interval latency histograms (Coroot-style heatmap source): counts of
 	// events falling in each LatencyBucketsMs bucket since the last Snapshot.
@@ -332,6 +340,7 @@ func New(maxEvents int) (*Collector, error) {
 	// failure to attach any of these is NON-fatal: it degrades that one signal
 	// (logged) but keeps the collector — a kernel missing, say, oom:mark_victim
 	// or with sched tracing restricted should not lose net/exec/disk too.
+	l7Attached := true // cleared if any L7 syscall tracepoint fails to attach
 	for _, opt := range []struct {
 		group, name string
 		prog        *ebpf.Program
@@ -342,11 +351,24 @@ func New(maxEvents int) (*Collector, error) {
 		{"sched", "sched_wakeup", objs.TraceSchedWakeup},
 		{"sched", "sched_wakeup_new", objs.TraceSchedWakeupNew},
 		{"sched", "sched_switch", objs.TraceSchedSwitch},
+		// Passive L7 (Tier-2) syscall tracepoints — all-or-nothing for L7
+		// (see l7Attached below); each is still individually non-fatal so a
+		// restricted syscall tracepoint never sinks the core signals.
+		{"syscalls", "sys_enter_connect", objs.L7SysEnterConnect},
+		{"syscalls", "sys_enter_write", objs.L7SysEnterWrite},
+		{"syscalls", "sys_enter_sendto", objs.L7SysEnterSendto},
+		{"syscalls", "sys_enter_read", objs.L7SysEnterRead},
+		{"syscalls", "sys_enter_recvfrom", objs.L7SysEnterRecvfrom},
+		{"syscalls", "sys_exit_read", objs.L7SysExitRead},
+		{"syscalls", "sys_exit_recvfrom", objs.L7SysExitRecvfrom},
 	} {
 		l, aerr := link.Tracepoint(opt.group, opt.name, opt.prog, nil)
 		if aerr != nil {
 			slog.Warn("ebpf: optional tracepoint not attached (signal degraded)",
 				"tracepoint", opt.group+":"+opt.name, "error", aerr)
+			if opt.group == "syscalls" {
+				l7Attached = false
+			}
 			continue
 		}
 		links = append(links, l)
@@ -361,10 +383,23 @@ func New(maxEvents int) (*Collector, error) {
 		return nil, fmt.Errorf("opening ring buffer: %w", err)
 	}
 
+	// L7 events flow through a separate ringbuf so their 1KB payloads never
+	// bloat the core event stream. Only opened if the syscall tracepoints
+	// attached; a failure here degrades L7 only (core signals keep running).
+	var l7Reader *ringbuf.Reader
+	if l7Attached {
+		l7Reader, err = ringbuf.NewReader(objs.L7Events)
+		if err != nil {
+			slog.Warn("ebpf: L7 ring buffer not opened (L7 capture disabled)", "error", err)
+			l7Reader = nil
+		}
+	}
+
 	return &Collector{
 		objs:      objs,
 		links:     links,
 		reader:    reader,
+		l7Reader:  l7Reader,
 		maxEvents: maxEvents,
 	}, nil
 }
@@ -372,6 +407,9 @@ func New(maxEvents int) (*Collector, error) {
 // Close detaches all programs and releases kernel resources.
 func (c *Collector) Close() error {
 	_ = c.reader.Close()
+	if c.l7Reader != nil {
+		_ = c.l7Reader.Close()
+	}
 	for _, l := range c.links {
 		_ = l.Close()
 	}
@@ -384,7 +422,14 @@ func (c *Collector) Run(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
 		_ = c.reader.Close()
+		if c.l7Reader != nil {
+			_ = c.l7Reader.Close()
+		}
 	}()
+
+	if c.l7Reader != nil {
+		go c.runL7()
+	}
 
 	for {
 		record, err := c.reader.Read()
@@ -396,6 +441,21 @@ func (c *Collector) Run(ctx context.Context) {
 			continue
 		}
 		c.handleRecord(ctx, record.RawSample)
+	}
+}
+
+// runL7 consumes the separate L7 ring buffer (see l7.go) until it is closed.
+func (c *Collector) runL7() {
+	for {
+		record, err := c.l7Reader.Read()
+		if err != nil {
+			if errors.Is(err, ringbuf.ErrClosed) {
+				return
+			}
+			slog.Warn("ebpf: L7 ring buffer read error", "error", err)
+			continue
+		}
+		c.handleL7Record(record.RawSample)
 	}
 }
 

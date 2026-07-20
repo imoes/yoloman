@@ -487,6 +487,19 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				store.Point{Metric: "tcp_connect_failed_total", Timestamp: now, Value: float64(failed)},
 				store.Point{Metric: "tcp_retransmit_total", Timestamp: now, Value: float64(retrans)},
 			)
+			// Passive L7 RED metrics (Tier-2). Cardinality-safe: labels carry
+			// only protocol/status/destination — never the request path/SQL/DNS
+			// name. Per-tick deltas, like the counters above.
+			for _, s := range collector.SnapshotL7Requests() {
+				points = append(points, store.Point{Metric: "l7_requests_total", Timestamp: now, Value: float64(s.Count),
+					Labels: map[string]string{"protocol": s.Protocol, "status": s.Status, "destination": s.Destination}})
+			}
+			for _, s := range collector.SnapshotL7Latency() {
+				for le, n := range s.Buckets {
+					points = append(points, store.Point{Metric: "l7_latency_ms_bucket", Timestamp: now, Value: float64(n),
+						Labels: map[string]string{"protocol": s.Protocol, "destination": s.Destination, "le": le}})
+				}
+			}
 		}
 		if dockerCollector != nil {
 			if dpts, derr := dockerCollector.Sample(now); derr != nil {

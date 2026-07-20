@@ -56,15 +56,78 @@ type collectorIoStartVal struct {
 	_    [4]byte
 }
 
+type collectorL7ConnInfo struct {
+	_     structs.HostLayout
+	Daddr uint32
+	Dport uint16
+	_     [2]byte
+}
+
+type collectorL7ConnKey struct {
+	_   structs.HostLayout
+	Pid uint32
+	Fd  uint32
+}
+
+type collectorL7Event struct {
+	_              structs.HostLayout
+	Pid            uint32
+	Fd             uint32
+	Daddr          uint32
+	Dport          uint16
+	Protocol       uint8
+	Pad            uint8
+	Status         int32
+	_              [4]byte
+	DurationNs     uint64
+	StatementId    uint32
+	ReqPayloadSize uint32
+	PayloadSize    uint32
+	ReqPayload     [512]uint8
+	Payload        [512]uint8
+	_              [4]byte
+}
+
+type collectorL7ReadArgs struct {
+	_   structs.HostLayout
+	Fd  uint64
+	Buf uint64
+}
+
+type collectorL7Req struct {
+	_           structs.HostLayout
+	Ts          uint64
+	Protocol    uint8
+	_           [1]byte
+	StreamId    int16
+	StatementId uint32
+	ReqSize     uint32
+	ReqPayload  [512]uint8
+	_           [4]byte
+}
+
 // Names of all BPF objects in the ELF.
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	collectorMapActiveL7Reads          = "active_l7_reads"
+	collectorMapActiveL7Reqs           = "active_l7_reqs"
 	collectorMapConnStart              = "conn_start"
 	collectorMapEvents                 = "events"
 	collectorMapIoStart                = "io_start"
+	collectorMapL7Conns                = "l7_conns"
+	collectorMapL7EventHeap            = "l7_event_heap"
+	collectorMapL7Events               = "l7_events"
+	collectorMapL7ReqHeap              = "l7_req_heap"
 	collectorMapRunqEnqueued           = "runq_enqueued"
 	collectorMapRunqHist               = "runq_hist"
+	collectorProgL7SysEnterConnect     = "l7_sys_enter_connect"
+	collectorProgL7SysEnterRead        = "l7_sys_enter_read"
+	collectorProgL7SysEnterRecvfrom    = "l7_sys_enter_recvfrom"
+	collectorProgL7SysEnterSendto      = "l7_sys_enter_sendto"
+	collectorProgL7SysEnterWrite       = "l7_sys_enter_write"
+	collectorProgL7SysExitRead         = "l7_sys_exit_read"
+	collectorProgL7SysExitRecvfrom     = "l7_sys_exit_recvfrom"
 	collectorProgTraceBlockRqComplete  = "trace_block_rq_complete"
 	collectorProgTraceBlockRqIssue     = "trace_block_rq_issue"
 	collectorProgTraceInetSockSetState = "trace_inet_sock_set_state"
@@ -76,6 +139,7 @@ const (
 	collectorProgTraceSignalGenerate   = "trace_signal_generate"
 	collectorProgTraceTcpRetransmitSkb = "trace_tcp_retransmit_skb"
 	collectorVarUnusedEventBtfAnchor   = "unused_event_btf_anchor"
+	collectorVarUnusedL7EventBtfAnchor = "unused_l7_event_btf_anchor"
 )
 
 // loadCollector returns the embedded CollectionSpec for collector.
@@ -120,6 +184,13 @@ type collectorSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorProgramSpecs struct {
+	L7SysEnterConnect     *ebpf.ProgramSpec `ebpf:"l7_sys_enter_connect"`
+	L7SysEnterRead        *ebpf.ProgramSpec `ebpf:"l7_sys_enter_read"`
+	L7SysEnterRecvfrom    *ebpf.ProgramSpec `ebpf:"l7_sys_enter_recvfrom"`
+	L7SysEnterSendto      *ebpf.ProgramSpec `ebpf:"l7_sys_enter_sendto"`
+	L7SysEnterWrite       *ebpf.ProgramSpec `ebpf:"l7_sys_enter_write"`
+	L7SysExitRead         *ebpf.ProgramSpec `ebpf:"l7_sys_exit_read"`
+	L7SysExitRecvfrom     *ebpf.ProgramSpec `ebpf:"l7_sys_exit_recvfrom"`
 	TraceBlockRqComplete  *ebpf.ProgramSpec `ebpf:"trace_block_rq_complete"`
 	TraceBlockRqIssue     *ebpf.ProgramSpec `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.ProgramSpec `ebpf:"trace_inet_sock_set_state"`
@@ -136,18 +207,25 @@ type collectorProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorMapSpecs struct {
-	ConnStart    *ebpf.MapSpec `ebpf:"conn_start"`
-	Events       *ebpf.MapSpec `ebpf:"events"`
-	IoStart      *ebpf.MapSpec `ebpf:"io_start"`
-	RunqEnqueued *ebpf.MapSpec `ebpf:"runq_enqueued"`
-	RunqHist     *ebpf.MapSpec `ebpf:"runq_hist"`
+	ActiveL7Reads *ebpf.MapSpec `ebpf:"active_l7_reads"`
+	ActiveL7Reqs  *ebpf.MapSpec `ebpf:"active_l7_reqs"`
+	ConnStart     *ebpf.MapSpec `ebpf:"conn_start"`
+	Events        *ebpf.MapSpec `ebpf:"events"`
+	IoStart       *ebpf.MapSpec `ebpf:"io_start"`
+	L7Conns       *ebpf.MapSpec `ebpf:"l7_conns"`
+	L7EventHeap   *ebpf.MapSpec `ebpf:"l7_event_heap"`
+	L7Events      *ebpf.MapSpec `ebpf:"l7_events"`
+	L7ReqHeap     *ebpf.MapSpec `ebpf:"l7_req_heap"`
+	RunqEnqueued  *ebpf.MapSpec `ebpf:"runq_enqueued"`
+	RunqHist      *ebpf.MapSpec `ebpf:"runq_hist"`
 }
 
 // collectorVariableSpecs contains global variables before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type collectorVariableSpecs struct {
-	UnusedEventBtfAnchor *ebpf.VariableSpec `ebpf:"unused_event_btf_anchor"`
+	UnusedEventBtfAnchor   *ebpf.VariableSpec `ebpf:"unused_event_btf_anchor"`
+	UnusedL7EventBtfAnchor *ebpf.VariableSpec `ebpf:"unused_l7_event_btf_anchor"`
 }
 
 // collectorObjects contains all objects after they have been loaded into the kernel.
@@ -170,18 +248,30 @@ func (o *collectorObjects) Close() error {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorMaps struct {
-	ConnStart    *ebpf.Map `ebpf:"conn_start"`
-	Events       *ebpf.Map `ebpf:"events"`
-	IoStart      *ebpf.Map `ebpf:"io_start"`
-	RunqEnqueued *ebpf.Map `ebpf:"runq_enqueued"`
-	RunqHist     *ebpf.Map `ebpf:"runq_hist"`
+	ActiveL7Reads *ebpf.Map `ebpf:"active_l7_reads"`
+	ActiveL7Reqs  *ebpf.Map `ebpf:"active_l7_reqs"`
+	ConnStart     *ebpf.Map `ebpf:"conn_start"`
+	Events        *ebpf.Map `ebpf:"events"`
+	IoStart       *ebpf.Map `ebpf:"io_start"`
+	L7Conns       *ebpf.Map `ebpf:"l7_conns"`
+	L7EventHeap   *ebpf.Map `ebpf:"l7_event_heap"`
+	L7Events      *ebpf.Map `ebpf:"l7_events"`
+	L7ReqHeap     *ebpf.Map `ebpf:"l7_req_heap"`
+	RunqEnqueued  *ebpf.Map `ebpf:"runq_enqueued"`
+	RunqHist      *ebpf.Map `ebpf:"runq_hist"`
 }
 
 func (m *collectorMaps) Close() error {
 	return _CollectorClose(
+		m.ActiveL7Reads,
+		m.ActiveL7Reqs,
 		m.ConnStart,
 		m.Events,
 		m.IoStart,
+		m.L7Conns,
+		m.L7EventHeap,
+		m.L7Events,
+		m.L7ReqHeap,
 		m.RunqEnqueued,
 		m.RunqHist,
 	)
@@ -191,13 +281,21 @@ func (m *collectorMaps) Close() error {
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorVariables struct {
-	UnusedEventBtfAnchor *ebpf.Variable `ebpf:"unused_event_btf_anchor"`
+	UnusedEventBtfAnchor   *ebpf.Variable `ebpf:"unused_event_btf_anchor"`
+	UnusedL7EventBtfAnchor *ebpf.Variable `ebpf:"unused_l7_event_btf_anchor"`
 }
 
 // collectorPrograms contains all programs after they have been loaded into the kernel.
 //
 // It can be passed to loadCollectorObjects or ebpf.CollectionSpec.LoadAndAssign.
 type collectorPrograms struct {
+	L7SysEnterConnect     *ebpf.Program `ebpf:"l7_sys_enter_connect"`
+	L7SysEnterRead        *ebpf.Program `ebpf:"l7_sys_enter_read"`
+	L7SysEnterRecvfrom    *ebpf.Program `ebpf:"l7_sys_enter_recvfrom"`
+	L7SysEnterSendto      *ebpf.Program `ebpf:"l7_sys_enter_sendto"`
+	L7SysEnterWrite       *ebpf.Program `ebpf:"l7_sys_enter_write"`
+	L7SysExitRead         *ebpf.Program `ebpf:"l7_sys_exit_read"`
+	L7SysExitRecvfrom     *ebpf.Program `ebpf:"l7_sys_exit_recvfrom"`
 	TraceBlockRqComplete  *ebpf.Program `ebpf:"trace_block_rq_complete"`
 	TraceBlockRqIssue     *ebpf.Program `ebpf:"trace_block_rq_issue"`
 	TraceInetSockSetState *ebpf.Program `ebpf:"trace_inet_sock_set_state"`
@@ -212,6 +310,13 @@ type collectorPrograms struct {
 
 func (p *collectorPrograms) Close() error {
 	return _CollectorClose(
+		p.L7SysEnterConnect,
+		p.L7SysEnterRead,
+		p.L7SysEnterRecvfrom,
+		p.L7SysEnterSendto,
+		p.L7SysEnterWrite,
+		p.L7SysExitRead,
+		p.L7SysExitRecvfrom,
 		p.TraceBlockRqComplete,
 		p.TraceBlockRqIssue,
 		p.TraceInetSockSetState,

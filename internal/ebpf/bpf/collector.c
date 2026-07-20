@@ -147,6 +147,10 @@ struct {
 // `-type event` can find it even though it is only ever used via pointers.
 const struct event *unused_event_btf_anchor __attribute__((unused));
 
+// Passive L7 capture (Tier-2) — syscall-tracepoint payload sniffing for
+// DNS/HTTP/Postgres/MySQL, its own l7_event struct + l7_events ringbuf.
+#include "l7.c"
+
 SEC("tracepoint/sock/inet_sock_set_state")
 int trace_inet_sock_set_state(struct trace_event_raw_inet_sock_set_state *ctx)
 {
