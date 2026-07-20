@@ -90,6 +90,24 @@ export interface EbpfOOMKill { pid: number; comm: string; timestamp: string; con
 export interface EbpfTcpRetrans { pid: number; comm: string; src_addr: string; dst_addr: string; src_port: number; dst_port: number; timestamp: string; src_host?: string; dst_host?: string; }
 export interface EbpfSignal { signal: string; pid: number; comm: string; target_pid: number; target_comm: string; timestamp: string; }
 export interface EbpfRunqBucket { latency_us: number; count: number; }
+/** One passive-L7 exchange (Tier-2): DNS/HTTP/Postgres/MySQL sniffed from the
+ * syscall stream. `target` is the HTTP path / DNS name / SQL text; `status` is
+ * the classified outcome (2xx…/5xx, ok/nxdomain/servfail…). */
+export interface EbpfL7Event {
+  timestamp: string;
+  pid: number;
+  protocol: 'http' | 'dns' | 'postgres' | 'mysql' | string;
+  method?: string;
+  target?: string;
+  status: string;
+  status_code: number;
+  duration_ms: number;
+  dst_addr?: string;
+  dst_host?: string;
+  dst_port?: number;
+  answers?: string[];
+  container_id?: string;
+}
 export interface EbpfDetail {
   top_talkers: EbpfTopTalker[];
   slowest_disk_io: EbpfDiskIO[];
@@ -97,6 +115,7 @@ export interface EbpfDetail {
   tcp_retransmits?: EbpfTcpRetrans[];
   signals?: EbpfSignal[];
   runq_latency?: EbpfRunqBucket[];
+  l7_events?: EbpfL7Event[];
 }
 
 export interface MetricCatalogResponse {

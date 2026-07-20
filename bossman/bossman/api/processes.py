@@ -139,10 +139,15 @@ async def get_agent_ebpf(
     retrans = await _soft(client.ebpf_tcp_retransmits(limit=limit))
     sigs = await _soft(client.ebpf_signals(limit=limit))
     runq = await _soft(client.ebpf_runq_latency())
+    l7 = await _soft(client.ebpf_l7_requests(limit=max(limit, 50)))
     tcp_retransmits = retrans.get("retransmits", [])
     # Same enrichment as top_talkers, but on BOTH addresses — a retransmit can
     # be on an inbound connection too, so src_addr isn't always localhost.
     await _enrich_addr_fields(tcp_retransmits, "src_addr", "dst_addr")
+    # Passive-L7 exchanges (Tier-2): reverse-DNS the destination so an exchange
+    # reads as a hostname (same best-effort enrichment as top_talkers).
+    l7_events = l7.get("events", [])
+    await _enrich_addr_fields(l7_events, "dst_addr")
     return {
         "top_talkers": top_talkers,
         "slowest_disk_io": disk.get("disk_io", []),
@@ -150,6 +155,7 @@ async def get_agent_ebpf(
         "tcp_retransmits": tcp_retransmits,
         "signals": sigs.get("signals", []),
         "runq_latency": runq.get("histogram", []),
+        "l7_events": l7_events,
     }
 
 

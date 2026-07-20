@@ -17,7 +17,7 @@ import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
-import { Agent, ConfigResource, ConfigTemplate, DirectiveSpec, EbpfDetail, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { Agent, ConfigResource, ConfigTemplate, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -978,6 +978,30 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     </table>
                   } @else { <p class="bm-empty">No notable signals observed.</p> }
                 </div>
+
+                <div class="bm-ebpf-panel bm-ebpf-panel--wide">
+                  <div class="bm-ebpf-h">L7 requests <span class="bm-dim">(passive DNS / HTTP / SQL — payload-sniffed, no TLS)</span></div>
+                  @if (ebpf()?.l7_events?.length) {
+                    <table class="bm-table bm-ebpf-tbl">
+                      <thead><tr><th>Proto</th><th>Request</th><th>Status</th><th class="bm-num">ms</th><th>Destination</th></tr></thead>
+                      <tbody>
+                        @for (l of l7EventsNewestFirst(); track $index) {
+                          <tr>
+                            <td><span class="bm-l7-proto bm-l7-proto--{{ l.protocol }}">{{ l.protocol }}</span></td>
+                            <td class="bm-mono bm-l7-target" [title]="l.target || ''">
+                              @if (l.method) { <span class="bm-dim">{{ l.method }}</span> }
+                              {{ l.target }}
+                              @if (l.answers?.length) { <span class="bm-dim">→ {{ l.answers!.join(', ') }}</span> }
+                            </td>
+                            <td><span class="bm-l7-status" [class.bm-l7-status--bad]="isL7Bad(l)">{{ l.status }}</span></td>
+                            <td class="bm-num bm-mono">{{ l.duration_ms | number: '1.1-1' }}</td>
+                            <td class="bm-mono">{{ l.dst_host || l.dst_addr }}@if (l.dst_port) {:{{ l.dst_port }}}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else { <p class="bm-empty">No L7 exchanges observed — no plaintext DNS/HTTP/DB traffic captured yet.</p> }
+                </div>
               </div>
             </div>
           </ng-template></mat-tab>
@@ -1285,6 +1309,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-ebpf-ip { font-size: 11px; }
       .bm-ebpf-tbl th, .bm-ebpf-tbl td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--bm-border, #eee); white-space: nowrap; }
       .bm-ebpf-tbl th.bm-num, .bm-ebpf-tbl td.bm-num { text-align: right; }
+      .bm-ebpf-panel--wide { grid-column: 1 / -1; }
+      .bm-l7-target { max-width: 480px; overflow: hidden; text-overflow: ellipsis; }
+      .bm-l7-proto { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; text-transform: uppercase;
+        background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
+      .bm-l7-proto--dns { background: color-mix(in srgb, var(--mat-sys-tertiary) 20%, transparent); }
+      .bm-l7-proto--postgres, .bm-l7-proto--mysql { background: color-mix(in srgb, var(--mat-sys-secondary) 22%, transparent); }
+      .bm-l7-status--bad { color: var(--mat-sys-error, #c62828); font-weight: 600; }
       .bm-ebpf-panel .bm-mono { font-family: var(--bm-mono, monospace); }
       .bm-ebpf-h .bm-dim { opacity: 0.6; font-weight: 400; font-size: 12px; }
       .bm-runq { display: flex; flex-direction: column; gap: 3px; }
@@ -3211,6 +3242,17 @@ export class HostDetailComponent implements OnInit {
 
   shortContainer(id: string): string {
     return id.slice(0, 12);
+  }
+
+  /** L7 exchanges newest-first (the agent returns oldest-last). */
+  l7EventsNewestFirst(): EbpfL7Event[] {
+    return [...(this.ebpf()?.l7_events ?? [])].reverse();
+  }
+
+  /** A failed/error L7 outcome — 4xx/5xx HTTP, SQL failed, or a DNS error. */
+  isL7Bad(l: EbpfL7Event): boolean {
+    return l.status === '4xx' || l.status === '5xx' || l.status === 'failed'
+      || l.status === 'servfail' || l.status === 'nxdomain' || l.status === 'refused';
   }
 
   serviceBadge(svc: ServiceState) {

@@ -191,6 +191,16 @@ class AgentClient:
         saturation signal (BCC runqlat). On-demand pass-through."""
         return await self._get_json("/api/v1/runq-latency", {})
 
+    async def ebpf_l7_requests(self, protocol: str = "", limit: int = 50) -> dict[str, Any]:
+        """GET /api/v1/l7[?protocol=] — recent passive-L7 exchanges
+        (DNS/HTTP/Postgres/MySQL) captured via syscall tracepoints, each with
+        protocol, request text, classified status, latency and destination.
+        On-demand pass-through (Tier-2)."""
+        params = {"limit": str(limit)}
+        if protocol:
+            params["protocol"] = protocol
+        return await self._get_json("/api/v1/l7", params)
+
     async def list_tools(self) -> list[dict[str, Any]]:
         """GET /api/v1/tools — every module/task/pipeline tool this agent
         currently exposes: [{name, kind, writes}]. Write tools are only
