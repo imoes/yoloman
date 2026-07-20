@@ -536,8 +536,18 @@ export class HostChecksComponent {
       .filter((p) => this.isSel(p.check_name))
       .map((p) => ({ check_name: p.check_name, parameters: { ...(this.creds()[p.check_name] || {}) } }));
     if (!assign.length) return;
-    this.checkService.applyDiscovery(this.agent().id, assign).subscribe({
-      next: () => { this.proposals.set(null); this.reload(this.agent().id); },
+    const id = this.agent().id;
+    this.checkService.applyDiscovery(id, assign).subscribe({
+      next: () => {
+        this.proposals.set(null);
+        // Poll right away so the just-assigned checks appear as services now,
+        // not only after the next poll cycle (they materialise on evaluation).
+        this.rechecking.set(true);
+        this.agentService.pollNow(id).subscribe({
+          next: () => { this.rechecking.set(false); this.reload(id); },
+          error: () => { this.rechecking.set(false); this.reload(id); },
+        });
+      },
       error: (e) => this.fail(e),
     });
   }

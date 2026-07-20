@@ -208,6 +208,27 @@ def _check_datasource(star: str) -> str:
     return checks_library.check_datasource(star)
 
 
+# Data-source markers that only exist on a Checkmk site / a Checkmk agent — a
+# translated check that reads them (or fabricates a `<<<section>>>` via echo)
+# can never get real data from OUR agent, so it must never be a discovery
+# candidate (it would otherwise fake a placeholder item and surface everywhere).
+_CHECKMK_INTERNAL_MARKERS = (
+    "/var/lib/check_mk", "check_mk_agent", "/opt/checkmk", "/omd/", "agent_output",
+    '["cmk"', "['cmk'", '["cmk",', "cmk -d",
+)
+
+
+def _is_unrunnable_source(star: str) -> bool:
+    """True if the check's ONLY way to get data is a Checkmk-internal path or a
+    hardcoded echo-simulated section — i.e. it can't work on our agent."""
+    if any(m in star for m in _CHECKMK_INTERNAL_MARKERS):
+        return True
+    # `ctx.run(["echo", '... <<<section>>> ...'])` = fabricated agent output.
+    if '"echo"' in star and "<<<" in star:
+        return True
+    return False
+
+
 def _load_candidate_checks(
     settings: Settings, names: list[str] | None, datasource: str = "agent"
 ) -> list[dict[str, Any]]:
@@ -237,6 +258,12 @@ def _load_candidate_checks(
             continue
         # Relevance pre-filter by data source (skipped for an explicit re-scan).
         if not names and _check_datasource(star) != datasource:
+            continue
+        # Never a candidate: reads Checkmk-site/agent internals or fakes its
+        # section — no real data on our agent (drops bi_aggregation, mssql_instance,
+        # lsi_array, safenet/skype `cmk`, echo-simulated lgp_info, …). Honoured
+        # even for an explicit re-scan — these genuinely can't run here.
+        if _is_unrunnable_source(star):
             continue
         # The sidecar is NestedText (.nt); the agent registers the tool under
         # its fqcn, so parse it out and pass it through (call_tool needs it).
