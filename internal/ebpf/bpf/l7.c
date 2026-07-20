@@ -71,6 +71,7 @@ struct l7_conn_info {
 struct l7_req {
 	__u64 ts;
 	__u8 protocol;
+	__u8 req_type; // protocol-specific (MySQL COM_*; Postgres frame byte)
 	__s16 stream_id; // DNS transaction id; -1 for single-stream protocols
 	__u32 statement_id;
 	__u32 req_size;
@@ -196,6 +197,127 @@ static __always_inline int l7_is_dns_response(__u8 *b, __s16 *stream_id, __s32 *
 	return 1;
 }
 
+// PostgreSQL wire protocol: [cmd:1][len:int32 BE][body]. Simple-query 'Q' /
+// Close 'C' match when len+1 == payload; the extended protocol is detected by a
+// trailing Sync message ('S',0,0,0,4). Ported from coroot's postgres.c.
+#define PG_SIMPLE_QUERY 'Q'
+#define PG_CLOSE 'C'
+
+static __always_inline int l7_is_postgres_query(__u64 buf, __u64 size)
+{
+	if (size < 5)
+		return 0;
+	__u8 h[5];
+	if (bpf_probe_read(&h, sizeof(h), (void *)buf))
+		return 0;
+	__u8 cmd = h[0];
+	__u32 flen = ((__u32)h[1] << 24) | ((__u32)h[2] << 16) | ((__u32)h[3] << 8) | h[4];
+	if ((cmd == PG_SIMPLE_QUERY || cmd == PG_CLOSE) && flen + 1 == size)
+		return 1;
+	__u64 sz = size;
+	sz &= (MAX_PAYLOAD_SIZE - 1);
+	if (sz >= 5) {
+		__u8 sync[5];
+		if (bpf_probe_read(&sync, sizeof(sync), (void *)(buf + sz - 5)))
+			return 0;
+		if (sync[0] == 'S' && sync[1] == 0 && sync[2] == 0 && sync[3] == 0 && sync[4] == 4)
+			return 1;
+	}
+	return 0;
+}
+
+static __always_inline int l7_is_postgres_response(__u64 buf, __u64 size, __s32 *status)
+{
+	if (size < 5)
+		return 0;
+	__u8 h[6];
+	if (bpf_probe_read(&h, sizeof(h), (void *)buf))
+		return 0;
+	__u8 cmd = h[0];
+	__u32 length = ((__u32)h[1] << 24) | ((__u32)h[2] << 16) | ((__u32)h[3] << 8) | h[4];
+	if (length + 1 > size)
+		return 0;
+	// ParseComplete '1' / BindComplete '2' (len 4, no body) → skip to the next
+	// message's type byte.
+	if ((cmd == '1' || cmd == '2') && length == 4 && size >= 10) {
+		__u8 c2;
+		if (bpf_probe_read(&c2, sizeof(c2), (void *)(buf + 5)))
+			return 0;
+		cmd = c2;
+	}
+	if (cmd == 'E') {
+		*status = L7_STATUS_FAILED;
+		return 1;
+	}
+	if (cmd == 't' || cmd == 'T' || cmd == 'D' || cmd == 'C') {
+		*status = L7_STATUS_OK;
+		return 1;
+	}
+	return 0;
+}
+
+// MySQL wire protocol: [len:3 LE][seq:1][cmd:1][body]. A request has seq 0 and
+// len+4 == payload. Ported from coroot's mysql.c (partial-header case omitted).
+#define MYSQL_COM_QUERY 3
+#define MYSQL_COM_STMT_PREPARE 0x16
+#define MYSQL_COM_STMT_EXECUTE 0x17
+#define MYSQL_COM_STMT_CLOSE 0x19
+
+static __always_inline int l7_is_mysql_query(__u64 buf, __u64 size, __u8 *req_type)
+{
+	if (size < 5)
+		return 0;
+	__u8 b[5];
+	if (bpf_probe_read(&b, sizeof(b), (void *)buf))
+		return 0;
+	__u32 length = (__u32)b[0] | ((__u32)b[1] << 8) | ((__u32)b[2] << 16);
+	if (length + 4 != size || b[3] != 0)
+		return 0;
+	__u8 cmd = b[4];
+	if (cmd == MYSQL_COM_QUERY || cmd == MYSQL_COM_STMT_EXECUTE ||
+	    cmd == MYSQL_COM_STMT_PREPARE || cmd == MYSQL_COM_STMT_CLOSE) {
+		*req_type = cmd;
+		return 1;
+	}
+	return 0;
+}
+
+static __always_inline int l7_is_mysql_response(__u64 buf, __u64 size, __u8 req_type, __u32 *statement_id, __s32 *status)
+{
+	if (size < 4)
+		return 0;
+	__u8 b[4];
+	if (bpf_probe_read(&b, sizeof(b), (void *)buf))
+		return 0;
+	if (b[3] < 1) // response sequence must be > 0
+		return 0;
+	__u32 length = (__u32)b[0] | ((__u32)b[1] << 8) | ((__u32)b[2] << 16);
+	if (length < 1)
+		return 0;
+	if (size < 5) {
+		*status = L7_STATUS_OK;
+		return 1;
+	}
+	__u8 type_byte;
+	if (bpf_probe_read(&type_byte, sizeof(type_byte), (void *)(buf + 4)))
+		return 0;
+	if (length == 1 || type_byte == 0xfe) { // EOF
+		*status = L7_STATUS_OK;
+		return 1;
+	}
+	if (type_byte == 0x00) { // OK
+		if (req_type == MYSQL_COM_STMT_PREPARE && size >= 9)
+			bpf_probe_read(statement_id, sizeof(*statement_id), (void *)(buf + 5));
+		*status = L7_STATUS_OK;
+		return 1;
+	}
+	if (type_byte == 0xff) { // ERROR
+		*status = L7_STATUS_FAILED;
+		return 1;
+	}
+	return 0;
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────
 
 // Read a connect()/sendto() sockaddr pointer, storing dst addr:port for (pid,fd)
@@ -226,27 +348,32 @@ static __always_inline void l7_handle_request(__u32 pid, __u64 fd, __u64 buf, __
 
 	__u8 protocol = 0;
 	__s16 stream_id = -1;
+	__u8 req_type = 0;
 	if (l7_is_http_request(b)) {
 		protocol = L7_PROTO_HTTP;
 	} else if (l7_is_dns_request(b, &stream_id)) {
 		protocol = L7_PROTO_DNS;
+	} else if (l7_is_postgres_query(buf, size)) {
+		protocol = L7_PROTO_POSTGRES;
+	} else if (l7_is_mysql_query(buf, size, &req_type)) {
+		protocol = L7_PROTO_MYSQL;
 	}
 	if (protocol == 0)
 		return;
 
 	__u32 zero = 0;
-	// Reuse the event heap's request scratch is unavailable here; build the
-	// l7_req on the stack (it holds a MAX_PAYLOAD_SIZE buffer → too big). Use a
-	// per-CPU heap for the request too.
+	// The l7_req holds a MAX_PAYLOAD_SIZE buffer → too big for the stack; build
+	// it in a per-CPU scratch map.
 	struct l7_req *r = bpf_map_lookup_elem(&l7_req_heap, &zero);
 	if (!r)
 		return;
-	// The l7_req lives in a per-CPU map (valid memory to the verifier), so we
-	// set every scalar explicitly instead of a bulk memset (unsupported for a
-	// struct this large); the payload tail beyond req_size is never read (Go
-	// bounds by req_size).
+	// Per-CPU map memory (valid to the verifier), so we set every scalar
+	// explicitly instead of a bulk memset (unsupported for a struct this
+	// large); the payload tail beyond req_size is never read (Go bounds by
+	// req_size).
 	r->ts = bpf_ktime_get_ns();
 	r->protocol = protocol;
+	r->req_type = req_type;
 	r->stream_id = stream_id;
 	r->statement_id = 0;
 	__u64 psize = size;
@@ -278,6 +405,7 @@ static __always_inline void l7_handle_response(void *ctx, __u32 pid, __u64 fd, _
 
 	__s32 status = L7_STATUS_UNKNOWN;
 	__s16 stream_id = -1;
+	__u32 statement_id = req->statement_id;
 	int matched = 0;
 	if (req->protocol == L7_PROTO_HTTP) {
 		matched = l7_is_http_response(b, &status);
@@ -285,6 +413,10 @@ static __always_inline void l7_handle_response(void *ctx, __u32 pid, __u64 fd, _
 		matched = l7_is_dns_response(b, &stream_id, &status);
 		if (matched && stream_id != req->stream_id)
 			matched = 0; // response for a different query on this socket
+	} else if (req->protocol == L7_PROTO_POSTGRES) {
+		matched = l7_is_postgres_response(buf, (__u64)ret, &status);
+	} else if (req->protocol == L7_PROTO_MYSQL) {
+		matched = l7_is_mysql_response(buf, (__u64)ret, req->req_type, &statement_id, &status);
 	}
 	if (!matched)
 		return; // leave the request in place; a later read may be the response
@@ -302,7 +434,7 @@ static __always_inline void l7_handle_response(void *ctx, __u32 pid, __u64 fd, _
 	e->protocol = req->protocol;
 	e->_pad = 0;
 	e->status = status;
-	e->statement_id = req->statement_id;
+	e->statement_id = statement_id;
 	e->duration_ns = bpf_ktime_get_ns() - req->ts;
 	e->daddr = 0;
 	e->dport = 0;

@@ -98,7 +98,7 @@ type collectorL7Req struct {
 	_           structs.HostLayout
 	Ts          uint64
 	Protocol    uint8
-	_           [1]byte
+	ReqType     uint8
 	StreamId    int16
 	StatementId uint32
 	ReqSize     uint32

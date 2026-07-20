@@ -93,6 +93,12 @@ func (c *Collector) handleL7Record(raw []byte) {
 		}
 		e.Method, e.Target, e.Answers = qtype, name, answers
 		e.Status = dnsStatus(ev.Status)
+	case l7ProtoPostgres:
+		e.Target = parsePostgresQuery(req)
+		e.Status = sqlStatus(ev.Status)
+	case l7ProtoMySQL:
+		e.Target = parseMySQLQuery(req)
+		e.Status = sqlStatus(ev.Status)
 	default:
 		e.Status = "ok"
 	}
@@ -227,6 +233,45 @@ func httpStatusClass(code int32) string {
 	default:
 		return "unknown"
 	}
+}
+
+// sqlStatus maps the BPF STATUS_OK/STATUS_FAILED sentinels to a label.
+func sqlStatus(status int32) string {
+	if status == 500 {
+		return "failed"
+	}
+	return "ok"
+}
+
+// parsePostgresQuery pulls the SQL text out of a Postgres request frame
+// ([cmd:1][len:int32][sql NUL]). For a simple query the SQL starts at offset 5;
+// for the extended protocol the first frame is Parse ('P') whose SQL also
+// follows a NUL-terminated statement name — best-effort, we return the first
+// printable run. Never becomes a metric label.
+func parsePostgresQuery(req []byte) string {
+	if len(req) < 6 {
+		return ""
+	}
+	body := req[5:]
+	// Parse frames ('P') carry a NUL-terminated statement name before the SQL.
+	if req[0] == 'P' {
+		if i := bytes.IndexByte(body, 0); i >= 0 && i+1 < len(body) {
+			body = body[i+1:]
+		}
+	}
+	if i := bytes.IndexByte(body, 0); i >= 0 {
+		body = body[:i]
+	}
+	return strings.TrimSpace(string(body))
+}
+
+// parseMySQLQuery pulls the SQL text out of a MySQL COM_QUERY/COM_STMT_* packet
+// ([len:3][seq:1][cmd:1][sql]). SQL starts at offset 5. Never a metric label.
+func parseMySQLQuery(req []byte) string {
+	if len(req) < 6 {
+		return ""
+	}
+	return strings.TrimSpace(string(req[5:]))
 }
 
 func dnsStatus(rcode int32) string {
