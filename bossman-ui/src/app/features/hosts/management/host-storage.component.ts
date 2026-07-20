@@ -5,7 +5,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
-import { StorageResponse } from '../../../core/models/agent.model';
+import { ConfigResource, StorageResponse } from '../../../core/models/agent.model';
+
+/** One /etc/fstab mount line, decoded via the fstab codec. */
+interface FstabEntry { device: string; mountpoint: string; fstype: string; options: string; dump: string; pass: string; }
 import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
 import { UsageBarComponent, fmtBytes } from '../../../shared/config-dialog/usage-bar.component';
 import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
@@ -181,6 +184,39 @@ interface DevRow {
             <p class="bm-empty">No ZFS pools. Use “Create ZFS pool” to make one from free devices.</p>
           }
         </section>
+
+        <!-- /etc/fstab: the columnar mount table, decoded via the fstab codec
+             and edited as values — applied through state/apply (versioned +
+             roll-backable), respecting the Dry-run toggle above. -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Mounts (/etc/fstab)</h3>
+            @if (!fstabAvail()) { <span class="bm-na">unavailable</span> }
+            <span class="bm-spacer"></span>
+            @if (fstabMsg()) { <span class="bm-svc-ok">{{ fstabMsg() }}</span> }
+            @if (fstabErr()) { <span class="bm-svc-err">{{ fstabErr() }}</span> }
+            <button mat-stroked-button (click)="addMount()" [disabled]="busy() || !fstabAvail()"><mat-icon>add</mat-icon> Add mount</button>
+            <button mat-flat-button color="primary" (click)="saveFstab()" [disabled]="busy() || !fstabDirty()">{{ dryRun() ? 'Preview' : 'Apply' }}</button>
+          </header>
+          @if (fstabAvail()) {
+            <table class="bm-ct bm-fstab">
+              <thead><tr><th>Device / source</th><th>Mount point</th><th>Type</th><th>Options</th><th>Dump</th><th>Pass</th><th></th></tr></thead>
+              <tbody>
+                @for (e of fstab(); track $index) {
+                  <tr>
+                    <td><input class="bm-fi bm-fi-wide" [value]="e.device" (input)="setFstab($index, 'device', $any($event.target).value)" /></td>
+                    <td><input class="bm-fi" [value]="e.mountpoint" (input)="setFstab($index, 'mountpoint', $any($event.target).value)" /></td>
+                    <td><input class="bm-fi bm-fi-sm" [value]="e.fstype" (input)="setFstab($index, 'fstype', $any($event.target).value)" /></td>
+                    <td><input class="bm-fi bm-fi-wide" [value]="e.options" (input)="setFstab($index, 'options', $any($event.target).value)" /></td>
+                    <td><input class="bm-fi bm-fi-xs" [value]="e.dump" (input)="setFstab($index, 'dump', $any($event.target).value)" /></td>
+                    <td><input class="bm-fi bm-fi-xs" [value]="e.pass" (input)="setFstab($index, 'pass', $any($event.target).value)" /></td>
+                    <td class="bm-right"><button mat-icon-button class="bm-danger" (click)="removeMount($index)" [disabled]="busy()"><mat-icon>delete</mat-icon></button></td>
+                  </tr>
+                }
+                @if (!fstab().length) { <tr><td colspan="7" class="bm-empty">No fstab entries.</td></tr> }
+              </tbody>
+            </table>
+          }
+        </section>
       }
     </div>
   `,
@@ -221,6 +257,12 @@ interface DevRow {
       .bm-danger { color: #c62828; }
       .bm-svc-ok { color: var(--bm-green, #2e7d32); font-size: 12px; }
       .bm-svc-err { color: #c62828; font-size: 12px; }
+      .bm-fstab td { padding: 5px 8px; }
+      .bm-fi { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 12px; padding: 4px 6px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+      .bm-fi:focus { outline: none; border-color: var(--mat-sys-primary); }
+      .bm-fi-wide { min-width: 180px; }
+      .bm-fi-sm { min-width: 64px; }
+      .bm-fi-xs { width: 48px; text-align: center; }
     `,
   ],
 })
@@ -238,6 +280,13 @@ export class HostStorageComponent {
   busy = signal(false);
   msg = signal<string | null>(null);
   err = signal<string | null>(null);
+
+  // /etc/fstab mount table (decoded via the fstab codec on the agent).
+  fstab = signal<FstabEntry[]>([]);
+  fstabAvail = signal(false);
+  fstabDirty = signal(false);
+  fstabMsg = signal<string | null>(null);
+  fstabErr = signal<string | null>(null);
 
   /** Flatten the lsblk device tree (children) into indented rows. */
   rows = computed<DevRow[]>(() => {
@@ -292,6 +341,68 @@ export class HostStorageComponent {
     this.agentService.storage(this.agentId()).subscribe({
       next: (res) => { this.data.set(res); this.loading.set(false); this.loaded.set(true); },
       error: (e) => { this.loading.set(false); this.loaded.set(true); this.loadErr.set(e?.error?.detail ?? 'failed to load storage'); },
+    });
+    this.loadFstab();
+  }
+
+  /** Load /etc/fstab from the observed state (decoded to entries by the fstab
+   * codec). Best-effort: an older agent / missing codec just hides the panel. */
+  private loadFstab(): void {
+    this.fstabMsg.set(null);
+    this.fstabErr.set(null);
+    this.agentService.observedState(this.agentId()).subscribe({
+      next: (res) => {
+        const cfg = (res?.observed?.config ?? []).find((c) => c.path === '/etc/fstab');
+        const raw = (cfg?.values as { entries?: unknown[] } | undefined)?.entries;
+        if (cfg?.format === 'fstab' && Array.isArray(raw)) {
+          this.fstab.set(raw.map((e) => this.normEntry(e as Record<string, unknown>)));
+          this.fstabAvail.set(true);
+        } else {
+          this.fstabAvail.set(false);
+        }
+        this.fstabDirty.set(false);
+      },
+      error: () => { this.fstabAvail.set(false); },
+    });
+  }
+
+  private normEntry(e: Record<string, unknown>): FstabEntry {
+    const s = (k: string, d = '') => (e[k] == null ? d : String(e[k]));
+    return { device: s('device'), mountpoint: s('mountpoint'), fstype: s('fstype'), options: s('options', 'defaults'), dump: s('dump', '0'), pass: s('pass', '0') };
+  }
+
+  setFstab(i: number, key: keyof FstabEntry, value: string): void {
+    this.fstab.update((rows) => rows.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
+    this.fstabDirty.set(true);
+  }
+
+  addMount(): void {
+    this.fstab.update((rows) => [...rows, { device: '', mountpoint: '', fstype: 'ext4', options: 'defaults', dump: '0', pass: '0' }]);
+    this.fstabDirty.set(true);
+  }
+
+  removeMount(i: number): void {
+    this.fstab.update((rows) => rows.filter((_, idx) => idx !== i));
+    this.fstabDirty.set(true);
+  }
+
+  /** Apply the edited mount table via the fstab codec (state/apply — versioned
+   * + roll-backable), honoring the Dry-run toggle. */
+  saveFstab(): void {
+    this.busy.set(true);
+    this.fstabMsg.set(null);
+    this.fstabErr.set(null);
+    const resource: ConfigResource = {
+      type: 'config', path: '/etc/fstab', format: 'fstab',
+      values: { entries: this.fstab() },
+    };
+    this.agentService.stateApply(this.agentId(), [resource], this.dryRun()).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.fstabMsg.set(this.dryRun() ? 'previewed (dry-run)' : 'applied');
+        if (!this.dryRun()) { this.fstabDirty.set(false); this.loadFstab(); }
+      },
+      error: (e) => { this.busy.set(false); this.fstabErr.set(e?.error?.detail ?? 'apply failed'); },
     });
   }
 
