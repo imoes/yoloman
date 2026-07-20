@@ -139,6 +139,10 @@ export interface Process {
   rss_kib: number;
   num_threads: number;
   container_id?: string;
+  /** The systemd service unit this process belongs to (no ".service"
+   * suffix), from /proc/<pid>/cgroup — empty for non-service processes.
+   * Drills down from the per-service metrics to the owning processes. */
+  service?: string;
   connections?: ProcessConn[];
 }
 

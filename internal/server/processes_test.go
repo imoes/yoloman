@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -25,6 +26,36 @@ func TestExecContainerByPID(t *testing.T) {
 	}
 	if m[20] != "def456" {
 		t.Errorf("pid 20 = %q, want def456 (newest)", m[20])
+	}
+}
+
+func TestSystemdUnitForPID(t *testing.T) {
+	root := t.TempDir()
+	write := func(pid, cgroup string) {
+		dir := root + "/" + pid
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dir+"/cgroup", []byte(cgroup), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("1", "0::/system.slice/sshd.service\n")
+	write("2", "0::/system.slice/system-getty.slice/getty@tty1.service\n") // nested slice
+	write("3", "0::/user.slice/user-1000.slice/session-3.scope\n")          // not a service
+	write("4", "0::/system.slice/docker-abc.scope\n")                       // container scope, not a service
+	write("5", "12:pids:/system.slice/cron.service\n11:memory:/system.slice/cron.service\n") // v1 layout
+
+	cases := map[string]string{"1": "sshd", "2": "getty@tty1", "3": "", "4": "", "5": "cron"}
+	for pid, want := range cases {
+		p, _ := strconv.Atoi(pid)
+		if got := systemdUnitForPID(root, p); got != want {
+			t.Errorf("pid %s: got %q, want %q", pid, got, want)
+		}
+	}
+	// A pid with no cgroup file → "".
+	if got := systemdUnitForPID(root, 9999); got != "" {
+		t.Errorf("missing pid: got %q, want empty", got)
 	}
 }
 

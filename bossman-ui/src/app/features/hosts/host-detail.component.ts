@@ -1055,6 +1055,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <td class="bm-num">{{ p.num_threads }}</td>
                         <td>{{ p.state }}</td>
                         <td class="bm-proc-cmd">
+                          @if (p.service) {
+                            <span class="bm-proc-service" title="systemd unit">⚙ {{ p.service }}</span>
+                          }
                           @if (p.container_id) {
                             <span class="bm-proc-container" title="{{ p.container_id }}">🐳 {{ shortContainer(p.container_id) }}</span>
                           }
@@ -1077,6 +1080,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                                 <dd>{{ p.ppid }}</dd>
                                 <dt>Comm</dt>
                                 <dd>{{ p.comm }}</dd>
+                                @if (p.service) {
+                                  <dt>Service</dt>
+                                  <dd>{{ p.service }}</dd>
+                                }
                                 @if (p.container_id) {
                                   <dt>Container</dt>
                                   <dd>{{ p.container_id }}</dd>
@@ -1394,13 +1401,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         white-space: nowrap;
       }
       .bm-proc-container,
-      .bm-proc-connbadge {
+      .bm-proc-connbadge,
+      .bm-proc-service {
         display: inline-block;
         margin-right: 6px;
         padding: 1px 6px;
         border-radius: 4px;
         font-size: 11px;
         background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+      }
+      .bm-proc-service {
+        background: color-mix(in srgb, var(--mat-sys-tertiary) 18%, transparent);
       }
       .bm-proc-detail {
         display: flex;
@@ -1927,6 +1938,7 @@ export class HostDetailComponent implements OnInit {
           p.command.toLowerCase().includes(f) ||
           p.comm.toLowerCase().includes(f) ||
           (p.user ?? '').toLowerCase().includes(f) ||
+          (p.service ?? '').toLowerCase().includes(f) ||
           String(p.pid).includes(f),
       );
     }

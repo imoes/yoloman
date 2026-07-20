@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -32,6 +35,7 @@ type ProcessConn struct {
 type ProcessView struct {
 	proc.Process
 	ContainerID string        `json:"container_id,omitempty"`
+	Service     string        `json:"service,omitempty"`
 	Connections []ProcessConn `json:"connections,omitempty"`
 }
 
@@ -70,6 +74,11 @@ func collectProcesses(procRoot string, c *ebpf.Collector, limit int) (ProcessesR
 			v.ContainerID = containerByPID[p.PID]
 			v.Connections = connsByPID[p.PID]
 		}
+		// systemd unit straight from /proc/<pid>/cgroup — independent of the
+		// exec-event path above, so it also covers long-running processes that
+		// started before the collector, turning the list into a Service→process
+		// drilldown for the per-service metrics (service_cpu_pressure, …).
+		v.Service = systemdUnitForPID(procRoot, p.PID)
 		views = append(views, v)
 	}
 	return ProcessesResponse{
@@ -77,6 +86,36 @@ func collectProcesses(procRoot string, c *ebpf.Collector, limit int) (ProcessesR
 		Count:          total,
 		SampleWindowMS: processSampleWindow.Milliseconds(),
 	}, nil
+}
+
+// systemdUnitForPID returns the process' systemd service unit name (without the
+// ".service" suffix) by reading procRoot/<pid>/cgroup, or "" if the process is
+// not part of a .service unit (user slices, kernel threads, and Docker/scope
+// cgroups all return ""). Works on the cgroup v2 unified line ("0::/…") and on
+// v1 (any "…:name=…" line); the last ".service" path segment wins so a unit
+// nested under a slice (system.slice/foo.slice/bar.service) resolves to "bar".
+func systemdUnitForPID(procRoot string, pid int) string {
+	data, err := os.ReadFile(filepath.Join(procRoot, strconv.Itoa(pid), "cgroup"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		// v2: "0::/system.slice/foo.service"; v1: "N:controllers:/system.slice/foo.service".
+		path := line
+		if i := strings.LastIndex(line, ":"); i >= 0 {
+			path = line[i+1:]
+		}
+		var unit string
+		for _, seg := range strings.Split(path, "/") {
+			if name, ok := strings.CutSuffix(seg, ".service"); ok {
+				unit = name
+			}
+		}
+		if unit != "" {
+			return unit
+		}
+	}
+	return ""
 }
 
 // execContainerByPID maps pid → container id from recent exec events. Events
