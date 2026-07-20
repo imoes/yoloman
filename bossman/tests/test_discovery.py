@@ -65,6 +65,20 @@ async def test_discovery_keeps_only_hosts_with_real_data():
     assert ("checks.df", {}) not in client.calls
 
 
+async def test_placeholder_discovery_dropped_when_data_absent():
+    # The reported bug: mongodb_asserts-style checks whose `_discover` returns a
+    # HARDCODED item without touching the host. On a host with no MongoDB the
+    # real probe is UNKNOWN → the check must be dropped, not surfaced.
+    client = FakeClient(
+        {"mongodb_asserts": [{"item": "", "params": {}, "metrics": ["assert_user"]}]},
+        states={"mongodb_asserts": "UNKNOWN"},
+    )
+    proposals = await run_check_discovery(client, [_check("mongodb_asserts")])
+    assert proposals == []
+    # it was verified with a real probe (not left on _discover's word)
+    assert ("checks.mongodb_asserts", {}) in client.calls
+
+
 async def test_relevant_check_with_empty_discovery_gets_a_default_item():
     # data present (OK) but the check enumerates nothing -> one default item.
     client = FakeClient({"ntp": []}, states={"ntp": "OK"})

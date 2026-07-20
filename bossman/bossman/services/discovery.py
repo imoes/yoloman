@@ -7,12 +7,14 @@ services.py `_find_host_plugins`). Two gates:
 
   1. datasource pre-filter (api/checks._load_candidate_checks): a plain agent
      host never satisfies the SNMP checks, so they're not even candidates;
-  2. a REAL relevance probe here: run each candidate in normal mode and keep it
-     only if it produced actual data (state OK/WARN/CRIT). The translated
-     `_discover` mode is unreliable — it returns a hardcoded placeholder item
-     without touching the host — so trusting it made discovery list the whole
-     library. `_discover` is used only for the item/metric shape of a check
-     that already probed relevant.
+  2. discovery-first + a data-present gate here: run each candidate's `_discover`
+     to enumerate its items (a df yields every mount), THEN verify the data is
+     really on the host by probing the first item — keep the check only if that
+     grades OK/WARN/CRIT. Many translated `_discover` branches return a HARDCODED
+     placeholder item without touching the host (e.g. every mongodb_* check), so
+     trusting `_discover` alone listed the whole library on every host; the
+     probe-verify step is our equivalent of Checkmk only discovering a check
+     whose required section was actually fetched (`_find_host_plugins`).
 
 The result is proposals the wizard / UI (or the AI) turns into host-scoped
 CheckAssignments — after collecting any required params the check declares.
@@ -56,6 +58,27 @@ class CheckProposal:
             "needs_params": self.needs_params,
             "error": self.error,
         }
+
+
+async def _data_present(client, fqcn: str, item: "DiscoveredItem") -> bool:
+    """Checkmk-style "is the section present" gate: run the check for REAL against
+    one discovered item and report whether the host actually has the data. A
+    placeholder `_discover` (which yields an item without touching the host, e.g.
+    the MongoDB checks on a non-Mongo host) evaluates to UNKNOWN / "data not
+    available" here → not present. Real data grades OK/WARN/CRIT → present."""
+    params = dict(item.params or {})
+    if item.item:
+        # The instance key the translated checks read (df → params['item']);
+        # set the common aliases so a real multi-item check verifies correctly.
+        params.setdefault("item", item.item)
+        params.setdefault("service_name", item.item)
+    try:
+        probe = await client.call_tool(fqcn, params)
+    except Exception:  # noqa: BLE001 — unreachable/erroring check ⇒ treat as absent
+        return False
+    pdata = (probe or {}).get("data") if isinstance(probe, dict) else None
+    state = str((pdata or {}).get("state", "")).upper() if isinstance(pdata, dict) else ""
+    return state in ("OK", "WARN", "CRIT")
 
 
 def _needs_params(options: dict[str, Any]) -> list[str]:
@@ -141,6 +164,16 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
             discovered = bool(prop.items)
         except Exception:  # noqa: BLE001 — a broken _discover falls through to the probe
             pass
+
+        if discovered:
+            # `_discover` yielded items — but ~240 translated checks yield a
+            # HARDCODED placeholder item without touching the host (e.g. every
+            # mongodb_* check on a host with no MongoDB). Verify the data is
+            # really present by probing the first item; drop the check if it
+            # isn't. This is our equivalent of Checkmk only running a check whose
+            # required section was actually fetched from the host.
+            if not await _data_present(client, fqcn, prop.items[0]):
+                continue  # placeholder discovery / data absent → not applicable
 
         if not discovered:
             # No items from discovery. Either a single-instance check (uptime,
