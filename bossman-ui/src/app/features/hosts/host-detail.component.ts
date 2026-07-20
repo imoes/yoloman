@@ -666,10 +666,18 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                                 @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
                               </select>
                             </label>
+                            @if (settingService(r.path); as svc) {
+                              <label class="bm-scope bm-restart-svc">
+                                <input type="checkbox" [checked]="restartAfterApply()" (change)="restartAfterApply.set($any($event.target).checked)" />
+                                Restart <span class="bm-mono">{{ svc }}</span> after applying, so the change takes effect
+                              </label>
+                            }
                             @if (settingError(); as se) { <p class="bm-cfg-err">{{ se }}</p> }
                             <div class="bm-rollback-actions">
                               <button mat-button (click)="closeSetting()" [disabled]="settingBusy()">Cancel</button>
-                              <button mat-flat-button color="primary" (click)="applySetting(r)" [disabled]="settingBusy()">Apply</button>
+                              <button mat-flat-button color="primary" (click)="applySetting(r)" [disabled]="settingBusy()">
+                                {{ (settingService(r.path) && restartAfterApply()) ? ('Apply & restart ' + settingService(r.path)) : 'Apply' }}
+                              </button>
                             </div>
                           </mat-card>
                         }
@@ -2464,6 +2472,16 @@ export class HostDetailComponent implements OnInit {
     const val = this.settingValue();
     return fam.includes(val) ? fam : [val, ...fam].filter((v, i, a) => v !== '' && a.indexOf(v) === i);
   }
+  /** The systemd service that owns a config path, from the observed-state
+   * discovery (service -> config_paths). Lets the Apply button also restart the
+   * right unit so the change takes effect. Null when no service claims it. */
+  settingService(path: string): string | null {
+    const svcs = (this.observed()?.services as { service: string; config_paths?: string[] }[] | undefined) ?? [];
+    const hit = svcs.find((s) => (s.config_paths ?? []).includes(path));
+    return hit ? hit.service.replace(/@$/, '') : null; // strip template unit suffix (getty@)
+  }
+  restartAfterApply = signal(true);
+
   applySetting(r: ObservedResource): void {
     const agent = this.agent();
     const key = this.settingKey();
@@ -2471,7 +2489,26 @@ export class HostDetailComponent implements OnInit {
     const mode = this.settingMode();
     this.settingBusy.set(true);
     this.settingError.set(null);
-    const done = () => { this.settingBusy.set(false); this.closeSetting(); this.loadObserved(); };
+    const svc = this.settingService(r.path);
+    const restart = !!svc && this.restartAfterApply() && mode !== 'notconf';
+    const finish = () => { this.settingBusy.set(false); this.closeSetting(); this.loadObserved(); };
+    const done = () => {
+      // After the config is applied, restart the owning service so the change
+      // takes effect (the user's "apply + restart" ask) — best-effort: a
+      // restart failure surfaces but the config change itself already landed.
+      if (restart) {
+        this.agentService.serviceControl(agent.id, svc!, 'restart').subscribe({
+          next: finish,
+          error: (e: { error?: { detail?: string } }) => {
+            this.settingError.set(`Config applied, but restarting ${svc} failed: ${e?.error?.detail ?? 'error'}`);
+            this.settingBusy.set(false);
+            this.loadObserved();
+          },
+        });
+      } else {
+        finish();
+      }
+    };
     const fail = (e: { error?: { detail?: string } }) => { this.settingError.set(e?.error?.detail ?? 'failed'); this.settingBusy.set(false); };
     if (mode === 'notconf') {
       // Stop managing at the chosen scope; the live file is untouched.
