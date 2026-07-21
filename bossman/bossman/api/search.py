@@ -178,3 +178,21 @@ async def search_host_groups(
 ) -> dict:
     node = search_svc.parse_query(q)
     return {"host_groups": await search_svc.search_groups(session, node, limit=limit)}
+
+
+@router.get("/api/v1/tags")
+async def list_tags(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Distinct tag keys → values across the fleet, for tag: autocomplete."""
+    return {"tags": await search_svc.distinct_tags(session)}
+
+
+@router.get("/api/v1/sites")
+async def list_sites(
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Distinct site values across the fleet, for site: autocomplete."""
+    return {"sites": await search_svc.distinct_sites(session)}

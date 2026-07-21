@@ -24,7 +24,7 @@ from typing import Callable
 
 import uuid
 
-from sqlalchemy import and_, case, func, not_, or_, select
+from sqlalchemy import and_, case, func, not_, or_, select, text
 from sqlalchemy.sql.elements import ColumnElement
 
 from bossman.db.models import Agent, OUNode, Service
@@ -396,3 +396,31 @@ async def worst_states(session, agent_ids: list[uuid.UUID]) -> dict[uuid.UUID, s
         .group_by(Service.agent_id)
     )
     return {aid: _SEV_TO_STATE.get(int(sev), "OK") for aid, sev in (await session.execute(stmt)).all()}
+
+
+async def distinct_sites(session) -> list[str]:
+    """Every distinct non-null site across the fleet (for site: autocomplete)."""
+    stmt = (
+        select(Agent.site).distinct()
+        .where(Agent.site.isnot(None), _not_infra())
+        .order_by(Agent.site)
+    )
+    return [s for (s,) in (await session.execute(stmt)).all() if s]
+
+
+async def distinct_tags(session) -> dict[str, list[str]]:
+    """Every distinct tag key → its distinct non-empty values across the fleet
+    (for tag: autocomplete). name-only tags (empty value) appear as a key with
+    an empty value list."""
+    rows = (await session.execute(text(
+        "SELECT DISTINCT je.key, je.value FROM agents a, LATERAL jsonb_each_text(a.tags) je "
+        "WHERE (a.agent_metadata->>'role') IS DISTINCT FROM 'poller'"
+    ))).all()
+    out: dict[str, list[str]] = {}
+    for key, value in rows:
+        vals = out.setdefault(key, [])
+        if value and value not in vals:
+            vals.append(value)
+    for vals in out.values():
+        vals.sort()
+    return out

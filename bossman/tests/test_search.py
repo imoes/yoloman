@@ -158,3 +158,53 @@ async def test_unified_search_groups_by_type(fixture_fleet):
     body = r.json()
     assert body["counts"]["service"] >= 1
     assert body["counts"]["host"] >= 1
+
+
+async def test_bulk_assign_facets(fixture_fleet):
+    f = fixture_fleet
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/agents/mass-update/facets",
+            json={"agent_ids": [str(f["tst"].id)], "criticality": "stage", "site": "BER-1",
+                  "add_tags": {"env": "qa"}},
+            headers=_headers(f["raw"]),
+        )
+        assert r.status_code == 200, r.text
+        # The tst host is now stage + BER-1 + env:qa → findable by all three.
+        hosts = client.get("/api/v1/search/hosts", params={"q": f"crit:stage site:BER-1 tag:env:qa {f['tag']}"},
+                           headers=_headers(f["raw"])).json()["hosts"]
+    assert {h["name"] for h in hosts} == {f"test01-{f['tag']}"}
+    assert hosts[0]["criticality"] == "stage" and hosts[0]["site"] == "BER-1"
+
+
+async def test_bulk_assign_clear(fixture_fleet):
+    f = fixture_fleet
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/agents/mass-update/facets",
+            json={"agent_ids": [str(f["web"].id)], "criticality": ""},  # clear
+            headers=_headers(f["raw"]),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()[0]["criticality"] is None
+
+
+async def test_bulk_assign_rejects_bad_criticality(fixture_fleet):
+    f = fixture_fleet
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post("/api/v1/agents/mass-update/facets",
+                        json={"agent_ids": [str(f["web"].id)], "criticality": "bogus"},
+                        headers=_headers(f["raw"]))
+    assert r.status_code == 422
+
+
+async def test_distinct_sites_and_tags(fixture_fleet):
+    f = fixture_fleet
+    app = create_app()
+    with TestClient(app) as client:
+        sites = client.get("/api/v1/sites", headers=_headers(f["raw"])).json()["sites"]
+        tags = client.get("/api/v1/tags", headers=_headers(f["raw"])).json()["tags"]
+    assert "MUE-0" in sites and "FRA-1" in sites

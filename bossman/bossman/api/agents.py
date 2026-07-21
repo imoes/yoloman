@@ -72,6 +72,9 @@ class AgentOut(BaseModel):
     # Block L3d: which OU the host is placed in (AD-style, exactly one) —
     # NULL = unassigned. Drives the host-placement tree.
     ou_id: UUID | None
+    # First-class searchable facets (crit:/site:) — NULL = unset.
+    criticality: str | None
+    site: str | None
     # A resolvable name for the host even when `address` is null (a satellite
     # polled through a proxy has no direct address). Falls back to the
     # inventory hostname (facts.os.hostname), so a run/inventory view can show
@@ -94,6 +97,8 @@ class AgentOut(BaseModel):
             facts_updated_at=agent.facts_updated_at,
             tags=agent.tags or {},
             ou_id=agent.ou_id,
+            criticality=agent.criticality,
+            site=agent.site,
             dns_name=_resolve_dns_name(agent),
         )
 
@@ -274,6 +279,55 @@ async def mass_update_agent_groups(
             agent.groups = list(dict.fromkeys([*agent.groups, *body.groups]))  # dedupe, preserve order
         else:  # remove
             agent.groups = [g for g in agent.groups if g not in body.groups]
+
+    await session.commit()
+    return [AgentOut.from_model(a) for a in agents]
+
+
+class MassAssignFacetsRequest(BaseModel):
+    agent_ids: list[UUID]
+    # Omit a field to leave it unchanged. For criticality/site, "" clears
+    # (→ NULL); a value sets it. add_tags merges; remove_tags deletes keys.
+    criticality: str | None = None
+    site: str | None = None
+    add_tags: dict[str, str] = {}
+    remove_tags: list[str] = []
+
+
+@router.post("/api/v1/agents/mass-update/facets", response_model=list[AgentOut])
+async def mass_assign_facets(
+    body: MassAssignFacetsRequest,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> list[AgentOut]:
+    """Bulk-assign the searchable host facets — criticality, site and tags —
+    across many selected hosts in one call (the 'select rows in a search
+    result → tag/criticality/site them' flow). Same per-host manage ACL as
+    mass_update_agent_groups."""
+    if not body.agent_ids:
+        raise HTTPException(status_code=422, detail="agent_ids must not be empty")
+    if body.criticality not in (None, "", "test", "stage", "prod"):
+        raise HTTPException(status_code=422, detail="criticality must be test|stage|prod or \"\" to clear")
+
+    agents = (await session.scalars(select(Agent).where(Agent.id.in_(body.agent_ids)))).all()
+    missing = set(body.agent_ids) - {a.id for a in agents}
+    if missing:
+        raise HTTPException(status_code=404, detail=f"no such agent(s): {sorted(str(m) for m in missing)}")
+    for agent in agents:
+        if not await user_can_manage_agent(session, identity, agent.id):
+            raise HTTPException(status_code=403, detail=f"not authorized to manage host {agent.name!r}")
+
+    for agent in agents:
+        if body.criticality is not None:
+            agent.criticality = body.criticality or None
+        if body.site is not None:
+            agent.site = body.site or None
+        if body.add_tags or body.remove_tags:
+            tags = dict(agent.tags or {})
+            tags.update(body.add_tags)
+            for k in body.remove_tags:
+                tags.pop(k, None)
+            agent.tags = tags
 
     await session.commit()
     return [AgentOut.from_model(a) for a in agents]
