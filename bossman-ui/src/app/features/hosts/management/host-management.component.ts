@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
+import { Component, OnInit, computed, inject, input, signal, viewChild, viewChildren } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../core/services/agent.service';
@@ -13,6 +13,7 @@ import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
 import { RolesFeaturesComponent } from './roles/roles-features.component';
 import { ServiceChecksComponent } from './service-checks/service-checks.component';
+import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -30,7 +31,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent,
+    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -63,6 +64,9 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('storage')) { <div [style.display]="show('storage')"><app-host-storage [agentId]="agentId()" /></div> }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
+        @for (p of pkgConfigs; track p.id) {
+          @if (visited().has(p.id)) { <div [style.display]="show(p.id)"><app-package-config [agentId]="agentId()" [def]="p" /></div> }
+        }
       </section>
     </div>
   `,
@@ -122,16 +126,28 @@ export class HostManagementComponent implements OnInit {
     { id: 'virt', label: 'Virtualization', icon: 'dns', category: 'Virtualization' },
   ];
 
+  /** Per-package config snapins (new "Package configuration" category). Each is
+   * rendered by the generic PackageConfigComponent (codec round-trip) — it shows
+   * "not installed" gracefully when the config file is absent. Codecs/templates
+   * for these already ship; more are added as they're installed + verified. */
+  readonly pkgConfigs: PackageConfigDef[] = [
+    { id: 'pkg-samba', label: 'Samba shares', icon: 'folder_shared', path: '/etc/samba/smb.conf', format: 'ini', separator: '=', globalSection: 'global', resourceNoun: 'share' },
+  ];
+
+  private allSnapins(): SnapIn[] {
+    return [...this.snapins, ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' }))];
+  }
+
   tree = computed(() => {
     const groups = new Map<string, SnapIn[]>();
-    for (const s of this.snapins) {
+    for (const s of this.allSnapins()) {
       if (s.id === 'firewall' && !this.firewallAvailable()) continue;
       (groups.get(s.category) ?? groups.set(s.category, []).get(s.category)!).push(s);
     }
     return [...groups.entries()].map(([category, items]) => ({ category, items }));
   });
 
-  selectedLabel = computed(() => this.snapins.find((s) => s.id === this.selected())?.label ?? '');
+  selectedLabel = computed(() => this.allSnapins().find((s) => s.id === this.selected())?.label ?? '');
   show(id: string): string { return this.selected() === id ? 'block' : 'none'; }
 
   roles = viewChild(RolesFeaturesComponent);
@@ -144,6 +160,7 @@ export class HostManagementComponent implements OnInit {
   private freeipa = viewChild(HostFreeipaComponent);
   private storage = viewChild(HostStorageComponent);
   private virt = viewChild(HostVirtComponent);
+  private pkgPanels = viewChildren(PackageConfigComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -160,6 +177,9 @@ export class HostManagementComponent implements OnInit {
         case 'freeipa': this.freeipa()?.loadOnce(); break;
         case 'virt': this.virt()?.loadOnce(); break;
         // 'roles' loads itself on init.
+        default:
+          // Package-config snapins (pkg-*): find the matching generic panel.
+          this.pkgPanels().find((p) => p.def().id === id)?.loadOnce();
       }
     }, 0);
   }
