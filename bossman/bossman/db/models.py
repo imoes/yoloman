@@ -131,6 +131,14 @@ class Agent(Base):
     # docs/zabbix-gap-analysis.md's Batch 3 for the narrower scope.
     tags: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
+    # First-class, queryable host facets for the Checkmk-style fleet search
+    # (crit:/site:) — distinct from the free-form `tags` dict and from the OU
+    # policy tree. `criticality` is a controlled enum (test|stage|prod, NULL =
+    # unset); `site` is a free location string (NULL = unset). Facet-only for
+    # now (no automation coupled). Assigned single/bulk from the UI.
+    criticality: Mapped[str | None] = mapped_column(String)
+    site: Mapped[str | None] = mapped_column(String)
+
     # Set when this agent was discovered as a satellite relayed through a
     # proxy's own GET /api/v1/hosts/overview (see services/poller.py and
     # docs/plan.md's monitoring-cockpit ergänzung Block F2) — NULL for a
@@ -154,6 +162,9 @@ class Agent(Base):
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
         CheckConstraint(
             "enrollment_state IN ('pending', 'enrolled', 'revoked')", name="ck_agents_enrollment_state"
+        ),
+        CheckConstraint(
+            "criticality IS NULL OR criticality IN ('test', 'stage', 'prod')", name="ck_agents_criticality"
         ),
     )
 
