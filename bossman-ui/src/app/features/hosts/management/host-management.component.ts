@@ -132,6 +132,9 @@ export class HostManagementComponent implements OnInit {
    * for these already ship; more are added as they're installed + verified. */
   readonly pkgConfigs: PackageConfigDef[] = [
     { id: 'pkg-samba', label: 'Samba shares', icon: 'folder_shared', path: '/etc/samba/smb.conf', format: 'ini', separator: '=', globalSection: 'global', resourceNoun: 'share' },
+    { id: 'pkg-pureftpd', label: 'Pure-FTPd', icon: 'drive_folder_upload', path: '/etc/pure-ftpd/pure-ftpd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
+    { id: 'pkg-proftpd', label: 'ProFTPD', icon: 'drive_folder_upload', path: '/etc/proftpd/proftpd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
+    { id: 'pkg-cups', label: 'CUPS printing', icon: 'print', path: '/etc/cups/cupsd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
   ];
 
   private allSnapins(): SnapIn[] {

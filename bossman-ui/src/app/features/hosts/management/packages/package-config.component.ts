@@ -2,7 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
-import { ConfigResource, ObservedResource } from '../../../../core/models/agent.model';
+import { ConfigResource } from '../../../../core/models/agent.model';
 
 /** One package's config-file identity in the "Package configuration" console
  * category. `mode: 'codec'` edits the real parsed values in place (safe merge
@@ -139,7 +139,6 @@ export class PackageConfigComponent {
   dryRun = signal(false);
 
   private model = signal<Values | null>(null);
-  private resource = signal<ObservedResource | null>(null);
 
   found = computed(() => this.model() !== null);
   sectioned = computed(() => {
@@ -164,20 +163,22 @@ export class PackageConfigComponent {
     this.loadErr.set('');
     this.msg.set('');
     this.err.set('');
-    this.agentService.observedState(this.agentId(), true).subscribe({
+    const d = this.def();
+    // Read the file directly through the `config` module (codec parse) rather
+    // than the host's observed-state: observe only surfaces configs that
+    // config_discover finds via enabled units, which misses packages whose
+    // unit doesn't name its config (proftpd/pure-ftpd/nfs/cups). Reading by
+    // path is robust for any installed package.
+    this.agentService.callTool(this.agentId(), 'config', { path: d.path, format: d.format, separator: d.separator }).subscribe({
       next: (resp) => {
         this.loading.set(false);
         this.loaded.set(true);
-        const res = (resp.observed?.config || []).find((r) => r.path === this.def().path);
-        if (res && res.values && typeof res.values === 'object') {
-          this.resource.set(res);
-          this.model.set(structuredClone(res.values as Values));
-        } else {
-          this.resource.set(null);
-          this.model.set(null);
-        }
+        const data = (resp.result as { data?: { config?: unknown } })?.data?.config;
+        this.model.set(data && typeof data === 'object' ? structuredClone(data as Values) : null);
       },
-      error: (e) => { this.loading.set(false); this.loadErr.set(e?.error?.detail || 'Failed to read config.'); },
+      // A missing file (package not installed) comes back as an error — show
+      // the graceful "not installed" empty-state, not a hard error.
+      error: () => { this.loading.set(false); this.loaded.set(true); this.model.set(null); },
     });
   }
 
