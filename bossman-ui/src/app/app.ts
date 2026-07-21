@@ -14,6 +14,8 @@ const NAV_ICON: Record<string, string> = {
   '/fleet': 'fleet', '/problems': 'problems', '/topology': 'topology', '/security': 'security',
   '/host-placement': 'host-placement', '/plan-library': 'roles', '/runbooks': 'workflow', '/deploy': 'deploy',
   '/runs': 'runs', '/help': 'help',
+  '/noc': 'noc', '/business-services': 'business-services', '/capacity': 'capacity',
+  '/scheduler': 'scheduler', '/rollouts': 'rollouts',
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings',

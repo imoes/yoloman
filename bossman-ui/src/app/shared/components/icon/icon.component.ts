@@ -28,6 +28,11 @@ const ICONS: Record<string, IconDef> = {
   runs: `<g ${S}><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v3.5h3.5"/><path d="M12 8v4l3 2"/></g>`,
   help: `<g ${S}><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></g>`,
   setup: `<g ${S}><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></g>`,
+  noc: `<g ${S}><rect x="2.5" y="4" width="19" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/><path d="M6 12l2.5-3 2 2L14 8l4 4"/></g>`,
+  'business-services': `<g ${S}><rect x="3" y="7.5" width="18" height="12" rx="1.8"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3 13h18"/></g>`,
+  capacity: `<g ${S}><path d="M4 19a8 8 0 1 1 16 0"/><path d="M12 19l4.5-5.5"/><circle cx="12" cy="19" r=".7" fill="currentColor" stroke="none"/></g>`,
+  scheduler: `<g ${S}><rect x="3.5" y="4.5" width="17" height="16" rx="1.8"/><path d="M3.5 9h17M8 3v3M16 3v3"/><path d="M12 12v2.5l1.8 1.2"/></g>`,
+  rollouts: `<g ${S}><path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></g>`,
   // ── setup section ──
   hosts: `<g ${S}><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></g>`,
   notifications: `<g ${S}><path d="M18 8a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 14 18 8Z"/><path d="M10.5 19a2 2 0 0 0 3 0"/></g>`,
