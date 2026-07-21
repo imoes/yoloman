@@ -16,6 +16,9 @@ import { ServiceChecksComponent } from './service-checks/service-checks.componen
 import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
 import { BindZonesComponent } from './packages/bind-zones.component';
 import { NfsExportsComponent } from './packages/nfs-exports.component';
+import { DhcpdComponent } from './packages/dhcpd.component';
+import { CronComponent } from './packages/cron.component';
+import { AptReposComponent } from './packages/apt-repos.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -33,7 +36,8 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent,
+    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
+    CronComponent, AptReposComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -68,6 +72,9 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-nfs')) { <div [style.display]="show('pkg-nfs')"><app-nfs-exports [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-dhcpd')) { <div [style.display]="show('pkg-dhcpd')"><app-dhcpd [agentId]="agentId()" /></div> }
+        @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
+        @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
           @if (visited().has(p.id)) { <div [style.display]="show(p.id)"><app-package-config [agentId]="agentId()" [def]="p" /></div> }
         }
@@ -109,18 +116,18 @@ export class HostManagementComponent implements OnInit {
    * snap-in without waiting for a tab-change event. */
   ngOnInit(): void { this.activate(); }
 
-  firewallAvailable = signal(true);
   selected = signal<string>('network');
   visited = signal<Set<string>>(new Set());
 
-  private firewallProbed = false;
   private modulesSynced = false;
 
   private readonly snapins: SnapIn[] = [
     { id: 'roles', label: 'Roles & Features', icon: 'widgets', category: 'Server' },
     { id: 'servicechecks', label: 'Service checks', icon: 'network_check', category: 'Monitoring' },
     { id: 'services', label: 'Services', icon: 'settings_applications', category: 'Server' },
+    { id: 'cron', label: 'Scheduled jobs', icon: 'schedule', category: 'Server' },
     { id: 'updates', label: 'Updates', icon: 'system_update_alt', category: 'Server' },
+    { id: 'apt-repos', label: 'Software sources', icon: 'inventory_2', category: 'Server' },
     { id: 'logs', label: 'Logs', icon: 'article', category: 'Server' },
     { id: 'accounts', label: 'Accounts', icon: 'group', category: 'Server' },
     { id: 'network', label: 'Network', icon: 'lan', category: 'Network' },
@@ -149,11 +156,16 @@ export class HostManagementComponent implements OnInit {
   // `exportfs -ra`), not the generic key/value editor.
   private readonly nfsSnapin: SnapIn = { id: 'pkg-nfs', label: 'NFS exports', icon: 'folder_shared', category: 'Package configuration' };
 
+  // ISC DHCP server gets a bespoke snapin (scopes + reservations via the dhcpd
+  // codec, plus lease list/delete), not the generic key/value editor.
+  private readonly dhcpdSnapin: SnapIn = { id: 'pkg-dhcpd', label: 'DHCP server', icon: 'settings_ethernet', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
       this.bindSnapin,
       this.nfsSnapin,
+      this.dhcpdSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -161,7 +173,9 @@ export class HostManagementComponent implements OnInit {
   tree = computed(() => {
     const groups = new Map<string, SnapIn[]>();
     for (const s of this.allSnapins()) {
-      if (s.id === 'firewall' && !this.firewallAvailable()) continue;
+      // The firewall snapin now auto-detects its backend (firewalld/ufw/
+      // iptables) and iptables is always present, so it is always shown —
+      // no firewall-cmd gate anymore.
       (groups.get(s.category) ?? groups.set(s.category, []).get(s.category)!).push(s);
     }
     return [...groups.entries()].map(([category, items]) => ({ category, items }));
@@ -183,6 +197,9 @@ export class HostManagementComponent implements OnInit {
   private pkgPanels = viewChildren(PackageConfigComponent);
   private bindZones = viewChild(BindZonesComponent);
   private nfsExports = viewChild(NfsExportsComponent);
+  private dhcpd = viewChild(DhcpdComponent);
+  private cron = viewChild(CronComponent);
+  private aptRepos = viewChild(AptReposComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -200,6 +217,9 @@ export class HostManagementComponent implements OnInit {
         case 'virt': this.virt()?.loadOnce(); break;
         case 'pkg-bind': this.bindZones()?.loadOnce(); break;
         case 'pkg-nfs': this.nfsExports()?.loadOnce(); break;
+        case 'pkg-dhcpd': this.dhcpd()?.loadOnce(); break;
+        case 'cron': this.cron()?.loadOnce(); break;
+        case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
         default:
           // Package-config snapins (pkg-*): find the matching generic panel.
@@ -222,18 +242,6 @@ export class HostManagementComponent implements OnInit {
     this.loadFor(id);
   }
 
-  private probeFirewall(): void {
-    if (this.firewallProbed) return;
-    this.firewallProbed = true;
-    this.agentService.callTool(this.agentId(), 'command', { argv: ['sh', '-c', 'command -v firewall-cmd'] }).subscribe({
-      next: (res) => {
-        const d = (res.result as { data?: { rc?: number; stdout?: string } })?.data;
-        this.firewallAvailable.set((d?.rc ?? 1) === 0 && !!(d?.stdout || '').trim());
-      },
-      error: () => this.firewallAvailable.set(false),
-    });
-  }
-
   private static readonly MGMT_MODULES = [
     'community.general.nmcli', 'posix.mount', 'community.general.filesystem',
     'community.general.parted', 'posix.firewalld', 'community.general.lvg',
@@ -249,7 +257,6 @@ export class HostManagementComponent implements OnInit {
   /** Called by host-detail when the parent Management tab is opened. */
   activate(): void {
     this.select(this.selected());
-    this.probeFirewall();
     this.ensureModules();
   }
 }
