@@ -1,8 +1,9 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { forkJoin } from 'rxjs';
 import { AgentService } from '../../../../core/services/agent.service';
-import { ConfigResource } from '../../../../core/models/agent.model';
+import { ConfigResource, DirectiveSpec } from '../../../../core/models/agent.model';
 
 /** One package's config-file identity in the "Package configuration" console
  * category. `mode: 'codec'` edits the real parsed values in place (safe merge
@@ -68,7 +69,15 @@ type Values = Record<string, unknown>;
                 @for (k of keysOf(sec); track k) {
                   <tr>
                     <td class="bm-k">{{ k }}</td>
-                    <td><input class="bm-in" [value]="strVal(sec, k)" (input)="setVal(sec, k, $any($event.target).value)" /></td>
+                    <td>
+                      @if (enumOf(k); as opts) {
+                        <select class="bm-in" [value]="strVal(sec, k)" (change)="setVal(sec, k, $any($event.target).value)">
+                          @for (o of opts; track o) { <option [value]="o" [selected]="o === strVal(sec, k)">{{ o }}</option> }
+                        </select>
+                      } @else {
+                        <input class="bm-in" [value]="strVal(sec, k)" (input)="setVal(sec, k, $any($event.target).value)" />
+                      }
+                    </td>
                     <td><button class="bm-x" (click)="removeKey(sec, k)" title="Remove setting">✕</button></td>
                   </tr>
                 }
@@ -91,7 +100,15 @@ type Values = Record<string, unknown>;
               @for (k of keysOf(null); track k) {
                 <tr>
                   <td class="bm-k">{{ k }}</td>
-                  <td><input class="bm-in" [value]="strVal(null, k)" (input)="setVal(null, k, $any($event.target).value)" /></td>
+                  <td>
+                    @if (enumOf(k); as opts) {
+                      <select class="bm-in" [value]="strVal(null, k)" (change)="setVal(null, k, $any($event.target).value)">
+                        @for (o of opts; track o) { <option [value]="o" [selected]="o === strVal(null, k)">{{ o }}</option> }
+                      </select>
+                    } @else {
+                      <input class="bm-in" [value]="strVal(null, k)" (input)="setVal(null, k, $any($event.target).value)" />
+                    }
+                  </td>
                   <td><button class="bm-x" (click)="removeKey(null, k)" title="Remove setting">✕</button></td>
                 </tr>
               }
@@ -139,8 +156,17 @@ export class PackageConfigComponent {
   dryRun = signal(false);
 
   private model = signal<Values | null>(null);
+  // Per-directive enum metadata (config_directives) for this file → a value
+  // dropdown instead of a free-text input where an enum is known.
+  private directives = signal<Record<string, DirectiveSpec>>({});
 
   found = computed(() => this.model() !== null);
+
+  /** Enum values for a directive name, or null (→ free-text input). */
+  enumOf(key: string): string[] | null {
+    const spec = this.directives()[key];
+    return spec?.values?.length ? spec.values : null;
+  }
   sectioned = computed(() => {
     const v = this.model();
     if (!v) return false;
@@ -169,12 +195,19 @@ export class PackageConfigComponent {
     // config_discover finds via enabled units, which misses packages whose
     // unit doesn't name its config (proftpd/pure-ftpd/nfs/cups). Reading by
     // path is robust for any installed package.
-    this.agentService.callTool(this.agentId(), 'config', { path: d.path, format: d.format, separator: d.separator }).subscribe({
-      next: (resp) => {
+    const base = d.path.split('/').pop() || d.path;
+    forkJoin({
+      cfg: this.agentService.callTool(this.agentId(), 'config', { path: d.path, format: d.format, separator: d.separator }),
+      dir: this.agentService.configDirectives(),
+    }).subscribe({
+      next: ({ cfg, dir }) => {
         this.loading.set(false);
         this.loaded.set(true);
-        const data = (resp.result as { data?: { config?: unknown } })?.data?.config;
+        const data = (cfg.result as { data?: { config?: unknown } })?.data?.config;
         this.model.set(data && typeof data === 'object' ? structuredClone(data as Values) : null);
+        // Enum metadata keyed by the file's basename (config_directives convention).
+        const cat = dir.directives || {};
+        this.directives.set({ ...(cat[base] || {}), ...(cat[d.path] || {}) } as Record<string, DirectiveSpec>);
       },
       // A missing file (package not installed) comes back as an error — show
       // the graceful "not installed" empty-state, not a hard error.
