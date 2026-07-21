@@ -75,6 +75,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewURI(),
 		modules.NewKnownHosts(),
 		modules.NewIptables(),
+		modules.NewFirewall(),
 		modules.NewPing(),
 		modules.NewDebug(),
 		modules.NewSetFact(),

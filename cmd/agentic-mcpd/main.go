@@ -253,6 +253,14 @@ func loadComponents(cfg config.Config) (*components, error) {
 	}
 	modReg := server.NewDefaultModuleRegistry()
 
+	// Tell the firewall module its own listen port so op=enable can whitelist
+	// the management ("Yoloman") port before turning the firewall on.
+	if m, ok := modReg.Get("firewall"); ok {
+		if fw, ok := m.(*modules.Firewall); ok {
+			fw.AgentListen = cfg.Listen
+		}
+	}
+
 	// Block J4 / Item 3c: register the curated built-in Starlark module set
 	// baked into the binary (go:embed) — the network module + storage stack
 	// the host-management page depends on. Always present (no push, no on-disk
