@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/auth/auth.service';
 import { ChatDockComponent } from './features/chat/chat-dock.component';
 import { IconComponent } from './shared/components/icon/icon.component';
+import { FleetSearchComponent } from './features/fleet-overview/fleet-search.component';
 
 // Route → bespoke icon name (icon.component's set). Keyed by path so the nav
 // data stays declarative and the icon set can evolve independently.
@@ -71,7 +72,7 @@ const SETUP_NAV: NavItem[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent, IconComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent, IconComponent, FleetSearchComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -83,10 +84,26 @@ export class App {
   // so a console window is just the terminal.
   private url = signal(this.router.url);
   chromeless = computed(() => this.url().startsWith('/console/'));
+  // P5: global Ctrl/Cmd+K fleet-search overlay (Checkmk quicksearch parity) —
+  // reuses FleetSearchComponent; closes on Esc and on any navigation.
+  searchOpen = signal(false);
   constructor() {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.url.set(e.urlAfterRedirects));
+      .subscribe((e) => {
+        this.url.set(e.urlAfterRedirects);
+        this.searchOpen.set(false);
+      });
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(e: KeyboardEvent): void {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (this.auth.isLoggedIn()) this.searchOpen.update((v) => !v);
+    } else if (e.key === 'Escape' && this.searchOpen()) {
+      this.searchOpen.set(false);
+    }
   }
   // Block M: hide admin-only entries (Users & Access) for non-admins. The
   // route's adminGuard and the backend's require_admin are the real gates;

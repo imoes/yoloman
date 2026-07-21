@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, afterNextRender, inject, input, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
@@ -120,14 +120,20 @@ export class FleetSearchComponent {
 
   /** Seeds the box from the route (?q=) so it survives reload / deep-links. */
   seed = input<string>('');
+  /** Focus the input on first render (used by the global Ctrl+K overlay). */
+  autofocus = input(false);
 
   query = signal('');
   results = signal<UnifiedSearchResponse | null>(null);
   open = signal(false);
 
+  private box = viewChild<ElementRef<HTMLInputElement>>('box');
   private input$ = new Subject<string>();
 
   constructor() {
+    afterNextRender(() => {
+      if (this.autofocus()) this.box()?.nativeElement.focus();
+    });
     this.input$
       .pipe(
         debounceTime(250),
