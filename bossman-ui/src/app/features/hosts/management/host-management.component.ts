@@ -14,6 +14,7 @@ import { HostUpdatesComponent } from './host-updates.component';
 import { RolesFeaturesComponent } from './roles/roles-features.component';
 import { ServiceChecksComponent } from './service-checks/service-checks.component';
 import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
+import { BindZonesComponent } from './packages/bind-zones.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -31,7 +32,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent,
+    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -64,6 +65,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('storage')) { <div [style.display]="show('storage')"><app-host-storage [agentId]="agentId()" /></div> }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
           @if (visited().has(p.id)) { <div [style.display]="show(p.id)"><app-package-config [agentId]="agentId()" [def]="p" /></div> }
         }
@@ -137,8 +139,16 @@ export class HostManagementComponent implements OnInit {
     { id: 'pkg-cups', label: 'CUPS printing', icon: 'print', path: '/etc/cups/cupsd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
   ];
 
+  // bind gets a bespoke snapin (zone lifecycle + named.conf.local include), not
+  // the generic codec editor.
+  private readonly bindSnapin: SnapIn = { id: 'pkg-bind', label: 'BIND zones', icon: 'dns', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
-    return [...this.snapins, ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' }))];
+    return [
+      ...this.snapins,
+      this.bindSnapin,
+      ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
+    ];
   }
 
   tree = computed(() => {
@@ -164,6 +174,7 @@ export class HostManagementComponent implements OnInit {
   private storage = viewChild(HostStorageComponent);
   private virt = viewChild(HostVirtComponent);
   private pkgPanels = viewChildren(PackageConfigComponent);
+  private bindZones = viewChild(BindZonesComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -179,6 +190,7 @@ export class HostManagementComponent implements OnInit {
         case 'storage': this.storage()?.loadOnce(); break;
         case 'freeipa': this.freeipa()?.loadOnce(); break;
         case 'virt': this.virt()?.loadOnce(); break;
+        case 'pkg-bind': this.bindZones()?.loadOnce(); break;
         // 'roles' loads itself on init.
         default:
           // Package-config snapins (pkg-*): find the matching generic panel.
