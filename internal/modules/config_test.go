@@ -169,3 +169,83 @@ func TestConfigKeyValueNullDeletesKey(t *testing.T) {
 		t.Fatalf("lost comment/other keys or update:\n%s", s)
 	}
 }
+
+func TestConfigIniNullDeletesKey(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "app.ini")
+	os.WriteFile(p, []byte("# app\n[server]\nhost = 0.0.0.0\nport = 8080\n\n[auth]\nrealm = X\n"), 0o644)
+	// null → delete [server] port; keep host, comment, [auth]; update realm.
+	r := runConfig(t, map[string]any{"path": p, "format": "ini", "values": map[string]any{
+		"server": map[string]any{"port": nil},
+		"auth":   map[string]any{"realm": "Y"},
+	}}, false)
+	if !r.Changed {
+		t.Fatal("expected changed")
+	}
+	s, _ := os.ReadFile(p)
+	out := string(s)
+	if strings.Contains(out, "port = 8080") {
+		t.Fatalf("port should be deleted:\n%s", out)
+	}
+	for _, want := range []string{"# app", "host = 0.0.0.0", "[auth]", "realm = Y"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("lost %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestZonefileCodec_RoundTrip(t *testing.T) {
+	src := `; zone db.example.com
+$TTL 3600
+$ORIGIN example.com.
+@	IN SOA ns1.example.com. admin.example.com. (
+		2024010101 ; serial
+		3600       ; refresh
+		1800       ; retry
+		604800     ; expire
+		86400 )    ; minimum
+@		IN	NS	ns1.example.com.
+www	300	IN	A	10.0.0.5
+		IN	AAAA	2001:db8::5
+mail		IN	MX	10 mail.example.com.
+`
+	c := &zonefileCodec{}
+	got, err := c.parse([]byte(src))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got["$TTL"] != "3600" || got["$ORIGIN"] != "example.com." {
+		t.Errorf("directives = %v / %v", got["$TTL"], got["$ORIGIN"])
+	}
+	recs, _ := got["records"].([]any)
+	if len(recs) != 5 {
+		t.Fatalf("want 5 records, got %d: %v", len(recs), recs)
+	}
+	// SOA collapsed to one record.
+	soa := recs[0].(map[string]any)
+	if soa["type"] != "SOA" || !strings.Contains(soa["data"].(string), "2024010101") {
+		t.Errorf("SOA not collapsed: %v", soa)
+	}
+	// www A with explicit ttl.
+	www := recs[2].(map[string]any)
+	if www["name"] != "www" || www["type"] != "A" || www["ttl"] != "300" || www["data"] != "10.0.0.5" {
+		t.Errorf("www record wrong: %v", www)
+	}
+	// AAAA line began blank → inherits owner "www".
+	aaaa := recs[3].(map[string]any)
+	if aaaa["name"] != "www" || aaaa["type"] != "AAAA" {
+		t.Errorf("owner inheritance failed: %v", aaaa)
+	}
+	// Render → re-parse must be stable (records survive the round-trip).
+	out, err := c.render([]byte(src), got, "merge")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got2, _ := c.parse(out)
+	if recs2, _ := got2["records"].([]any); len(recs2) != 5 {
+		t.Errorf("round-trip lost records: %d\n%s", len(recs2), out)
+	}
+	if !strings.HasPrefix(string(out), "; zone db.example.com") {
+		t.Errorf("comment header not preserved:\n%s", out)
+	}
+}

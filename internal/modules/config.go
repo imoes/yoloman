@@ -154,8 +154,10 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 		return &xmlCodec{}, nil
 	case "fstab":
 		return &fstabCodec{}, nil
+	case "zonefile":
+		return &zonefileCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile)", format)
 	}
 }
 
@@ -259,6 +261,206 @@ func (c *fstabCodec) render(existing []byte, values map[string]any, _ string) ([
 	}
 	for _, r := range rows {
 		fmt.Fprintf(&b, "%-*s  %-*s  %-*s  %-*s  %s  %s\n", w[0], r.dev, w[1], r.mp, w[2], r.fs, w[3], r.opt, r.dump, r.pass)
+	}
+	return []byte(b.String()), nil
+}
+
+// zonefileCodec handles a BIND/RFC-1035 DNS zone file: line-oriented resource
+// records `[owner] [ttl] [class] type rdata`, plus the `$TTL`/`$ORIGIN`
+// directives. Like fstab there is no unique scalar key (many records share an
+// owner), so it parses to a LIST under "records" (each {name,ttl,class,type,
+// data}) with $TTL/$ORIGIN as top-level scalars. Pragmatic subset: strips `;`
+// comments, collapses `( … )` multi-line rdata (SOA) onto one logical line, and
+// inherits the previous owner when a record line starts with whitespace.
+// render() regenerates the record block (leading `;` comment header preserved),
+// emitting an explicit owner + class per line (always valid). Good enough to
+// add/edit/remove records; not a byte-exact formatter.
+type zonefileCodec struct{}
+
+var _zoneClasses = map[string]bool{"IN": true, "CH": true, "HS": true, "CS": true}
+
+type zoneLogicalLine struct {
+	text        string
+	startsBlank bool
+}
+
+func stripZoneComment(line string) string {
+	if i := strings.IndexByte(line, ';'); i >= 0 {
+		return line[:i]
+	}
+	return line
+}
+
+// splitZoneLines yields logical lines: comments removed, parenthesised groups
+// joined, parens flattened to spaces. startsBlank marks a record whose first
+// physical line began with whitespace (owner inherited from the previous one).
+func splitZoneLines(s string) []zoneLogicalLine {
+	var out []zoneLogicalLine
+	var buf strings.Builder
+	depth := 0
+	startsBlank := false
+	started := false
+	for _, raw := range strings.Split(s, "\n") {
+		line := stripZoneComment(raw)
+		if !started {
+			startsBlank = len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
+		}
+		for _, ch := range line {
+			if ch == '(' {
+				depth++
+			} else if ch == ')' {
+				depth--
+			}
+		}
+		if buf.Len() > 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(strings.TrimSpace(line))
+		started = true
+		if depth <= 0 {
+			txt := strings.ReplaceAll(buf.String(), "(", " ")
+			txt = strings.ReplaceAll(txt, ")", " ")
+			txt = strings.Join(strings.Fields(txt), " ")
+			if txt != "" {
+				out = append(out, zoneLogicalLine{text: txt, startsBlank: startsBlank})
+			}
+			buf.Reset()
+			started = false
+			depth = 0
+		}
+	}
+	return out
+}
+
+func zoneAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func (z *zonefileCodec) parse(data []byte) (map[string]any, error) {
+	out := map[string]any{}
+	records := []any{}
+	var ttl, origin string
+	lastName := ""
+	for _, ll := range splitZoneLines(string(data)) {
+		f := strings.Fields(ll.text)
+		if len(f) == 0 {
+			continue
+		}
+		if strings.HasPrefix(f[0], "$") {
+			up := strings.ToUpper(f[0])
+			if up == "$TTL" && len(f) >= 2 {
+				ttl = f[1]
+			} else if up == "$ORIGIN" && len(f) >= 2 {
+				origin = f[1]
+			}
+			continue // other directives ($INCLUDE, $GENERATE) are left out of the model
+		}
+		name := ""
+		idx := 0
+		if ll.startsBlank {
+			name = lastName
+		} else {
+			name = f[0]
+			idx = 1
+			lastName = name
+		}
+		rttl, rclass, rtype := "", "", ""
+		for idx < len(f) {
+			tok := f[idx]
+			if rttl == "" && zoneAllDigits(tok) {
+				rttl = tok
+				idx++
+				continue
+			}
+			if rclass == "" && _zoneClasses[strings.ToUpper(tok)] {
+				rclass = strings.ToUpper(tok)
+				idx++
+				continue
+			}
+			rtype = strings.ToUpper(tok)
+			idx++
+			break
+		}
+		if rtype == "" {
+			continue // not a record line
+		}
+		rec := map[string]any{"name": name, "type": rtype, "data": strings.Join(f[idx:], " ")}
+		if rttl != "" {
+			rec["ttl"] = rttl
+		}
+		if rclass != "" {
+			rec["class"] = rclass
+		}
+		records = append(records, rec)
+	}
+	if ttl != "" {
+		out["$TTL"] = ttl
+	}
+	if origin != "" {
+		out["$ORIGIN"] = origin
+	}
+	out["records"] = records
+	return out, nil
+}
+
+func (z *zonefileCodec) render(existing []byte, values map[string]any, _ string) ([]byte, error) {
+	str := func(v any) string {
+		if v == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(string(existing), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, ";") {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		} else {
+			break
+		}
+	}
+	if v := str(values["$TTL"]); v != "" {
+		fmt.Fprintf(&b, "$TTL %s\n", v)
+	}
+	if v := str(values["$ORIGIN"]); v != "" {
+		fmt.Fprintf(&b, "$ORIGIN %s\n", v)
+	}
+	if raw, ok := values["records"].([]any); ok {
+		for _, item := range raw {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			typ := strings.ToUpper(str(m["type"]))
+			dat := str(m["data"])
+			if typ == "" || dat == "" {
+				continue // skip incomplete rows rather than emit a broken RR
+			}
+			name := str(m["name"])
+			if name == "" {
+				name = "@"
+			}
+			class := str(m["class"])
+			if class == "" {
+				class = "IN"
+			}
+			parts := []string{name}
+			if ttl := str(m["ttl"]); ttl != "" {
+				parts = append(parts, ttl)
+			}
+			parts = append(parts, class, typ, dat)
+			b.WriteString(strings.Join(parts, " "))
+			b.WriteByte('\n')
+		}
 	}
 	return []byte(b.String()), nil
 }
