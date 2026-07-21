@@ -19,6 +19,7 @@ import { NfsExportsComponent } from './packages/nfs-exports.component';
 import { DhcpdComponent } from './packages/dhcpd.component';
 import { CronComponent } from './packages/cron.component';
 import { AptReposComponent } from './packages/apt-repos.component';
+import { SambaComponent } from './packages/samba.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -37,7 +38,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
-    CronComponent, AptReposComponent,
+    CronComponent, AptReposComponent, SambaComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -73,6 +74,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-nfs')) { <div [style.display]="show('pkg-nfs')"><app-nfs-exports [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-dhcpd')) { <div [style.display]="show('pkg-dhcpd')"><app-dhcpd [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-samba')) { <div [style.display]="show('pkg-samba')"><app-samba [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
@@ -142,7 +144,6 @@ export class HostManagementComponent implements OnInit {
    * "not installed" gracefully when the config file is absent. Codecs/templates
    * for these already ship; more are added as they're installed + verified. */
   readonly pkgConfigs: PackageConfigDef[] = [
-    { id: 'pkg-samba', label: 'Samba shares', icon: 'folder_shared', path: '/etc/samba/smb.conf', format: 'ini', separator: '=', globalSection: 'global', resourceNoun: 'share' },
     { id: 'pkg-pureftpd', label: 'Pure-FTPd', icon: 'drive_folder_upload', path: '/etc/pure-ftpd/pure-ftpd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
     { id: 'pkg-proftpd', label: 'ProFTPD', icon: 'drive_folder_upload', path: '/etc/proftpd/proftpd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
     { id: 'pkg-cups', label: 'CUPS printing', icon: 'print', path: '/etc/cups/cupsd.conf', format: 'keyvalue', separator: ' ', resourceNoun: 'setting' },
@@ -160,12 +161,17 @@ export class HostManagementComponent implements OnInit {
   // codec, plus lease list/delete), not the generic key/value editor.
   private readonly dhcpdSnapin: SnapIn = { id: 'pkg-dhcpd', label: 'DHCP server', icon: 'settings_ethernet', category: 'Package configuration' };
 
+  // Samba gets a bespoke shares snapin (per-share cards + directory picker),
+  // not the generic ini editor.
+  private readonly sambaSnapin: SnapIn = { id: 'pkg-samba', label: 'Samba shares', icon: 'folder_shared', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
       this.bindSnapin,
       this.nfsSnapin,
       this.dhcpdSnapin,
+      this.sambaSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -200,6 +206,7 @@ export class HostManagementComponent implements OnInit {
   private dhcpd = viewChild(DhcpdComponent);
   private cron = viewChild(CronComponent);
   private aptRepos = viewChild(AptReposComponent);
+  private samba = viewChild(SambaComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -218,6 +225,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-bind': this.bindZones()?.loadOnce(); break;
         case 'pkg-nfs': this.nfsExports()?.loadOnce(); break;
         case 'pkg-dhcpd': this.dhcpd()?.loadOnce(); break;
+        case 'pkg-samba': this.samba()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
