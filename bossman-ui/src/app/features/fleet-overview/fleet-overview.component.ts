@@ -12,7 +12,7 @@ import { SearchService } from '../../core/services/search.service';
 import { Agent } from '../../core/models/agent.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
-import { HostResult, ServiceResult } from '../../core/models/search.model';
+import { HostResult, MassAssignFacets, ServiceResult } from '../../core/models/search.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -56,12 +56,45 @@ import { FleetSearchComponent } from './fleet-search.component';
         <mat-card class="bm-panel">
           <mat-card-header><mat-card-title>Hosts ({{ hostResults().length }})</mat-card-title></mat-card-header>
           <mat-card-content>
+            <!-- Bulk-assign bar — appears once ≥1 host is selected. Sets the
+                 searchable facets on all selected hosts via P1b's endpoint. -->
+            @if (selectedHosts().size) {
+              <div class="bm-bulk-bar">
+                <span class="bm-bulk-count">{{ selectedHosts().size }} selected</span>
+                <label>Criticality
+                  <select [value]="bulkCrit()" (change)="bulkCrit.set($any($event.target).value)">
+                    <option value="">— keep —</option>
+                    <option value="test">test</option>
+                    <option value="stage">stage</option>
+                    <option value="prod">prod</option>
+                    <option value="__clear__">(clear)</option>
+                  </select>
+                </label>
+                <label>Site
+                  <input type="text" placeholder="e.g. MUE-0" [value]="bulkSite()" (input)="bulkSite.set($any($event.target).value)" [attr.list]="'bm-sites'" />
+                </label>
+                <datalist id="bm-sites">@for (s of siteOptions(); track s) { <option [value]="s"></option> }</datalist>
+                <label>Tag
+                  <input type="text" placeholder="key" [value]="bulkTagKey()" (input)="bulkTagKey.set($any($event.target).value)" class="bm-bulk-tagkey" />
+                </label>
+                <input type="text" placeholder="value (optional)" [value]="bulkTagVal()" (input)="bulkTagVal.set($any($event.target).value)" class="bm-bulk-tagval" />
+                <button mat-raised-button color="primary" (click)="applyBulk()" [disabled]="bulkBusy()">Apply</button>
+                <button mat-button (click)="clearSelection()">Clear</button>
+                @if (bulkMsg()) { <span class="bm-bulk-ok">{{ bulkMsg() }}</span> }
+              </div>
+            }
             @if (hostResults().length) {
               <table class="bm-table">
-                <thead><tr><th></th><th>Host</th><th>Criticality</th><th>Site</th><th>Groups</th></tr></thead>
+                <thead><tr>
+                  <th class="bm-check"><input type="checkbox" [checked]="allHostsSelected()" (change)="toggleAllHosts()" /></th>
+                  <th></th><th>Host</th><th>Criticality</th><th>Site</th><th>Groups</th>
+                </tr></thead>
                 <tbody>
                   @for (h of hostResults(); track h.id) {
-                    <tr class="bm-row-link" [routerLink]="['/hosts', h.id]">
+                    <tr class="bm-row-link" [class.bm-row-sel]="isSelected(h.id)" [routerLink]="['/hosts', h.id]">
+                      <td class="bm-check" (click)="$event.stopPropagation(); $event.preventDefault()">
+                        <input type="checkbox" [checked]="isSelected(h.id)" (change)="toggleHost(h.id)" />
+                      </td>
                       <td><span class="bm-sq" [style.background]="stateColor(h.state_rollup)" [title]="h.state_rollup"></span></td>
                       <td>{{ h.name }}</td>
                       <td>@if (h.criticality) { <span class="bm-crit-badge" [attr.data-c]="h.criticality">{{ h.criticality }}</span> }</td>
@@ -443,6 +476,22 @@ import { FleetSearchComponent } from './fleet-search.component';
       .bm-crit-badge[data-c='test'] { background: color-mix(in srgb, var(--bm-green) 24%, transparent); }
       .bm-dim { opacity: 0.6; }
       .bm-detail { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bm-check { width: 34px; text-align: center; }
+      .bm-row-sel { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+      .bm-bulk-bar {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        padding: 10px 12px; margin-bottom: 10px; border-radius: 8px;
+        background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
+      }
+      .bm-bulk-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+      .bm-bulk-bar select, .bm-bulk-bar input {
+        padding: 4px 8px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant);
+        background: var(--mat-sys-surface); color: var(--mat-sys-on-surface);
+      }
+      .bm-bulk-tagkey { width: 90px; }
+      .bm-bulk-tagval { width: 130px; }
+      .bm-bulk-count { font-weight: 600; }
+      .bm-bulk-ok { color: var(--bm-green); font-size: 13px; }
       @media (max-width: 800px) {
         .bm-grid {
           grid-template-columns: 1fr;
@@ -470,6 +519,16 @@ export class FleetOverviewComponent implements OnInit {
   activeQuery = signal('');
   hostResults = signal<HostResult[]>([]);
   serviceResults = signal<ServiceResult[]>([]);
+
+  // P3: row selection + bulk facet assignment on the hosts result view.
+  selectedHosts = signal<Set<string>>(new Set());
+  bulkCrit = signal('');
+  bulkSite = signal('');
+  bulkTagKey = signal('');
+  bulkTagVal = signal('');
+  bulkBusy = signal(false);
+  bulkMsg = signal('');
+  siteOptions = signal<string[]>([]);
 
   servicesByState = computed(() => {
     const defaults = { OK: 0, WARN: 0, CRIT: 0, UNKNOWN: 0 };
@@ -513,12 +572,71 @@ export class FleetOverviewComponent implements OnInit {
   }
 
   private loadResults(q: string): void {
+    this.clearSelection();
     this.searchService.hosts(q).subscribe((r) => this.hostResults.set(r.hosts));
     this.searchService.services(q).subscribe((r) => this.serviceResults.set(r.services));
+    this.searchService.sites().subscribe((r) => this.siteOptions.set(r.sites));
   }
 
   clearSearch(): void {
     this.router.navigate(['/fleet'], { queryParams: { q: null } });
+  }
+
+  // ── selection ──
+  isSelected(id: string): boolean {
+    return this.selectedHosts().has(id);
+  }
+
+  toggleHost(id: string): void {
+    const next = new Set(this.selectedHosts());
+    next.has(id) ? next.delete(id) : next.add(id);
+    this.selectedHosts.set(next);
+  }
+
+  allHostsSelected(): boolean {
+    const hosts = this.hostResults();
+    return hosts.length > 0 && hosts.every((h) => this.selectedHosts().has(h.id));
+  }
+
+  toggleAllHosts(): void {
+    this.selectedHosts.set(this.allHostsSelected() ? new Set() : new Set(this.hostResults().map((h) => h.id)));
+  }
+
+  clearSelection(): void {
+    this.selectedHosts.set(new Set());
+    this.bulkMsg.set('');
+  }
+
+  // ── bulk facet assign (P1b endpoint) ──
+  applyBulk(): void {
+    const ids = [...this.selectedHosts()];
+    if (!ids.length) return;
+    const body: MassAssignFacets = { agent_ids: ids };
+    const crit = this.bulkCrit();
+    if (crit === '__clear__') body.criticality = '';
+    else if (crit) body.criticality = crit;
+    if (this.bulkSite().trim()) body.site = this.bulkSite().trim();
+    if (this.bulkTagKey().trim()) body.add_tags = { [this.bulkTagKey().trim()]: this.bulkTagVal().trim() };
+    if (body.criticality === undefined && body.site === undefined && !body.add_tags) {
+      this.bulkMsg.set('Nothing to apply — pick criticality, site or a tag.');
+      return;
+    }
+    this.bulkBusy.set(true);
+    this.searchService.bulkAssignFacets(body).subscribe({
+      next: (agents) => {
+        this.bulkBusy.set(false);
+        this.bulkMsg.set(`Updated ${agents.length} host(s).`);
+        this.bulkCrit.set('');
+        this.bulkSite.set('');
+        this.bulkTagKey.set('');
+        this.bulkTagVal.set('');
+        this.loadResults(this.activeQuery()); // reflect the new facets
+      },
+      error: () => {
+        this.bulkBusy.set(false);
+        this.bulkMsg.set('Bulk update failed.');
+      },
+    });
   }
 
   stateColor(state: string): string {
