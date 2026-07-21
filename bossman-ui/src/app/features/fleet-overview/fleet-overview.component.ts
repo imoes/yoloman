@@ -59,6 +59,28 @@ import { FleetSearchComponent } from './fleet-search.component';
           <button mat-stroked-button (click)="clearSearch()"><mat-icon>arrow_back</mat-icon> Back to dashboard</button>
         </div>
 
+        <!-- Facet filter bar — point-and-click filters that build the query. -->
+        <div class="bm-filter-bar bm-noprint">
+          <span class="bm-filter-grp"><span class="bm-filter-lbl">Criticality</span>
+            @for (c of critFacets; track c) {
+              <button class="bm-chip" [class.on]="facetActive('crit', c)" (click)="toggleFacet('crit', c)">{{ c }}</button>
+            }
+          </span>
+          <span class="bm-filter-grp"><span class="bm-filter-lbl">State</span>
+            @for (s of stateFacets; track s) {
+              <button class="bm-chip" [class.on]="facetActive('st', s)" (click)="toggleFacet('st', s)" [attr.data-st]="s">{{ s }}</button>
+            }
+          </span>
+          @if (siteOptions().length) {
+            <span class="bm-filter-grp"><span class="bm-filter-lbl">Site</span>
+              <select class="bm-filter-sel" [value]="currentSiteFacet()" (change)="setSiteFacet($any($event.target).value)">
+                <option value="">any</option>
+                @for (s of siteOptions(); track s) { <option [value]="s" [selected]="s === currentSiteFacet()">{{ s }}</option> }
+              </select>
+            </span>
+          }
+        </div>
+
         <mat-card class="bm-panel">
           <mat-card-header class="bm-card-head">
             <mat-card-title>Hosts ({{ hostResults().length }})</mat-card-title>
@@ -510,8 +532,20 @@ import { FleetSearchComponent } from './fleet-search.component';
       .bm-bulk-tagval { width: 130px; }
       .bm-bulk-count { font-weight: 600; }
       .bm-bulk-ok { color: var(--bm-green); font-size: 13px; }
+      .bm-filter-bar { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-bottom: 14px;
+        padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
+      .bm-filter-grp { display: inline-flex; align-items: center; gap: 6px; }
+      .bm-filter-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.55; margin-right: 2px; }
+      .bm-chip { border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit;
+        border-radius: 14px; padding: 3px 12px; font-size: 12.5px; cursor: pointer; }
+      .bm-chip:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-chip.on { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); border-color: var(--mat-sys-primary); font-weight: 600; }
+      .bm-chip[data-st='CRIT'].on { background: color-mix(in srgb, var(--bm-red) 26%, transparent); border-color: var(--bm-red); }
+      .bm-chip[data-st='WARN'].on { background: color-mix(in srgb, var(--bm-gold) 30%, transparent); border-color: var(--bm-gold); }
+      .bm-filter-sel { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant);
+        background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
       @media print {
-        .bm-omni-wrap, .bm-noprint, .bm-bulk-bar { display: none !important; }
+        .bm-omni-wrap, .bm-noprint, .bm-bulk-bar, .bm-filter-bar { display: none !important; }
         .bm-page { max-width: none; padding: 0; }
         .bm-check { display: none; }
       }
@@ -736,6 +770,42 @@ export class FleetOverviewComponent implements OnInit {
   printResults(): void {
     window.print();
   }
+
+  // ── facet filter bar (point-and-click filters that build the query) ──
+  private escRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  private termRe(field: string, value: string): RegExp {
+    return new RegExp(`(^|\\s)${field}:"?${this.escRe(value)}"?(?=\\s|$)`, 'i');
+  }
+
+  facetActive(field: string, value: string): boolean {
+    return this.termRe(field, value).test(this.activeQuery());
+  }
+
+  toggleFacet(field: string, value: string): void {
+    let q = this.activeQuery().trim();
+    if (this.facetActive(field, value)) {
+      q = q.replace(this.termRe(field, value), ' ').replace(/\s+/g, ' ').trim();
+    } else {
+      const term = /\s/.test(value) ? `${field}:"${value}"` : `${field}:${value}`;
+      q = `${q} ${term}`.trim();
+    }
+    this.router.navigate(['/fleet'], { queryParams: { q: q || null } });
+  }
+
+  /** Site is single-valued: replace any existing site: term. */
+  setSiteFacet(site: string): void {
+    let q = this.activeQuery().replace(/(^|\s)site:"?[^\s"]+"?/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (site) q = `${q} site:${/\s/.test(site) ? `"${site}"` : site}`.trim();
+    this.router.navigate(['/fleet'], { queryParams: { q: q || null } });
+  }
+
+  currentSiteFacet(): string {
+    const m = /(?:^|\s)site:"?([^\s"]+)"?/i.exec(this.activeQuery());
+    return m ? m[1] : '';
+  }
+
+  readonly critFacets = ['test', 'stage', 'prod'];
+  readonly stateFacets = ['OK', 'WARN', 'CRIT', 'UNKNOWN'];
 
   private reloadProblems(): void {
     this.monitoringService.problems({ acknowledged: false }).subscribe((problems) => this.problems.set(problems.slice(0, 10)));
