@@ -50,7 +50,7 @@ func (c *Config) Description() string {
 func (c *Config) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
 		"path":      stringProp("Config file path, e.g. /etc/ssh/sshd_config."),
-		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml", "xml"),
+		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml", "xml", "fstab", "zonefile", "exports", "dhcpd"),
 		"values":    map[string]any{"type": "object", "description": "Desired values. Omit to read (parse) only."},
 		"manage":    stringEnumProp("merge = set the given keys, keep the rest (default); exact = file holds exactly `values`.", "merge", "exact"),
 		"separator": stringProp("keyvalue key/value separator (default \" \"; use \"=\" for key=value files)."),
@@ -158,8 +158,10 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 		return &zonefileCodec{}, nil
 	case "exports":
 		return &exportsCodec{}, nil
+	case "dhcpd":
+		return &dhcpdCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile|exports)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile|exports|dhcpd)", format)
 	}
 }
 
