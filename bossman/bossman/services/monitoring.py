@@ -1221,30 +1221,50 @@ class FleetHostSummary:
     service_counts: dict[str, int]
 
 
-async def _latest_metric_by_agent(session: AsyncSession, metric_name: str) -> dict[UUID, float]:
-    """The single latest value of a non-mount-labeled metric (e.g.
-    cpu_load1, mem_used_pct) per agent, via Postgres's DISTINCT ON —
-    one query regardless of fleet size, not a per-host fan-out."""
+# The fleet overview only needs each host's *latest* value, which the poller
+# refreshes every cycle — so bound the lookup to a recent window. Without it,
+# a DISTINCT ON over the metrics *hypertable* scans all historical chunks (no
+# time predicate → no chunk pruning), which made fleet_hosts take ~8s even for
+# a handful of hosts. A host silent longer than this simply reads blank in the
+# overview (correct: its data is stale).
+_LATEST_METRIC_LOOKBACK = timedelta(hours=24)
+
+
+async def _latest_metrics_by_agent(
+    session: AsyncSession, agent_ids: list[UUID], metric_names: list[str]
+) -> dict[tuple[UUID, str], float]:
+    """Latest value per (agent, metric) for several non-mount-labeled metrics
+    in ONE query (DISTINCT ON (agent_id, metric)) bounded to the recent window.
+    Constraining agent_id (the caller already has the host list) lets Postgres
+    use the (agent_id, metric, time) index instead of a time-ordered scan that
+    filters millions of rows by metric — the ~1s→~70ms difference."""
+    if not agent_ids:
+        return {}
+    cutoff = datetime.now(timezone.utc) - _LATEST_METRIC_LOOKBACK
     stmt = (
-        select(Metric.agent_id, Metric.value)
-        .distinct(Metric.agent_id)
-        .where(Metric.metric == metric_name)
-        .order_by(Metric.agent_id, Metric.time.desc())
+        select(Metric.agent_id, Metric.metric, Metric.value)
+        .distinct(Metric.agent_id, Metric.metric)
+        .where(Metric.agent_id.in_(agent_ids), Metric.metric.in_(metric_names), Metric.time > cutoff)
+        .order_by(Metric.agent_id, Metric.metric, Metric.time.desc())
     )
     rows = (await session.execute(stmt)).all()
-    return {r.agent_id: r.value for r in rows}
+    return {(r.agent_id, r.metric): r.value for r in rows}
 
 
-async def _latest_disk_used_pct_max(session: AsyncSession) -> dict[UUID, float]:
+async def _latest_disk_used_pct_max(session: AsyncSession, agent_ids: list[UUID]) -> dict[UUID, float]:
     """The worst (highest) latest disk_used_pct across every mount an
     agent reports — a host with one nearly-full disk should read as
     "nearly full" on the fleet overview, not be diluted by its other,
-    mostly-empty mounts."""
+    mostly-empty mounts. agent_id-bounded for index use (see
+    _latest_metrics_by_agent)."""
+    if not agent_ids:
+        return {}
     mount_label = Metric.labels["mount"].astext
+    cutoff = datetime.now(timezone.utc) - _LATEST_METRIC_LOOKBACK
     stmt = (
         select(Metric.agent_id, mount_label.label("mount"), Metric.value)
         .distinct(Metric.agent_id, mount_label)
-        .where(Metric.metric == "disk_used_pct")
+        .where(Metric.agent_id.in_(agent_ids), Metric.metric == "disk_used_pct", Metric.time > cutoff)
         .order_by(Metric.agent_id, mount_label, Metric.time.desc())
     )
     rows = (await session.execute(stmt)).all()
@@ -1270,25 +1290,30 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
     for s in services:
         services_by_agent.setdefault(s.agent_id, []).append(s)
 
-    cpu_by_agent = await _latest_metric_by_agent(session, "cpu_load1")
-    mem_by_agent = await _latest_metric_by_agent(session, "mem_used_pct")
-    disk_by_agent = await _latest_disk_used_pct_max(session)
-
-    # Piggyback hosts (Docker containers, Proxmox/vCenter VMs) report CPU/memory
-    # under container_*/vm_* names, not cpu_load1/mem_used_pct — fall back to
-    # those so a container/VM host isn't blank in the fleet table.
-    cpu_container = await _latest_metric_by_agent(session, "container_cpu_pct")
-    cpu_vm = await _latest_metric_by_agent(session, "vm_cpu_pct")
-    mem_container = await _latest_metric_by_agent(session, "container_mem_pct")
-    mem_vm = await _latest_metric_by_agent(session, "vm_mem_pct")
+    # One bounded query for all of CPU/memory (host + piggyback fallbacks),
+    # plus one for disk. Piggyback hosts (Docker containers, Proxmox/vCenter
+    # VMs) report CPU/memory under container_*/vm_* names, not
+    # cpu_load1/mem_used_pct — fall back to those so a container/VM host isn't
+    # blank in the fleet table.
+    agent_ids = [a.id for a in agents]
+    latest = await _latest_metrics_by_agent(
+        session,
+        agent_ids,
+        ["cpu_load1", "mem_used_pct", "container_cpu_pct", "vm_cpu_pct", "container_mem_pct", "vm_mem_pct"],
+    )
+    disk_by_agent = await _latest_disk_used_pct_max(session, agent_ids)
 
     def _cpu(aid):
-        v = cpu_by_agent.get(aid)
-        return v if v is not None else cpu_container.get(aid, cpu_vm.get(aid))
+        v = latest.get((aid, "cpu_load1"))
+        if v is not None:
+            return v
+        return latest.get((aid, "container_cpu_pct"), latest.get((aid, "vm_cpu_pct")))
 
     def _mem(aid):
-        v = mem_by_agent.get(aid)
-        return v if v is not None else mem_container.get(aid, mem_vm.get(aid))
+        v = latest.get((aid, "mem_used_pct"))
+        if v is not None:
+            return v
+        return latest.get((aid, "container_mem_pct"), latest.get((aid, "vm_mem_pct")))
 
     out = []
     for agent in agents:
