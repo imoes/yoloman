@@ -156,8 +156,10 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 		return &fstabCodec{}, nil
 	case "zonefile":
 		return &zonefileCodec{}, nil
+	case "exports":
+		return &exportsCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile|exports)", format)
 	}
 }
 
@@ -460,6 +462,69 @@ func (z *zonefileCodec) render(existing []byte, values map[string]any, _ string)
 			parts = append(parts, class, typ, dat)
 			b.WriteString(strings.Join(parts, " "))
 			b.WriteByte('\n')
+		}
+	}
+	return []byte(b.String()), nil
+}
+
+// exportsCodec handles an NFS /etc/exports table: each line is an exported
+// path followed by whitespace-separated client(options) specs, e.g.
+//   /srv/nfs  192.168.1.0/24(rw,sync,no_subtree_check)  10.0.0.5(ro)
+// Like fstab there is no unique scalar key, so it parses to a LIST under
+// "exports" of {path, clients} (clients = the raw client(options) spec text,
+// which the UI edits as one field). render() regenerates the table (leading
+// `#` comment header preserved).
+type exportsCodec struct{}
+
+func (c *exportsCodec) parse(data []byte) (map[string]any, error) {
+	entries := []any{}
+	for _, line := range strings.Split(string(data), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		f := strings.Fields(t)
+		if len(f) < 1 {
+			continue
+		}
+		entries = append(entries, map[string]any{"path": f[0], "clients": strings.Join(f[1:], " ")})
+	}
+	return map[string]any{"exports": entries}, nil
+}
+
+func (c *exportsCodec) render(existing []byte, values map[string]any, _ string) ([]byte, error) {
+	str := func(v any) string {
+		if v == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(string(existing), "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "#") {
+			b.WriteString(line)
+			b.WriteByte('\n')
+		} else {
+			break
+		}
+	}
+	if raw, ok := values["exports"].([]any); ok {
+		for _, item := range raw {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			path := str(m["path"])
+			if path == "" {
+				continue
+			}
+			clients := str(m["clients"])
+			if clients != "" {
+				fmt.Fprintf(&b, "%s %s\n", path, clients)
+			} else {
+				fmt.Fprintf(&b, "%s\n", path)
+			}
 		}
 	}
 	return []byte(b.String()), nil

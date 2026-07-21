@@ -15,6 +15,7 @@ import { RolesFeaturesComponent } from './roles/roles-features.component';
 import { ServiceChecksComponent } from './service-checks/service-checks.component';
 import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
 import { BindZonesComponent } from './packages/bind-zones.component';
+import { NfsExportsComponent } from './packages/nfs-exports.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -32,7 +33,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent,
+    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -66,6 +67,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-nfs')) { <div [style.display]="show('pkg-nfs')"><app-nfs-exports [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
           @if (visited().has(p.id)) { <div [style.display]="show(p.id)"><app-package-config [agentId]="agentId()" [def]="p" /></div> }
         }
@@ -143,10 +145,15 @@ export class HostManagementComponent implements OnInit {
   // the generic codec editor.
   private readonly bindSnapin: SnapIn = { id: 'pkg-bind', label: 'BIND zones', icon: 'dns', category: 'Package configuration' };
 
+  // NFS gets a bespoke list-table snapin (/etc/exports via the `exports` codec +
+  // `exportfs -ra`), not the generic key/value editor.
+  private readonly nfsSnapin: SnapIn = { id: 'pkg-nfs', label: 'NFS exports', icon: 'folder_shared', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
       this.bindSnapin,
+      this.nfsSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -175,6 +182,7 @@ export class HostManagementComponent implements OnInit {
   private virt = viewChild(HostVirtComponent);
   private pkgPanels = viewChildren(PackageConfigComponent);
   private bindZones = viewChild(BindZonesComponent);
+  private nfsExports = viewChild(NfsExportsComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -191,6 +199,7 @@ export class HostManagementComponent implements OnInit {
         case 'freeipa': this.freeipa()?.loadOnce(); break;
         case 'virt': this.virt()?.loadOnce(); break;
         case 'pkg-bind': this.bindZones()?.loadOnce(); break;
+        case 'pkg-nfs': this.nfsExports()?.loadOnce(); break;
         // 'roles' loads itself on init.
         default:
           // Package-config snapins (pkg-*): find the matching generic panel.

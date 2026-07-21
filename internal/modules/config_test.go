@@ -249,3 +249,28 @@ mail		IN	MX	10 mail.example.com.
 		t.Errorf("comment header not preserved:\n%s", out)
 	}
 }
+
+func TestExportsCodec_RoundTrip(t *testing.T) {
+	src := "# /etc/exports\n/srv/nfs  192.168.1.0/24(rw,sync,no_subtree_check)  10.0.0.5(ro)\n/data\t*(ro,sync)\n"
+	c := &exportsCodec{}
+	got, err := c.parse([]byte(src))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	ex, _ := got["exports"].([]any)
+	if len(ex) != 2 {
+		t.Fatalf("want 2 exports, got %d", len(ex))
+	}
+	e0 := ex[0].(map[string]any)
+	if e0["path"] != "/srv/nfs" || e0["clients"] != "192.168.1.0/24(rw,sync,no_subtree_check) 10.0.0.5(ro)" {
+		t.Errorf("export 0 wrong: %v", e0)
+	}
+	out, _ := c.render([]byte(src), got, "merge")
+	if !strings.HasPrefix(string(out), "# /etc/exports") {
+		t.Errorf("comment header lost:\n%s", out)
+	}
+	got2, _ := c.parse(out)
+	if ex2, _ := got2["exports"].([]any); len(ex2) != 2 {
+		t.Errorf("round-trip lost exports: %d\n%s", len(ex2), out)
+	}
+}
