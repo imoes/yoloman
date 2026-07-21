@@ -121,9 +121,6 @@ async def get_agent_ebpf(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     top_talkers = talkers.get("top_talkers", [])
-    # Reverse-DNS the destination IPs (best-effort) so a connection reads as a
-    # hostname, not a bare address — the "what am I talking to" question.
-    await _enrich_addr_fields(top_talkers, "dst_addr")
 
     # BCC-inspired signals (oomkill/tcpretrans/killsnoop/runqlat). Each is
     # best-effort and independent: an older agent without these endpoints (404)
@@ -141,13 +138,22 @@ async def get_agent_ebpf(
     runq = await _soft(client.ebpf_runq_latency())
     l7 = await _soft(client.ebpf_l7_requests(limit=max(limit, 50)))
     tcp_retransmits = retrans.get("retransmits", [])
-    # Same enrichment as top_talkers, but on BOTH addresses — a retransmit can
-    # be on an inbound connection too, so src_addr isn't always localhost.
-    await _enrich_addr_fields(tcp_retransmits, "src_addr", "dst_addr")
-    # Passive-L7 exchanges (Tier-2): reverse-DNS the destination so an exchange
-    # reads as a hostname (same best-effort enrichment as top_talkers).
     l7_events = l7.get("events", [])
-    await _enrich_addr_fields(l7_events, "dst_addr")
+
+    # Build an IP→hostname map from the host's OWN observed DNS answers (coroot's
+    # ip_to_fqdn). This names targets that have a forward A record but no reverse
+    # PTR — common in FreeIPA/AD, whose reverse zones are often incomplete (e.g.
+    # ipa.example.internal resolves forward to 192.0.2.97 but has no PTR),
+    # which best-effort _rdns alone can never resolve. Used as the fallback after
+    # PTR across every eBPF list that carries raw IPs.
+    dns_names = _ip_to_fqdn(l7_events)
+
+    # Reverse-DNS the destination IPs (PTR first, observed-DNS fallback) so a
+    # connection reads as a hostname, not a bare address.
+    await _enrich_addr_fields(top_talkers, "dst_addr", fallback=dns_names)
+    # A retransmit can be on an inbound connection too, so enrich BOTH addresses.
+    await _enrich_addr_fields(tcp_retransmits, "src_addr", "dst_addr", fallback=dns_names)
+    await _enrich_addr_fields(l7_events, "dst_addr", fallback=dns_names)
     return {
         "top_talkers": top_talkers,
         "slowest_disk_io": disk.get("disk_io", []),
@@ -181,18 +187,34 @@ async def _rdns(ip: str) -> str | None:
     return host
 
 
-async def _enrich_addr_fields(items: list[dict], *fields: str) -> None:
+def _ip_to_fqdn(l7_events: list[dict]) -> dict[str, str]:
+    """IP→hostname learned from the host's own observed DNS answers (coroot's
+    ip_to_fqdn). Resolves targets that have a forward A record but no reverse
+    PTR — which best-effort _rdns can never find. First answer wins."""
+    out: dict[str, str] = {}
+    for e in l7_events:
+        if e.get("protocol") == "dns" and e.get("target"):
+            for ip in e.get("answers") or []:
+                out.setdefault(ip, e["target"])
+    return out
+
+
+async def _enrich_addr_fields(items: list[dict], *fields: str, fallback: dict[str, str] | None = None) -> None:
     """Best-effort reverse-DNS enrichment shared by every eBPF-derived list
     that carries raw IPs (top_talkers has only dst_addr; tcp_retransmits has
     both src_addr and dst_addr since a retransmit can be on an inbound or
     outbound connection). For each address field ("<x>_addr") given, adds a
-    sibling "<x>_host" key on the dict when a PTR record resolves — the UI then
-    shows a hostname instead of a bare address wherever one is available."""
+    sibling "<x>_host" key on the dict when a name is found — a PTR record
+    first, then `fallback` (an observed-DNS IP→name map, so forward-only names
+    without a PTR still resolve). The UI then shows a hostname instead of a bare
+    address wherever one is available."""
+    fallback = fallback or {}
     ips = {v for item in items for f in fields if (v := item.get(f))}
     resolved = dict(zip(ips, await asyncio.gather(*(_rdns(ip) for ip in ips))))
     for item in items:
         for f in fields:
-            host = resolved.get(item.get(f))
+            ip = item.get(f)
+            host = resolved.get(ip) or fallback.get(ip)
             if host:
                 # dst_addr -> dst_host, src_addr -> src_host (NOT dst_addr_host).
                 item[f.replace("_addr", "_host") if f.endswith("_addr") else f + "_host"] = host
