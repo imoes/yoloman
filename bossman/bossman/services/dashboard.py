@@ -17,6 +17,7 @@ from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Dashboard, DashboardWidget, Metric
+from bossman.services import search as search_svc
 from bossman.services.monitoring import fleet_hosts, fleet_summary, query_problems
 
 # The widget catalog this dashboard actually computes data for — the honest
@@ -363,4 +364,23 @@ async def widget_data(session: AsyncSession, widget: DashboardWidget, context: d
         return await _latest_metric_value(session, cfg)
     if widget.widget_type == "timeseries":
         return await _metric_series(session, cfg)
+    # A query-backed table widget (P4): a pinned fleet search. config.query is
+    # re-run live each time the widget loads, so the widget IS a saved search.
+    if widget.widget_type == "table" and cfg.get("query"):
+        q = cfg["query"]
+        kind = cfg.get("kind", "services")
+        limit = int(cfg.get("limit", 10))
+        node = search_svc.parse_query(q)
+        if kind == "hosts":
+            hosts = await search_svc.search_hosts(session, node, limit=limit)
+            rollups = await search_svc.worst_states(session, [h.id for h in hosts])
+            return {
+                "columns": ["State", "Host", "Criticality", "Site"],
+                "rows": [[rollups.get(h.id, "OK"), h.name, h.criticality or "—", h.site or "—"] for h in hosts],
+            }
+        rows = await search_svc.search_services(session, node, limit=limit)
+        return {
+            "columns": ["State", "Host", "Service"],
+            "rows": [[s.state, a.name, s.name] for s, a in rows],
+        }
     return {}

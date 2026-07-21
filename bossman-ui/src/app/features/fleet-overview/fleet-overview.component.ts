@@ -9,6 +9,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { SearchService } from '../../core/services/search.service';
+import { DashboardService } from '../../core/services/dashboard.service';
 import { Agent } from '../../core/models/agent.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
@@ -50,11 +51,18 @@ import { FleetSearchComponent } from './fleet-search.component';
         <!-- ── search-active: result views ─────────────────────────────── -->
         <div class="bm-results-head">
           <h2>Results for <code>{{ activeQuery() }}</code></h2>
+          <span class="bm-spacer"></span>
+          @if (pinMsg()) { <span class="bm-bulk-ok">{{ pinMsg() }}</span> }
           <button mat-stroked-button (click)="clearSearch()"><mat-icon>arrow_back</mat-icon> Back to dashboard</button>
         </div>
 
         <mat-card class="bm-panel">
-          <mat-card-header><mat-card-title>Hosts ({{ hostResults().length }})</mat-card-title></mat-card-header>
+          <mat-card-header class="bm-card-head">
+            <mat-card-title>Hosts ({{ hostResults().length }})</mat-card-title>
+            @if (hostResults().length) {
+              <button mat-stroked-button (click)="pinAsWidget('hosts')"><mat-icon>push_pin</mat-icon> Pin as widget</button>
+            }
+          </mat-card-header>
           <mat-card-content>
             <!-- Bulk-assign bar — appears once ≥1 host is selected. Sets the
                  searchable facets on all selected hosts via P1b's endpoint. -->
@@ -109,7 +117,12 @@ import { FleetSearchComponent } from './fleet-search.component';
         </mat-card>
 
         <mat-card class="bm-panel">
-          <mat-card-header><mat-card-title>Service checks ({{ serviceResults().length }})</mat-card-title></mat-card-header>
+          <mat-card-header class="bm-card-head">
+            <mat-card-title>Service checks ({{ serviceResults().length }})</mat-card-title>
+            @if (serviceResults().length) {
+              <button mat-stroked-button (click)="pinAsWidget('services')"><mat-icon>push_pin</mat-icon> Pin as widget</button>
+            }
+          </mat-card-header>
           <mat-card-content>
             @if (serviceResults().length) {
               <table class="bm-table">
@@ -476,6 +489,8 @@ import { FleetSearchComponent } from './fleet-search.component';
       .bm-crit-badge[data-c='test'] { background: color-mix(in srgb, var(--bm-green) 24%, transparent); }
       .bm-dim { opacity: 0.6; }
       .bm-detail { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bm-spacer { flex: 1; }
+      .bm-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
       .bm-check { width: 34px; text-align: center; }
       .bm-row-sel { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
       .bm-bulk-bar {
@@ -505,6 +520,7 @@ export class FleetOverviewComponent implements OnInit {
   private runService = inject(RunService);
   private monitoringService = inject(MonitoringService);
   private searchService = inject(SearchService);
+  private dashboardService = inject(DashboardService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private dialog = inject(MatDialog);
@@ -580,6 +596,27 @@ export class FleetOverviewComponent implements OnInit {
 
   clearSearch(): void {
     this.router.navigate(['/fleet'], { queryParams: { q: null } });
+  }
+
+  pinMsg = signal('');
+
+  /** "Als Widget anheften" (P4): save the current query as a query-backed
+   * table widget on the standard dashboard — it re-runs the search each load. */
+  pinAsWidget(kind: 'hosts' | 'services'): void {
+    const q = this.activeQuery();
+    if (!q) return;
+    this.dashboardService
+      .create({
+        widget_type: 'table',
+        title: `${kind === 'hosts' ? 'Hosts' : 'Services'}: ${q}`,
+        gs_w: 4,
+        gs_h: 3,
+        config: { query: q, kind, limit: 20 },
+      })
+      .subscribe({
+        next: () => this.pinMsg.set(`Pinned to dashboard.`),
+        error: () => this.pinMsg.set('Pin failed.'),
+      });
   }
 
   // ── selection ──
