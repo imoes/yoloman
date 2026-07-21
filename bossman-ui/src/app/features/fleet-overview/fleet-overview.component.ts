@@ -49,10 +49,13 @@ import { FleetSearchComponent } from './fleet-search.component';
 
       @if (activeQuery()) {
         <!-- ── search-active: result views ─────────────────────────────── -->
-        <div class="bm-results-head">
+        <div class="bm-results-head bm-noprint">
           <h2>Results for <code>{{ activeQuery() }}</code></h2>
           <span class="bm-spacer"></span>
           @if (pinMsg()) { <span class="bm-bulk-ok">{{ pinMsg() }}</span> }
+          @if (hostResults().length) { <button mat-stroked-button (click)="exportHostsCsv()"><mat-icon>download</mat-icon> Hosts CSV</button> }
+          @if (serviceResults().length) { <button mat-stroked-button (click)="exportServicesCsv()"><mat-icon>download</mat-icon> Services CSV</button> }
+          <button mat-stroked-button (click)="printResults()"><mat-icon>picture_as_pdf</mat-icon> Print / PDF</button>
           <button mat-stroked-button (click)="clearSearch()"><mat-icon>arrow_back</mat-icon> Back to dashboard</button>
         </div>
 
@@ -507,6 +510,11 @@ import { FleetSearchComponent } from './fleet-search.component';
       .bm-bulk-tagval { width: 130px; }
       .bm-bulk-count { font-weight: 600; }
       .bm-bulk-ok { color: var(--bm-green); font-size: 13px; }
+      @media print {
+        .bm-omni-wrap, .bm-noprint, .bm-bulk-bar { display: none !important; }
+        .bm-page { max-width: none; padding: 0; }
+        .bm-check { display: none; }
+      }
       @media (max-width: 800px) {
         .bm-grid {
           grid-template-columns: 1fr;
@@ -682,6 +690,51 @@ export class FleetOverviewComponent implements OnInit {
 
   stateBadge(state: string) {
     return serviceStateBadge(state);
+  }
+
+  // ── export (CSV download + browser print→PDF) ──
+  private toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
+    const esc = (v: unknown) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    return [headers, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
+  }
+
+  private download(name: string, text: string): void {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private slug(): string {
+    return (this.activeQuery() || 'all').replace(/[^a-z0-9]+/gi, '-').slice(0, 40);
+  }
+
+  exportHostsCsv(): void {
+    const csv = this.toCsv(
+      ['host', 'state', 'criticality', 'site', 'groups', 'address', 'enrollment', 'last_seen'],
+      this.hostResults().map((h) => [h.name, h.state_rollup, h.criticality, h.site, h.groups.join(' '), h.address, h.enrollment_state, h.last_seen_at]),
+    );
+    this.download(`hosts-${this.slug()}.csv`, csv);
+  }
+
+  exportServicesCsv(): void {
+    const csv = this.toCsv(
+      ['host', 'service', 'state', 'metric', 'criticality', 'site', 'output'],
+      this.serviceResults().map((s) => [s.host, s.name, s.state, s.metric, s.criticality, s.site, s.output]),
+    );
+    this.download(`services-${this.slug()}.csv`, csv);
+  }
+
+  /** PDF export via the browser's print dialog (Save as PDF) — a print
+   * stylesheet hides the nav/chrome so only the result tables print. */
+  printResults(): void {
+    window.print();
   }
 
   private reloadProblems(): void {
