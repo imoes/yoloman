@@ -67,6 +67,7 @@ class ServiceResult(BaseModel):
 class SearchResultItem(BaseModel):
     """One grouped dropdown row."""
     type: str  # host | host_group | service
+    id: UUID | None = None  # the host/agent id for a deep-link (None for groups)
     title: str
     subtitle: str | None = None
     state: str | None = None
@@ -108,7 +109,7 @@ async def unified_search(
 
     host_items = [
         SearchResultItem(
-            type="host", title=h.name, subtitle=h.address, state=rollups.get(h.id, "OK"),
+            type="host", id=h.id, title=h.name, subtitle=h.address, state=rollups.get(h.id, "OK"),
             query_params={"type": "host", "q": f'h:"{h.name}"'},
         )
         for h in hosts
@@ -119,7 +120,7 @@ async def unified_search(
     ]
     service_items = [
         SearchResultItem(
-            type="service", title=s.name, subtitle=a.name, state=s.state,
+            type="service", id=a.id, title=s.name, subtitle=a.name, state=s.state,
             query_params={"type": "service", "q": f's:"{s.name}"'},
         )
         for s, a in services

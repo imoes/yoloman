@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,13 +8,16 @@ import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { SearchService } from '../../core/services/search.service';
 import { Agent } from '../../core/models/agent.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
+import { HostResult, ServiceResult } from '../../core/models/search.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { DashboardGridComponent } from './dashboard-grid.component';
+import { FleetSearchComponent } from './fleet-search.component';
 
 /**
  * The fleet-wide summary landing page (see docs/plan.md's Bossman plan,
@@ -29,7 +32,7 @@ import { DashboardGridComponent } from './dashboard-grid.component';
 @Component({
   selector: 'app-fleet-overview',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent, DashboardGridComponent],
+  imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent, DashboardGridComponent, FleetSearchComponent],
   template: `
     <div class="bm-page">
       <div class="bm-page-head">
@@ -38,6 +41,61 @@ import { DashboardGridComponent } from './dashboard-grid.component';
           <mat-icon>auto_awesome</mat-icon> AI Dashboard
         </a>
       </div>
+
+      <!-- Checkmk-style omnibox: search fills the page; empty query = the
+           standard dashboard below (the "home" you always return to). -->
+      <app-fleet-search [seed]="activeQuery()" class="bm-omni-wrap" />
+
+      @if (activeQuery()) {
+        <!-- ── search-active: result views ─────────────────────────────── -->
+        <div class="bm-results-head">
+          <h2>Results for <code>{{ activeQuery() }}</code></h2>
+          <button mat-stroked-button (click)="clearSearch()"><mat-icon>arrow_back</mat-icon> Back to dashboard</button>
+        </div>
+
+        <mat-card class="bm-panel">
+          <mat-card-header><mat-card-title>Hosts ({{ hostResults().length }})</mat-card-title></mat-card-header>
+          <mat-card-content>
+            @if (hostResults().length) {
+              <table class="bm-table">
+                <thead><tr><th></th><th>Host</th><th>Criticality</th><th>Site</th><th>Groups</th></tr></thead>
+                <tbody>
+                  @for (h of hostResults(); track h.id) {
+                    <tr class="bm-row-link" [routerLink]="['/hosts', h.id]">
+                      <td><span class="bm-sq" [style.background]="stateColor(h.state_rollup)" [title]="h.state_rollup"></span></td>
+                      <td>{{ h.name }}</td>
+                      <td>@if (h.criticality) { <span class="bm-crit-badge" [attr.data-c]="h.criticality">{{ h.criticality }}</span> }</td>
+                      <td>{{ h.site || '—' }}</td>
+                      <td class="bm-dim">{{ h.groups.join(', ') || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else { <p class="bm-empty">No matching hosts.</p> }
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="bm-panel">
+          <mat-card-header><mat-card-title>Service checks ({{ serviceResults().length }})</mat-card-title></mat-card-header>
+          <mat-card-content>
+            @if (serviceResults().length) {
+              <table class="bm-table">
+                <thead><tr><th>State</th><th>Host</th><th>Service</th><th>Detail</th></tr></thead>
+                <tbody>
+                  @for (s of serviceResults(); track s.id) {
+                    <tr class="bm-row-link" [routerLink]="['/hosts', s.agent_id]" [queryParams]="{ tab: 'services' }">
+                      <td><app-status-badge [status]="stateBadge(s.state)" [label]="s.state" /></td>
+                      <td>{{ s.host }}</td>
+                      <td>{{ s.name }}</td>
+                      <td class="bm-detail" [title]="s.output">{{ s.output }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else { <p class="bm-empty">No matching service checks.</p> }
+          </mat-card-content>
+        </mat-card>
+      } @else {
 
       <!-- CheckMK-style statistics panels (Block H3): Host statistics +
            Service statistics side by side, each a colored-count table —
@@ -204,6 +262,7 @@ import { DashboardGridComponent } from './dashboard-grid.component';
           </mat-card-actions>
         </mat-card>
       </div>
+      }
     </div>
   `,
   styles: [
@@ -351,6 +410,39 @@ import { DashboardGridComponent } from './dashboard-grid.component';
       .bm-empty {
         opacity: 0.6;
       }
+      .bm-omni-wrap {
+        display: block;
+        margin-bottom: 18px;
+      }
+      .bm-results-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .bm-results-head h2 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .bm-results-head code {
+        background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+        padding: 2px 8px;
+        border-radius: 6px;
+      }
+      .bm-crit-badge {
+        font-size: 11px;
+        text-transform: uppercase;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-weight: 600;
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+      }
+      .bm-crit-badge[data-c='prod'] { background: color-mix(in srgb, var(--bm-red) 26%, transparent); }
+      .bm-crit-badge[data-c='stage'] { background: color-mix(in srgb, var(--bm-gold) 30%, transparent); }
+      .bm-crit-badge[data-c='test'] { background: color-mix(in srgb, var(--bm-green) 24%, transparent); }
+      .bm-dim { opacity: 0.6; }
+      .bm-detail { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       @media (max-width: 800px) {
         .bm-grid {
           grid-template-columns: 1fr;
@@ -363,12 +455,21 @@ export class FleetOverviewComponent implements OnInit {
   private agentService = inject(AgentService);
   private runService = inject(RunService);
   private monitoringService = inject(MonitoringService);
+  private searchService = inject(SearchService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private dialog = inject(MatDialog);
 
   agents = signal<Agent[]>([]);
   recentRuns = signal<PlanRun[]>([]);
   summary = signal<FleetSummary | null>(null);
   problems = signal<ServiceState[]>([]);
+
+  // Search-driven state: activeQuery empty → the standard dashboard; non-empty
+  // → the result views. Driven by the ?q= route param so it's bookmarkable.
+  activeQuery = signal('');
+  hostResults = signal<HostResult[]>([]);
+  serviceResults = signal<ServiceResult[]>([]);
 
   servicesByState = computed(() => {
     const defaults = { OK: 0, WARN: 0, CRIT: 0, UNKNOWN: 0 };
@@ -402,6 +503,30 @@ export class FleetOverviewComponent implements OnInit {
     this.runService.list({ limit: 10 }).subscribe((runs) => this.recentRuns.set(runs));
     this.monitoringService.fleetSummary().subscribe((summary) => this.summary.set(summary));
     this.reloadProblems();
+
+    // React to ?q= — the omnibox routes here; empty = dashboard, else results.
+    this.route.queryParamMap.subscribe((pm) => {
+      const q = (pm.get('q') || '').trim();
+      this.activeQuery.set(q);
+      if (q) this.loadResults(q);
+    });
+  }
+
+  private loadResults(q: string): void {
+    this.searchService.hosts(q).subscribe((r) => this.hostResults.set(r.hosts));
+    this.searchService.services(q).subscribe((r) => this.serviceResults.set(r.services));
+  }
+
+  clearSearch(): void {
+    this.router.navigate(['/fleet'], { queryParams: { q: null } });
+  }
+
+  stateColor(state: string): string {
+    return { OK: 'var(--bm-green)', WARN: 'var(--bm-gold)', CRIT: 'var(--bm-red)' }[state] ?? 'var(--bm-unknown)';
+  }
+
+  stateBadge(state: string) {
+    return serviceStateBadge(state);
   }
 
   private reloadProblems(): void {
