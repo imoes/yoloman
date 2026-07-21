@@ -12,6 +12,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
+import { SearchService } from '../../core/services/search.service';
+import { MassAssignFacets } from '../../core/models/search.model';
 import { RelationshipService } from '../../core/services/relationship.service';
 import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
@@ -470,9 +472,44 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <dd>{{ agent.enrollment_state }}</dd>
                 <dt>Last seen</dt>
                 <dd>{{ agent.last_seen_at ? (agent.last_seen_at | date: 'medium') : 'never' }}</dd>
-                <dt>Tags</dt>
-                <dd>{{ hasTags(agent) ? tagsJson(agent) : '—' }}</dd>
               </dl>
+
+              <!-- P3b: editable classification — the same searchable facets the
+                   fleet omnibox filters on (crit:/site:/tag:), assigned here per
+                   host (bulk assignment is on the search result view). -->
+              <div class="bm-classify">
+                <div class="bm-classify-h">Classification</div>
+                <div class="bm-classify-row">
+                  <label>Criticality
+                    <select [value]="agent.criticality || ''" (change)="setCriticality(agent, $any($event.target).value)" [disabled]="classBusy()">
+                      <option value="">— unset —</option>
+                      <option value="test">test</option>
+                      <option value="stage">stage</option>
+                      <option value="prod">prod</option>
+                    </select>
+                  </label>
+                  <label>Site
+                    <input type="text" placeholder="e.g. MUE-0" [value]="siteDraft() ?? (agent.site || '')"
+                           (input)="siteDraft.set($any($event.target).value)" [disabled]="classBusy()" />
+                    <button mat-button (click)="setSite(agent)" [disabled]="classBusy()">Save</button>
+                  </label>
+                </div>
+                <div class="bm-classify-tags">
+                  <span class="bm-classify-label">Tags</span>
+                  @for (t of tagEntries(agent); track t.key) {
+                    <span class="bm-tag-chip">{{ t.key }}@if (t.value) {: {{ t.value }}}
+                      <button (click)="removeTag(agent, t.key)" [disabled]="classBusy()" title="remove">✕</button>
+                    </span>
+                  }
+                  @if (!tagEntries(agent).length) { <span class="bm-dim">none</span> }
+                  <span class="bm-tag-add">
+                    <input type="text" placeholder="key" [value]="newTagKey()" (input)="newTagKey.set($any($event.target).value)" class="bm-tag-k" />
+                    <input type="text" placeholder="value" [value]="newTagVal()" (input)="newTagVal.set($any($event.target).value)" class="bm-tag-v" />
+                    <button mat-button (click)="addTag(agent)" [disabled]="classBusy() || !newTagKey().trim()">Add</button>
+                  </span>
+                </div>
+                @if (classMsg()) { <span class="bm-classify-ok">{{ classMsg() }}</span> }
+              </div>
             </div>
           </ng-template></mat-tab>
 
@@ -1342,6 +1379,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         grid-template-columns: 160px 1fr;
         row-gap: 8px;
       }
+      .bm-classify { margin-top: 16px; padding: 14px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); background: color-mix(in srgb, var(--mat-sys-primary) 5%, transparent); }
+      .bm-classify-h { font-weight: 600; margin-bottom: 10px; }
+      .bm-classify-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+      .bm-classify-row label, .bm-classify-tags { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+      .bm-classify select, .bm-classify input { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+      .bm-classify-label { font-weight: 500; opacity: 0.7; }
+      .bm-tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: color-mix(in srgb, var(--mat-sys-tertiary) 18%, transparent); }
+      .bm-tag-chip button { border: 0; background: transparent; cursor: pointer; opacity: 0.6; padding: 0; }
+      .bm-tag-add { display: inline-flex; gap: 6px; align-items: center; }
+      .bm-tag-k { width: 90px; } .bm-tag-v { width: 110px; }
+      .bm-classify-ok { color: var(--bm-green); font-size: 13px; }
       .bm-facts dt {
         opacity: 0.7;
       }
@@ -1787,6 +1835,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 export class HostDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private agentService = inject(AgentService);
+  private searchService = inject(SearchService);
   private relationshipService = inject(RelationshipService);
   private runService = inject(RunService);
   private monitoringService = inject(MonitoringService);
@@ -3242,6 +3291,55 @@ export class HostDetailComponent implements OnInit {
 
   shortContainer(id: string): string {
     return id.slice(0, 12);
+  }
+
+  // ── P3b: per-host classification editor (criticality / site / tags) ──
+  classBusy = signal(false);
+  classMsg = signal('');
+  siteDraft = signal<string | null>(null);
+  newTagKey = signal('');
+  newTagVal = signal('');
+
+  tagEntries(agent: Agent): { key: string; value: string }[] {
+    return Object.entries(agent.tags ?? {}).map(([key, value]) => ({ key, value: String(value ?? '') }));
+  }
+
+  private applyFacets(agent: Agent, body: Partial<MassAssignFacets>, msg: string): void {
+    this.classBusy.set(true);
+    this.classMsg.set('');
+    this.searchService.bulkAssignFacets({ agent_ids: [agent.id], ...body }).subscribe({
+      next: () => {
+        this.classBusy.set(false);
+        this.classMsg.set(msg);
+        this.agentService.get(agent.id).subscribe((a) => this.agent.set(a));
+      },
+      error: () => {
+        this.classBusy.set(false);
+        this.classMsg.set('Update failed.');
+      },
+    });
+  }
+
+  setCriticality(agent: Agent, value: string): void {
+    this.applyFacets(agent, { criticality: value || '' }, value ? `Criticality set to ${value}.` : 'Criticality cleared.');
+  }
+
+  setSite(agent: Agent): void {
+    const site = (this.siteDraft() ?? agent.site ?? '').trim();
+    this.applyFacets(agent, { site }, site ? `Site set to ${site}.` : 'Site cleared.');
+    this.siteDraft.set(null);
+  }
+
+  addTag(agent: Agent): void {
+    const key = this.newTagKey().trim();
+    if (!key) return;
+    this.applyFacets(agent, { add_tags: { [key]: this.newTagVal().trim() } }, `Tag ${key} added.`);
+    this.newTagKey.set('');
+    this.newTagVal.set('');
+  }
+
+  removeTag(agent: Agent, key: string): void {
+    this.applyFacets(agent, { remove_tags: [key] }, `Tag ${key} removed.`);
   }
 
   /** L7 exchanges newest-first (the agent returns oldest-last). */

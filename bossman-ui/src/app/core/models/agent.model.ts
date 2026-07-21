@@ -7,10 +7,16 @@ export interface Agent {
   enrollment_state: string;
   last_seen_at: string | null;
   metadata: Record<string, unknown>;
+  /** Block K7: searchable host tags (name or name:value), matched by the
+   * fleet search's tag: field. Distinct from `metadata`. */
+  tags?: Record<string, string>;
   groups: string[];
   parent_agent_id: string | null;
   /** Block L3d: the OU this host is placed in (null = unassigned). */
   ou_id?: string | null;
+  /** First-class searchable facets (crit:/site:), null = unset. */
+  criticality?: string | null;
+  site?: string | null;
   /** A resolvable name even when `address` is null (a satellite polled via a
    * proxy) — falls back to the inventory hostname. Used by the run/inventory
    * views so a DNS name shows instead of a blank. */
