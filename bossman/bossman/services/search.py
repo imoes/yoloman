@@ -25,9 +25,10 @@ from typing import Callable
 import uuid
 
 from sqlalchemy import and_, case, func, not_, or_, select, text
+from sqlalchemy import Text
 from sqlalchemy.sql.elements import ColumnElement
 
-from bossman.db.models import Agent, OUNode, Service
+from bossman.db.models import Agent, HostConfigResource, OUNode, Service
 
 # ── AST ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,8 @@ _FIELD_ALIASES = {
     "ou": "ou",
     "tag": "tag",
     "metric": "metric",
+    "inv": "inventory", "inventory": "inventory", "hw": "inventory", "os": "inventory",
+    "cfg": "config", "config": "config", "desired": "config",
 }
 _KEYWORDS = {"and": "AND", "or": "OR", "not": "NOT"}
 
@@ -224,6 +227,23 @@ def _service_exists(cond: ColumnElement) -> ColumnElement:
     return Agent.id.in_(select(Service.agent_id).where(cond))
 
 
+def _inv_match(value: str) -> ColumnElement:
+    """Match anywhere in the host's inventory facts (HW/SW: cpu, os, serials,
+    disks, nics …) — the whole JSONB document cast to text, substring-matched."""
+    return func.cast(Agent.facts, Text).ilike(_like(value))
+
+
+def _cfg_match(value: str) -> ColumnElement:
+    """Match a host with a desired-state config resource whose path or values
+    contain the term (Block K3 HostConfigResource)."""
+    like = _like(value)
+    return Agent.id.in_(
+        select(HostConfigResource.agent_id).where(
+            or_(HostConfigResource.path.ilike(like), func.cast(HostConfigResource.values, Text).ilike(like))
+        )
+    )
+
+
 def _host_term(field: str | None, value: str) -> ColumnElement:
     if field == "host":
         return or_(Agent.name.ilike(_like(value)), Agent.address.ilike(_like(value)))
@@ -243,8 +263,13 @@ def _host_term(field: str | None, value: str) -> ColumnElement:
         return _service_exists(Service.metric.ilike(_like(value)))
     if field == "state":
         return _service_exists(Service.state == value.upper())
-    # bare word → host name/address
-    return or_(Agent.name.ilike(_like(value)), Agent.address.ilike(_like(value)))
+    if field == "inventory":
+        return _inv_match(value)
+    if field == "config":
+        return _cfg_match(value)
+    # bare word → host name/address OR anywhere in the inventory facts (so a
+    # hardware/OS term like "PowerEdge" or "bookworm" finds the host too).
+    return or_(Agent.name.ilike(_like(value)), Agent.address.ilike(_like(value)), _inv_match(value))
 
 
 def _service_term(field: str | None, value: str) -> ColumnElement:
@@ -266,6 +291,10 @@ def _service_term(field: str | None, value: str) -> ColumnElement:
         return _ou_match(value)
     if field == "tag":
         return _tag_match(value)
+    if field == "inventory":
+        return _inv_match(value)
+    if field == "config":
+        return _cfg_match(value)
     # bare word → service or host name
     return or_(Service.name.ilike(_like(value)), Agent.name.ilike(_like(value)))
 

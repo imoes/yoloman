@@ -208,3 +208,33 @@ async def test_distinct_sites_and_tags(fixture_fleet):
         sites = client.get("/api/v1/sites", headers=_headers(f["raw"])).json()["sites"]
         tags = client.get("/api/v1/tags", headers=_headers(f["raw"])).json()["tags"]
     assert "MUE-0" in sites and "FRA-1" in sites
+
+
+async def test_parse_inv_cfg_fields():
+    assert parse_query("inv:PowerEdge") == Term("inventory", "PowerEdge")
+    assert parse_query("os:trixie") == Term("inventory", "trixie")
+    assert parse_query("cfg:smb.conf") == Term("config", "smb.conf")
+
+
+async def test_search_hosts_by_inventory(db_session):
+    import uuid as _uuid
+    tag = _uuid.uuid4().hex[:8]
+    a = Agent(name=f"invhost-{tag}", token="t", mode="standalone", enrollment_state="enrolled",
+              facts={"cpu": {"model": "Intel Xeon Gold 6338"}, "os": {"distribution": "Debian", "codename": "bookworm"}})
+    db_session.add(a)
+    row, raw = new_api_token(f"inv-caller-{tag}")
+    db_session.add(row)
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=f"inv-caller-{tag}", scope="all"))
+    await db_session.commit()
+    app = create_app()
+    with TestClient(app) as client:
+        h = lambda: {"Authorization": f"Bearer {raw}"}
+        r1 = client.get("/api/v1/search/hosts", params={"q": f"inv:Xeon {tag}"}, headers=h()).json()["hosts"]
+        r2 = client.get("/api/v1/search/hosts", params={"q": f"bookworm {tag}"}, headers=h()).json()["hosts"]  # bare word hits facts
+    from sqlalchemy import delete as _del
+    await db_session.execute(_del(Agent).where(Agent.id == a.id))
+    await db_session.execute(_del(AccessGrant).where(AccessGrant.subject_ref == f"inv-caller-{tag}"))
+    await db_session.delete(row)
+    await db_session.commit()
+    assert {x["name"] for x in r1} == {f"invhost-{tag}"}
+    assert {x["name"] for x in r2} == {f"invhost-{tag}"}
