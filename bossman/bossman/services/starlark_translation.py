@@ -173,19 +173,28 @@ def build_translation_messages(contract: str, record: dict[str, Any]) -> list[di
 # actionable reminder — the feedback loop IS context (the awx-ng thesis:
 # a good enough prompt lets any model succeed). These target the exact
 # Python-isms weaker models reach for.
+# Imperative "Replace X → Y" reminders keyed by a substring of the validator's
+# error. qwen79b self-reported it obeys direct replacement instructions far more
+# than general prohibitions, so each hint is a concrete rewrite, not "avoid".
 _ERROR_HINTS: list[tuple[str, str]] = [
-    ("got is", "You used the `is`/`is not` operator, which does not exist in Starlark. Replace every "
-               "`X is None` with `X == None` and every `X is not None` with `X != None`."),
-    ("try", "Starlark has NO try/except — it is a hard syntax error. Delete the try/except and GUARD "
-            "before the risky call instead: `v = int(x) if x.isdigit() else 0`; `if not s: return ...` "
-            "then `json.decode(s)`. Only use fail(\"msg\") when the check truly cannot proceed."),
-    ("got nonlocal", "Starlark has no `nonlocal`/`global`. Accumulate in a mutable dict/list "
-                     "(`acc = {\"n\": 0}`; `acc[\"n\"] += 1`) or return values; never rebind an outer name."),
+    ("got is", "Replace `X is None` → `X == None` and `X is not None` → `X != None` (`is`/`is not` do not exist)."),
+    ("got try", "Replace every try/except with a guard: `v = int(x) if x.isdigit() else 0`; "
+                "`if not s: return {...}` then use s. Starlark has NO try/except/raise — delete them entirely."),
+    ("try", "Replace every try/except with a guard: `v = int(x) if x.isdigit() else 0`; "
+            "`if not s: return {...}` then use s. Starlark has NO try/except/raise — delete them entirely."),
+    ("got '**'", "Replace `a ** b` → repeated multiplication (`x*x` for squares) or a top-level `def _pow(b,e)` "
+                 "loop. There is NO `**` operator AND NO pow() builtin — do not use pow()."),
+    ("does not associate", "Replace the chained comparison `a <= b <= c` → `(a <= b) and (b <= c)`."),
+    ("missing required function", "The module MUST define `def main(ctx, params):` as its entry point — add it."),
+    ("got import", "Delete every `import`/`from ... import` line. There are no modules; use ctx.* builtins and str methods."),
+    ("got nonlocal", "Replace `nonlocal`/`global` with a mutable object: `acc = {\"n\": 0}`; `acc[\"n\"] += 1`. Never rebind an outer name."),
     ("undefined: re", "There is no regex module. Use string methods (split, find, startswith, strip, replace)."),
     ("undefined: os", "There is no os module. Touch the system only through ctx.* builtins."),
     ("undefined: json", "There is no json module. Parse/emit strings with str methods."),
-    ("f-string", "Starlark has no f-strings. Use \"%s\" % x or \"a\" + str(x)."),
-    ("got def", "A def is misplaced (Starlark has no nested-scope quirks Python allows). Define helpers at top level."),
+    ("undefined: pow", "There is no pow() builtin. Replace `pow(b,e)` with repeated multiplication or a top-level `def _pow`."),
+    ("undefined: round", "There is no round() builtin. Use `int(x + 0.5)` or `int(x * 100 + 0.5) / 100.0` for rounding."),
+    ("f-string", "Replace f-strings with `\"%s\" % x` or `\"a\" + str(x)`."),
+    ("got def", "A def is misplaced. Define every helper at the module top level (no nested defs relying on Python scope)."),
 ]
 
 
@@ -208,14 +217,18 @@ def build_retry_messages(
     its own output."""
     errors = json.dumps(validation.get("errors") or [], indent=1)
     hints = hints_for(validation)
-    hint_block = ("\n\nMost likely fix:\n- " + "\n- ".join(hints)) if hints else ""
+    # qwen79b self-reported it fixes parser errors most reliably with imperative
+    # "REGENERATE + Replace X→Y + output only code" phrasing, and that soft
+    # wording ("try again", "return the module again") implies permission to fail.
+    rules_block = ("\nRULES (NON-NEGOTIABLE):\n- " + "\n- ".join(hints)) if hints else ""
     return messages + [
         {"role": "assistant", "content": star_code},
         {
             "role": "user",
             "content": (
-                "The validator rejected this module. Fix every finding and return the FULL corrected "
-                f"Starlark module again (code only).\n\nValidator findings:\n{errors}{hint_block}"
+                f"ERROR — the validator rejected this module:\n{errors}\n"
+                f"REGENERATE the FULL module, fixing every finding.{rules_block}\n"
+                "OUTPUT ONLY THE FIXED STARLARK CODE. NO EXPLANATION."
             ),
         },
     ]

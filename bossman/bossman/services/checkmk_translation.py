@@ -375,7 +375,20 @@ def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[s
         "finally/raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports/regex, NO `is`/"
         "`is not` (use `== None`). Guard instead of try; use d.get(k) for optional keys; define every "
         "constant at module top level.\n"
-        "- Gather data ONLY through ctx.* builtins; map warn/crit from params."
+        "- Gather data ONLY through ctx.* builtins; map warn/crit from params.\n\n"
+        # qwen79b self-reported that try/except and ** are strong Python priors it
+        # emits despite general prohibitions; a final imperative checklist right
+        # before output is the format it most reliably obeys (rules-as-checklist,
+        # no justification, "output only code").
+        "BEFORE YOU OUTPUT, SELF-CHECK EVERY LINE (a violation CRASHES the check in production):\n"
+        "[ ] NO try / except / finally / raise  (guard with `if`/defaults instead)\n"
+        "[ ] NO `**`  (there is no power operator AND no pow(); use x*x, or a top-level def _pow(b,e))\n"
+        "[ ] NO import / from-import\n"
+        "[ ] NO f-strings  (use \"%s\" % x or \"{}\".format(x))\n"
+        "[ ] NO chained comparison a<=b<=c  (write (a<=b) and (b<=c))\n"
+        "[ ] NO `is`/`is not`  (use == None / != None)\n"
+        "[ ] The module DEFINES `def main(ctx, params):`\n"
+        "OUTPUT ONLY THE CODE."
     )
     user = (
         "Translate this Checkmk check into a read-only Starlark check module.\n\n"
