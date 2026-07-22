@@ -15,7 +15,7 @@ import { HostStatusBadgeComponent } from '../shared/components/host-status-badge
 interface Pt { time: string; value: number; }
 interface Vital { metric: string; label: string; value: number; unit: string; level: 'crit' | 'warn' | 'ok'; series: Pt[]; }
 interface Svc { name: string; state: number; state_label: 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN'; }
-type Filter = 'all' | 'crit' | 'warn' | 'ok';
+type Filter = 'all' | 'crit' | 'warn';
 
 @Component({
   selector: 'app-standalone-overview',
@@ -64,7 +64,9 @@ type Filter = 'all' | 'crit' | 'warn' | 'ok';
             <button class="bm-chip" [class.on]="filter() === 'all'" (click)="filter.set('all')">All {{ counts().total }}</button>
             <button class="bm-chip" data-st="CRIT" [class.on]="filter() === 'crit'" (click)="filter.set('crit')">CRIT {{ counts().crit }}</button>
             <button class="bm-chip" data-st="WARN" [class.on]="filter() === 'warn'" (click)="filter.set('warn')">WARN {{ counts().warn }}</button>
-            <button class="bm-chip" data-st="OK" [class.on]="filter() === 'ok'" (click)="filter.set('ok')">OK {{ counts().ok }}</button>
+            <!-- OK is informational only: filtering an overview down to just the
+                 healthy services hides the problems you opened it for. -->
+            <span class="ov-ok-count">{{ counts().ok }} OK</span>
           </div>
         </div>
         @if (!services().length) { <div class="ov-empty">{{ loading() ? 'loading services…' : 'no health checks' }}</div> }
@@ -130,7 +132,7 @@ type Filter = 'all' | 'crit' | 'warn' | 'ok';
     .bm-chip.on { background: color-mix(in srgb, var(--mat-sys-primary, #1e9600) 22%, transparent); border-color: var(--mat-sys-primary, #1e9600); font-weight: 600; }
     .bm-chip[data-st='CRIT'].on { background: color-mix(in srgb, var(--bm-red, #d0021b) 26%, transparent); border-color: var(--bm-red, #d0021b); }
     .bm-chip[data-st='WARN'].on { background: color-mix(in srgb, var(--bm-gold, #ffc800) 30%, transparent); border-color: var(--bm-gold, #ffc800); }
-    .bm-chip[data-st='OK'].on { background: color-mix(in srgb, var(--bm-green, #1e9600) 22%, transparent); border-color: var(--bm-green, #1e9600); }
+    .ov-ok-count { align-self: center; font-size: 12.5px; padding: 0 6px; color: var(--bm-green, #1e9600); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     .gauges-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 16px; }
     .gauge-cell { display: flex; flex-direction: column; align-items: center; background: var(--mat-sys-surface-container-high, #262626);
@@ -240,7 +242,7 @@ export class StandaloneOverviewComponent implements OnInit {
   filteredServices = computed<Svc[]>(() => {
     const f = this.filter();
     if (f === 'all') return this.services();
-    const want = { crit: 2, warn: 1, ok: 0 }[f];
+    const want = f === 'crit' ? 2 : 1;
     return this.services().filter((s) => s.state === want);
   });
 
