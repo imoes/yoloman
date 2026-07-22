@@ -609,3 +609,29 @@ async def get_agent_metrics_latest(
             LatestMetricOut(metric=r.metric, time=r.time, value=r.value, labels=r.labels).model_dump() for r in rows
         ]
     }
+
+
+@router.get("/api/v1/agents/{agent_id}/metrics/snapshot")
+async def get_agent_metrics_snapshot(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Latest sample per unique (metric, labels) SERIES — e.g. one row per
+    filesystem for disk_used_pct, one per check_*_state — powering the host
+    Overview cockpit's per-mount gauges + services grid. Unlike
+    `/metrics/latest` (DISTINCT ON metric, which collapses a labelled metric to
+    a single row for the flat Metrics list), this keeps every label combo."""
+    await _get_agent_or_404(session, agent_id)
+    stmt = (
+        select(Metric)
+        .where(Metric.agent_id == agent_id, Metric.metric.not_like("process_%"))
+        .order_by(Metric.metric, Metric.labels, Metric.time.desc())
+        .distinct(Metric.metric, Metric.labels)
+    )
+    rows = (await session.scalars(stmt)).all()
+    return {
+        "metrics": [
+            LatestMetricOut(metric=r.metric, time=r.time, value=r.value, labels=r.labels).model_dump() for r in rows
+        ]
+    }

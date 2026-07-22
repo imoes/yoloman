@@ -176,7 +176,7 @@ export class StandaloneOverviewComponent implements OnInit {
     // Fleet: Bossman's /agents/<id>/metrics/latest returns the newest sample of
     // every metric as a flat list [{metric,time,value,labels}] — reshape it to
     // the same {name:[point]} map so the computeds below don't care which shell.
-    const url = this.agentId() ? `/api/v1/agents/${this.agentId()}/metrics/latest` : '/api/v1/metrics';
+    const url = this.agentId() ? `/api/v1/agents/${this.agentId()}/metrics/snapshot` : '/api/v1/metrics';
     type Pt = { timestamp: string; value: number; labels?: Record<string, string> };
     type LatestRow = { metric: string; time: string; value: number; labels?: Record<string, string> };
     this.http.get<{ metrics: Record<string, Pt[]> | LatestRow[] }>(url).subscribe({
