@@ -2,6 +2,7 @@
 # Global Samba settings
 workgroup = {{ workgroup }}
 server string = {{ server_string }}
+server role = {{ server_role }}
 security = {{ security_mode }}
 map to guest = {{ map_to_guest }}
 
@@ -58,18 +59,6 @@ printable = yes
 {% if printer.printer_driver %}printer driver = {{ printer.printer_driver }}{% endif %}
 {% if printer.printer_driver_location %}printer driver location = {{ printer.printer_driver_location }}{% endif %}
 {% endfor %}
-
-# Custom shares
-{% for share in shares %}[{{ share.name }}]
-comment = {{ share.comment }}
-path = {{ share.path }}
-browseable = {{ share.browseable }}
-read only = {{ share.read_only }}
-guest ok = {{ share.guest_ok }}
-{% if share.valid_users %}valid users = {{ share.valid_users | join(', ') }}{% endif %}
-{% if share.write_list %}write list = {{ share.write_list | join(', ') }}{% endif %}
-create mask = {{ share.create_mask | default(create_mask) }}
-directory mask = {{ share.directory_mask | default(directory_mask) }}
-{% if share.force_user %}force user = {{ share.force_user }}{% endif %}
-{% if share.force_group %}force group = {{ share.force_group }}{% endif %}
-{% endfor %}
+# File shares are managed per-host in the Samba shares snap-in (Management →
+# Package configuration), not here — this role owns only the [global] server
+# config so the two don't fight over smb.conf.

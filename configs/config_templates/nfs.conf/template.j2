@@ -1,0 +1,25 @@
+# NFS server configuration (/etc/nfs.conf) — managed by agentic-mcp.
+# Exports (which paths are shared to whom) live in /etc/exports — manage those
+# in the NFS exports snap-in. This file tunes the NFS *service*.
+[general]
+pipefs-directory = {{ pipefs_directory }}
+
+[nfsd]
+# Number of kernel nfsd threads (RPC concurrency; raise on busy servers).
+threads = {{ nfsd_threads }}
+# Protocol versions to serve.
+vers3 = {{ nfsd_vers3 }}
+vers4 = {{ nfsd_vers4 }}
+vers4.1 = {{ nfsd_vers4_1 }}
+vers4.2 = {{ nfsd_vers4_2 }}
+# Transports.
+tcp = {{ nfsd_tcp }}
+udp = {{ nfsd_udp }}
+{% if nfsd_port %}port = {{ nfsd_port }}
+{% endif %}
+[mountd]
+{% if mountd_port %}port = {{ mountd_port }}
+{% endif %}
+[statd]
+{% if statd_port %}port = {{ statd_port }}
+{% endif %}
