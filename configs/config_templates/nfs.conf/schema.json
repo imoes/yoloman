@@ -9,6 +9,33 @@
     "default": 8,
     "description": "Number of kernel nfsd threads — RPC request concurrency. Raise on busy servers (e.g. 16/32)."
   },
+  "nfsd_port": {
+    "type": "number",
+    "default": 2049,
+    "description": "nfsd listen port (2049 is the standard)."
+  },
+  "nfsd_grace_time": {
+    "type": "number",
+    "default": 90,
+    "description": "Seconds clients get to reclaim locks/state after a server restart."
+  },
+  "nfsd_lease_time": {
+    "type": "number",
+    "default": 90,
+    "description": "NFSv4 lease duration in seconds."
+  },
+  "nfsd_tcp": {
+    "type": "string",
+    "default": "y",
+    "enum": ["y", "n"],
+    "description": "Accept NFS over TCP."
+  },
+  "nfsd_udp": {
+    "type": "string",
+    "default": "n",
+    "enum": ["y", "n"],
+    "description": "Accept NFS over UDP (off by default; NFSv4 is TCP-only)."
+  },
   "nfsd_vers3": {
     "type": "string",
     "default": "y",
@@ -33,31 +60,52 @@
     "enum": ["y", "n"],
     "description": "Serve NFSv4.2."
   },
-  "nfsd_tcp": {
-    "type": "string",
-    "default": "y",
-    "enum": ["y", "n"],
-    "description": "Accept NFS over TCP."
-  },
-  "nfsd_udp": {
+  "nfsd_rdma": {
     "type": "string",
     "default": "n",
     "enum": ["y", "n"],
-    "description": "Accept NFS over UDP (off by default; NFSv4 is TCP-only)."
+    "description": "Enable the RDMA transport (needs RDMA-capable hardware/drivers)."
   },
-  "nfsd_port": {
+  "nfsd_rdma_port": {
     "type": "number",
-    "default": 2049,
-    "description": "nfsd listen port (2049 is the standard)."
+    "default": 20049,
+    "description": "RDMA listen port (used only when rdma = y)."
   },
   "mountd_port": {
     "type": "number",
     "default": 0,
     "description": "Fixed mountd port (0 = dynamic). Pin it to open a firewall for NFSv3."
   },
+  "mountd_manage_gids": {
+    "type": "string",
+    "default": "n",
+    "enum": ["y", "n"],
+    "description": "Resolve a user's supplementary groups on the server (bypasses the client's 16-group limit)."
+  },
   "statd_port": {
     "type": "number",
     "default": 0,
     "description": "Fixed statd (NSM) port (0 = dynamic). Pin it for NFSv3 firewalling."
+  },
+  "statd_outgoing_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Fixed statd outgoing port (0 = dynamic)."
+  },
+  "lockd_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Fixed lockd (NLM) TCP port (0 = dynamic). NFSv3 firewalling."
+  },
+  "lockd_udp_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Fixed lockd (NLM) UDP port (0 = dynamic)."
+  },
+  "gssd_use_gss_proxy": {
+    "type": "string",
+    "default": "n",
+    "enum": ["y", "n"],
+    "description": "Use gss-proxy for Kerberos (krb5/krb5i/krb5p) security flavours."
   }
 }

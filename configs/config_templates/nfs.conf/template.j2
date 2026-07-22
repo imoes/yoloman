@@ -5,21 +5,38 @@
 pipefs-directory = {{ pipefs_directory }}
 
 [nfsd]
-# Number of kernel nfsd threads (RPC concurrency; raise on busy servers).
+# Kernel nfsd threads — RPC request concurrency. Raise on busy servers.
 threads = {{ nfsd_threads }}
+{% if nfsd_port %}port = {{ nfsd_port }}
+{% endif %}# Lease/grace windows (seconds) governing state recovery after a restart.
+grace-time = {{ nfsd_grace_time }}
+lease-time = {{ nfsd_lease_time }}
+# Transports.
+tcp = {{ nfsd_tcp }}
+udp = {{ nfsd_udp }}
 # Protocol versions to serve.
 vers3 = {{ nfsd_vers3 }}
 vers4 = {{ nfsd_vers4 }}
 vers4.1 = {{ nfsd_vers4_1 }}
 vers4.2 = {{ nfsd_vers4_2 }}
-# Transports.
-tcp = {{ nfsd_tcp }}
-udp = {{ nfsd_udp }}
-{% if nfsd_port %}port = {{ nfsd_port }}
+# RDMA transport (needs RDMA-capable hardware).
+rdma = {{ nfsd_rdma }}
+{% if nfsd_rdma == 'y' %}rdma-port = {{ nfsd_rdma_port }}
 {% endif %}
 [mountd]
 {% if mountd_port %}port = {{ mountd_port }}
-{% endif %}
+{% endif %}# Resolve supplementary groups on the server from its own user database
+# (instead of trusting the client's up-to-16 gid list).
+manage-gids = {{ mountd_manage_gids }}
+
 [statd]
 {% if statd_port %}port = {{ statd_port }}
+{% endif %}{% if statd_outgoing_port %}outgoing-port = {{ statd_outgoing_port }}
 {% endif %}
+[lockd]
+{% if lockd_port %}port = {{ lockd_port }}
+{% endif %}{% if lockd_udp_port %}udp-port = {{ lockd_udp_port }}
+{% endif %}
+[gssd]
+# Use gss-proxy for Kerberos (krb5) security flavours.
+use-gss-proxy = {{ gssd_use_gss_proxy }}
