@@ -84,7 +84,18 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	// kill the install child mid-run (default KillMode=control-group). A
 	// systemd-run unit survives our restart. Fire-and-forget; the short sleep
 	// lets this HTTP response flush before the restart lands.
-	script := fmt.Sprintf("sleep 1; %s >> /var/log/agentic-mcp/self-update.log 2>&1; rm -f %q", installCmd, tmp.Name())
+	// After install, EXPLICITLY (re)enable + start the service. The postinst
+	// already restarts it, but that has raced to a stopped+disabled service on
+	// some hosts (the restart lands while this transient unit — spawned by the
+	// old, now-killed daemon — is still mid-install). Running enable --now here,
+	// in the surviving transient unit, guarantees the new binary comes up
+	// instead of stranding. reset-failed clears any prior failed state first.
+	script := fmt.Sprintf(
+		"sleep 1; %s >> /var/log/agentic-mcp/self-update.log 2>&1; "+
+			"systemctl reset-failed agentic-mcp.service 2>/dev/null; "+
+			"systemctl enable --now agentic-mcp.service >> /var/log/agentic-mcp/self-update.log 2>&1; "+
+			"rm -f %q",
+		installCmd, tmp.Name())
 	cmd := exec.Command("systemd-run", "--collect", "--unit=agentic-mcp-selfupdate", "/bin/sh", "-c", script)
 	if err := cmd.Start(); err != nil {
 		os.Remove(tmp.Name())

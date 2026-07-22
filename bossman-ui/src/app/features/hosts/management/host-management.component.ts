@@ -119,6 +119,9 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
 export class HostManagementComponent implements OnInit {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
+  /** Snap-in ids to hide (e.g. the standalone console hides monitoring
+   * snap-ins like 'servicechecks' that are a Fleet-Commander concern). */
+  hideSnapins = input<string[]>([]);
 
   /** Self-activate on init so a deep-link (?tab=management) loads the default
    * snap-in without waiting for a tab-change event. */
@@ -191,7 +194,9 @@ export class HostManagementComponent implements OnInit {
 
   tree = computed(() => {
     const groups = new Map<string, SnapIn[]>();
+    const hidden = new Set(this.hideSnapins());
     for (const s of this.allSnapins()) {
+      if (hidden.has(s.id)) continue;
       // The firewall snapin now auto-detects its backend (firewalld/ufw/
       // iptables) and iptables is always present, so it is always shown —
       // no firewall-cmd gate anymore.

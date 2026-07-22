@@ -49,6 +49,7 @@ func RegisterManagementRoutes(mux *http.ServeMux, cfg RESTConfig) {
 	mux.HandleFunc("GET /api/v1/config-codecs", func(w http.ResponseWriter, r *http.Request) { mgmtConfigCodecs(w, r) })
 	mux.HandleFunc("GET /api/v1/config-directives", func(w http.ResponseWriter, r *http.Request) { mgmtConfigDirectives(w, r) })
 	mux.HandleFunc("GET /api/v1/package-catalog", func(w http.ResponseWriter, r *http.Request) { mgmtPackageCatalog(w, r) })
+	mux.HandleFunc("GET /api/v1/package-wizard/context", func(w http.ResponseWriter, r *http.Request) { mgmtWizardContext(w, r, cfg) })
 	// The console's ensureModules() pushes management modules; on the agent
 	// they are built-ins, so a sync is a no-op success rather than a 404.
 	mux.HandleFunc("POST /api/v1/modules/sync", func(w http.ResponseWriter, r *http.Request) {
@@ -455,6 +456,80 @@ func mgmtConfigTemplates(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"templates": templates})
+}
+
+// mgmtWizardContext backs the Roles & Features wizard: the host's OS family,
+// which catalog roles are installed (from package_facts), and each role's
+// family-resolved package names / service / config path. Mirrors Bossman's
+// GET /agents/{id}/package-wizard/context.
+func mgmtWizardContext(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	family := osFamily()
+	cat, _ := readBundledJSON("package_catalog.json")
+	catalog := asMap(cat)
+
+	// Installed package name → version, from the package_facts module.
+	inv := map[string]string{}
+	if d, err := callModuleData(cfg, r, "package_facts", map[string]any{}, false); err == nil {
+		if list, ok := d.([]any); ok {
+			for _, e := range list {
+				em := asMap(e)
+				if n, ok := em["name"].(string); ok && n != "" {
+					inv[n] = fmt.Sprintf("%v", em["version"])
+				}
+			}
+		}
+	}
+
+	installed := map[string]string{}
+	resolved := map[string]any{}
+	for pkg, entryAny := range catalog {
+		entry := asMap(entryAny)
+		fams := asMap(entry["families"])
+		fam := asMap(fams[family])
+		if len(fam) == 0 {
+			fam = asMap(fams["debian"])
+		}
+		if len(fam) == 0 {
+			for _, v := range fams { // any family
+				fam = asMap(v)
+				break
+			}
+		}
+		resolved[pkg] = map[string]any{
+			"packages": orEmpty(fam["packages"]), "service": orDefault(fam["service"], ""),
+			"config_path": orDefault(fam["config_path"], ""),
+		}
+		if names, ok := fam["packages"].([]any); ok {
+			for _, n := range names {
+				if ver, present := inv[fmt.Sprintf("%v", n)]; present {
+					installed[pkg] = ver
+					break
+				}
+			}
+		}
+	}
+	host, _ := os.Hostname()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"host": host, "family": family, "installed": installed, "catalog_resolved": resolved,
+	})
+}
+
+// osFamily derives debian/redhat/suse from /etc/os-release (default debian).
+func osFamily() string {
+	b, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "debian"
+	}
+	s := strings.ToLower(string(b))
+	for _, t := range []string{"rhel", "centos", "fedora", "rocky", "almalinux", "redhat"} {
+		if strings.Contains(s, t) {
+			return "redhat"
+		}
+	}
+	if strings.Contains(s, "suse") || strings.Contains(s, "sles") {
+		return "suse"
+	}
+	return "debian"
 }
 
 // ---- small helpers ----

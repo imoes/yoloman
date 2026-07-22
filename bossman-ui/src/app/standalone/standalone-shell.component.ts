@@ -34,7 +34,7 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
         </header>
         <main class="bm-main">
           <div [style.display]="tab()==='management' ? 'block' : 'none'">
-            <app-host-management [agentId]="agentId" />
+            <app-host-management [agentId]="agentId" [hideSnapins]="['servicechecks']" />
           </div>
           @if (tab()==='processes') {
             <div class="bm-proc">
@@ -72,6 +72,7 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
 export class StandaloneShellComponent {
   private http = inject(HttpClient);
   readonly agentId = 'self';
+  constructor() { document.title = 'YOLO-MANager'; }
   tab = signal<'management' | 'processes'>('management');
   authed = () => !!authToken();
   procs = signal<Proc[]>([]);

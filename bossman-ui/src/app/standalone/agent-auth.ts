@@ -1,6 +1,6 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
-import { map } from 'rxjs';
+import { map, tap } from 'rxjs';
 
 /**
  * Auth + API glue for the standalone-agent UI (a second entry point that
@@ -58,7 +58,12 @@ export const agentInterceptor: HttpInterceptorFn = (req, next) => {
   if (tok && out.url.startsWith('/api/')) {
     out = out.clone({ setHeaders: { Authorization: `${currentScheme()} ${tok}` } });
   }
-  const stream = next(out);
+  // A 401 means the session token is gone/expired (e.g. the agent restarted —
+  // PAM sessions are in-memory). Clear it so the shell bounces to the login
+  // form instead of showing "failed to load" in every panel.
+  const stream = next(out).pipe(tap({
+    error: (e) => { if (e && e.status === 401 && authToken()) clearAuth(); },
+  }));
   if (!isTool) return stream;
   return stream.pipe(map((ev) => {
     if (ev instanceof HttpResponse && ev.body && typeof ev.body === 'object' && !('result' in (ev.body as object))) {
