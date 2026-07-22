@@ -49,20 +49,30 @@ interface Printer { name: string; uri: string; state: string; isDefault: boolean
         </section>
 
         <section class="bm-card">
-          <header class="bm-cardhead"><h3>Add printer</h3><button mat-button (click)="detect()" [disabled]="busy()"><mat-icon>search</mat-icon> Detect devices</button></header>
+          <header class="bm-cardhead"><h3>Add printer</h3>
+            <span>
+              <button mat-button (click)="detect()" [disabled]="busy()"><mat-icon>search</mat-icon> Detect devices</button>
+              <button mat-button (click)="loadModels()" [disabled]="busy()"><mat-icon>dns</mat-icon> Load driver DB</button>
+            </span>
+          </header>
           <div class="bm-form">
             <label class="bm-fld">Name<input [value]="nName()" (input)="nName.set($any($event.target).value)" placeholder="office-laser" /></label>
             <label class="bm-fld bm-uri">Device URI
               <input [value]="nUri()" (input)="nUri.set($any($event.target).value)" placeholder="ipp://printer.local/ipp/print" list="cups-devs" />
               <datalist id="cups-devs">@for (d of devices(); track d) { <option [value]="d"></option> }</datalist>
             </label>
-            <label class="bm-fld">Driver / model
-              <input [value]="nModel()" (input)="nModel.set($any($event.target).value)" placeholder="everywhere" />
+            <label class="bm-fld bm-model">Driver / model
+              <input [value]="nModel()" (input)="nModel.set($any($event.target).value)" placeholder="everywhere" list="cups-models" />
+              <datalist id="cups-models">
+                <option value="everywhere">Driverless IPP Everywhere</option>
+                <option value="raw">Raw / passthrough queue</option>
+                @for (m of models(); track m.name) { <option [value]="m.name">{{ m.desc }}</option> }
+              </datalist>
             </label>
             <label class="bm-fld">Location<input [value]="nLoc()" (input)="nLoc.set($any($event.target).value)" placeholder="optional" /></label>
             <button mat-raised-button color="primary" (click)="add()" [disabled]="busy() || !nName().trim() || !nUri().trim()">Add printer</button>
           </div>
-          <p class="bm-hint">Driver: <code>everywhere</code> = driverless IPP (modern network printers); or a PPD/model name from the driver DB, or <code>raw</code> for a passthrough queue. @if (devMsg()) { <span class="bm-dim">— {{ devMsg() }}</span> }</p>
+          <p class="bm-hint">Driver: <code>everywhere</code> = driverless IPP (modern network printers); or a PPD/model name from the driver DB (click “Load driver DB” for the dropdown), or <code>raw</code> for a passthrough queue. @if (devMsg()) { <span class="bm-dim">— {{ devMsg() }}</span> } @if (modelMsg()) { <span class="bm-dim">— {{ modelMsg() }}</span> }</p>
         </section>
       }
     </div>
@@ -97,9 +107,10 @@ export class CupsComponent {
   loading = signal(false);
   loaded = signal(false);
   busy = signal(false);
-  msg = signal(''); err = signal(''); devMsg = signal('');
+  msg = signal(''); err = signal(''); devMsg = signal(''); modelMsg = signal('');
   printers = signal<Printer[]>([]);
   devices = signal<string[]>([]);
+  models = signal<{ name: string; desc: string }[]>([]);
   nName = signal(''); nUri = signal(''); nModel = signal('everywhere'); nLoc = signal('');
 
   loadOnce(): void { if (!this.loaded() && !this.loading()) this.reload(); }
@@ -146,6 +157,32 @@ export class CupsComponent {
         this.devMsg.set(`${this.devices().length} device(s) discovered`);
       },
       error: () => { this.busy.set(false); this.devMsg.set('device detection failed'); },
+    });
+  }
+
+  loadModels(): void {
+    this.busy.set(true); this.modelMsg.set('');
+    // lpinfo -m: "<ppd-name> <lang> <make-and-model description>" per line.
+    this.agentService.callTool(this.agentId(), 'command', { argv: ['sh', '-c', 'lpinfo -m 2>/dev/null || true'] }).subscribe({
+      next: (resp) => {
+        this.busy.set(false);
+        const out = (resp.result as { data?: { stdout?: string } })?.data?.stdout || '';
+        const ms: { name: string; desc: string }[] = [];
+        for (const line of out.split('\n')) {
+          const t = line.trim();
+          if (!t) continue;
+          const sp = t.indexOf(' ');
+          if (sp < 0) continue;
+          const name = t.slice(0, sp);
+          const desc = t.slice(sp + 1).trim();
+          if (name && name !== 'everywhere' && name !== 'raw') ms.push({ name, desc });
+        }
+        // Cap the datalist so a driver DB with thousands of PPDs stays snappy;
+        // the field stays free-text so any model name still works.
+        this.models.set(ms.slice(0, 2000));
+        this.modelMsg.set(`${ms.length} driver(s) in the DB${ms.length > 2000 ? ' (showing 2000 — type to match others)' : ''}`);
+      },
+      error: () => { this.busy.set(false); this.modelMsg.set('driver DB unavailable'); },
     });
   }
 

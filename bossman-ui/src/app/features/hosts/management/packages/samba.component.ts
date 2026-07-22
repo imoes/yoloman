@@ -72,7 +72,8 @@ const MANAGED = new Set(['path', 'comment', 'browseable', 'browsable', 'read onl
     .bm-smb { display: flex; flex-direction: column; gap: 12px; }
     .bm-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .bm-spacer { flex: 1; } .bm-dry { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
-    .bm-share { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow: hidden; }
+    /* No overflow:hidden — it would clip the directory-picker dropdown. */
+    .bm-share { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; }
     .bm-share > header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-share > header mat-icon { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; }
     .bm-name { font-weight: 600; font-size: 14px; border: 0; background: transparent; color: inherit; padding: 2px 4px; }

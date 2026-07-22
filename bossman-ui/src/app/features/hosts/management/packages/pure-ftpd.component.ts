@@ -63,7 +63,8 @@ const PASSWD = '/etc/pure-ftpd/pureftpd.passwd';
     .bm-ftp { display: flex; flex-direction: column; gap: 14px; }
     .bm-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .bm-spacer { flex: 1; }
-    .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow: hidden; }
+    /* No overflow:hidden — the add-user card holds the directory-picker dropdown. */
+    .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; }
     .bm-card > header { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }

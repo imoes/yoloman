@@ -55,6 +55,14 @@ const MARKER = '#Ansible: ';
             <input class="bm-in-job" placeholder="/usr/local/bin/backup.sh" [value]="nJob()" (input)="nJob.set($any($event.target).value)" />
             <button mat-stroked-button (click)="addJob()" [disabled]="busy() || !nName().trim() || !nJob().trim()"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
           </div>
+          <p class="bm-hint">
+            Schedule = five space-separated fields <code>minute&nbsp;hour&nbsp;day-of-month&nbsp;month&nbsp;day-of-week</code>.
+            Each field is <code>*</code> (every), a number, a list <code>1,15</code>, a range <code>9-17</code>,
+            or a step <code>*/5</code> (every 5). Examples: <code>*/5 * * * *</code> = every 5&nbsp;min ·
+            <code>0 2 * * *</code> = daily 02:00 · <code>30 8 * * 1-5</code> = 08:30 on weekdays ·
+            <code>0 0 1 * *</code> = 1st of each month. Or a named schedule: <code>&#64;hourly</code>,
+            <code>&#64;daily</code>, <code>&#64;weekly</code>, <code>&#64;monthly</code>, <code>&#64;reboot</code>.
+          </p>
         </section>
 
         <section class="bm-card">
@@ -77,6 +85,12 @@ const MARKER = '#Ansible: ';
             <input class="bm-in-job" placeholder="ExecStart e.g. /usr/local/bin/job.sh" [value]="tExec()" (input)="tExec.set($any($event.target).value)" />
             <button mat-stroked-button (click)="createTimer()" [disabled]="busy() || !tName().trim() || !tCal().trim() || !tExec().trim()"><mat-icon>add</mat-icon> Create timer</button>
           </div>
+          <p class="bm-hint">
+            <code>OnCalendar</code> uses systemd's calendar syntax <code>DOW YYYY-MM-DD HH:MM:SS</code> (unset parts = every).
+            Examples: <code>daily</code> / <code>weekly</code> / <code>hourly</code> (shortcuts) ·
+            <code>*-*-* 02:00</code> = every day 02:00 · <code>Mon *-*-* 09:00</code> = Mondays 09:00 ·
+            <code>*-*-01 00:00</code> = 1st of month · <code>*:0/15</code> = every 15&nbsp;min.
+          </p>
         </section>
       }
     </div>
@@ -100,6 +114,8 @@ const MARKER = '#Ansible: ';
     .bm-in-name { width: 130px; } .bm-in-sched { width: 190px; } .bm-in-job { flex: 1; min-width: 180px; }
     .bm-x { border: 0; background: transparent; cursor: pointer; opacity: 0.6; }
     .bm-dim { opacity: 0.6; font-size: 13px; padding: 6px 8px; } .bm-ok { color: var(--bm-green,#2e7d32); font-size: 13px; } .bm-err { color: var(--mat-sys-error,#c62828); font-size: 13px; }
+    .bm-hint { font-size: 12px; opacity: 0.72; padding: 0 14px 12px; line-height: 1.55; }
+    .bm-hint code { font-family: ui-monospace, monospace; background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
   `],
 })
 export class CronComponent {
