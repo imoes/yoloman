@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { NgxEchartsDirective } from 'ngx-echarts';
@@ -150,6 +150,11 @@ type Filter = 'all' | 'crit' | 'warn' | 'ok';
 })
 export class StandaloneOverviewComponent implements OnInit {
   private http = inject(HttpClient);
+  // Fleet reuse: when an agentId is given the cockpit reads Bossman's
+  // per-agent metrics endpoint; left empty (standalone console) it reads the
+  // agent's own same-origin /api/v1/metrics. hostName overrides the title.
+  agentId = input<string>('');
+  hostName = input<string>('');
   loading = signal(true);
   live = signal(false);
   hostname = signal('');
@@ -157,20 +162,37 @@ export class StandaloneOverviewComponent implements OnInit {
   private metrics = signal<Record<string, { timestamp: string; value: number; labels?: Record<string, string> }[]>>({});
   private cpuCount = 4;
 
-  ngOnInit(): void { this.load(); setInterval(() => this.load(true), 15000); }
+  ngOnInit(): void {
+    this.hostname.set(this.hostName() || location.hostname);
+    this.load();
+    setInterval(() => this.load(true), 15000);
+  }
 
   private load(quiet = false): void {
     if (!quiet) this.loading.set(true);
-    this.http.get<{ metrics: Record<string, { timestamp: string; value: number; labels?: Record<string, string> }[]> }>('/api/v1/metrics').subscribe({
+    // Standalone: the agent's own /metrics returns {metrics:{name:[points…]}}.
+    // Fleet: Bossman's /agents/<id>/metrics/latest returns the newest sample of
+    // every metric as a flat list [{metric,time,value,labels}] — reshape it to
+    // the same {name:[point]} map so the computeds below don't care which shell.
+    const url = this.agentId() ? `/api/v1/agents/${this.agentId()}/metrics/latest` : '/api/v1/metrics';
+    type Pt = { timestamp: string; value: number; labels?: Record<string, string> };
+    type LatestRow = { metric: string; time: string; value: number; labels?: Record<string, string> };
+    this.http.get<{ metrics: Record<string, Pt[]> | LatestRow[] }>(url).subscribe({
       next: (r) => {
         this.loading.set(false); this.live.set(true);
-        const m = r.metrics || {};
+        const raw = r.metrics;
+        let m: Record<string, Pt[]>;
+        if (Array.isArray(raw)) {
+          m = {};
+          for (const x of raw) { (m[x.metric] ||= []).push({ timestamp: x.time, value: x.value, labels: x.labels }); }
+        } else {
+          m = raw || {};
+        }
         this.metrics.set(m);
         const cc = this.latest(m['cpu_count']); if (cc) this.cpuCount = cc;
       },
       error: () => { this.loading.set(false); this.live.set(false); },
     });
-    if (!this.hostname()) this.hostname.set(location.hostname);
   }
 
   private latest(series?: { value: number }[]): number | null {

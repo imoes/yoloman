@@ -39,6 +39,7 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
+import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -118,6 +119,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatIconModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
+    StandaloneOverviewComponent,
     HostChecksComponent,
     HostConsoleComponent,
     TopologyComponent,
@@ -142,45 +144,16 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         <mat-tab-group class="bm-host-tabs" [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
           <mat-tab label="Overview"><ng-template matTabContent>
             <div class="bm-tab-content">
+              <!-- Cockpit view (same component as the standalone console): live
+                   gauges + filterable services grid + alerts, from this agent's
+                   metrics. -->
+              <app-standalone-overview [agentId]="agent.id" [hostName]="agent.name" />
               @if (overview(); as ov) {
-                <div class="bm-overview-grid">
-                  <mat-card class="bm-overview-tile">
-                    <div class="bm-overview-label">CPU load</div>
-                    <div class="bm-overview-value">{{ ov.cpu_load !== null ? ov.cpu_load.toFixed(2) : '—' }}</div>
-                  </mat-card>
-                  <mat-card class="bm-overview-tile">
-                    <div class="bm-overview-label">Memory</div>
-                    <app-perf-o-meter [value]="ov.mem_used_pct" [warn]="80" [crit]="90" />
-                  </mat-card>
-                  <mat-card class="bm-overview-tile">
-                    <div class="bm-overview-label">Disk (max)</div>
-                    <app-perf-o-meter [value]="ov.disk_used_pct_max" [warn]="80" [crit]="90" />
-                  </mat-card>
-                  <mat-card class="bm-overview-tile">
-                    <div class="bm-overview-label">Services</div>
-                    <div class="bm-service-counts">
-                      @if (ov.service_counts['CRIT']) {
-                        <span class="bm-count bm-count--crit">{{ ov.service_counts['CRIT'] }} CRIT</span>
-                      }
-                      @if (ov.service_counts['WARN']) {
-                        <span class="bm-count bm-count--warn">{{ ov.service_counts['WARN'] }} WARN</span>
-                      }
-                      @if (ov.service_counts['OK']) {
-                        <span class="bm-count bm-count--ok">{{ ov.service_counts['OK'] }} OK</span>
-                      }
-                      @if (!ov.service_counts['CRIT'] && !ov.service_counts['WARN'] && !ov.service_counts['OK']) {
-                        <span class="bm-empty">No services yet</span>
-                      }
-                    </div>
-                  </mat-card>
-                </div>
                 @if (ov.parent_name) {
                   <p class="bm-parent-note">
                     Behind proxy <a [routerLink]="['/hosts', ov.parent_agent_id]">{{ ov.parent_name }}</a>
                   </p>
                 }
-              } @else {
-                <p class="bm-empty">No metric snapshot yet for this host.</p>
               }
             </div>
           </ng-template></mat-tab>
