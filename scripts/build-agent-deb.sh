@@ -17,7 +17,11 @@ export VERSION
 echo ">> building agent version ${VERSION}"
 
 ROOT="$(pwd)"
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o agentic-mcpd ./cmd/agentic-mcpd
+# CGO_ENABLED=1: pulls in the real PAM authenticator (internal/authz/pam.go is
+# //go:build cgo; the !cgo stub rejects every login). Needs gcc + libpam0g-dev
+# at build time and libpam0g at runtime (a base package on Debian/RHEL). The
+# binary is now dynamically linked (glibc + libpam) rather than fully static.
+CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o agentic-mcpd ./cmd/agentic-mcpd
 
 mkdir -p deploy-artifacts
 # nfpm resolves the config's relative src paths (../agentic-mcpd, ../configs/…)

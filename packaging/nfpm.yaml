@@ -4,6 +4,16 @@
 name: agentic-mcp
 arch: amd64
 platform: linux
+
+# The daemon is built with CGO for PAM login → dynamically links libpam
+# (+ glibc). libpam is a base package everywhere, declared so dpkg/rpm enforce it.
+overrides:
+  deb:
+    depends:
+      - libpam0g
+  rpm:
+    depends:
+      - pam
 version: "${VERSION}"
 section: admin
 priority: optional
@@ -35,6 +45,14 @@ contents:
 
   - src: ../configs/commands.yaml
     dst: /etc/agentic-mcp/commands.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  # PAM service for the standalone-console login (/api/v1/auth/login). Without
+  # it PAM uses /etc/pam.d/other (deny-by-default) and every login fails.
+  - src: ../packaging/pam-agentic-mcp
+    dst: /etc/pam.d/agentic-mcp
     type: config|noreplace
     file_info:
       mode: 0644
