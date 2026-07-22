@@ -9,6 +9,14 @@ listen: "127.0.0.1:8010"
 # satellites and re-serves the aggregate.
 mode: standalone
 
+# Load ONLY the built-in modules at startup (native Go + the embedded curated
+# Starlark set) instead of bulk-loading everything under modules_dir. A
+# standalone Duppy doesn't need a fleet-sized pushed library; extra modules
+# still load on demand when pushed via /api/v1/modules/apply. `register` sets
+# this true so an enrolled satellite loads the check/collection library a Fleet
+# Commander pushes it.
+modules_autoload: false
+
 # Bearer token required for MCP/REST access. The .deb postinst script
 # generates a random one; for local testing, set your own.
 token: ""

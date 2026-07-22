@@ -44,7 +44,15 @@ type Config struct {
 	// (<collection>/<name>.star + .nt/.yaml sidecar), loaded and registered
 	// as executable tools at startup (Block G3). Optional dir like tools_dir.
 	ModulesDir   string `yaml:"modules_dir"`
-	CommandsFile string `yaml:"commands_file"`
+	// ModulesAutoload controls whether the whole modules_dir is bulk-loaded at
+	// startup. true (default) = load every pushed Starlark module (a Fleet
+	// Commander pushes the check/collection library to a satellite, which needs
+	// it resident). false = load ONLY the built-in modules (native Go + the
+	// embedded curated Starlark set); additional modules still load on demand
+	// when pushed via /api/v1/modules/apply. A standalone Duppy sets this false
+	// so it doesn't load a fleet-sized library it doesn't need.
+	ModulesAutoload bool   `yaml:"modules_autoload"`
+	CommandsFile    string `yaml:"commands_file"`
 	ACLPath      string `yaml:"acl_path"`
 
 	// UploadsDir is the fixed staging directory the upload_file MCP tool
@@ -330,9 +338,10 @@ func Default() Config {
 		UI:            UI{Enabled: true},
 		Console:       Console{Enabled: true},
 		Piggyback:     Piggyback{Docker: true},
-		ToolsDir:      "/etc/agentic-mcp/tools.d",
-		ModulesDir:    "/var/lib/agentic-mcp/modules.d",
-		CommandsFile:  "/etc/agentic-mcp/commands.yaml",
+		ToolsDir:        "/etc/agentic-mcp/tools.d",
+		ModulesDir:      "/var/lib/agentic-mcp/modules.d",
+		ModulesAutoload: true, // absent in YAML → keep bulk-loading (satellites unchanged)
+		CommandsFile:    "/etc/agentic-mcp/commands.yaml",
 		ACLPath:       "/var/lib/agentic-mcp/acl.db",
 		UploadsDir:    "/var/lib/agentic-mcp/uploads",
 		MaxUploadSize: 512 * 1024 * 1024,

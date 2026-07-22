@@ -151,6 +151,9 @@ func runRegister(args []string) error {
 	if cfg.Mode != "proxy" {
 		cfg.Mode = "satellite"
 	}
+	// A satellite loads the check/collection library its Commander pushes, so
+	// bulk-load modules_dir at startup (standalone ships this false).
+	cfg.ModulesAutoload = true
 
 	// Work out this agent's own reachable address (host:port) so Bossman can
 	// pull from it — the whole point of enrolling. This MUST work without

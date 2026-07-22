@@ -289,20 +289,29 @@ func loadComponents(cfg config.Config) (*components, error) {
 	// modules_dir into the SAME registry the REST/MCP layers read, so they
 	// dispatch like native modules. Invalid modules are logged and skipped,
 	// never fatal (one bad module must not stop the agent).
-	starMods, warnings, err := starmodules.LoadDir(cfg.ModulesDir, cfg.Write)
-	if err != nil {
-		return nil, fmt.Errorf("loading modules.d: %w", err)
-	}
-	for _, w := range warnings {
-		slog.Warn("skipping Starlark module", "reason", w)
-	}
-	for _, m := range starMods {
-		if regErr := modReg.Register(m); regErr != nil {
-			slog.Warn("skipping Starlark module", "reason", regErr.Error())
+	//
+	// Gated by modules_autoload: a standalone Duppy sets it false to load ONLY
+	// the built-ins (native Go + the embedded curated Starlark set) instead of
+	// a fleet-sized pushed library; modules still load on demand when pushed
+	// via /api/v1/modules/apply.
+	if !cfg.ModulesAutoload {
+		slog.Info("modules_autoload=false — loading built-in modules only (pushed modules load on demand)", "dir", cfg.ModulesDir)
+	} else {
+		starMods, warnings, err := starmodules.LoadDir(cfg.ModulesDir, cfg.Write)
+		if err != nil {
+			return nil, fmt.Errorf("loading modules.d: %w", err)
 		}
-	}
-	if len(starMods) > 0 {
-		slog.Info("loaded Starlark modules", "count", len(starMods), "dir", cfg.ModulesDir)
+		for _, w := range warnings {
+			slog.Warn("skipping Starlark module", "reason", w)
+		}
+		for _, m := range starMods {
+			if regErr := modReg.Register(m); regErr != nil {
+				slog.Warn("skipping Starlark module", "reason", regErr.Error())
+			}
+		}
+		if len(starMods) > 0 {
+			slog.Info("loaded Starlark modules", "count", len(starMods), "dir", cfg.ModulesDir)
+		}
 	}
 
 	return &components{
