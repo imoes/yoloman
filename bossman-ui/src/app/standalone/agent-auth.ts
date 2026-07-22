@@ -52,7 +52,14 @@ export const agentInterceptor: HttpInterceptorFn = (req, next) => {
     let path = req.url.slice(i + marker.length).replace(/^agents\/[^/]+\/?/, '');
     isTool = path.startsWith('tools/');
     toolName = isTool ? path.slice('tools/'.length).split('?')[0] : '';
-    out = req.clone({ url: marker + path });
+    // The fleet services post a tool call as {params:{…}} (Bossman unwraps it
+    // server-side); the agent's /tools/{name} takes the params object DIRECTLY
+    // as the body. Unwrap it here so the module sees {op,…}, not {params:{…}}.
+    if (isTool && req.body && typeof req.body === 'object' && 'params' in (req.body as object)) {
+      out = req.clone({ url: marker + path, body: (req.body as { params: unknown }).params });
+    } else {
+      out = req.clone({ url: marker + path });
+    }
   }
   const tok = authToken();
   if (tok && out.url.startsWith('/api/')) {
