@@ -300,7 +300,12 @@ class Settings(BaseSettings):
     # policy, read by the metrics tiered-resolution logic (Block K1b,
     # services/metrics_query.py) to decide when a requested time range needs
     # metrics_hourly/metrics_daily instead of raw metrics.
-    metrics_retention_days: int = 14
+    # RRD-style tiering (mirrors Checkmk's RRA cascade — cmk/rrd/_const.py):
+    # 2 days at full 30s resolution, then 5-min / hourly / daily downsamples.
+    # metrics_daily is built FROM metrics_hourly (hierarchical), so raw only
+    # has to survive long enough to feed the 5-min/hourly tiers (~hours).
+    metrics_retention_days: int = 2
+    metrics_5min_retention_days: int = 10
     metrics_hourly_retention_days: int = 90
     metrics_daily_retention_days: int = 365
     connection_events_retention_days: int = 30

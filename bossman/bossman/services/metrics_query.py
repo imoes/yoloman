@@ -36,14 +36,17 @@ class SeriesPoint:
 
 
 def pick_tier(settings: Settings, since: datetime | None, now: datetime) -> str:
-    """Chooses "raw" | "hourly" | "daily" based on how far back `since`
-    reaches, using the informational retention mirrors in Settings as the
-    tier boundaries (see config.py's Block K1b comment)."""
+    """Chooses "raw" | "5min" | "hourly" | "daily" based on how far back
+    `since` reaches, using the informational retention mirrors in Settings as
+    the tier boundaries (see config.py's Block K1b comment). Mirrors Checkmk's
+    RRA cascade: full-res for a couple of days, then progressively coarser."""
     if since is None:
         return "raw"
     age_days = (now - since).total_seconds() / 86400
     if age_days <= settings.metrics_retention_days:
         return "raw"
+    if age_days <= settings.metrics_5min_retention_days:
+        return "5min"
     if age_days <= settings.metrics_hourly_retention_days:
         return "hourly"
     return "daily"
@@ -82,7 +85,7 @@ async def query_series(
         rows = (await session.execute(stmt, params)).all()
         return "raw", [SeriesPoint(time=r.time, value=r.value, labels=_parse_labels(r.labels)) for r in rows]
 
-    view = "metrics_hourly" if tier == "hourly" else "metrics_daily"
+    view = {"5min": "metrics_5min", "hourly": "metrics_hourly", "daily": "metrics_daily"}[tier]
     stmt = text(
         f"SELECT bucket AS time, avg_value, min_value, max_value, labels FROM {view} "
         "WHERE agent_id = :agent_id AND metric = :metric AND bucket >= :since "
