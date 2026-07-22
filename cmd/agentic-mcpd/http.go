@@ -53,6 +53,16 @@ func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handle
 			return err
 		}
 		mux.Handle("/ui/", uiHandler)
+		// Convenience for a standalone box: the bare root serves the console
+		// (redirect to /ui/). The API stays under /api/v1/. Other unmatched
+		// paths 404 as before — this catch-all only special-cases "/".
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				http.Redirect(w, r, "/ui/", http.StatusFound)
+				return
+			}
+			http.NotFound(w, r)
+		})
 	}
 
 	if cfg.TLS.Enabled {
