@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { HostManagementComponent } from '../features/hosts/management/host-management.component';
 import { StandaloneLoginComponent } from './standalone-login.component';
+import { StandaloneOverviewComponent } from './standalone-overview.component';
 import { authToken, clearAuth } from './agent-auth';
 
 interface Proc { pid: number; user: string; comm: string; command: string; cpu_percent: number; rss_kib: number; state: string; }
@@ -17,7 +18,7 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [HostManagementComponent, StandaloneLoginComponent, DecimalPipe],
+  imports: [HostManagementComponent, StandaloneLoginComponent, StandaloneOverviewComponent, DecimalPipe],
   template: `
     @if (!authed()) {
       <app-standalone-login />
@@ -26,13 +27,15 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
         <header class="bm-top">
           <strong>YOLO-MANager</strong><span class="bm-dim">standalone agent</span>
           <nav>
+            <button [class.on]="tab()==='overview'" (click)="tab.set('overview')">Overview</button>
             <button [class.on]="tab()==='management'" (click)="tab.set('management')">Management</button>
             <button [class.on]="tab()==='processes'" (click)="select('processes')">Processes</button>
           </nav>
           <span class="bm-spacer"></span>
           <button class="bm-logout" (click)="logout()">Log out</button>
         </header>
-        <main class="bm-main">
+        <main class="bm-main" [class.bm-main-flush]="tab()==='overview'">
+          @if (tab()==='overview') { <app-standalone-overview /> }
           <div [style.display]="tab()==='management' ? 'block' : 'none'">
             <app-host-management [agentId]="agentId" [hideSnapins]="['servicechecks']" />
           </div>
@@ -63,6 +66,8 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
     .bm-spacer { flex: 1; }
     .bm-logout { padding: 4px 12px; background: transparent; color: #ccc; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
     .bm-main { flex: 1 1 auto; overflow: auto; background: var(--mat-sys-surface, #fff); color: var(--mat-sys-on-surface, #111); padding: 16px; }
+    .bm-main.bm-main-flush { padding: 0; display: flex; }
+    .bm-main.bm-main-flush > app-standalone-overview { flex: 1; min-width: 0; }
     .bm-proc-head { display: flex; align-items: center; gap: 12px; }
     .bm-t { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
     .bm-t th { text-align: left; opacity: 0.7; padding: 4px 8px; } .bm-t td { padding: 3px 8px; border-top: 1px solid #8883; }
@@ -73,7 +78,7 @@ export class StandaloneShellComponent {
   private http = inject(HttpClient);
   readonly agentId = 'self';
   constructor() { document.title = 'YOLO-MANager'; }
-  tab = signal<'management' | 'processes'>('management');
+  tab = signal<'overview' | 'management' | 'processes'>('overview');
   authed = () => !!authToken();
   procs = signal<Proc[]>([]);
   procBusy = signal(false);
