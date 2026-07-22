@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sort"
+	"strconv"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -45,38 +45,6 @@ var version = "dev"
 
 // Version exposes the build version to the rest of the daemon (e.g. /healthz).
 func Version() string { return version }
-
-// procMetricTopN caps how many process command-names get a CPU/RSS time series
-// per sample, keeping metrics storage bounded regardless of how many distinct
-// (often junk: kworker/*, transient) comms a host has. Top-N by RSS ∪ top-N by
-// CPU, so the biggest memory users AND the biggest CPU users are always kept.
-const procMetricTopN = 25
-
-// topNKeys returns the keys of the n largest positive values in m. Zero/negative
-// values are skipped (an idle process contributes no CPU% this tick and isn't
-// worth a series). Ties break arbitrarily — good enough for "biggest consumers".
-func topNKeys(m map[string]float64, n int) map[string]struct{} {
-	type kv struct {
-		k string
-		v float64
-	}
-	arr := make([]kv, 0, len(m))
-	for k, v := range m {
-		if v <= 0 {
-			continue
-		}
-		arr = append(arr, kv{k, v})
-	}
-	sort.Slice(arr, func(i, j int) bool { return arr[i].v > arr[j].v })
-	if n > len(arr) {
-		n = len(arr)
-	}
-	out := make(map[string]struct{}, n)
-	for i := 0; i < n; i++ {
-		out[arr[i].k] = struct{}{}
-	}
-	return out
-}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -565,39 +533,32 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				points = append(points, spts...)
 			}
 		}
-		// Per-process CPU%/RSS history: sample every process and aggregate by
-		// command name (comm), summing CPU% and RSS across all PIDs that share
-		// it. Keying history on comm — not pid — keeps a trend continuous across
-		// a restart (same comm, new pid) and drops dead-pid accumulation.
+		// Per-process CPU%/RSS history, keyed by (pid, comm):
 		//
-		// BUT comm is NOT low-cardinality on a real host: kernel worker threads
-		// (kworker/u16:3, …) and transient helpers push distinct-comm counts to
-		// ~1500/host, so emitting one series per comm every tick wrote ~60M
-		// rows/week into Bossman's metrics table (32 GB for a single host — it
-		// would be ~30 TB across 1000 hosts). To keep storage bounded like an
-		// RRD (independent of how many junk comms exist), emit only the TOP-N
-		// consumers by RSS and by CPU (their union) — the processes anyone would
-		// actually chart — capping the series at ~2*procMetricTopN per host.
+		//  - A series is one concrete process instance (pid). A restart gives the
+		//    command a new pid → a fresh series starting at 0 (the old pid simply
+		//    stops being sampled and ages out of retention), so a restart reads as
+		//    a clean reset rather than a misleading continuation.
+		//  - ZERO-FILTER: skip any process using neither CPU nor memory this tick
+		//    (CPU==0 AND RSS==0). Kernel threads (kworker/*, ksoftirqd, ZFS
+		//    z_*/txg_*, …) have RSS==0, so this alone drops ~1400 of the ~1450
+		//    distinct comms on a busy Proxmox host — the junk that made this
+		//    metric balloon to 32 GB/host/week — while keeping every real
+		//    userland process that actually consumes resources.
 		if procs, perr := proc.SampleProcesses("/proc", 300*time.Millisecond); perr != nil {
 			slog.Debug("process metric sampling failed", "error", perr)
 		} else {
-			cpuByComm := map[string]float64{}
-			rssByComm := map[string]float64{}
 			for _, p := range procs {
 				if p.Comm == "" {
 					continue
 				}
-				cpuByComm[p.Comm] += p.CPUPercent
-				rssByComm[p.Comm] += float64(p.RSSKiB) * 1024
-			}
-			keep := topNKeys(rssByComm, procMetricTopN)
-			for c := range topNKeys(cpuByComm, procMetricTopN) {
-				keep[c] = struct{}{}
-			}
-			for comm := range keep {
-				lbl := map[string]string{"comm": comm}
-				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: cpuByComm[comm], Labels: lbl})
-				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: rssByComm[comm], Labels: lbl})
+				rss := float64(p.RSSKiB) * 1024
+				if p.CPUPercent == 0 && rss == 0 {
+					continue // idle kernel thread / nothing to chart
+				}
+				lbl := map[string]string{"pid": strconv.Itoa(p.PID), "comm": p.Comm}
+				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: p.CPUPercent, Labels: lbl})
+				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: rss, Labels: lbl})
 			}
 		}
 		if err := st.WritePoints(context.Background(), points); err != nil {
