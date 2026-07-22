@@ -145,6 +145,13 @@ func runRegister(args []string) error {
 	// (write=false)". --write=false enrolls a read-only (monitor-only) agent.
 	cfg.Write = *write
 
+	// Enrolling makes this a satellite: a Fleet Commander now pulls its data.
+	// A fresh package ships "standalone" (self-contained); register flips it —
+	// unless this agent is a proxy (Selecta), whose mode must be preserved.
+	if cfg.Mode != "proxy" {
+		cfg.Mode = "satellite"
+	}
+
 	// Work out this agent's own reachable address (host:port) so Bossman can
 	// pull from it — the whole point of enrolling. This MUST work without
 	// --address: a zero-touch enroll shouldn't require the operator to know

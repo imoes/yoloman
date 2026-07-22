@@ -118,9 +118,11 @@ Runs on every managed host. Highlights:
   identically over MCP and REST. Every mutating action previews in `check_mode` first; real
   execution requires a global `write: true` switch (default `false` — mutating tools aren't even
   registered otherwise).
-- **Three modes** — `standalone` (default), `satellite` (Bossman pulls its data), and `proxy`
-  (**Selecta** — pulls from satellites over mTLS and re-serves the aggregate). Machine-to-machine
-  auth is TLS client certs pinned per caller (the `authorized_keys` model, over TLS).
+- **Three modes** — `standalone` (**the packaged default** — a fully self-contained Duppy),
+  `satellite` (Bossman pulls its data — `agentic-mcpd register` switches a standalone agent to this
+  automatically on enrolment), and `proxy` (**Selecta** — pulls from satellites over mTLS and
+  re-serves the aggregate). Machine-to-machine auth is TLS client certs pinned per caller (the
+  `authorized_keys` model, over TLS).
 - **`.deb`/`.rpm` packaging**, a hardened systemd unit, a self-contained embedded web admin UI, and
   structured audit logging (one JSON line per call to journald).
 
@@ -163,8 +165,20 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   `enforced` links, and block-inheritance — resolved server-side, previewed before it's pushed.
   Fleet-wide check thresholds ship as an auto-created **Default Policy** rather than nameless globals.
 - **Management console (MMC-style)** — each host's Management tab is a console: a snap-in tree
-  (Roles & Features, Services, Updates, Logs, Accounts, Network, Firewall, Storage, …), the
-  selected panel in the middle, an Actions pane on the right.
+  grouped by category, the selected panel in the middle, an Actions pane on the right. Snap-ins:
+  *Server* — Roles & Features, Services, **Scheduled jobs** (crontab CRUD + systemd timers),
+  Updates, **Software sources** (APT one-line + deb822 repos), Logs, Accounts; *Monitoring* —
+  Service checks; *Network* — Network, **Firewall**; *Storage* — Storage; *Identity* — FreeIPA;
+  *Virtualization*; and a **Package configuration** category with purpose-built editors for the
+  services a host runs: **BIND zones** (zone lifecycle + records), **NFS exports** and
+  **Samba shares** (structured options with a **remote directory browser** for share paths),
+  **DHCP server** (scopes + reservations + lease list, via a dedicated `dhcpd` codec),
+  **Pure-FTPd** / **ProFTPD** (virtual FTP users, each home a share) and **CUPS printing**
+  (printer management via `lpadmin`/`lpstat`). The **Firewall** snap-in is one firewall-cmd-simple
+  front-end over whichever backend the host runs — **firewalld / ufw / iptables, auto-detected** —
+  covering allow/deny (port or service), SNAT/DNAT, and a server↔router mode toggle (IP forwarding
+  + masquerade); enabling it whitelists the agent's own management port first so it can never lock
+  itself out.
 - **Roles & Features installation wizard** — like Windows Server Manager's "Add Roles and
   Features": pick server packages, configure each through a generated input mask (every setting
   shown with its description **and default value**), preview as a dry run, then install — all in
