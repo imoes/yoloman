@@ -365,6 +365,9 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)
 	RegisterProcessRoutes(mux, cfg)
+	// Per-host management surface (network/services/logs/accounts/storage/
+	// updates/virt + config catalog) so the reused fleet UI works standalone.
+	RegisterManagementRoutes(mux, cfg)
 
 	// Interactive web shell (Proxmox-style): a PTY running /bin/login, over a
 	// WebSocket. Behind withIdentity + the outer mTLS wrapper; Bossman proxies
