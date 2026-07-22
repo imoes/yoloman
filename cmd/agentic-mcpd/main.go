@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -44,6 +45,38 @@ var version = "dev"
 
 // Version exposes the build version to the rest of the daemon (e.g. /healthz).
 func Version() string { return version }
+
+// procMetricTopN caps how many process command-names get a CPU/RSS time series
+// per sample, keeping metrics storage bounded regardless of how many distinct
+// (often junk: kworker/*, transient) comms a host has. Top-N by RSS ∪ top-N by
+// CPU, so the biggest memory users AND the biggest CPU users are always kept.
+const procMetricTopN = 25
+
+// topNKeys returns the keys of the n largest positive values in m. Zero/negative
+// values are skipped (an idle process contributes no CPU% this tick and isn't
+// worth a series). Ties break arbitrarily — good enough for "biggest consumers".
+func topNKeys(m map[string]float64, n int) map[string]struct{} {
+	type kv struct {
+		k string
+		v float64
+	}
+	arr := make([]kv, 0, len(m))
+	for k, v := range m {
+		if v <= 0 {
+			continue
+		}
+		arr = append(arr, kv{k, v})
+	}
+	sort.Slice(arr, func(i, j int) bool { return arr[i].v > arr[j].v })
+	if n > len(arr) {
+		n = len(arr)
+	}
+	out := make(map[string]struct{}, n)
+	for i := 0; i < n; i++ {
+		out[arr[i].k] = struct{}{}
+	}
+	return out
+}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -534,12 +567,17 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		}
 		// Per-process CPU%/RSS history: sample every process and aggregate by
 		// command name (comm), summing CPU% and RSS across all PIDs that share
-		// it. Keying history on comm — not pid — means a process's trend stays
-		// continuous across a restart (a restart gives the service a new pid but
-		// the same comm), the series count is bounded by the number of distinct
-		// commands (no dead-pid accumulation), and one line per command reads
-		// cleanly. A short window gives each PID a real CPU% delta with no
-		// per-pid state kept across ticks.
+		// it. Keying history on comm — not pid — keeps a trend continuous across
+		// a restart (same comm, new pid) and drops dead-pid accumulation.
+		//
+		// BUT comm is NOT low-cardinality on a real host: kernel worker threads
+		// (kworker/u16:3, …) and transient helpers push distinct-comm counts to
+		// ~1500/host, so emitting one series per comm every tick wrote ~60M
+		// rows/week into Bossman's metrics table (32 GB for a single host — it
+		// would be ~30 TB across 1000 hosts). To keep storage bounded like an
+		// RRD (independent of how many junk comms exist), emit only the TOP-N
+		// consumers by RSS and by CPU (their union) — the processes anyone would
+		// actually chart — capping the series at ~2*procMetricTopN per host.
 		if procs, perr := proc.SampleProcesses("/proc", 300*time.Millisecond); perr != nil {
 			slog.Debug("process metric sampling failed", "error", perr)
 		} else {
@@ -552,9 +590,13 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				cpuByComm[p.Comm] += p.CPUPercent
 				rssByComm[p.Comm] += float64(p.RSSKiB) * 1024
 			}
-			for comm, cpu := range cpuByComm {
+			keep := topNKeys(rssByComm, procMetricTopN)
+			for c := range topNKeys(cpuByComm, procMetricTopN) {
+				keep[c] = struct{}{}
+			}
+			for comm := range keep {
 				lbl := map[string]string{"comm": comm}
-				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: cpu, Labels: lbl})
+				points = append(points, store.Point{Metric: "process_cpu_percent", Timestamp: now, Value: cpuByComm[comm], Labels: lbl})
 				points = append(points, store.Point{Metric: "process_rss_bytes", Timestamp: now, Value: rssByComm[comm], Labels: lbl})
 			}
 		}

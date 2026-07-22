@@ -6,6 +6,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { CatalogPackage, PackageCatalogService } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardService } from '../../../../core/services/wizard.service';
+import { AgentService } from '../../../../core/services/agent.service';
 import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.component';
 
 /** Roles & Features snap-in (MMC): lists the catalog's configurable server
@@ -19,12 +20,14 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     <div class="bm-rf-head">
       <div>
         <h3>Roles &amp; Features</h3>
-        <p class="bm-dim">Install and configure server roles on this host — like Windows Server Manager.</p>
+        <p class="bm-dim">Install and configure server roles on this host.</p>
       </div>
       <button mat-flat-button color="primary" (click)="openWizard()" [disabled]="!ready()">
         <mat-icon>add</mat-icon> Add roles and features
       </button>
     </div>
+
+    @if (msg()) { <div class="bm-rf-msg" [class.err]="msgErr()">{{ msg() }}</div> }
 
     @if (!ready()) {
       <p class="bm-dim">Loading catalog…</p>
@@ -40,9 +43,18 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
               <td><mat-icon class="bm-rf-ic">{{ r.icon }}</mat-icon> {{ r.label }}</td>
               <td class="bm-dim">{{ r.category }}</td>
               <td class="bm-mono">{{ r.version || '—' }}</td>
-              <td>
-                @if (r.template) {
-                  <button mat-stroked-button (click)="configure(r.name)"><mat-icon>tune</mat-icon> Configure</button>
+              <td class="bm-rf-actions">
+                @if (confirming() === r.name) {
+                  <span class="bm-rf-confirm">Uninstall {{ r.label }}?</span>
+                  <button mat-flat-button color="warn" (click)="doRemove(r.name)" [disabled]="removing() === r.name">
+                    @if (removing() === r.name) { Removing… } @else { Remove }
+                  </button>
+                  <button mat-stroked-button (click)="confirming.set(null)" [disabled]="removing() === r.name">Cancel</button>
+                } @else {
+                  @if (r.template) {
+                    <button mat-stroked-button (click)="configure(r.name)"><mat-icon>tune</mat-icon> Configure</button>
+                  }
+                  <button mat-stroked-button class="bm-rf-remove" (click)="confirming.set(r.name)"><mat-icon>delete_outline</mat-icon> Remove</button>
                 }
               </td>
             </tr>
@@ -64,11 +76,19 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     .bm-rf-badge { font-size: 11px; padding: 1px 9px; border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
     .bm-rf-on { background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
+    .bm-rf-actions { white-space: nowrap; text-align: right; }
+    .bm-rf-actions button { margin-left: 6px; }
+    .bm-rf-remove { color: var(--bm-red, #d0021b); }
+    .bm-rf-confirm { font-size: 13px; margin-right: 4px; }
+    .bm-rf-msg { padding: 9px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px;
+      background: color-mix(in srgb, var(--bm-green, #1e9600) 16%, transparent); border: 1px solid color-mix(in srgb, var(--bm-green, #1e9600) 40%, transparent); }
+    .bm-rf-msg.err { background: color-mix(in srgb, var(--bm-red, #d0021b) 16%, transparent); border-color: color-mix(in srgb, var(--bm-red, #d0021b) 45%, transparent); }
   `],
 })
 export class RolesFeaturesComponent implements OnInit {
   private catalogSvc = inject(PackageCatalogService);
   private wizard = inject(WizardService);
+  private agents = inject(AgentService);
   private dialog = inject(MatDialog);
   agentId = input.required<string>();
 
@@ -80,6 +100,13 @@ export class RolesFeaturesComponent implements OnInit {
     return Object.entries(this.catalog()).some(([n, e]) => e.kind !== 'config' && n in inst);
   });
   query = signal('');
+  // Uninstall: remove the role's packages via the `package` tool (state:absent).
+  // Works in both shells — Bossman proxies /agents/{id}/tools/package to the
+  // host, and the standalone interceptor rewrites it to the agent's own tool.
+  confirming = signal<string | null>(null);
+  removing = signal<string | null>(null);
+  msg = signal('');
+  msgErr = signal(false);
 
   // Only INSTALLED roles are listed — not-installed packages are discovered via
   // "Add roles and features", so showing all 80 here was just noise.
@@ -119,4 +146,36 @@ export class RolesFeaturesComponent implements OnInit {
 
   openWizard(): void { this.open(); }
   configure(name: string): void { this.open(name); }
+
+  /** Uninstall an installed role: resolve its family-specific packages from the
+   * wizard context and call the `package` tool with state:absent. apt/dnf's own
+   * maintainer scripts stop+disable the service on removal. */
+  doRemove(name: string): void {
+    const ctx = this.context();
+    const resolved = ctx?.catalog_resolved?.[name];
+    const pkgs = resolved?.packages ?? [];
+    const label = this.catalog()[name]?.label || name;
+    if (!pkgs.length) {
+      this.msg.set(`No packages are resolved for "${label}" on this host — nothing to remove.`);
+      this.msgErr.set(true);
+      this.confirming.set(null);
+      return;
+    }
+    this.removing.set(name);
+    this.msg.set('');
+    this.agents.callTool(this.agentId(), 'package', { name: pkgs, state: 'absent' }).subscribe({
+      next: () => {
+        this.removing.set(null);
+        this.confirming.set(null);
+        this.msgErr.set(false);
+        this.msg.set(`${label} removed (${pkgs.join(', ')}).`);
+        this.reload(true);
+      },
+      error: (e) => {
+        this.removing.set(null);
+        this.msgErr.set(true);
+        this.msg.set(`Removing ${label} failed: ${e?.error?.error || e?.error?.detail || e?.message || 'request error'}`);
+      },
+    });
+  }
 }

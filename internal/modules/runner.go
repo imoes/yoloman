@@ -4,9 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
+
+// headlessEnv is the child-process environment for every shelled-out command:
+// the daemon runs under systemd with no controlling TTY, so apt/dpkg's debconf
+// must never try an interactive frontend (Dialog/Readline/Teletype all need a
+// tty and fail with "TERM is not set", aborting an otherwise-fine package
+// install). Forcing DEBIAN_FRONTEND=noninteractive makes debconf use defaults;
+// harmless for non-apt commands (dnf/systemctl/getent ignore it).
+func headlessEnv() []string {
+	return append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+}
 
 // CommandRunner executes name with args and returns its stdout. It exists so
 // modules that must shell out (service_facts, package_facts, getent — there
@@ -26,6 +37,7 @@ type CommandRunner func(ctx context.Context, name string, args ...string) ([]byt
 // parsing) while enriching a failure's error with the command's stderr.
 func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = headlessEnv()
 	out, err := cmd.Output()
 	if err != nil {
 		return out, wrapExitError(name, args, err)
@@ -43,6 +55,7 @@ type CommandRunnerWithStdin func(ctx context.Context, stdin string, name string,
 // defaultCommandRunner.
 func defaultCommandRunnerWithStdin(ctx context.Context, stdin string, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = headlessEnv()
 	cmd.Stdin = strings.NewReader(stdin)
 	out, err := cmd.Output()
 	if err != nil {

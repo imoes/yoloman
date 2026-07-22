@@ -39,7 +39,10 @@ import { environment } from '../../../environments/environment';
       .bm-md pre code { background: none; padding: 0; }
       .bm-md table { border-collapse: collapse; }
       .bm-md th, .bm-md td { border: 1px solid var(--mat-sys-outline-variant); padding: 4px 10px; }
-      .bm-md img { max-width: 100%; }
+      /* README banners (yolo-man / bossman) are full-res; cap them so the top
+         logo doesn't dominate the page. Aspect ratio is preserved by the
+         max-width/max-height pair (no explicit width/height set). */
+      .bm-md img { max-width: 100%; max-height: 200px; }
       .bm-md a { color: var(--bm-green); }
     `,
   ],

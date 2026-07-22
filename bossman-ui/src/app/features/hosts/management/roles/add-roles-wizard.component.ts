@@ -39,7 +39,7 @@ export interface AddRolesWizardData {
 
 interface RunState { pkg: string; result?: RunbookRunResult; error?: string; running?: boolean; }
 
-/** "Add Roles and Features" — Windows-Server-Manager-style install wizard.
+/** "Add Roles and Features" — guided role install wizard.
  * Before You Begin → Select Roles → Configure each → Confirmation → Results.
  * Installs packages and renders their config via the seeded install-<pkg>
  * runbooks, entirely inside the management console. */

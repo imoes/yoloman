@@ -125,10 +125,38 @@ export class HostManagementComponent implements OnInit {
 
   /** Self-activate on init so a deep-link (?tab=management) loads the default
    * snap-in without waiting for a tab-change event. */
-  ngOnInit(): void { this.activate(); }
+  ngOnInit(): void { this.activate(); this.loadInstalledPackages(); }
 
   selected = signal<string>('network');
   visited = signal<Set<string>>(new Set());
+
+  /** Bespoke package snap-ins are surfaced only when their package is actually
+   * installed, so the console tree matches Roles & Features (installed roles
+   * only). Maps snap-in id → the package name(s) whose presence means the role
+   * is installed. Non-listed snap-ins (network, logs, …) are always shown. */
+  private readonly snapinPkgs: Record<string, string[]> = {
+    'pkg-bind': ['bind9'],
+    'pkg-nfs': ['nfs-kernel-server'],
+    'pkg-dhcpd': ['isc-dhcp-server', 'kea-dhcp4-server'],
+    'pkg-samba': ['samba'],
+    'pkg-pureftpd': ['pure-ftpd'],
+    'pkg-proftpd': ['proftpd-basic', 'proftpd'],
+    'pkg-cups': ['cups', 'cups-daemon'],
+  };
+  private installedPkgs = signal<Set<string>>(new Set());
+
+  private loadInstalledPackages(): void {
+    this.agentService.callTool(this.agentId(), 'package_facts', {}).subscribe({
+      next: (r) => {
+        const data = (r as { result?: { data?: unknown } }).result?.data;
+        const list = Array.isArray(data) ? data : [];
+        const names = new Set<string>();
+        for (const p of list) { const n = (p as { name?: string }).name; if (n) names.add(n); }
+        this.installedPkgs.set(names);
+      },
+      error: () => {},
+    });
+  }
 
   private modulesSynced = false;
 
@@ -195,8 +223,14 @@ export class HostManagementComponent implements OnInit {
   tree = computed(() => {
     const groups = new Map<string, SnapIn[]>();
     const hidden = new Set(this.hideSnapins());
+    const installed = this.installedPkgs();
     for (const s of this.allSnapins()) {
       if (hidden.has(s.id)) continue;
+      // A bespoke package snap-in is shown only when its package is installed,
+      // so the tree matches Roles & Features (installed only) — e.g. ProFTPD's
+      // snap-in stays hidden until proftpd is installed.
+      const pkgs = this.snapinPkgs[s.id];
+      if (pkgs && !pkgs.some((p) => installed.has(p))) continue;
       // The firewall snapin now auto-detects its backend (firewalld/ufw/
       // iptables) and iptables is always present, so it is always shown —
       // no firewall-cmd gate anymore.

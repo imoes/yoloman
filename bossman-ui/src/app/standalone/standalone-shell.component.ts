@@ -25,6 +25,7 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
     } @else {
       <div class="bm-shell">
         <header class="bm-top">
+          <img class="bm-logo" src="assets/yolo-man.jpg" alt="YOLO-MAN" />
           <strong>YOLO-MANager</strong><span class="bm-dim">standalone agent</span>
           <nav>
             <button [class.on]="tab()==='overview'" (click)="tab.set('overview')">Overview</button>
@@ -59,6 +60,7 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
   styles: [`
     .bm-shell { display: flex; flex-direction: column; height: 100vh; font-family: system-ui, sans-serif; }
     .bm-top { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #1b1b1b; color: #eee; }
+    .bm-top .bm-logo { height: 30px; width: auto; border-radius: 5px; display: block; }
     .bm-top .bm-dim { opacity: 0.55; font-size: 12px; }
     .bm-top nav { display: flex; gap: 4px; margin-left: 14px; }
     .bm-top nav button { padding: 4px 14px; background: transparent; color: #ccc; border: 1px solid #444; border-radius: 4px; cursor: pointer; }

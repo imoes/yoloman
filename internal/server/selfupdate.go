@@ -67,7 +67,12 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	var installCmd string
 	switch kind {
 	case "deb":
-		installCmd = fmt.Sprintf("dpkg -i %q", tmp.Name())
+		// --force-confdef/--force-confold: keep the host's existing conffiles on
+		// upgrade without prompting. Without this, a changed conffile (e.g.
+		// /etc/pam.d/agentic-mcp) makes dpkg wait at an interactive "install the
+		// maintainer's version?" prompt with no tty, failing "end of file on
+		// stdin at conffile prompt" and leaving the package half-configured.
+		installCmd = fmt.Sprintf("dpkg -i --force-confdef --force-confold %q", tmp.Name())
 	case "rpm":
 		// -U upgrades (installs if absent); --force lets a same/older version
 		// replace the running one (e.g. a rebuild of the current version).
