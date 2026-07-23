@@ -115,18 +115,22 @@ class ChatClient:
         messages: list[dict[str, str]],
         json_schema: dict,
         schema_name: str,
-        max_tokens: int = 4000,
+        max_tokens: int | None = 4000,
     ) -> dict:
         """Sends a chat-completion request constrained to json_schema and
         returns the decoded response content as a dict. Raises
         ChatClientError on any network/status/decode failure — never
-        returns a partial or best-effort result."""
+        returns a partial or best-effort result.
+
+        Pass max_tokens=None to omit the cap entirely (server default / no
+        limit) — use for open-ended generation that must not be truncated."""
         body = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": max_tokens,
             "response_format": {"type": "json_schema", "json_schema": {"name": schema_name, "schema": json_schema}},
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         response_body = await self._post(body)
 
         usage = response_body.get("usage") or {}
