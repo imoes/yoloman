@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
@@ -69,6 +69,32 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
         result = await session.execute(delete(model).where(time_col < cutoff))
         await session.commit()
         deleted[table_name] = result.rowcount or 0
+
+    # Freshness cleanup of dead process series. process_cpu_percent /
+    # process_rss_bytes are keyed per (pid, comm): a restart mints a new pid, so
+    # the old pid's series stops updating. Delete any such series whose newest
+    # sample is stale (the process is gone) rather than waiting out raw
+    # retention — a live process samples every collect interval, so it is never
+    # matched. This is the CONTROL-PLANE cleanup: Postgres holds the real
+    # long-term data (the agent keeps only a short-lived local copy it serves
+    # from), so the lifecycle of this data belongs here, next to retention.
+    stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
+    res = await session.execute(
+        text(
+            """
+            DELETE FROM metrics
+            WHERE (agent_id, metric, labels) IN (
+                SELECT agent_id, metric, labels FROM metrics
+                WHERE metric IN ('process_cpu_percent', 'process_rss_bytes')
+                GROUP BY agent_id, metric, labels
+                HAVING max(time) < :cutoff
+              )
+            """
+        ),
+        {"cutoff": stale_cutoff},
+    )
+    await session.commit()
+    deleted["metrics_process_stale"] = res.rowcount or 0
     return deleted
 
 

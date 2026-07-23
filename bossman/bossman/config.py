@@ -277,6 +277,10 @@ class Settings(BaseSettings):
     housekeeping_interval_seconds: int = 3600
     notifications_retention_days: int = 90
     plan_runs_retention_days: int = 90
+    # Process (pid,comm) metric series with no fresh sample within this window
+    # are treated as dead and deleted by housekeeping (a live process samples
+    # every collect interval, ~60s). Runs on housekeeping_interval_seconds.
+    process_metric_stale_minutes: int = 15
 
     # Block L4: the desired-state reconciler (drains controller_outbox,
     # recompiles affected hosts, enqueues agent_config_delivery). Mirrors
