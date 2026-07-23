@@ -403,7 +403,22 @@ func runDownsample(cfg config.Config, st store.Store) {
 			"hourly_aggregated", stats.HourlyRowsAggregated,
 			"daily_created", stats.DailyRowsCreated)
 	}
+
+	// Freshness cleanup: drop process (pid,comm) series whose process is gone
+	// (no sample within staleProcessSeriesAfter). A restart mints a new pid →
+	// new series; the dead one is deleted here instead of lingering the full
+	// raw-retention window. Runs on the same hourly retention ticker.
+	if pruned, err := st.PruneStaleProcessSeries(context.Background(), now.Add(-staleProcessSeriesAfter)); err != nil {
+		slog.Error("pruning stale process series failed", "error", err)
+	} else if pruned > 0 {
+		slog.Info("pruned stale process series", "rows", pruned)
+	}
 }
+
+// staleProcessSeriesAfter is how long a (pid,comm) process series may go
+// without a fresh sample before it's considered dead and deleted. Well beyond
+// the collect interval so a live process is never pruned.
+const staleProcessSeriesAfter = 10 * time.Minute
 
 // startCollectLoop runs internal/collect's /proc sampler on a ticker for
 // the lifetime of the process: every tick, it writes the sampled

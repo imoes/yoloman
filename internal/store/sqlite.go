@@ -204,6 +204,28 @@ func (s *SQLiteStore) Downsample(ctx context.Context, rawCutoff, hourlyCutoff ti
 	return stats, nil
 }
 
+// PruneStaleProcessSeries deletes all rows of any process_cpu_percent /
+// process_rss_bytes series (identified by its metric+labels, i.e. pid+comm)
+// whose most recent sample is older than cutoff — the process is gone. A
+// live process samples every collect interval, so its MAX(ts) is always well
+// inside the cutoff and is never pruned; only dead pids match.
+func (s *SQLiteStore) PruneStaleProcessSeries(ctx context.Context, cutoff time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `
+		DELETE FROM metrics
+		WHERE metric IN ('process_cpu_percent', 'process_rss_bytes')
+		  AND (metric, labels) IN (
+			SELECT metric, labels FROM metrics
+			WHERE metric IN ('process_cpu_percent', 'process_rss_bytes')
+			GROUP BY metric, labels
+			HAVING MAX(ts) < ?
+		  )`, cutoff.Unix())
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 // pruneEdges deletes connection edges last seen before cutoff, riding the
 // same retention cadence as metrics (see Downsample) rather than needing a
 // separate cron mechanism.

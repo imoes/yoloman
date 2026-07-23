@@ -91,6 +91,14 @@ type Store interface {
 	// cadence as metrics rather than needing a separate cron mechanism.
 	Downsample(ctx context.Context, rawCutoff, hourlyCutoff time.Time) (DownsampleStats, error)
 
+	// PruneStaleProcessSeries deletes every per-(pid,comm) process metric
+	// series (process_cpu_percent / process_rss_bytes) whose newest sample is
+	// older than cutoff — i.e. the process is gone (a restart gets a new pid,
+	// so its old series stops receiving samples). Returns the number of rows
+	// deleted. Freshness-based cleanup keeps dead pids from lingering across
+	// the full raw-retention window and inflating the rollups.
+	PruneStaleProcessSeries(ctx context.Context, cutoff time.Time) (int, error)
+
 	// UpsertEdge records one observed (comm, destination) connection: on
 	// first sight, inserts a new row with event_count=1; on a repeat
 	// sight of the same (comm, dst_addr, dst_port), increments
