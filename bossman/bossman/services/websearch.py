@@ -60,9 +60,17 @@ class SearxngClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    async def search(self, query: str, limit: int = 6) -> list[SearchResult]:
+    # SearXNG's default engine set on this instance is entirely suspended
+    # (brave/duckduckgo/google/startpage → CAPTCHA, rate-limit, access-denied),
+    # so an unqualified query returns ZERO results. These engines answer
+    # reliably from here — pin them explicitly or every search comes back empty.
+    DEFAULT_ENGINES = "bing,mojeek,wikipedia"
+
+    async def search(self, query: str, limit: int = 6,
+                     engines: str | None = None) -> list[SearchResult]:
         """Run a SearXNG search and return up to `limit` results."""
-        params = {"q": query, "format": "json"}
+        params = {"q": query, "format": "json",
+                  "engines": engines or self.DEFAULT_ENGINES}
         # trust_env=True: honour the environment's proxy config. SearXNG is
         # internal, so no_proxy (which must cover .example.internal) keeps this hit
         # direct; the fetched documentation pages below are EXTERNAL and do need
