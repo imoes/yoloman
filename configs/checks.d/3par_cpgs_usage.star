@@ -1,107 +1,151 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run(["cmk-agent-ctl", "list-sections"], mutates=False)
-        if "3par_cpgs" not in res.stdout:
-            return {"changed": False, "msg": "discovered 0 CPG sections"}
-        res = ctx.run(["cmk", "-d", ctx.facts().get("hostname", "")], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 CPG sections"}
-        agent_data = json.decode(res.stdout)
-        raw_members = agent_data.get("members", []) if type(agent_data) == "dict" else []
-        cpgs = []
-        for member in raw_members:
-            if type(member) != "dict":
-                continue
-            name = member.get("name", "")
-            num_fpvvs = member.get("numFPVVs", 0) or 0
-            num_tdvvs = member.get("numTDVVs", 0) or 0
-            num_tpvvs = member.get("numTPVVs", 0) or 0
-            if name and (int(num_fpvvs) + int(num_tdvvs) + int(num_tpvvs)) > 0:
-                cpgs.append({"name": name, "num_fpvvs": int(num_fpvvs),
-                             "num_tdvvs": int(num_tdvvs), "num_tpvvs": int(num_tpvvs)})
-        out = []
-        for cpg in cpgs:
-            for fs in ["SAUsage", "SDUsage", "UsrUsage"]:
-                out.append({
-                    "item": cpg["name"] + " " + fs,
-                    "params": {"levels": (80.0, 90.0)},
-                    "metrics": ["used_percent"]
-                })
-        return {"changed": False, "msg": "discovered %d CPG usage items" % len(out),
-                "data": {"discovery": out}}
-    
-    item = params.get("item", "")
-    parts = item.split(" ", 1)
+# Constants for state mapping
+_STATE_MAP = {
+    "1": ("OK", "Normal"),
+    "2": ("WARN", "Degraded"),
+    "3": ("CRIT", "Failed"),
+}
+
+def _count_vvs(sa_num, sd_num, usr_num):
+    return sa_num + sd_num + usr_num
+
+def _get_cpg_by_item(section, item):
+    parts = item.rsplit(" ", 1)
     if len(parts) != 2:
-        return {"changed": False, "msg": "invalid item format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return None, None
     cpg_name = parts[0]
     usage_type = parts[1]
-    if usage_type not in ["SAUsage", "SDUsage", "UsrUsage"]:
-        return {"changed": False, "msg": "unknown usage type: " + usage_type,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    res = ctx.run(["cmk", "-d", ctx.facts().get("hostname", "")], mutates=False)
+    if cpg_name not in section:
+        return None, None
+    cpg = section.get(cpg_name)
+    if usage_type == "SAUsage":
+        usage = cpg.get("sa_usage")
+    elif usage_type == "SDUsage":
+        usage = cpg.get("sd_usage")
+    elif usage_type == "UsrUsage":
+        usage = cpg.get("usr_usage")
+    else:
+        return None, None
+    return cpg, usage
+
+def main(ctx, params):
+    if params.get("_discover"):
+        res = ctx.run(["curl", "-s", "http://localhost:8080/api/v1/cpg"], mutates=False)
+        if res.rc != 0:
+            res = ctx.run(["wget", "-q", "-O", "-", "http://localhost:8080/api/v1/cpg"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no CPG data available", "data": {"discovery": []}}
+        
+        if res.stdout == None or res.stdout == "":
+            return {"changed": False, "msg": "no CPG data available", "data": {"discovery": []}}
+        
+        data = json.decode(res.stdout)
+        
+        members = data.get("members", [])
+        out = []
+        for cpg in members:
+            name = cpg.get("name", "")
+            num_fpvvs = cpg.get("numFPVVs", 0)
+            num_tdvvs = cpg.get("numTDVVs", 0)
+            num_tpvvs = cpg.get("numTPVVs", 0)
+            if _count_vvs(num_fpvvs, num_tdvvs, num_tpvvs) > 0:
+                for fs in ["SAUsage", "SDUsage", "UsrUsage"]:
+                    out.append({
+                        "item": name + " " + fs,
+                        "params": {"levels": (80.0, 90.0)},
+                        "metrics": ["used_percent"]
+                    })
+        return {"changed": False, "msg": "discovered %d CPG usages" % len(out), "data": {"discovery": out}}
+    
+    item = params.get("item", "")
+    if item == None:
+        item = ""
+    if item == "":
+        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    res = ctx.run(["curl", "-s", "http://localhost:8080/api/v1/cpg"], mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "could not retrieve agent data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    agent_data = json.decode(res.stdout)
-    raw_members = agent_data.get("members", []) if type(agent_data) == "dict" else []
-    cpg = None
-    for member in raw_members:
-        if type(member) == "dict" and member.get("name") == cpg_name:
-            cpg = member
-            break
-    if cpg == None:
-        return {"changed": False, "msg": "CPG not found: " + cpg_name,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    usage_map = {
-        "SAUsage": "SAUsage",
-        "SDUsage": "SDUsage",
-        "UsrUsage": "UsrUsage"
+        res = ctx.run(["wget", "-q", "-O", "-", "http://localhost:8080/api/v1/cpg"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no CPG data available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    if res.stdout == None or res.stdout == "":
+        return {"changed": False, "msg": "no CPG data available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    data = json.decode(res.stdout)
+    
+    members = data.get("members", [])
+    section = {}
+    for cpg in members:
+        name = cpg.get("name", "")
+        num_fpvvs = cpg.get("numFPVVs", 0)
+        num_tdvvs = cpg.get("numTDVVs", 0)
+        num_tpvvs = cpg.get("numTPVVs", 0)
+        sa_usage = cpg.get("SAUsage", {})
+        sd_usage = cpg.get("SDUsage", {})
+        usr_usage = cpg.get("UsrUsage", {})
+        section[name] = {
+            "state": cpg.get("state", 0),
+            "num_fpvvs": num_fpvvs,
+            "num_tdvvs": num_tdvvs,
+            "num_tpvvs": num_tpvvs,
+            "sa_usage": sa_usage,
+            "sd_usage": sd_usage,
+            "usr_usage": usr_usage,
+        }
+    
+    cpg_data, usage = _get_cpg_by_item(section, item)
+    if cpg_data == None or usage == None:
+        return {"changed": False, "msg": "CPG or usage not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    total_mib = usage.get("totalMiB", 0.0)
+    used_mib = usage.get("usedMiB", 0.0)
+    if total_mib <= 0:
+        return {"changed": False, "msg": "invalid total size: " + str(total_mib), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    free_mib = total_mib - used_mib
+    
+    levels = params.get("levels")
+    if levels != None and type(levels) == "list":
+        if len(levels) >= 2:
+            warn = levels[0]
+            crit = levels[1]
+        else:
+            warn = params.get("warn", 80.0)
+            crit = params.get("crit", 90.0)
+    else:
+        warn = params.get("warn", 80.0)
+        crit = params.get("crit", 90.0)
+    
+    used_percent = (used_mib / total_mib) * 100.0
+    
+    state = "OK"
+    if used_percent >= crit:
+        state = "CRIT"
+    elif used_percent >= warn:
+        state = "WARN"
+    
+    cpg_state_code = str(cpg_data.get("state", 1))
+    state_tuple = _STATE_MAP.get(cpg_state_code, ("UNKNOWN", "Unknown"))
+    cpg_state_str = state_tuple[1]
+    num_vvs = _count_vvs(cpg_data.get("num_fpvvs", 0), cpg_data.get("num_tdvvs", 0), cpg_data.get("num_tpvvs", 0))
+    
+    msg = "%s, %d VVs, Size: %f MiB, Used: %f MiB (%f%%)" % (
+        cpg_state_str, num_vvs, total_mib, used_mib, used_percent
+    )
+    
+    metrics = {
+        "used_percent": used_percent,
+        "used": used_mib,
+        "free": free_mib,
+        "total": total_mib,
     }
-    usage_key = usage_map.get(usage_type)
-    usage = cpg.get(usage_key)
-    if usage == None:
-        return {"changed": False, "msg": usage_type + " not found in CPG " + cpg_name,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    totalMiB = usage.get("totalMiB", 0)
-    usedMiB = usage.get("usedMiB", 0)
-    # Convert to float using int/float coercion; fail on non-numeric
-    if type(totalMiB) == "int":
-        totalMiB = float(totalMiB)
-    elif type(totalMiB) == "string":
-        if totalMiB.isdigit():
-            totalMiB = float(int(totalMiB))
-        else:
-            fail("non-numeric totalMiB value")
-    else:
-        totalMiB = float(totalMiB)
-    if type(usedMiB) == "int":
-        usedMiB = float(usedMiB)
-    elif type(usedMiB) == "string":
-        if usedMiB.isdigit():
-            usedMiB = float(int(usedMiB))
-        else:
-            fail("non-numeric usedMiB value")
-    else:
-        usedMiB = float(usedMiB)
-    if totalMiB > 0:
-        used_percent = (usedMiB / totalMiB) * 100.0
-    else:
-        used_percent = 0.0
-    warn = params.get("levels", (80.0, 90.0))
-    warn_val = warn[0] if type(warn) == "list" else 80.0
-    crit_val = warn[1] if type(warn) == "list" else 90.0
-    state = "CRIT" if used_percent >= crit_val else ("WARN" if used_percent >= warn_val else "OK")
-    state_str = "OK" if state == "OK" else ("WARNING" if state == "WARN" else "CRITICAL")
-    size_str = "%.2f MiB" % totalMiB
-    used_str = "%.2f MiB" % usedMiB
+    
     return {
         "changed": False,
-        "msg": "%s: %s (%s total, %s used)" % (usage_type, state_str, size_str, used_str),
+        "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"used_percent": used_percent, "size": totalMiB, "used": usedMiB},
-            "details": ""
-        }
+            "metrics": metrics,
+            "details": "",
+        },
     }

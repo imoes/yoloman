@@ -1,0 +1,30 @@
+name: aruba_aps
+fqcn: checkmk.aruba_aps
+collection: checkmk
+short_description: Access Points
+description:
+    > ## Overview
+    > This check monitors the number of connected Access Points (APs) to an Aruba controller via SNMP, ensuring visibility into wireless infrastructure health and capacity.
+    >
+    > ## What it monitors
+    > - Number of currently connected wireless Access Points (APs)
+    >
+    > ## How it works
+    > Performs a single SNMP GET request using `snmpget` to query OID `.1.3.6.1.4.1.14823.2.2.1.1.3.1`, which reports the count of connected APs. If discovery mode is active (`_discover`), it returns one service item with empty name and `connections` metric. Otherwise, it evaluates the raw numeric value; invalid or non-numeric responses yield UNKNOWN. No thresholds are applied—status always returns OK if the value is valid.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - OK: Valid SNMP response with a non-negative integer count of connected APs.  
+    > - UNKNOWN: SNMP query fails, or response is non-numeric/invalid.
+    >
+    > ## Metrics
+    > - `connections` — number of connected Access Points, unit: count.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Network

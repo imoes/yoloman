@@ -1,0 +1,37 @@
+name: audiocodes_leds
+fqcn: checkmk.audiocodes_leds
+collection: checkmk
+short_description: LED Status
+description:
+    > ## Overview  
+    > Monitors the status of LEDs on Audiocodes network devices (such as voice gateways) via SNMP to provide immediate visual indication of hardware health.
+    >
+    > ## What it monitors  
+    > - Module LEDs (up to 20 modules)  
+    > - Fan tray LEDs (up to 10 trays)  
+    > - Power supply LEDs (up to 5 PSUs, plus redundant ones)  
+    > - Redundant fan tray and power supply LEDs  
+    >
+    > Each LED’s status (ON/FLASHING) and color (GREEN, RED, YELLOW, ORANGE, BLUE, NONE, or UNKNOWN) are captured.
+    >
+    > ## How it works  
+    > Uses `snmpget` to query specific OIDs for LED data (hex-encoded status). Converts each hex string’s last character to a status/color pair via a lookup table. Aggregates results across all LED types: counts colors, determines worst state per color (GREEN=OK, YELLOW/ORANGE/BLUE=WARN, RED=CRIT, others=UNKNOWN), and reports aggregate state.
+    >
+    > ## Parameters  
+    > None.
+    >
+    > ## States  
+    > - **OK**: All LEDs GREEN or NONE.  
+    > - **WARN**: Any YELLOW, ORANGE, or BLUE LEDs present.  
+    > - **CRIT**: Any RED LEDs present.  
+    > - **UNKNOWN**: No LEDs found, or LEDs with UNKNOWN status/color.
+    >
+    > ## Metrics  
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

@@ -1,28 +1,45 @@
 name: check_plugin
 short_description: Universal check bridge — auto-detects Nagios / Checkmk output
 description:
-  > The universal custom-check bridge: runs any external check command and
-  > AUTO-DETECTS which monitoring convention its output follows — a classic
-  > Nagios plugin (state from the exit code, "text | perfdata"), a Checkmk
-  > local check (one "<0|1|2|3|P> item perf details" line per service), or
-  > Checkmk agent section output ("<<<section>>>") — then normalizes it to the
-  > yolo-man verdict (state + metrics + details). One plugin covers all three;
-  > no need to choose the right wrapper up front. Reuses existing
-  > Nagios/Checkmk plugins unchanged.
+    > ## Overview
+    > The `check_plugin` acts as a universal bridge for external monitoring checks, automatically detecting and normalizing output from Nagios plugins, yolo-man local checks, or agent sections into a consistent verdict format.
+    >
+    > ## What it monitors
+    > - Exit code and stdout of arbitrary external check commands.
+    > - Format-specific structures: Nagios summary/perfdata, yolo-man local-service lines, or yolo-man agent sections.
+    >
+    > ## How it works
+    > Runs the configured command via `ctx.run`, detects output format (nagios/local/agent) using regex heuristics, then parses accordingly. For `local` format, it discovers and selects services by `item`. Verdict is derived from exit code (nagios), parsed status token (local), or always OK (agent). Discovery is supported via `_discover` mode.
+    >
+    > ## Parameters
+    > - `command` (list, required) — argv of the external check to run.
+    > - `force_format` (str, optional, default: `""`) — overrides auto-detection with `"nagios"`, `"local"`, or `"agent"`.
+    > - `item` (str, optional, default: `""`) — for local checks, selects which service line to evaluate.
+    >
+    > ## States
+    > OK: nagios exit 0, local status `0`/`P`, or agent section output.  
+    > WARN: nagios exit 1 or local status `1`.  
+    > CRIT: nagios exit 2 or local status `2`.  
+    > UNKNOWN: nagios exit 3, local status `3`, item not found, invalid command, or format ambiguity.
+    >
+    > ## Metrics
+    > - `sections` (int, agent format only) — count of detected agent sections.  
+    > - Other metrics extracted from perfdata (Nagios/local): `label` → numeric value (e.g., load, usage %).
 options:
-  command:
-    type: list
-    required: true
-    description: The check argv, e.g. ["/usr/lib/nagios/plugins/check_load", "-w", "5", "-c", "10"]
-  item:
-    type: str
-    required: false
-    description: For local-check output, which service line to evaluate (default the unnamed one)
-  force_format:
-    type: str
-    required: false
-    description: Skip auto-detection and force "nagios", "local", or "agent"
+    command:
+        type: list
+        required: true
+        description: The check argv, e.g. ["/usr/lib/nagios/plugins/check_load", "-w", "5", "-c", "10"]
+    item:
+        type: str
+        required: false
+        description: For local-check output, which service line to evaluate (default the unnamed one)
+    force_format:
+        type: str
+        required: false
+        description: Skip auto-detection and force "nagios", "local", or "agent"
 writes: false
 runtime: starlark
 source: custom
 kind: check
+category: Applications

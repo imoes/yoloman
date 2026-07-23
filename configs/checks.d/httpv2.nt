@@ -1,0 +1,110 @@
+name: httpv2
+fqcn: checkmk.httpv2
+collection: checkmk
+short_description: HTTP/HTTPS endpoint health
+description: Probes an HTTP or HTTPS endpoint and evaluates response time, status code, TLS certificate expiry, response body size, and an optional body substring match. Each dimension has independent WARN/CRIT thresholds; the worst state across all dimensions is reported. Transport-level failures (connection refused, DNS error, timeout) always produce CRIT.
+options:
+    service_name:
+        type: string
+        description: Service label shown in monitoring
+        required: true
+    url:
+        type: string
+        description: Full URL to probe (http:// or https://)
+        required: true
+    timeout_s:
+        type: number
+        description: Request timeout in seconds
+        default: 10
+    method:
+        type: string
+        description: HTTP method
+        enum:
+            - get
+            - head
+            - post
+            - put
+            - delete
+        default: get
+    send_body:
+        type: string
+        description: Request body payload (used with POST or PUT)
+    content_type:
+        type: string
+        description: Content-Type header value sent with the request body (e.g. application/json)
+    virtual_host:
+        type: string
+        description: Override the HTTP Host header and TLS SNI name (vhost testing)
+    user_agent:
+        type: string
+        description: Custom User-Agent string; omit to use the probe default
+    follow_redirects:
+        type: bool
+        description: Follow HTTP redirects automatically
+        default: true
+    verify_tls:
+        type: bool
+        description: Validate the TLS certificate chain and hostname
+        default: true
+    auth_user:
+        type: string
+        description: Username for HTTP Basic authentication
+    auth_password:
+        type: string
+        description: Password for HTTP Basic authentication
+        secret: true
+    auth_token_header:
+        type: string
+        description: Header name for token-based authentication (e.g. Authorization)
+    auth_token:
+        type: string
+        description: Token value injected into auth_token_header (e.g. Bearer eyJ...)
+        secret: true
+    expected_status_codes:
+        type: list
+        description: Acceptable integer HTTP status codes; WARN when the response code is not listed. Omit to use defaults: WARN for 4xx, CRIT for 5xx
+    response_time_warn_ms:
+        type: number
+        description: WARN when total response time exceeds this threshold in milliseconds
+    response_time_crit_ms:
+        type: number
+        description: CRIT when total response time exceeds this threshold in milliseconds
+    check_cert:
+        type: bool
+        description: Require TLS certificate information on HTTPS URLs; WARN if the probe returns none
+        default: false
+    cert_warn_days:
+        type: number
+        description: WARN when the TLS certificate expires within this many days
+    cert_crit_days:
+        type: number
+        description: CRIT when the TLS certificate expires within this many days
+    fetch_body:
+        type: bool
+        description: Fetch the full response body; set false to retrieve headers only (disables body size and string checks)
+        default: true
+    min_body_size:
+        type: number
+        description: WARN when the response body is smaller than this many bytes
+    max_body_size:
+        type: number
+        description: WARN when the response body exceeds this many bytes
+    body_string:
+        type: string
+        description: Substring that must appear in the response body; absence produces body_fail_state
+    body_string_invert:
+        type: bool
+        description: Invert the body_string match: produce body_fail_state when the string IS found instead of missing
+        default: false
+    body_fail_state:
+        type: string
+        description: State produced when the body_string match fails
+        enum:
+            - WARN
+            - CRIT
+        default: WARN
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

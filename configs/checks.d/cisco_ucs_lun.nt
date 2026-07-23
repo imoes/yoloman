@@ -1,0 +1,34 @@
+name: cisco_ucs_lun
+fqcn: checkmk.cisco_ucs_lun
+collection: checkmk
+short_description: LUN
+description:
+    > ## Overview
+    > Monitors the status, size, and operational mode of a LUN (Logical Unit Number) on a Cisco UCS system via SNMP, ensuring storage availability and identifying hardware or configuration issues.
+    >
+    > ## What it monitors
+    > - LUN operational status (e.g., operable, inoperable, degraded)
+    > - LUN type/mode (e.g., mirror, stripe, simple)
+    > - LUN size (in MB)
+    >
+    > ## How it works
+    > Performs SNMP v2c walks against three specific Cisco UCS LUN-related OIDs on localhost with the `public` community. Parses the output to extract `lunOperability`, `lunType`, and `lunSize`. Uses hardcoded mapping tables to translate numeric status and type codes into human-readable strings and health states. Discovery yields a single service with empty item identifier.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: LUN is operable (`operability=1`) and mode is valid (`type` maps to OK/WARN/CRIT=0/1/2, but only 0 maps to OK).
+    > - **WARN**: LUN operability is `poweredOff`, `performanceProblem`, `accessibilityProblem`, `disabled`, etc., OR LUN type is simple (`1`) or non-critical modes (`3, 9`).
+    > - **CRIT**: LUN is inoperable (`2`), degraded (`3`), or has critical status codes (e.g., `powerProblem`, `thermalProblem`, `equipmentProblem`), OR LUN type is `unspecified` (`0`) or invalid.
+    > - **UNKNOWN**: SNMP fails, missing data, or unrecognized status/type codes.
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Storage

@@ -1,0 +1,58 @@
+name: ldap
+fqcn: checkmk.ldap
+collection: checkmk
+short_description: LDAP service accessibility
+description: Checks whether an LDAP or LDAPS server is reachable and responding by first probing the TCP port (default 389, or 636 for LDAPS) for connectivity and timing, then running a base-scope ldapsearch against the configured DN. Supports LDAPv2, LDAPv3, and STARTTLS (v3tls), optional bind credentials, and response-time warn/crit thresholds; CRIT is raised on TCP failure or a non-zero ldapsearch exit code.
+options:
+    service_name:
+        type: string
+        description: Name of the monitoring service (shown as 'LDAP <name>' unless prefixed with '^')
+        required: true
+    hostname:
+        type: string
+        description: Hostname or IP of the LDAP server; defaults to the host's primary address
+    base_dn:
+        type: string
+        description: LDAP base distinguished name to search, e.g. ou=People,dc=example,dc=com
+        required: true
+    port:
+        type: number
+        description: TCP port to connect to; defaults to 389 (plain/STARTTLS) or 636 (LDAPS)
+    ssl:
+        type: bool
+        description: Use LDAPS (TLS on connect, default port 636)
+        default: false
+    version:
+        type: string
+        description: LDAP protocol version: v2, v3, or v3tls (LDAPv3 with STARTTLS upgrade)
+        enum:
+            - v2
+            - v3
+            - v3tls
+        default: v2
+    attribute:
+        type: string
+        description: LDAP attribute or filter appended to the ldapsearch query; default checks objectclass presence
+        default: (objectclass=*)
+    bind_dn:
+        type: string
+        description: Distinguished name for authenticated bind; omit for anonymous bind
+    password:
+        type: string
+        description: Password for authenticated bind
+        secret: true
+    response_time_warn_s:
+        type: number
+        description: Warn if TCP connect time exceeds this threshold (seconds)
+    response_time_crit_s:
+        type: number
+        description: Crit if TCP connect time exceeds this threshold (seconds)
+    timeout_s:
+        type: number
+        description: Connection and ldapsearch timeout in seconds
+        default: 10
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

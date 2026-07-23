@@ -1,0 +1,32 @@
+name: bvip_info
+fqcn: checkmk.bvip_info
+collection: checkmk
+short_description: System Info
+description:
+    > ## Overview  
+    > Monitors Basic Virtual IP (BVIP) system information via SNMP, ensuring the presence and consistency of unit identification data for embedded hardware devices.
+    >
+    > ## What it monitors  
+    > - Unit name (OID `.1.3.6.1.4.1.3967.1.1.1.1.0`)  
+    > - Unit ID (OID `.1.3.6.1.4.1.3967.1.1.1.2.0`)
+    >
+    > ## How it works  
+    > In discovery mode, runs `snmpwalk` against the BVIP root OID; if output exists, it discovers one service per host. In check mode, uses `snmpget` to fetch the unit name and unit ID OIDs. Parses SNMP `STRING:` values, then reports OK if both are retrieved, with a summary line combining them. Fails with UNKNOWN on SNMP errors or incomplete data.
+    >
+    > ## Parameters  
+    > None.
+    >
+    > ## States  
+    > - **OK**: Both unit name and unit ID retrieved successfully.  
+    > - **UNKNOWN**: SNMP query fails (`snmpget` returns non-zero RC) or fewer than two lines in output.  
+    > - **WARN/CRIT**: Not applicable.
+    >
+    > ## Metrics  
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

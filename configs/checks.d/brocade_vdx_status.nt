@@ -1,0 +1,33 @@
+name: brocade_vdx_status
+fqcn: checkmk.brocade_vdx_status
+collection: checkmk
+short_description: Status
+description:
+    > ## Overview
+    > Monitors the operational status and firmware version of a Brocade VDX switch via SNMP. Critical for ensuring hardware health and timely identification of potential failures.
+    >
+    > ## What it monitors
+    > - Operational status (online, offline, testing, faulty)
+    > - Firmware version
+    >
+    > ## How it works
+    > Performs an SNMP GET request on two OIDs (`.1.3.6.1.4.1.1588.2.1.1.1.1.6.0` for firmware, `.1.3.6.1.4.1.1588.2.1.1.1.1.7.0` for status) using community string `public`. Parses responses to extract firmware string and integer status code, mapping status to OK/WARN/CRIT/UNKNOWN. If SNMP data is missing, returns UNKNOWN.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: Status code `1` (online)
+    > - **WARN**: Status code `3` (testing)
+    > - **CRIT**: Status code `2` (offline) or `4` (faulty)
+    > - **UNKNOWN**: Missing SNMP data or unparseable status/firmware
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

@@ -1,0 +1,32 @@
+name: bintec_info
+fqcn: checkmk.bintec_info
+collection: checkmk
+short_description: Bintec Info
+description:
+    > ## Overview
+    > This check monitors Bintec network devices via SNMP, retrieving and reporting device identification (software version and serial number) to confirm the device is reachable and responding correctly.
+    >
+    > ## What it monitors
+    > - Bintec device software version (from OID `.1.3.6.1.4.1.272.4.1.26.0`)
+    > - Bintec device serial number (from OID `.1.3.6.1.4.1.272.4.1.31.0`)
+    >
+    > ## How it works
+    > Uses `snmpget` to query two specific Bintec OIDs on localhost with SNMPv2c (`-v2c -cpublic`). Parses the output to extract string values. If either value is missing after the query, returns UNKNOWN; otherwise returns OK with summary details. Discovery yields a single service with empty item.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: Both software version and serial number retrieved successfully.
+    > - **UNKNOWN**: SNMP query fails or one/both values are missing; no data retrieved.
+    > - **WARN/CRIT**: Not applicable—check does not implement warning or critical thresholds.
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Network

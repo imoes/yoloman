@@ -1,134 +1,6 @@
 def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run(
-            ["snmpwalk", "-On", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.9148.3.3.1.4.1.1"],
-            mutates=False
-        )
-        # Parse SNMP output: we need three consecutive OIDs per fan:
-        # .1.3.6.1.4.1.9148.3.3.1.4.1.1.3.<n> -> description
-        # .1.3.6.1.4.1.9148.3.3.1.4.1.1.4.<n> -> value (speed %)
-        # .1.3.6.1.4.1.9148.3.3.1.4.1.1.5.<n> -> state
-        fans = {}  # index -> {"descr": ..., "value": ..., "state": ...}
-        lines = res.stdout.splitlines()
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, value_part = parts
-            oid_part = oid_part.strip()
-            value_part = value_part.strip()
-            # Extract value: handle STRING:, INTEGER:, etc.
-            if ":" in value_part:
-                value_str = value_part.split(":", 1)[1].strip().strip('"')
-            else:
-                value_str = value_part
-            # Check OID suffix
-            # Descriptions end with .3.index
-            if oid_part.endswith(".3.1") or oid_part.endswith(".3.2") or oid_part.endswith(".3.3") or oid_part.endswith(".3.4"):
-                idx = oid_part.rsplit(".", 1)[1]
-                fans.setdefault(idx, {})["descr"] = value_str
-            elif oid_part.endswith(".4.1") or oid_part.endswith(".4.2") or oid_part.endswith(".4.3") or oid_part.endswith(".4.4"):
-                idx = oid_part.rsplit(".", 1)[1]
-                fans.setdefault(idx, {})["value"] = value_str
-            elif oid_part.endswith(".5.1") or oid_part.endswith(".5.2") or oid_part.endswith(".5.3") or oid_part.endswith(".5.4"):
-                idx = oid_part.rsplit(".", 1)[1]
-                fans.setdefault(idx, {})["state"] = value_str
-
-        discovery_list = []
-        for idx, data in fans.items():
-            state = data.get("state", "7")
-            # Skip fans with state "7" (not present)
-            if state == "7":
-                continue
-            item = data.get("descr", "Fan " + idx)
-            discovery_list.append({
-                "item": item,
-                "params": {},
-                "metrics": []
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
-
-    # CHECK MODE
-    item = params.get("item", "")
-    res = ctx.run(
-        ["snmpget", "-On", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.3.1", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.4.1", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.5.1",
-         ".1.3.6.1.4.1.9148.3.3.1.4.1.1.3.2", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.4.2", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.5.2",
-         ".1.3.6.1.4.1.9148.3.3.1.4.1.1.3.3", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.4.3", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.5.3",
-         ".1.3.6.1.4.1.9148.3.3.1.4.1.1.3.4", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.4.4", ".1.3.6.1.4.1.9148.3.3.1.4.1.1.5.4"],
-        mutates=False
-    )
-    # Build lookup: key = item description
-    section = {}
-    lines = res.stdout.splitlines()
-    # Group in sets of three: descr, value, state per fan index
-    # But snmpget returns lines in arbitrary order per OID; better parse by OID suffix index
-    fans_data = {}  # index -> {"descr": ..., "value": ..., "state": ...}
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, value_part = parts
-        oid_part = oid_part.strip()
-        value_part = value_part.strip()
-        # Extract value: handle STRING:, INTEGER:, etc.
-        if ":" in value_part:
-            value_str = value_part.split(":", 1)[1].strip().strip('"')
-        else:
-            value_str = value_part
-        # Determine index
-        if oid_part.endswith(".3.1"):
-            fans_data.setdefault("1", {})["descr"] = value_str
-        elif oid_part.endswith(".4.1"):
-            fans_data.setdefault("1", {})["value"] = value_str
-        elif oid_part.endswith(".5.1"):
-            fans_data.setdefault("1", {})["state"] = value_str
-        elif oid_part.endswith(".3.2"):
-            fans_data.setdefault("2", {})["descr"] = value_str
-        elif oid_part.endswith(".4.2"):
-            fans_data.setdefault("2", {})["value"] = value_str
-        elif oid_part.endswith(".5.2"):
-            fans_data.setdefault("2", {})["state"] = value_str
-        elif oid_part.endswith(".3.3"):
-            fans_data.setdefault("3", {})["descr"] = value_str
-        elif oid_part.endswith(".4.3"):
-            fans_data.setdefault("3", {})["value"] = value_str
-        elif oid_part.endswith(".5.3"):
-            fans_data.setdefault("3", {})["state"] = value_str
-        elif oid_part.endswith(".3.4"):
-            fans_data.setdefault("4", {})["descr"] = value_str
-        elif oid_part.endswith(".4.4"):
-            fans_data.setdefault("4", {})["value"] = value_str
-        elif oid_part.endswith(".5.4"):
-            fans_data.setdefault("4", {})["state"] = value_str
-
-    # Build section dict keyed by item (description)
-    for idx, data in fans_data.items():
-        descr = data.get("descr", "")
-        state = data.get("state", "7")
-        value_str = data.get("value", "0")
-        section[descr] = (value_str, state)
-
-    # Now look up the requested item
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "fan not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    value_str, state = section[item]
-    # Map state codes to Checkmk states as per library
-    state_map = {
+    # State mapping from Checkmk's ACME_ENVIRONMENT_STATES
+    STATE_MAP = {
         "1": ("OK", "initial"),
         "2": ("OK", "normal"),
         "3": ("WARN", "minor"),
@@ -137,24 +9,151 @@ def main(ctx, params):
         "6": ("CRIT", "shutdown"),
         "7": ("CRIT", "not present"),
         "8": ("CRIT", "not functioning"),
-        "9": ("CRIT", "unknown")
+        "9": ("CRIT", "unknown"),
     }
-    dev_state_str, dev_state_readable = state_map.get(state, ("UNKNOWN", "unknown"))
-    if dev_state_str == "OK":
-        dev_state = "OK"
-    elif dev_state_str == "WARN":
-        dev_state = "WARN"
-    elif dev_state_str == "CRIT":
-        dev_state = "CRIT"
+
+    # Discover mode
+    if params.get("_discover"):
+        # Get snmpwalk data for acme_fan section
+        base_oid = ".1.3.6.1.4.1.9148.3.3.1.4.1.1"
+        res = ctx.run([
+            "snmpwalk",
+            "-v2c",
+            "-c", params.get("community", "public"),
+            "-On",
+            params.get("host", "localhost"),
+            base_oid
+        ], mutates=False)
+
+        # Parse OID output lines
+        fans = []
+        # Maps for quick lookup:descr -> (value, state) by extracting index
+        descr_map = {}
+        value_map = {}
+        state_map = {}
+
+        for line in res.stdout.splitlines():
+            parts = line.strip().split(" = ")
+            if len(parts) != 2:
+                continue
+            oid_full, val_part = parts
+            # Extract value type and string
+            val_type, val_str = val_part.split(": ", 1)
+            val_str = val_str.strip()
+
+            # Parse OID to get index
+            # Base part: .1.3.6.1.4.1.9148.3.3.1.4.1.1.
+            base_part = ".1.3.6.1.4.1.9148.3.3.1.4.1.1."
+            if not oid_full.startswith(base_part):
+                continue
+            suffix = oid_full[len(base_part):]
+            dot_idx = suffix.find(".")
+            if dot_idx == -1:
+                continue
+            oid_type = suffix[:dot_idx].strip()
+            idx = suffix[dot_idx + 1:].strip()
+            if not idx.isdigit():
+                continue
+
+            if oid_type == "3":  # description
+                descr_map[idx] = val_str
+            elif oid_type == "4":  # value (fan speed)
+                value_map[idx] = val_str
+            elif oid_type == "5":  # state
+                state_map[idx] = val_str
+
+        # Build fan list
+        for idx in descr_map:
+            if idx in state_map and state_map[idx] != "7":
+                fans.append({
+                    "item": descr_map[idx],
+                    "params": {},
+                    "metrics": []
+                })
+
+        return {
+            "changed": False,
+            "msg": "discovered %d fans" % len(fans),
+            "data": {"discovery": fans}
+        }
+
+    # Check mode (non-discovery)
+    item = params.get("item", "")
+    # Reuse the same SNMP query for check
+    base_oid = ".1.3.6.1.4.1.9148.3.3.1.4.1.1"
+    res = ctx.run([
+        "snmpwalk",
+        "-v2c",
+        "-c", params.get("community", "public"),
+        "-On",
+        params.get("host", "localhost"),
+        base_oid
+    ], mutates=False)
+
+    # Parse for the requested item
+    # First, map index->descr and then find the matching item
+    descr_map = {}
+    value_map = {}
+    state_map = {}
+
+    for line in res.stdout.splitlines():
+        parts = line.strip().split(" = ")
+        if len(parts) != 2:
+            continue
+        oid_full, val_part = parts
+        val_type, val_str = val_part.split(": ", 1)
+        val_str = val_str.strip()
+
+        base_part = ".1.3.6.1.4.1.9148.3.3.1.4.1.1."
+        if not oid_full.startswith(base_part):
+            continue
+        suffix = oid_full[len(base_part):]
+        dot_idx = suffix.find(".")
+        if dot_idx == -1:
+            continue
+        oid_type = suffix[:dot_idx].strip()
+        idx = suffix[dot_idx + 1:].strip()
+        if not idx.isdigit():
+            continue
+
+        if oid_type == "3":
+            descr_map[idx] = val_str
+        elif oid_type == "4":
+            value_map[idx] = val_str
+        elif oid_type == "5":
+            state_map[idx] = val_str
+
+    # Find index matching the item name
+    idx_found = None
+    for idx in descr_map:
+        if descr_map[idx] == item:
+            idx_found = idx
+            break
+
+    if idx_found == None or idx_found not in state_map:
+        return {
+            "changed": False,
+            "msg": "fan not found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        }
+
+    state_val = state_map[idx_found]
+    value_str = value_map.get(idx_found, "0")
+
+    if state_val in STATE_MAP:
+        dev_state, dev_state_readable = STATE_MAP[state_val]
     else:
         dev_state = "UNKNOWN"
+        dev_state_readable = "unknown (%s)" % state_val
+
+    speed = int(value_str) if value_str.isdigit() else 0
 
     return {
         "changed": False,
         "msg": "Status: %s, Speed: %s%%" % (dev_state_readable, value_str),
         "data": {
             "state": dev_state,
-            "metrics": {},
+            "metrics": {"speed": speed},
             "details": ""
         }
     }

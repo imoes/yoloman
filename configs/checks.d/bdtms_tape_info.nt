@@ -1,0 +1,34 @@
+name: bdtms_tape_info
+fqcn: checkmk.bdtms_tape_info
+collection: checkmk
+short_description: Tape Library Info
+description:
+    > ## Overview
+    > Monitors tape library hardware by gathering basic identification information via SNMP, ensuring the device is present and responding with expected firmware and serial details.
+    >
+    > ## What it monitors
+    > - Tape library vendor name  
+    > - Product ID  
+    > - Serial number  
+    > - Software revision  
+    >
+    > ## How it works
+    > In discovery mode, yields a single service item. In check mode, queries four specific SNMP OIDs under `.1.3.6.1.4.1.20884.1.{1-4}` using `ctx.snmp_get`. If fewer than 4 values are returned (or `None`), reports UNKNOWN. Otherwise, constructs a summary of each field (or `<empty>` if missing) and reports OK.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - OK: All four SNMP values retrieved successfully (even if some are empty).  
+    > - UNKNOWN: SNMP query returns `None` or fewer than 4 values.  
+    > - WARN/CRIT: Not applicable.
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

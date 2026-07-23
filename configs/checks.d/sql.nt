@@ -1,0 +1,80 @@
+name: sql
+fqcn: checkmk.sql
+collection: checkmk
+short_description: SQL database query check
+description: Connects to a relational database (MySQL, PostgreSQL, or MSSQL) and executes a custom SQL statement or stored procedure via the native CLI client (mysql, psql, sqlcmd). The result row must contain at least two columns: col1 is either a status code (0=OK, 1=WARN, 2=CRIT) or a numeric value subject to configurable upper/lower thresholds, and col2 is the human-readable output text; an optional col3 carries performance metric data. Oracle, DB2, and SQLAnywhere are accepted in the schema for compatibility but return UNKNOWN at runtime.
+options:
+    service_name:
+        type: string
+        description: Name of the service as displayed in monitoring
+        required: true
+    dbms:
+        type: string
+        description: Database management system type
+        required: true
+        enum:
+            - mysql
+            - postgres
+            - mssql
+            - oracle
+            - db2
+            - sqlanywhere
+        default: postgres
+    host:
+        type: string
+        description: Database server hostname or IP address
+        required: true
+    port:
+        type: number
+        description: Database port; omit to use the DBMS default
+    db_name:
+        type: string
+        description: Name of the database to connect to
+        required: true
+    user:
+        type: string
+        description: Database login user
+        required: true
+    password:
+        type: string
+        description: Database login password
+        required: true
+        secret: true
+    sql:
+        type: string
+        description: SQL statement or stored procedure name to execute. Result must have col1=status(0/1/2) or numeric value, col2=output text, col3=perfdata (optional)
+        required: true
+    use_procedure:
+        type: bool
+        description: Treat sql as a stored procedure name and wrap it in CALL
+        default: false
+    procedure_input:
+        type: string
+        description: Comma-separated input parameters passed to the stored procedure
+    perfdata:
+        type: string
+        description: Metric name for the value from col3 (status mode) or col1 (levels mode)
+    text:
+        type: string
+        description: Override the output text; if set, col2 from the query is ignored
+    warn_high:
+        type: number
+        description: WARN if the numeric col1 value is >= this upper threshold
+    crit_high:
+        type: number
+        description: CRIT if the numeric col1 value is >= this upper threshold
+    warn_low:
+        type: number
+        description: WARN if the numeric col1 value is <= this lower threshold
+    crit_low:
+        type: number
+        description: CRIT if the numeric col1 value is <= this lower threshold
+    timeout_s:
+        type: number
+        description: Database connection timeout in seconds
+        default: 30
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

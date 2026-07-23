@@ -1,0 +1,32 @@
+name: cmctc_state
+fqcn: checkmk.cmctc_state
+collection: checkmk
+short_description: TC unit state
+description:
+    > ## Overview  
+    > Monitors the operational state of a Terrestrial Controller (TC) unit in a DVB-S2 satellite system using SNMP, ensuring the TC is functioning correctly and units are properly connected.
+    >
+    > ## What it monitors  
+    > - TC unit status (via OID `.1.3.6.1.4.1.2606.4.2.1.0`)  
+    > - Number of connected units (via OID `.1.3.6.1.4.1.2606.4.2.2.0`)
+    >
+    > ## How it works  
+    > Executes `snmpwalk` against localhost using SNMP v2c with community string `public` to query two specific OIDs. Parses the response to extract status code and unit count. Status code `1` maps to `failed`, `2` to `ok`; any other value yields `unknown[N]`. Returns CRIT for non-ok states, OK only if `status == ok`. Single-service discovery is performed with empty item key.
+    >
+    > ## Parameters  
+    > None.
+    >
+    > ## States  
+    > - **OK**: TC status code is `2` (ok)  
+    > - **CRIT**: TC status code is `1` (failed) or any unrecognized value  
+    > - **UNKNOWN**: SNMP command returns no valid data (e.g., missing one or both OID values)  
+    >
+    > ## Metrics  
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Applications

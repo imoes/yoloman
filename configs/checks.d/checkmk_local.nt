@@ -1,19 +1,40 @@
 name: checkmk_local
 short_description: Run a Checkmk local check script (multi-service)
 description:
-  > Generic wrapper for custom checks in Checkmk local-check format: runs a
-  > script whose stdout is one line per service ("status item perfdata
-  > details"). Discovery yields one item per line; the check evaluates one
-  > item. Lets you reuse existing Checkmk local checks unchanged.
+    > ## Overview
+    > Runs a yolo-man local check script that outputs one line per service with embedded status, item, performance data, and details; this allows custom monitoring logic via external scripts.
+    >
+    > ## What it monitors
+    > - Status code (OK/WARN/CRIT/UNKNOWN) returned per service line
+    > - Item name (service identifier)
+    > - Performance data (metrics like counters, thresholds)
+    > - Free-text details message
+    >
+    > ## How it works
+    > Executes the configured `command` (argv list) as a non-mutating command. On discovery (`_discover`), it parses stdout into `<status> <item> <perfdata> <details>` lines and yields one item per line. In check mode, it matches the specified `item` (or empty for first/single-line scripts), extracts status, metrics, and details. Parsing handles quoted items, numeric metric extraction, and maps status tokens to yolo-man states.
+    >
+    > ## Parameters
+    > - `command` (list, required) — The local check script and arguments to execute.
+    > - `item` (str, optional, default "") — Which discovered service line to evaluate; empty evaluates the first (or only) item.
+    >
+    > ## States
+    > - OK — Script output line starts with `0`
+    > - WARN — Script output line starts with `1`
+    > - CRIT — Script output line starts with `2`
+    > - UNKNOWN — Script output line starts with `3`, `P`, or invalid/parsing failure; also if `item` not found or `command` invalid
+    >
+    > ## Metrics
+    > - `name` (value) — Extracted performance data metrics (e.g., `cpu_used=42.5` → metric `cpu_used` with value `42.5`)
 options:
-  command:
-    type: list
-    required: true
-    description: The local-check script argv, e.g. ["/usr/lib/check_mk_agent/local/my_check.sh"]
-  item:
-    type: str
-    description: Which discovered service line to evaluate (empty for single-line scripts)
+    command:
+        type: list
+        required: true
+        description: The local-check script argv, e.g. ["/usr/lib/check_mk_agent/local/my_check.sh"]
+    item:
+        type: str
+        description: Which discovered service line to evaluate (empty for single-line scripts)
 writes: false
 runtime: starlark
 source: custom
 kind: check
+category: Other

@@ -1,0 +1,50 @@
+name: uniserv
+fqcn: checkmk.uniserv
+collection: checkmk
+short_description: Uniserv address service check
+description: Checks a running Uniserv address quality service over TCP using the check_uniserv binary. Supports two modes: VERSION queries the service version string, and ADDRESS submits a street/city lookup and validates the returned city name against a configurable regular expression. Exit codes follow the standard Nagios convention (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN).
+options:
+    service_name:
+        type: string
+        description: Service display name shown in the UI
+        required: true
+    host:
+        type: string
+        description: Hostname or IP address of the Uniserv server
+        required: true
+    port:
+        type: number
+        description: TCP port of the Uniserv service
+        required: true
+    uniserv_service:
+        type: string
+        description: Uniserv service name to query (internal service identifier, not the monitoring service name)
+        required: true
+    check_mode:
+        type: string
+        description: What to check: version info or address query response
+        enum:
+            - version
+            - address
+        default: version
+    street:
+        type: string
+        description: Street name for address check (check_mode=address)
+    street_no:
+        type: number
+        description: Street number for address check (check_mode=address)
+    city:
+        type: string
+        description: City name to submit in the address query (check_mode=address)
+    search_regex:
+        type: string
+        description: Regular expression validated against the city name in the service response (check_mode=address)
+    timeout_s:
+        type: number
+        description: Connection timeout in seconds
+        default: 10
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

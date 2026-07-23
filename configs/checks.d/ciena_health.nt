@@ -1,0 +1,36 @@
+name: ciena_health
+fqcn: checkmk.ciena_health
+collection: checkmk
+short_description: Health
+description:
+    > ## Overview  
+    > Monitors the hardware health of Ciena network devices (e.g., packet optical platforms) by evaluating statuses of key components like power supplies and fans, ensuring operational resilience.
+    >
+    > ## What it monitors  
+    > - TCE (Transmission Control Element) health status  
+    > - Power supply state  
+    > - Fan status  
+    > - LEO (Line Entity Operator) system state  
+    > - LEO power supply state  
+    > - LEO fan status  
+    >
+    > ## How it works  
+    > Reads health data from `/var/lib/check-mk-agent/cache/ciena_health.json`. During discovery, it checks for this file’s existence and reports one service item (no items list). For service checks, it parses JSON entries containing `display_name`, `data_type`, and `occurrences` (state → count mappings). Compares each component’s counts against expected “good” states (e.g., `normal`, `online`, `ok`). Marks the service as CRIT if any component has non-good states; otherwise OK. Unknown component types are skipped. Total count of health items and per-component breakdowns are included in details.
+    >
+    > ## Parameters  
+    > None.
+    >
+    > ## States  
+    > - OK: All monitored hardware components are in expected “good” states.  
+    > - CRIT: At least one component has a non-good state.  
+    > - UNKNOWN: Health data file is missing.  
+    >
+    > ## Metrics  
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

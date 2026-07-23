@@ -1,0 +1,62 @@
+name: traceroute
+fqcn: checkmk.traceroute
+collection: checkmk
+short_description: Traceroute routing path check
+description: Runs traceroute from the monitoring host to a configured target and inspects the resulting network path. Reports WARN or CRIT if expected transit routers are absent from the route or if forbidden routers are detected in it. Supports UDP (default), ICMP Echo, and TCP SYN probe methods with optional DNS name resolution.
+options:
+    service_name:
+        type: string
+        description: Service display name
+        required: true
+    host:
+        type: string
+        description: Target IP address or FQDN to run traceroute against
+        required: true
+    timeout_s:
+        type: number
+        description: Overall probe timeout in seconds
+        default: 30
+    dns:
+        type: bool
+        description: Resolve IP addresses to host names in output (omits -n flag)
+        default: false
+    ip_address_family:
+        type: string
+        description: IP address family for the probe
+        default: ipv4
+        enum:
+            - ipv4
+            - ipv6
+    method:
+        type: string
+        description: Probe method: udp (default), icmp (ICMP Echo, needs cap_net_raw), tcp (TCP SYN, needs cap_net_raw)
+        default: udp
+        enum:
+            - udp
+            - icmp
+            - tcp
+    routers_missing_warn:
+        type: list
+        description: WARN if any of these router IPs or FQDNs are absent from the traced path
+        default:
+            []
+    routers_missing_crit:
+        type: list
+        description: CRIT if any of these router IPs or FQDNs are absent from the traced path
+        default:
+            []
+    routers_found_warn:
+        type: list
+        description: WARN if any of these router IPs or FQDNs appear in the traced path
+        default:
+            []
+    routers_found_crit:
+        type: list
+        description: CRIT if any of these router IPs or FQDNs appear in the traced path
+        default:
+            []
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

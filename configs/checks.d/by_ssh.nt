@@ -1,0 +1,47 @@
+name: by_ssh
+fqcn: checkmk.by_ssh
+collection: checkmk
+short_description: SSH remote command check
+description: Connects to a remote host via SSH and executes a configurable command. The remote command's exit code is interpreted using the Nagios plugin convention: 0 = OK, 1 = WARN, 2 = CRIT, anything else = UNKNOWN. SSH transport failures (connection refused, host unreachable, authentication error) are graded CRIT with exit code 255.
+options:
+    service_name:
+        type: string
+        description: Service display name (must be unique per host)
+        required: true
+    command:
+        type: string
+        description: Command to execute on the remote host via SSH
+        required: true
+    hostname:
+        type: string
+        description: DNS hostname or IP address of the target host
+        required: true
+    port:
+        type: number
+        description: SSH port on the remote host
+        default: 22
+    ip_version:
+        type: string
+        description: Force a specific IP version for the SSH connection
+        enum:
+            - ipv4
+            - ipv6
+    timeout_s:
+        type: number
+        description: SSH connection timeout in seconds
+        default: 10
+    logname:
+        type: string
+        description: SSH username on the remote host
+    identity:
+        type: string
+        description: Path to the SSH private key file (identity file) on the Bossman host
+    accept_new_host_keys:
+        type: bool
+        description: Automatically accept previously unseen host keys without manual approval (requires OpenSSH >= 7.6)
+        default: false
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

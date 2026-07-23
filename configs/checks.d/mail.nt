@@ -1,0 +1,52 @@
+name: mail
+fqcn: checkmk.mail
+collection: checkmk
+short_description: Mailbox server reachability check
+description: Checks connectivity to an IMAP, POP3, EWS, or Microsoft Graph API mail server by establishing a TCP connection (IMAP/POP3) or an HTTPS request (EWS/GRAPHAPI). Reports connection latency and, when TLS is enabled, warns or alerts on certificate expiry approaching the configured thresholds. For EWS endpoints, HTTP basic-auth credentials can be supplied to probe authenticated access.
+options:
+    service_name:
+        type: string
+        required: true
+        description: Unique service name shown in monitoring
+    server:
+        type: string
+        required: true
+        description: Mail server hostname or IP address
+    protocol:
+        type: string
+        enum:
+            - IMAP
+            - POP3
+            - EWS
+            - GRAPHAPI
+        default: IMAP
+        description: Mail retrieval protocol
+    port:
+        type: number
+        description: Server port override (defaults: IMAP 143/993, POP3 110/995, EWS/GRAPHAPI 443)
+    tls:
+        type: bool
+        default: false
+        description: Use TLS/SSL for the connection
+    username:
+        type: string
+        description: Mailbox login username (applied as HTTP basic auth for EWS)
+    password:
+        type: string
+        secret: true
+        description: Mailbox login password (applied as HTTP basic auth for EWS)
+    timeout_s:
+        type: number
+        default: 60
+        description: Connection timeout in seconds
+    cert_warn_days:
+        type: number
+        description: Warn if TLS certificate expires within this many days
+    cert_crit_days:
+        type: number
+        description: Critical if TLS certificate expires within this many days
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

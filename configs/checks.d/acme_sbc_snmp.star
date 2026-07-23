@@ -1,137 +1,106 @@
+# Top-level constants
+MAP_STATES = {
+    "0": (3, "unknown"),
+    "1": (1, "initial"),
+    "2": (0, "active"),
+    "3": (0, "standby"),
+    "4": (2, "out of service"),
+    "5": (2, "unassigned"),
+    "6": (1, "active (pending)"),
+    "7": (1, "standby (pending)"),
+    "8": (1, "out of service (pending)"),
+    "9": (1, "recovery"),
+}
+
+# Checkmk default thresholds (lower_levels: ("fixed", (75, 50)) -> warn=75, crit=50)
+DEFAULT_WARN = 75
+DEFAULT_CRIT = 50
+
 def main(ctx, params):
+    # Determine mode
     if params.get("_discover"):
-        # Discovery: ACME SBC health is a single-service check (item "")
+        # Single-service check: always discover one item (no per-item breakdown)
         return {
             "changed": False,
             "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"lower_levels": ("fixed", (75, 50))},
-                        "metrics": ["health_state"]
-                    }
-                ]
-            }
+            "data": {"discovery": [{"item": "", "params": {"lower_levels": ("fixed", (75, 50))}, "metrics": ["health_state"]}]}
         }
 
-    # Check mode: single service, item is ""
-    # Fetch health score and status via SNMP
-    # OID base: .1.3.6.1.4.1.9148.3.2.1.1
-    # oid 3: apSysHealthScore (integer)
-    # oid 4: apSysRedundancy (string)
-    res = ctx.run([
-        "snmpget", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.9148.3.2.1.1.3",
-        ".1.3.6.1.4.1.9148.3.2.1.1.4"
-    ], mutates=False)
-    
-    if res.rc != 0:
+    # Check mode: gather data via SNMP
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Fetch both OIDs in one walk: base=".1.3.6.1.4.1.9148.3.2.1.1", oids=["3", "4"]
+    base_oid = ".1.3.6.1.4.1.9148.3.2.1.1"
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
+
+    # Parse SNMP output lines: "<OID> = <TYPE>: <value>"
+    score = None
+    status = None
+
+    for line in res.stdout.splitlines():
+        # Skip empty lines
+        if not line.strip():
+            continue
+        # Split OID and value
+        parts = line.split(" = ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0].strip()
+        value_part = parts[1].strip()
+
+        # Extract value (strip type prefix if present, e.g., "Gauge32: 95" -> "95")
+        if ":" in value_part:
+            value = value_part.split(":", 1)[1].strip()
+        else:
+            value = value_part
+
+        # Match OID suffixes
+        if oid.endswith(".3"):
+            score = value
+        elif oid.endswith(".4"):
+            status = value
+
+    # Missing data -> UNKNOWN
+    if score == None or status == None:
         return {
             "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "missing SNMP data for ACME SBC",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
         }
 
-    lines = res.stdout.strip().split("\n")
-    if len(lines) < 2:
-        return {
-            "changed": False,
-            "msg": "incomplete SNMP response",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    # Map status to state and label
+    state_code, state_label = MAP_STATES.get(status, (3, "unknown"))
 
-    # Parse outputs:
-    # Expected format: <oid>.<suffix> = INTEGER: <value> or STRING: "<value>"
-    score_str = ""
-    status_str = ""
-    for line in lines:
-        line = line.strip()
-        if ".1.3.6.1.4.1.9148.3.2.1.1.3" in line:
-            # INTEGER: <value>
-            idx = line.find("=")
-            if idx >= 0:
-                val = line[idx+1:].strip()
-                if val.startswith("INTEGER:"):
-                    score_str = val.split(":", 1)[1].strip()
-                else:
-                    score_str = val
-        elif ".1.3.6.1.4.1.9148.3.2.1.1.4" in line:
-            # STRING: "<value>"
-            idx = line.find("=")
-            if idx >= 0:
-                val = line[idx+1:].strip()
-                if val.startswith("STRING:"):
-                    # strip quotes
-                    quoted = val.split(":", 1)[1].strip()
-                    if quoted.startswith('"') and quoted.endswith('"'):
-                        status_str = quoted[1:-1]
-                    else:
-                        status_str = quoted
+    # Determine Starlark state string from SNMP code (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
+    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    state_str = state_map.get(state_code, "UNKNOWN")
 
-    # Handle missing or invalid values
-    if not score_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "health score not available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    # Parse score to int (guard before conversion)
+    score_int = 0
+    if score.isdigit() or (score.startswith("-") and score[1:].isdigit()):
+        score_int = int(score)
 
-    health_score = int(score_str)
-    
-    # Map status string to state
-    map_states = {
-        "0": ("unknown", 3),
-        "1": ("initial", 1),
-        "2": ("active", 0),
-        "3": ("standby", 0),
-        "4": ("out of service", 2),
-        "5": ("unassigned", 2),
-        "6": ("active (pending)", 1),
-        "7": ("standby (pending)", 1),
-        "8": ("out of service (pending)", 1),
-        "9": ("recovery", 1)
-    }
+    # Apply thresholds: lower_levels means warn/crit are LOWER bounds
+    warn = params.get("warn", DEFAULT_WARN)
+    crit = params.get("crit", DEFAULT_CRIT)
 
-    status_map = map_states.get(status_str, ("unknown", 3))
-    status_desc, state_idx = status_map
+    # Check levels: lower_levels -> CRIT if <= crit, WARN if <= warn, else OK
+    # Note: params may contain 'lower_levels' tuple, but our API uses warn/crit keys
+    if score_int <= crit:
+        state_str = "CRIT"
+    elif score_int <= warn:
+        state_str = "WARN"
 
-    # Check levels: lower_levels = ("fixed", (warn, crit))
-    lower_levels = params.get("lower_levels", ("fixed", (75, 50)))
-    if type(lower_levels) == "list" and len(lower_levels) == 2:
-        # handle ("fixed", (75, 50)) pattern
-        warn, crit = lower_levels[1]
-    else:
-        warn, crit = 75, 50
-
-    # Determine state from health state (status) first
-    state = "CRIT" if state_idx == 2 else ("WARN" if state_idx == 1 else "OK")
-    if state == "OK" and health_score < crit:
-        state = "CRIT"
-    elif state == "OK" and health_score < warn:
-        state = "WARN"
-
-    # Build message
-    msg = "Health state: %s, Score: %d%%" % (status_desc, health_score)
+    # Format message
+    msg = "Health state: %s, Score: %d%%" % (state_label, score_int)
 
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": state,
-            "metrics": {"health_state": health_score},
+            "state": state_str,
+            "metrics": {"health_state": score_int},
             "details": ""
-        }
+        },
     }

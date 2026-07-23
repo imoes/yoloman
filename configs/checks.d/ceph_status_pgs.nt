@@ -1,0 +1,33 @@
+name: ceph_status_pgs
+fqcn: checkmk.ceph_status_pgs
+collection: checkmk
+short_description: Ceph PGs
+description:
+    > ## Overview
+    > This check monitors the health and status of Placement Groups (PGs) in a Ceph storage cluster by evaluating the current state distribution of PGs, which is critical for assessing cluster stability and data availability.
+    >
+    > ## What it monitors
+    > - Total number of PGs (`num_pgs`)
+    > - Counts of PGs grouped by their current state (e.g., `active`, `degraded`, `down`, `incomplete`, `stale`, etc.)
+    >
+    > ## How it works
+    > Executes `ceph status -f json-pretty` to retrieve cluster status in JSON. Parses the `pgmap` section to extract `num_pgs` and `pgs_by_state`. Each PG state is mapped to a yolo-man-compatible state (OK/WARN/CRIT/UNKNOWN) using a predefined mapping. The worst state among all PG groups determines the overall check state. No discovery is performed.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: All PGs are in healthy states (e.g., `active`, `clean`, `peered`) with no degraded/down/stale/incomplete/inconsistent groups.
+    > - **WARN**: PGs exist in states like `backfill_wait`, `backfilling`, `degraded`, or `replay`.
+    > - **CRIT**: Any PGs are `down`, `incomplete`, `inconsistent`, `peered` (when not part of a healthy cluster), or `stale`.
+    > - **UNKNOWN**: Unknown PG states not in the mapping, or failure to fetch `ceph status`.
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Storage

@@ -1,0 +1,34 @@
+name: audiocodes_overall_operational_state
+fqcn: checkmk.audiocodes_overall_operational_state
+collection: checkmk
+short_description: Operational state
+description:
+    > ## Overview
+    > Monitors the overall operational state of AudioCodes devices by evaluating both a generic operational state and a gateway-specific severity, ensuring timely detection of device issues.
+    >
+    > ## What it monitors
+    > - Generic operational state (0=OK, 1=UNKNOWN, 2=WARN, 3=CRIT)  
+    > - Gateway severity level (0–5, mapped to alarm descriptions and OK/WARN/CRIT states)  
+    > - Associated error messages and error IDs from the device  
+    >
+    > ## How it works
+    > Reads agent data from either a JSON file (`/var/lib/check-mk-agent/audit/audiocodes_overall_operational_state.json`) or a text spool file (`/var/lib/check-mk-agent/spool/audiocodes_overall_operational_state`). In discovery mode, yields one service with empty item. The final state is determined by prioritizing the worse of the two states (CRIT > WARN > UNKNOWN > OK). Details include error message and ID if present.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: Both operational and gateway states are "OK".  
+    > - **WARN**: Either state is WARN or Minor/Warning.  
+    > - **CRIT**: Either state is CRIT or Major/Critical.  
+    > - **UNKNOWN**: Data unavailable, or both states map to UNKNOWN.  
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Applications

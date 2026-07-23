@@ -1,0 +1,34 @@
+name: checkpoint_firewall
+fqcn: checkmk.checkpoint_firewall
+collection: checkmk
+short_description: Firewall Module
+description:
+    > ## Overview
+    > Monitors the operational state of a Check Point firewall device via SNMP, ensuring the firewall software is properly installed and active on the host.
+    >
+    > ## What it monitors
+    > - Firewall installation state (`installed` vs other states)
+    > - Firewall filter name and activation date
+    > - Firmware version (major/minor)
+    > - SNMP-based status indicators for Check Point appliances
+    >
+    > ## How it works
+    > In discovery mode, it probes OID `.1.3.6.1.4.1.2620.1.1.1` using `snmpget` to detect the presence of the firewall section. In check mode, it performs an `snmpwalk` on `.1.3.6.1.4.1.2620.1.1` to collect multiple OIDs, parses the output to extract state, filter info, and version, and reports `OK` only if the state is `installed`; all other states are `CRIT`.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - **OK**: Firewall state is `installed`
+    > - **CRIT**: Firewall state is anything other than `installed`
+    > - **UNKNOWN**: SNMP walk fails or required data fields are missing
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Security

@@ -1,0 +1,38 @@
+name: canon_pages
+fqcn: checkmk.canon_pages
+collection: checkmk
+short_description: Pages
+description:
+    > ## Overview  
+    > Monitors page-count metrics from Canon multifunction devices via SNMP, providing visibility into print volume and usage patterns for capacity planning and maintenance scheduling.  
+    >
+    > ## What it monitors  
+    > - Total pages printed  
+    > - Black-and-white and color page counts  
+    > - A3 and A4 paper size breakdowns  
+    > - Combinations: color/bw × A3/A4  
+    >
+    > ## How it works  
+    > Runs `snmpwalk` on the Canon device MIB `.1.3.6.1.4.1.1602.1.11.1.3.1` to fetch SNMP page counters. Parses numeric values from OID suffixes (e.g., `.301` → `pages_total`). If `pages_total` is absent, it sums all individual page types. Always returns a single service (discovery mode yields item `""`). State is OK unless no data found.  
+    >
+    > ## Parameters  
+    > None.  
+    >
+    > ## States  
+    > - **OK**: Data retrieved successfully.  
+    > - **UNKNOWN**: No page data returned (e.g., SNMP failure or device not reporting).  
+    >
+    > ## Metrics  
+    > - `pages_total` — total number of pages (unit: pages)  
+    > - `pages_color` — color pages (pages)  
+    > - `pages_bw` — black-and-white pages (pages)  
+    > - `pages_a4` — A4 pages (pages)  
+    > - `pages_a3` — A3 pages (pages)  
+    > - `pages_color_a4`, `pages_bw_a4`, `pages_color_a3`, `pages_bw_a3` — respective combinations (pages)
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

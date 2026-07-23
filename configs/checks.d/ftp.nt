@@ -1,0 +1,57 @@
+name: ftp
+fqcn: checkmk.ftp
+collection: checkmk
+short_description: FTP service availability
+description: Checks an FTP server by opening a TCP connection to port 21 (or a custom port) and measuring connect time. Optionally sends a string and validates expected substrings in the server banner or response, and when SSL/TLS is enabled verifies certificate expiry against configurable warn/crit thresholds. Connection refusals can be graded independently from other failures via the refuse_state parameter.
+options:
+    service_name:
+        type: string
+        description: Service name shown in monitoring (e.g. 'FTP' or 'FTP Port 990')
+        required: true
+    host:
+        type: string
+        description: FTP server hostname or IP address
+        required: true
+    port:
+        type: number
+        description: FTP port number
+        default: 21
+    timeout_s:
+        type: number
+        description: Seconds before connection times out
+        default: 10
+    response_time_warn_ms:
+        type: number
+        description: Warn if connect time exceeds this value (ms)
+    response_time_crit_ms:
+        type: number
+        description: Critical if connect time exceeds this value (ms)
+    refuse_state:
+        type: string
+        description: State to report when the connection is actively refused
+        enum:
+            - crit
+            - warn
+            - ok
+        default: crit
+    send_string:
+        type: string
+        description: String to send to the server after connecting
+    expect:
+        type: list
+        description: Strings that must appear in the server response; missing any yields CRIT
+    ssl:
+        type: bool
+        description: Use SSL/TLS for the connection (implicit FTPS)
+        default: false
+    cert_days_warn:
+        type: number
+        description: Warn if SSL certificate expires within this many days
+    cert_days_crit:
+        type: number
+        description: Critical if SSL certificate expires within this many days
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

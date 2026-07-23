@@ -1,0 +1,34 @@
+name: brocade_info
+fqcn: checkmk.brocade_info
+collection: checkmk
+short_description: Brocade Info
+description:
+    > ## Overview
+    > Monitors Brocade Fibre Channel switch hardware by gathering model, serial number (SSN), firmware version, and world-wide name (WWN) via SNMP. Useful for inventory, asset tracking, and verifying device identity.
+    >
+    > ## What it monitors
+    > - Switch model (e.g., Brocade Fabric OS device model)
+    > - Serial number (SSN)
+    > - Firmware version
+    > - World-wide name (WWN)
+    >
+    > ## How it works
+    > Performs SNMP walk commands using `snmpwalk` with community `public` to fetch device identification OIDs. In discovery mode, checks for Brocade OID prefixes to confirm device type. In check mode, retrieves and parses four specific OIDs: `.1.3.6.1.2.1.47.1.1.1.1.2.1` (model), `.1.3.6.1.4.1.1588.2.1.1.1.1.6.0` (firmware), `.1.3.6.1.4.1.1588.2.1.1.1.1.10.0` (SSN), `.1.3.6.1.3.94.1.6.1.1.0` (WWN). Parses output strings to extract values; formats WWN as colon-separated hex bytes. Reports OK if at least one field is non-default; UNKNOWN otherwise.
+    >
+    > ## Parameters
+    > None.
+    >
+    > ## States
+    > - OK: At least one of model, SSN, firmware, or WWN is successfully retrieved and non-empty.
+    > - UNKNOWN: All four values are missing or default ("−"), i.e., no information found.
+    > - CRIT/WARN: Not used.
+    >
+    > ## Metrics
+    > None.
+options:
+    {}
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Hardware & Sensors

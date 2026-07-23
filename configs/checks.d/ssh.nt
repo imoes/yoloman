@@ -1,0 +1,33 @@
+name: ssh
+fqcn: checkmk.ssh
+collection: checkmk
+short_description: SSH service availability
+description: Connects to the SSH port of a host and verifies the service is reachable by reading the SSH banner. Optionally warns if the server's reported software version string does not contain the expected value, or if the protocol version does not exactly match. Reports connect latency as a metric.
+options:
+    service_name:
+        type: string
+        description: Service name displayed in monitoring
+        required: true
+    host:
+        type: string
+        description: Hostname or IP address of the SSH server
+        required: true
+    port:
+        type: number
+        description: TCP port number
+        default: 22
+    timeout_s:
+        type: number
+        description: Connect timeout in seconds
+        default: 10
+    remote_version:
+        type: string
+        description: Warn if server version string does not contain this value (e.g. OpenSSH_3.9p1)
+    remote_protocol:
+        type: string
+        description: Warn if server protocol version does not match this value (e.g. 2.0)
+writes: False
+runtime: starlark
+source: translated
+kind: check
+category: Service checks

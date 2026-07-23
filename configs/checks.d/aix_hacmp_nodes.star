@@ -1,92 +1,86 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run(["lsrdev", "-c", "cl"], mutates=False)
-        lines = res.stdout.splitlines() if res.rc == 0 else []
-        nodes = []
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            parts = stripped.split()
-            if len(parts) >= 2 and parts[0].lower() == "cluster":
-                node_name = parts[1].rstrip(":")
-                if node_name:
-                    nodes.append(node_name)
-        discovery = []
-        for node in nodes:
-            discovery.append({
-                "item": node,
-                "params": {},
-                "metrics": []
+def _parse_cltopinfo(stdout):
+    parsed = {}
+    get_details = False
+    node_name = ""
+    network_name = ""
+
+    for raw_line in stdout.splitlines():
+        parts = raw_line.split()
+        if len(parts) == 0:
+            continue
+
+        if len(parts) == 1:
+            parsed[parts[0]] = {}
+
+        elif len(parts) > 1 and "node" in parts[0].lower():
+            candidate = parts[1].replace(":", "")
+            if candidate in parsed:
+                node_name = candidate
+                network_name = ""
+                get_details = True
+            else:
+                get_details = False
+
+        elif "Interfaces" in parts[0] and get_details and len(parts) > 3:
+            network_name = parts[3].replace(",", "")
+            parsed[node_name][network_name] = []
+
+        elif "Communication" in parts[0] and get_details and network_name != "" and len(parts) > 8:
+            parsed[node_name][network_name].append({
+                "name": parts[3].replace(",", ""),
+                "attribute": parts[5].replace(",", ""),
+                "ip_address": parts[8].replace(",", ""),
             })
+
+    return parsed
+
+
+def main(ctx, params):
+    cltopinfo = "/usr/es/sbin/cluster/utilities/cltopinfo"
+
+    if params.get("_discover"):
+        if not ctx.file_exists(cltopinfo):
+            return {"changed": False, "msg": "cltopinfo not found", "data": {"discovery": []}}
+        res = ctx.run([cltopinfo], mutates=False)
+        parsed = _parse_cltopinfo(res.stdout)
+        items = [{"item": node, "params": {}, "metrics": []} for node in parsed]
         return {
             "changed": False,
-            "msg": "discovered %d HACMP nodes" % len(nodes),
-            "data": {"discovery": discovery}
+            "msg": "discovered %d nodes" % len(items),
+            "data": {"discovery": items},
         }
 
     item = params.get("item", "")
-    # Get cluster device information to locate the node
-    res = ctx.run(["lsrdev", "-c", "cl"], mutates=False)
-    lines = res.stdout.splitlines() if res.rc == 0 else []
-    node_data = {}
-    current_node = None
-    current_network = None
+    if not ctx.file_exists(cltopinfo):
+        return {
+            "changed": False,
+            "msg": "cltopinfo not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "cltopinfo binary missing"},
+        }
 
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        parts = stripped.split()
-        if len(parts) >= 2 and parts[0].lower() == "cluster":
-            current_node = parts[1].rstrip(":")
-            if current_node == item:
-                node_data[current_node] = {}
-            else:
-                current_node = None
-            current_network = None
-        elif current_node == item and len(parts) >= 4 and "interfaces" in stripped.lower():
-            current_network = parts[3].rstrip(",")
-            if current_node not in node_data:
-                node_data[current_node] = {}
-            node_data[current_node][current_network] = []
-        elif current_node == item and current_network and "communication" in stripped.lower() and len(parts) >= 9:
-            # Format: "Communication protocol : ... , name : ethX , attribute : ..., IP Address : x.x.x.x"
-            # Extract: name (index 3), attribute (index 5), IP (index 8)
-            name = parts[3].rstrip(",")
-            attribute = parts[5].rstrip(",")
-            ip_address = parts[8].rstrip(",")
-            node_data[current_node][current_network].append({
-                "name": name,
-                "attribute": attribute,
-                "ip_address": ip_address
-            })
+    res = ctx.run([cltopinfo], mutates=False)
+    parsed = _parse_cltopinfo(res.stdout)
 
-    data = node_data.get(item)
+    data = parsed.get(item)
     if data == None:
         return {
             "changed": False,
-            "msg": "node '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "node not found: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Build summary for all networks and interfaces
-    infotext = ""
-    for network_name in data:
-        infotext = "Network: %s" % network_name
-        for interface in data[network_name]:
-            infotext += ", interface: %s, attribute: %s, IP: %s" % (
-                interface["name"],
-                interface["attribute"],
-                interface["ip_address"]
-            )
+    summaries = []
+    for net_name in data:
+        infotext = "Network: " + net_name
+        for iface in data[net_name]:
+            infotext += (", interface: " + iface["name"] +
+                         ", attribute: " + iface["attribute"] +
+                         ", IP: " + iface["ip_address"])
+        summaries.append(infotext)
 
+    msg = "; ".join(summaries) if summaries else "no interfaces found"
     return {
         "changed": False,
-        "msg": infotext,
-        "data": {
-            "state": "OK",
-            "metrics": {},
-            "details": ""
-        }
+        "msg": msg,
+        "data": {"state": "OK", "metrics": {}, "details": ""},
     }

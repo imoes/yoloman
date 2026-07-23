@@ -1,67 +1,70 @@
+# ===== Starlark check module: aix_multipath =====
+# Read-only check for AIX multipath device status
+
+# Parse function: expects agent section output like:
+# hdisk0 vscsi0 Available Enabled
+# hdisk1 vscsi0 Available Enabled
+# hdisk2 vscsi0 Available Enabled
+
 def main(ctx, params):
     if params.get("_discover"):
         res = ctx.run(["lsdev", "-Cc", "disk"], mutates=False)
         disks = {}
-        # Parse output like: "hdisk0 Available 00-00-00"
         for line in res.stdout.splitlines():
             parts = line.split()
-            if len(parts) >= 2 and parts[0].startswith("hdisk"):
+            if len(parts) >= 4 and parts[0].startswith("hdisk"):
                 disk = parts[0]
-                status = parts[1]
-                # Only count available disks
-                if status == "Available":
+                # Only consider disks with status "Available"
+                if parts[2] == "Available":
                     disks[disk] = disks.get(disk, 0) + 1
         out = []
         for disk, paths in disks.items():
             out.append({"item": disk, "params": {"paths": paths}, "metrics": []})
         return {"changed": False, "msg": "discovered %d multipath devices" % len(out),
                 "data": {"discovery": out}}
-    
+
+    # Check mode (non-discovery)
     item = params.get("item", "")
     res = ctx.run(["lsdev", "-Cc", "disk"], mutates=False)
+    
     path_count = 0
     state_count = 0
-    expected_paths = params.get("paths", 0)
     
     for line in res.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 3 and parts[0] == item:
-            status = parts[1]
-            # Only count available disks
-            if status == "Available":
+        if len(parts) >= 4 and parts[0] == item:
+            if parts[2] == "Available":
                 path_count += 1
-                # Count paths that are not enabled
-                if parts[2] != "Enabled":
+                if parts[3] != "Enabled":
                     state_count += 1
     
-    # Check if item exists
+    # If no such disk found
     if path_count == 0:
-        return {"changed": False, "msg": "multipath device %s not found" % item,
+        return {"changed": False, "msg": "disk %s not found" % item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
+    # Calculate state based on non-enabled paths
     state = "OK"
-    msg_parts = ["Paths in total: %d" % path_count]
+    summary_parts = []
     
-    # Check for non-enabled paths
+    # Check for paths not enabled
     if state_count != 0:
-        pct = (100.0 / path_count * state_count)
-        if pct >= 50.0:
-            state = "CRIT"
-        else:
+        percentage = (100.0 / path_count) * state_count
+        if percentage < 50.0:
             state = "WARN"
-        msg_parts.append("Paths not enabled: %d" % state_count)
+            summary_parts.append("Paths not enabled: %d" % state_count)
+        else:
+            state = "CRIT"
+            summary_parts.append("Paths not enabled: %d" % state_count)
     
-    # Check path count matches expected
+    # Check for missing paths (should match discovered paths)
+    expected_paths = params.get("paths", 0)
     if path_count != expected_paths:
-        state = "WARN" if state == "OK" else state
-        msg_parts.append("(should be: %d)" % expected_paths)
+        state = "WARN"
+        summary_parts.append("Paths in total: %d (should be: %d)" % (path_count, expected_paths))
+    else:
+        summary_parts.append("Paths in total: %d" % path_count)
     
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
-    }
+    summary = ", ".join(summary_parts)
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": ""}}

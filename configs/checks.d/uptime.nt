@@ -2,10 +2,28 @@ name: uptime
 fqcn: checkmk.uptime
 collection: checkmk
 short_description: Uptime
-description: Checkmk check 'uptime' (service: Uptime), translated to a read-only on-host Starlark check module.
+description:
+    > ## Overview  
+    > This check monitors the system uptime—the duration since the host was last booted—providing insight into system stability and planned reboots.
+    >
+    > ## What it monitors  
+    > - System uptime in seconds, derived from `/proc/uptime` on Linux or parsed from the `uptime` command output on other OSes.
+    >
+    > ## How it works  
+    > On Linux (Red Hat or Debian families), it reads `/proc/uptime` and extracts the first field (uptime in seconds). On other systems, it executes `uptime` and parses human-readable time components (days, hours, minutes) from the output using string scanning. It converts all durations to total seconds for metrics and constructs a human-readable message. The check always reports state `OK`; no thresholds or parameters affect status.
+    >
+    > ## Parameters  
+    > None.
+    >
+    > ## States  
+    > OK: Always. The check does not implement warning or critical thresholds; it simply reports uptime.
+    >
+    > ## Metrics  
+    > `uptime` — system uptime in seconds.
 options:
     {}
 writes: False
 runtime: starlark
 source: translated
 kind: check
+category: Operating System
